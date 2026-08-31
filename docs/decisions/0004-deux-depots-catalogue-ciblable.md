@@ -12,7 +12,7 @@ The Cure.
 ## Décision
 
 - **Deux dépôts** : `forkstify` (l'application) et un dépôt de catalogue
-  (nom à fixer, `forkstify-catalogue` provisoirement).
+  (nom fixé le 31/08/2026 : `forkstify-catalog`).
 - L'application **importe** un dépôt de catalogue — le catalogue de
   référence, son propre fork, ou celui de quelqu'un d'autre « parce qu'on le
   trouve cool ». **Importer = cloner**, puis déclarer « c'est celui-là que
