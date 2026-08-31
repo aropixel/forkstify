@@ -202,25 +202,46 @@ visibles.
   base libre. Le sens (description, connexions typées et commentées, portes)
   est là où un modèle aide, et où la relecture humaine compte.
 
-### La base initiale
+### Le démarrage à froid et la base disponible
 
-Deux cercles :
+Un nouvel utilisateur ne doit rien avoir à écrire :
 
-1. **Le catalogue de Joel** : une fiche par artiste aimé, générée puis
-   relue. Pour l'amorçage, le modèle de langage peut être **l'agent en
-   session** : Joel donne les artistes, l'agent écrit les fiches, Joel
-   corrige. Aucune intégration à coder pour commencer.
-2. **Les artistes connus et communs** qui n'y sont pas, pour que le
-   catalogue de référence serve à d'autres que Joel dès le départ. Comment
-   les choisir, à trancher : un saut de voisinage depuis le cercle 1
-   (similaires Last.fm des artistes de Joel), les artistes les plus écoutés
-   (charts Last.fm / statistiques ListenBrainz), ou les deux. Ces fiches
-   restent marquées générées jusqu'à relecture — par Joel ou par les futurs
-   contributeurs.
+1. **Au premier lancement, l'application propose de cloner le catalogue de
+   référence** (déjà acté). Personne ne part de zéro.
+2. **Puis l'import personnel** (son Spotify ou son Deezer — les scripts
+   d'`outillage/` en sont le prototype) : les artistes déjà dans la base ne
+   coûtent rien (leurs signaux calibrent la zone de confort, dans
+   `usage/`) ; les absents passent par le pipeline de génération.
 
-Plus tard, l'application appelle un modèle elle-même pour la fiche d'un
-artiste inconnu (fournisseur et clé à trancher). Une centaine de fiches
-relues valent plus qu'un million générées.
+**Le pipeline de génération** — mêmes sources vérifiées le 31/08/2026 :
+
+| Champ | Source |
+|---|---|
+| identité, dates, origine, tags | MusicBrainz / Wikidata |
+| tops | Deezer `/artist/top` (sans clé) + titres aimés de l'utilisateur |
+| links `member` / `collab` / `family` | relations MusicBrainz (typées, factuelles) |
+| links `similar` | Deezer `/artist/related` (sans clé), Last.fm en renfort |
+| links `scene` | recoupement époque + pays + genres |
+| notes, description | modèle de langage, ou absentes (tout est optionnel) |
+
+Tout est marqué `generated`. « Tout optionnel » et « on écrit pour les
+humains » rendent la génération automatique *suffisante* pour un produit
+utilisable, et la relecture *améliorante* plutôt qu'obligatoire.
+
+**Un seul pipeline, trois moments** : ensemencer la référence, importer au
+premier lancement, générer en cours d'écoute (catalogue vivant).
+
+**La base disponible se travaille sur trois chantiers :**
+
+1. **Le noyau relu** — en cours : la bibliothèque de Joel (741 artistes
+   scorés, 30 fiches écrites), ses amis, le lot 2 (les fiches appelées par
+   les links).
+2. **L'ensemencement** — le pipeline en batch sur les artistes les plus
+   écoutés (charts Last.fm / ListenBrainz), pour couvrir la bibliothèque de
+   n'importe quel nouveau venu au jour 1.
+3. **La mutualisation** — quand l'application d'un utilisateur génère une
+   fiche absente de la référence, elle propose de la reverser à l'amont
+   (PR pré-mâchée). Chaque démarrage à froid enrichit le commun.
 
 ## À trancher
 
@@ -260,3 +281,8 @@ relues valent plus qu'un million générées.
   versées — MusicBrainz et Wikidata oui, Last.fm plus flou.
 - **Le modèle de langage à l'exécution** (fiche d'un artiste inconnu) :
   quel fournisseur, quelle clé, quel repli hors-ligne ?
+- **L'ensemencement** : combien d'artistes (mille ? cinq mille ?), quelle
+  source de charts, et Last.fm nécessite une clé d'API — Deezer non.
+- **Prochain pas concret** : prototyper le générateur dans `outillage/` et
+  le lancer sur les 61 fiches appelées par les links du lot 1 — construit
+  le lot 2 et valide le démarrage à froid.
