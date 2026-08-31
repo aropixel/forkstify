@@ -23,6 +23,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 | `docs/vision.md`   | Ce qu'est le produit : pitch, principes, vocabulaire.                    |
 | `docs/decisions/`  | Une décision par fichier, numérotée et datée. **On ne modifie jamais une décision** : pour revenir dessus, on en écrit une nouvelle qui remplace l'ancienne. |
 | `docs/conception/` | Notes de travail par sujet, vivantes, réécrites au fil des échanges. Chacune distingue **décidé**, **orientation** (proposé, non contredit) et **à trancher**. |
+| `docs/avancement.md` | L'état courant : fait, en attente, prochaines étapes. Point d'entrée d'une session. |
 
 Le reste vient avec les décisions.
 
@@ -62,11 +63,9 @@ Plus de grande décision en suspens : le concept, le langage, le format et le
 modèle de catalogue sont fixés. Les questions fines sont listées à la fin de
 chaque note de `docs/conception/` et se tranchent au fil du PoC.
 
-**Prochaine étape** : le PoC, dans l'ordre « jouer l'application avant de
-jouer le son » — base initiale, navigation à sec, puis seulement le son —
-décrit dans
-[`docs/conception/forme-de-l-application.md`](docs/conception/forme-de-l-application.md)
-et [`docs/conception/catalogue.md`](docs/conception/catalogue.md).
+**L'état courant et les prochaines étapes sont dans
+[`docs/avancement.md`](docs/avancement.md)** — c'est le point d'entrée
+d'une nouvelle session, à tenir à jour à chaque avancée.
 
 ## Contraintes Spotify
 
@@ -112,3 +111,8 @@ action root). En plus, sur ce dépôt :
   tierces vont dans un fichier ignoré par git.
 - **Sobriété.** Pas de fichier « au cas où », pas de dépendance sans besoin
   établi, pas d'abstraction avant le deuxième usage.
+- **Commits et push au fil de l'eau** sur les deux dépôts forkstify
+  (demandé par Joel, 31/08/2026), messages en français. Le dépôt chorizo
+  garde sa règle : demander avant de pousser.
+- **Tenir `docs/avancement.md` à jour** à chaque avancée notable — c'est ce
+  qui permet de reprendre dans une nouvelle session.
