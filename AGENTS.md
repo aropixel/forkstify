@@ -55,6 +55,10 @@ Le détail est dans `docs/decisions/`. En résumé :
 - **Fiches en TOML**, `format = 1` en tête ([0007](docs/decisions/0007-fiches-en-toml.md)).
 - **Pas de surcouche à part : le fork est la surcouche.** Le catalogue actif
   est un clone git, on y commite ses modifications ([0008](docs/decisions/0008-le-fork-est-la-surcouche.md)).
+- **La répétition ne doit jamais être subie** : tirage pondéré, cooldown,
+  sans remise, confort = profondeur ([0012](docs/decisions/0012-rotation-des-morceaux.md)).
+- **Affinage au clavier : chaque touche est une mesure ou une édition**,
+  `u` annule, tout est commande `:` ([0013](docs/decisions/0013-affinage-clavier-mesure-ou-edition.md)).
 - **Langue** : français partout (dépôt, doc, commits, interface).
 
 ## Ce qui reste à trancher

@@ -6,8 +6,9 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 ## Fait
 
 - **Conception** : vision et philosophie (« Reprendre la main sur
-  l'algorithme »), vocabulaire, 11 décisions (`docs/decisions/`), 5 notes
-  vivantes (`docs/conception/`). Rust, TOML, MBID, deux dépôts, format de
+  l'algorithme »), vocabulaire, 13 décisions (`docs/decisions/`), 5 notes
+  vivantes (`docs/conception/`). Dernières actées le 01/09/2026 : rotation
+  des morceaux (0012) et affinage au clavier — mesure ou édition (0013). Rust, TOML, MBID, deux dépôts, format de
   fiche v1 (links typés anglais + proximité en cascade, doors en critère
   additionnel, tout optionnel sauf `format`/`name`/`mbid`).
 - **Catalogue amorcé** (`~/Work/forkstify-catalog`, GitHub privé) :
@@ -30,11 +31,6 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## En attente de Joel
 
-- **Deux orientations proposées le 01/09/2026, à valider ou contredire** :
-  la rotation des morceaux (tirage pondéré, cooldown, sans remise, confort
-  comme profondeur — `docs/conception/moteur-de-branches.md`) et les
-  keybinds d'affinage (mesure vs édition-commit, `t`/`T`/`x`/`X`/`d`/`m`,
-  `u` pour annuler — `docs/conception/forme-de-l-application.md`).
 - **Relecture du lot 1** (30 fiches) : ses tops (The Cure…), tops vides de
   Cabadzi et Le Motel, retirer `generated` des fiches relues.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base

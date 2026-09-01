@@ -31,6 +31,11 @@ Points de départ de la réflexion de Joel, et ce qu'on en retient :
   l'interface**.
 - **Rust** : `ratatui`, `rspotify`, `tokio`, `fastembed` pour les vecteurs
   ([0006](../decisions/0006-rust.md)).
+- **Affinage au clavier : chaque touche est une mesure (`usage/`) ou une
+  édition (un commit)**, `u` annule la dernière, chaque touche n'est que le
+  raccourci d'une commande `:`
+  ([0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)). La
+  table des touches ci-dessous reste une orientation.
 
 ## Orientations
 
@@ -56,7 +61,9 @@ prochain embranchement, un clic pour ouvrir).
 
 ### Affiner l'algorithme au clavier
 
-Proposé le 01/09/2026. Le principe avant les touches : **chaque touche est
+Principe acté le 01/09/2026
+([0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)) ; la
+table des touches, elle, s'ajuste au fil du PoC. **Chaque touche est
 soit une mesure, soit une édition.**
 
 - Une **mesure** modifie `usage/` en silence (sauter, aimer) — c'est

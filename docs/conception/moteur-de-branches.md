@@ -12,6 +12,10 @@ proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
 - Sa matière première est le **catalogue** de fiches
   ([0002](../decisions/0002-catalogue-partage-forkable.md)), pas une API de
   recommandation.
+- **La répétition ne doit jamais être subie** : tirage pondéré dans un
+  réservoir plus large que les tops, cooldown daté, sans remise dans le
+  parcours, confort = profondeur du tirage
+  ([0012](../decisions/0012-rotation-des-morceaux.md)) — détail ci-dessous.
 
 ## Orientations
 
@@ -68,7 +72,8 @@ morceau reçoit un bonus — critère additionnel, jamais principal
 
 Les tops existent pour être rejoués ; la répétition n'est pas un bug, elle
 ne doit juste jamais être **subie**. Quatre mécanismes cumulables, chacun
-explicable en une phrase (proposés le 01/09/2026) :
+explicable en une phrase (actés le 01/09/2026,
+[0012](../decisions/0012-rotation-des-morceaux.md)) :
 
 1. **Le top est un poids, pas une liste fermée.** Le réservoir d'un artiste
    cumule : les tops (poids fort), les titres aimés de l'utilisateur chez
