@@ -64,6 +64,31 @@ Si la fiche a une **door** dont les tags recoupent la direction prise, ce
 morceau reçoit un bonus — critère additionnel, jamais principal
 ([0011](../decisions/0011-doors-critere-additionnel.md)).
 
+### Rotation : ne pas subir la répétition
+
+Les tops existent pour être rejoués ; la répétition n'est pas un bug, elle
+ne doit juste jamais être **subie**. Quatre mécanismes cumulables, chacun
+explicable en une phrase (proposés le 01/09/2026) :
+
+1. **Le top est un poids, pas une liste fermée.** Le réservoir d'un artiste
+   cumule : les tops (poids fort), les titres aimés de l'utilisateur chez
+   cet artiste (`usage/`), les doors, et le reste de la discographie connue
+   (cache du top élargi Deezer/Spotify, hors catalogue). Le moteur **tire
+   au sort pondéré** dans ce réservoir, il ne prend pas le premier de la
+   liste.
+2. **La fraîcheur (cooldown).** Chaque lecture est datée dans `usage/` ;
+   un morceau joué récemment est pénalisé, la pénalité décroît avec le
+   temps. « Déjà joué mardi, je le laisse reposer. »
+3. **Sans remise dans le parcours.** Jamais deux fois le même morceau dans
+   un parcours ; **poncer** tire sans remise, le deuxième ponçage descend
+   mécaniquement vers le moins connu — poncer deux fois devient un geste
+   d'exploration de l'artiste.
+4. **La zone de confort règle la profondeur du tirage.** Confort haut :
+   tirage serré sur les tops (la répétition est *choisie*) ; confort bas :
+   la longue traîne pèse davantage. C'est le rôle que
+   [0001](../decisions/0001-confort-familiarite.md) donne déjà au curseur —
+   pas de deuxième réglage.
+
 ## À trancher
 
 - Longueur d'un segment : fixe (3 morceaux ?), variable selon le type de
@@ -76,3 +101,6 @@ morceau reçoit un bonus — critère additionnel, jamais principal
   électronique ») et comment les construire ?
 - Sources de co-occurrence : Last.fm est le candidat évident ; vérifier l'état
   de son API et les conditions d'usage.
+- Rotation : vitesse de décroissance du cooldown, et où vit la discographie
+  élargie (cache API, hors catalogue) — rejoint la question « forme de
+  l'appris » de [catalogue.md](catalogue.md).

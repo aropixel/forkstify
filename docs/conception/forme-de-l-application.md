@@ -54,6 +54,59 @@ Lancée par `omarchy-launch-or-focus-tui forkstify`, complétée plus tard par
 un widget de barre sur le modèle d'`omarchy-neomd` (morceau en cours,
 prochain embranchement, un clic pour ouvrir).
 
+### Affiner l'algorithme au clavier
+
+Proposé le 01/09/2026. Le principe avant les touches : **chaque touche est
+soit une mesure, soit une édition.**
+
+- Une **mesure** modifie `usage/` en silence (sauter, aimer) — c'est
+  l'*appris* de [catalogue.md](catalogue.md).
+- Une **édition** modifie une fiche et produit **un commit lisible**
+  (« top : + A Forest ») — c'est le *mien*, immédiatement partageable.
+- `u` **annule la dernière**, quelle qu'elle soit — revert pour une
+  édition, effacement pour une mesure. L'historique d'affinage *est* le
+  log git.
+
+Sur le **morceau en cours** :
+
+| Touche | Action | Nature |
+|---|---|---|
+| `t` | Promouvoir en top | commit |
+| `T` | Retirer des tops | commit |
+| `x` | Sauter — « pas celui-là, pas maintenant » | mesure |
+| `X` | Écarter — « plus jamais celui-là » (liste noire dans `usage/` : un dégoût est personnel) | mesure |
+| `a` | Aimer (et le refléter en titre aimé Spotify) | mesure |
+| `d` | En faire une **door** vers la direction du dernier embranchement pris — pré-remplie avec les tags de la branche, on valide | commit |
+| `m` | Marquer : le mettre dans une **récolte** à trier plus tard, sans interrompre l'écoute | mesure |
+
+Le `d` se fait au moment exact où une door a du sens (« c'est depuis ce
+morceau que je suis parti vers le post-punk ») — personne ne l'écrirait à
+froid dans un fichier.
+
+Sur l'**artiste** :
+
+| Touche | Action | Nature |
+|---|---|---|
+| `e` | Ouvrir la fiche dans `$EDITOR`, recommit au retour, vecteur recalculé | commit |
+| `-` | Cet artiste, moins souvent (poids d'usage, sans le bannir) | mesure |
+
+Le `e` est le geste ultime à la vim : quand les raccourcis ne suffisent
+plus, on édite le texte — le fork est la surcouche, littéralement.
+
+Sur le **parcours** (en plus de `1 2 3`, `h`/`l`, `.`, `n`) :
+
+| Touche | Action |
+|---|---|
+| `u` | Annuler : le dernier choix de branche, ou la dernière édition |
+| `z` puis `0`–`5` | Régler la zone de confort en cours de route |
+| `?` | **Pourquoi** : afficher la phrase qui explique le morceau ou la branche |
+| `y` / `n` | Répondre à une **promotion** proposée (« j'ajoute la connexion ? ») |
+
+Enfin, très neovim : chaque touche n'est que le raccourci d'une **commande
+`:`** (`:top`, `:door post-punk`, `:fiche`, `:confort 2`). Les commandes
+rendent tout découvrable et scriptable ; les keybinds deviennent une table
+de correspondance, remappable dans un fichier de config.
+
 ### Choisir la graine
 
 Deux entrées, dans l'esprit neovim :

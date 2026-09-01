@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **31/08/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **01/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -30,6 +30,11 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## En attente de Joel
 
+- **Deux orientations proposées le 01/09/2026, à valider ou contredire** :
+  la rotation des morceaux (tirage pondéré, cooldown, sans remise, confort
+  comme profondeur — `docs/conception/moteur-de-branches.md`) et les
+  keybinds d'affinage (mesure vs édition-commit, `t`/`T`/`x`/`X`/`d`/`m`,
+  `u` pour annuler — `docs/conception/forme-de-l-application.md`).
 - **Relecture du lot 1** (30 fiches) : ses tops (The Cure…), tops vides de
   Cabadzi et Le Motel, retirer `generated` des fiches relues.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
