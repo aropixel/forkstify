@@ -44,6 +44,17 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   à son tour **100 slugs** (lot 4, non généré — la traîne du classement à
   score 1–4 est aussi laissée de côté : ces artistes entreront quand un
   link les appellera).
+- **Vecteurs prototypés** (02/09/2026) : `outillage/vectoriser.py`
+  compose le texte de chaque fiche depuis sa structure (tags, dates,
+  origine, liens sortants et entrants, description si présente) et
+  calcule les vecteurs dans un conteneur — modèle
+  `paraphrase-multilingual-MiniLM-L12-v2` (fastembed, 384 dimensions,
+  mean pooling, dispo en Python et en Rust). Index dérivé commité :
+  `vecteurs/vecteurs.jsonl` (214 fiches) + `meta.toml`.
+  `outillage/voisins.py` (stdlib) = prototype de `forkstify check` :
+  voisins cohérents (The Cure → Joy Division/Siouxsie ; IAM → le rap
+  français ; Nina Simone → Ella/Nat King Cole) ; les fiches maigres ont
+  des voisins flous à scores bas, ce que `check` doit justement révéler.
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
@@ -60,15 +71,13 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Prochaines étapes, dans l'ordre
 
-1. **Vecteurs** : texte composé depuis la structure (jamais demandé aux
-   humains), embedding (`fastembed` côté Rust, ou prototype Python), et le
-   contrôle par les voisins (`forkstify check`).
-2. **Navigation à sec** (étape 2 du PoC, premier code Rust) : graine →
+1. **Navigation à sec** (étape 2 du PoC, premier code Rust) : graine →
    3 branches lisibles avec leurs raisons → choix clavier → segments
-   affichés. Critère : des parcours cohérents en les lisant.
-3. **Spike Spotify Connect** (étape 3) : librespot embarqué, découverte
+   affichés. D'abord sur connexions et tags, les vecteurs (prêts) pour
+   combler les trous. Critère : des parcours cohérents en les lisant.
+2. **Spike Spotify Connect** (étape 3) : librespot embarqué, découverte
    depuis le téléphone, jeton d'API — voir `docs/conception/spotify.md`.
-4. **TUI** (étape 4), à la neomd.
+3. **TUI** (étape 4), à la neomd.
 
 ## Corrections en attente (petites)
 

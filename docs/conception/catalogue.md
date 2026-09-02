@@ -129,7 +129,13 @@ personne ne sait faire ça, et il ne faut pas le demander :
   veuille dire la même chose partout. Le dépôt contient donc les vecteurs et,
   dans ses métadonnées, le nom et la version du modèle qui les a produits.
   L'application recalcule localement le vecteur d'une fiche modifiée ;
-  l'amont régénère tout à chaque changement de modèle.
+  l'amont régénère tout à chaque changement de modèle. Prototypé le
+  02/09/2026 (`outillage/vectoriser.py` et `voisins.py`) : modèle
+  `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, mean pooling,
+  supporté par fastembed en Python comme en Rust), index dans
+  `vecteurs/vecteurs.jsonl` + `meta.toml`. Le texte composé cite les
+  voisins des liens **sortants et entrants** (la relation vaut dans les
+  deux sens, seul `influence` se retourne en « a influencé »).
 - **Hors du dépôt** : caches de l'API Spotify (résolution titre → identifiant,
   pochettes), jetons.
 
