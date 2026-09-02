@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **01/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **02/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -33,19 +33,28 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   Destiny's Child appelés en cascade. Faits, dates, origine et relations
   typées MusicBrainz ; tops et similaires Deezer ; tags genres + pays +
   décennie (groupes seulement — le begin d'une personne est sa naissance) ;
-  liens scene par recoupement. Le catalogue compte **88 fiches** et le lot
-  2 appelle à son tour **89 slugs** (lot 3). Descriptions absentes des
-  fiches générées : la relecture enrichit.
+  liens scene par recoupement. Descriptions absentes des fiches générées :
+  la relecture enrichit.
+- **Lot 3 élargi généré** (02/09/2026) : **126 fiches** — les 89 slugs
+  appelés par les links du lot 2, plus les artistes du classement à
+  score ≥ 5 sans fiche. Correction en route : « Experience » (bibliothèque
+  de Joel) résolu à tort en The Jimi Hendrix Experience — c'est
+  **Expérience** (Michel Cloup, Toulouse), MBID corrigé dans
+  `usage/mbid.json`. Le catalogue compte **214 fiches** ; le lot 3 appelle
+  à son tour **100 slugs** (lot 4, non généré — la traîne du classement à
+  score 1–4 est aussi laissée de côté : ces artistes entreront quand un
+  link les appellera).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
 ## En attente de Joel
 
-- **Relecture du lot 1** (30 fiches) : ses tops (The Cure…), tops vides de
-  Cabadzi et Le Motel, retirer `generated` des fiches relues.
-- **Relecture du lot 2** : 28 fiches à MBID incertain (résolu par nom,
-  liste dans le rapport du générateur), tops en doublon de versions chez
-  J.P. Nataf, 3 fiches sans links (caballero-jeanjass, rendez-vous, sza).
+- **Pas de relecture fiche à fiche** (décision de Joel, 02/09/2026) : il a
+  regardé l'ensemble, l'affinage se fera **à l'utilisation** (keybinds,
+  décision 0013). Les points connus restent notés pour mémoire : MBID
+  incertains (28 du lot 2, 14 du lot 3 — rapports du générateur), tops
+  vides (cabadzi, le-motel, la-ruda-salska), doublons de versions chez
+  J.P. Nataf, un top russe parasite chez Expérience.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
   (`outillage/amis-*.py`).
 
