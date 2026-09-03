@@ -74,13 +74,20 @@ fn journey(catalog: &Catalog, seed: &str) {
             .artists
             .clone();
         let current = context.last().unwrap().clone();
-        let visited: HashSet<String> =
-            rounds.iter().flat_map(|round| round.artists.iter().cloned()).collect();
+        // the universe: every artist of the journey, in order, once
+        let mut universe: Vec<String> = Vec::new();
+        for slug in rounds.iter().flat_map(|round| round.artists.iter()) {
+            if !universe.contains(slug) {
+                universe.push(slug.clone());
+            }
+        }
+        let visited: HashSet<String> = universe.iter().cloned().collect();
         let played: HashSet<String> =
             rounds.iter().flat_map(|round| round.tracks.iter().cloned()).collect();
 
         println!("\n── depuis {} ──", catalog.cards[&current].name);
-        let branches = engine::propose(catalog, &context, &visited, &played, size, &mut rng);
+        let branches =
+            engine::propose(catalog, &context, &universe, &visited, &played, size, &mut rng);
         if branches.is_empty() {
             println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
         }
@@ -94,7 +101,7 @@ fn journey(catalog: &Catalog, seed: &str) {
             }
         }
 
-        print!("\n[1-3, entrée = auto, b<n> = taille des branches, u = retour, q = quitter] > ");
+        print!("\n[1-{}, entrée = auto, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
         std::io::stdout().flush().unwrap();
         let mut line = String::new();
         if std::io::stdin().read_line(&mut line).unwrap_or(0) == 0 {

@@ -139,6 +139,20 @@ monte (« lié à 2 artistes de la branche ») ; côté vecteurs, le voisin du
 **centroïde** de la branche — son centre de gravité. Le ponçage et la
 marche interne d'une branche restent sur le dernier artiste.
 
+Deux retours du deuxième test (Joel, 03/09/2026) :
+
+- **Rien n'est déterministe.** Deux parcours depuis la même graine
+  diffèrent : têtes de branches et sauts de marche sont **tirés au sort
+  pondéré** dans un réservoir de bons candidats — la décision
+  [0012](../decisions/0012-rotation-des-morceaux.md) appliquée aux
+  branches elles-mêmes, pas seulement aux morceaux.
+- **Une branche « rester dans l'univers »**, quatrième au menu quand elle
+  a du sens : un segment tiré du voisinage de **tout le parcours** (ses
+  artistes et leurs voisins de graphe, classés par proximité au centroïde
+  du parcours), où les artistes déjà visités **reviennent** tant qu'ils
+  ont des morceaux non joués. C'est la branche qui permet de tourner dans
+  un cluster aussi longtemps qu'on veut.
+
 ### Choisir la graine
 
 Deux entrées, dans l'esprit neovim :

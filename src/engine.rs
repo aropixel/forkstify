@@ -9,6 +9,7 @@
 //! artist along the way.
 
 use crate::catalog::{Card, Catalog};
+use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
@@ -213,6 +214,18 @@ fn fresh_track(card: &Card, played: &HashSet<String>, rng: &mut impl Rng) -> Opt
     fresh.choose(rng).map(|t| (*t).clone())
 }
 
+/// Weighted draw without replacement — decision 0012 applied to the
+/// branches themselves: good candidates rotate instead of the best one
+/// winning every time.
+fn draw_weighted(pool: &mut Vec<(String, f32)>, rng: &mut impl Rng) -> Option<String> {
+    if pool.is_empty() {
+        return None;
+    }
+    let weights = pool.iter().map(|(_, w)| w.max(0.01));
+    let dist = WeightedIndex::new(weights).ok()?;
+    Some(pool.swap_remove(dist.sample(rng)).0)
+}
+
 /// The sanding branch: stay on the current artist, more of its tops.
 fn sand(catalog: &Catalog, current: &str, played: &HashSet<String>, size: usize, rng: &mut impl Rng) -> Option<Branch> {
     let card = &catalog.cards[current];
@@ -263,17 +276,20 @@ fn walk(
         let mut excluded: HashSet<String> = visited.clone();
         excluded.insert(current.to_string());
         excluded.extend(artists.iter().cloned());
-        let next = graph_neighbors(catalog, &last, &excluded)
+        // draw the next hop among the closest few, not always the closest
+        let mut nexts: Vec<(String, f32)> = graph_neighbors(catalog, &last, &excluded)
             .into_iter()
-            .next()
-            .map(|(slug, ..)| slug)
-            .or_else(|| {
-                vector_neighbors(catalog, &last, &excluded)
-                    .into_iter()
-                    .next()
-                    .map(|(slug, _)| slug)
-            });
-        match next {
+            .take(3)
+            .map(|(slug, proximity, _)| (slug, proximity as f32))
+            .collect();
+        if nexts.is_empty() {
+            nexts = vector_neighbors(catalog, &last, &excluded)
+                .into_iter()
+                .take(3)
+                .map(|(slug, score)| (slug, (score - 0.5).max(0.05)))
+                .collect();
+        }
+        match draw_weighted(&mut nexts, rng) {
             Some(slug) => artists.push(slug),
             None => break,
         }
@@ -287,14 +303,96 @@ fn walk(
     Branch { label, reason: head_reason, artists, stops, weight: head_weight }
 }
 
-/// Three branches, each a segment of `size` tracks: sanding the current
-/// artist when it still has unplayed tops, then directions proposed from
-/// the WHOLE previous branch (its artists), not just the last one — the
-/// graph for the reassuring side, the vector space outside the graph for
-/// the adventurous one.
+/// The "stay in this universe" branch (asked by Joel while testing): a
+/// segment drawn from the whole journey's neighborhood — its artists and
+/// their graph neighbors, ranked by closeness to the journey's centroid.
+/// Already-visited artists may come back as long as they still hold
+/// unplayed tops.
+fn stay(
+    catalog: &Catalog,
+    universe: &[String],
+    current: &str,
+    played: &HashSet<String>,
+    size: usize,
+    rng: &mut impl Rng,
+) -> Option<Branch> {
+    if universe.len() < 2 {
+        return None;
+    }
+    let known: Vec<&Vec<f32>> =
+        universe.iter().filter_map(|slug| catalog.vectors.get(slug)).collect();
+    let first = known.first()?;
+    let mut centroid = vec![0.0f32; first.len()];
+    for vector in &known {
+        for (c, x) in centroid.iter_mut().zip(vector.iter()) {
+            *c += x / known.len() as f32;
+        }
+    }
+
+    let nobody = HashSet::new();
+    let mut seen = HashSet::new();
+    let mut pool: Vec<(String, f32)> = Vec::new();
+    for slug in universe {
+        let around = std::iter::once(slug.clone())
+            .chain(graph_neighbors(catalog, slug, &nobody).into_iter().map(|(s, ..)| s));
+        for candidate in around {
+            if candidate == current || !seen.insert(candidate.clone()) {
+                continue;
+            }
+            let card = &catalog.cards[&candidate];
+            if !card.tops.iter().any(|t| !played.contains(t)) {
+                continue;
+            }
+            let closeness = catalog
+                .vectors
+                .get(&candidate)
+                .map(|v| cosine(&centroid, v))
+                .unwrap_or(0.6);
+            pool.push((candidate, closeness));
+        }
+    }
+    pool.sort_by(|a, b| b.1.total_cmp(&a.1));
+    pool.truncate(12);
+    let mut weighted: Vec<(String, f32)> =
+        pool.into_iter().map(|(slug, c)| (slug, (c - 0.5).max(0.05))).collect();
+
+    let mut artists = Vec::new();
+    let mut stops = Vec::new();
+    while stops.len() < size {
+        let Some(slug) = draw_weighted(&mut weighted, rng) else { break };
+        let card = &catalog.cards[&slug];
+        if let Some(title) = fresh_track(card, played, rng) {
+            stops.push(Stop { artist: card.name.clone(), title });
+            artists.push(slug);
+        }
+    }
+    if stops.is_empty() {
+        return None;
+    }
+    let label = artists
+        .iter()
+        .map(|slug| catalog.cards[slug].name.as_str())
+        .collect::<Vec<_>>()
+        .join(" → ");
+    Some(Branch {
+        label,
+        reason: "rester dans l'univers du parcours".to_string(),
+        artists,
+        stops,
+        weight: 4.0,
+    })
+}
+
+/// Up to four branches, each a segment of `size` tracks: sanding the
+/// current artist while it has unplayed tops, staying in the journey's
+/// universe, then directions proposed from the WHOLE previous branch —
+/// the graph for the reassuring side, the vector space outside the graph
+/// for the adventurous one. Heads are drawn (weighted) from the best
+/// candidates, not fixed, so two journeys from the same seed differ.
 pub fn propose(
     catalog: &Catalog,
     context: &[String],
+    universe: &[String],
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
@@ -306,32 +404,47 @@ pub fn propose(
     if let Some(branch) = sand(catalog, current, played, size, rng) {
         branches.push(branch);
     }
-    let slots = 3 - branches.len();
+    if let Some(branch) = stay(catalog, universe, current, played, size, rng) {
+        branches.push(branch);
+    }
+    // 4 branches when sanding and staying are both on the table, never
+    // more than 3 direction branches
+    let slots = (4usize.saturating_sub(branches.len())).min(3);
 
     let graph = graph_neighbors_of(catalog, context, visited);
     let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();
-    let mut heads: Vec<(String, String, f32)> = graph
-        .iter()
-        .take(slots)
-        .map(|(slug, weight, why)| (slug.clone(), why.clone(), *weight))
-        .collect();
-
-    // The last direction comes from outside the graph when possible, and
-    // vectors also fill whatever slots the graph left empty.
     let outside: Vec<(String, f32)> = vector_neighbors_of(catalog, context, visited)
         .into_iter()
         .filter(|(slug, _)| !in_graph.contains(slug))
         .collect();
-    if !outside.is_empty() && heads.len() >= slots {
-        heads.truncate(slots.saturating_sub(1));
+    let graph_slots = if outside.is_empty() { slots } else { slots.saturating_sub(1) };
+
+    // draw the heads from a reservoir of good candidates (0012 again)
+    let by_slug: HashMap<&String, (&f32, &String)> = graph
+        .iter()
+        .map(|(slug, weight, why)| (slug, (weight, why)))
+        .collect();
+    let mut heads: Vec<(String, String, f32)> = Vec::new();
+    let mut graph_pool: Vec<(String, f32)> = graph
+        .iter()
+        .take(6)
+        .map(|(slug, weight, _)| (slug.clone(), weight * weight))
+        .collect();
+    while heads.len() < graph_slots {
+        let Some(slug) = draw_weighted(&mut graph_pool, rng) else { break };
+        let (weight, why) = by_slug[&slug];
+        heads.push((slug.clone(), why.clone(), *weight));
     }
-    for (slug, score) in outside {
-        if heads.len() >= slots {
-            break;
-        }
-        if heads.iter().any(|(head, ..)| *head == slug) {
-            continue;
-        }
+    let mut outside_pool: Vec<(String, f32)> = outside
+        .iter()
+        .take(6)
+        .map(|(slug, score)| (slug.clone(), (score - 0.5).max(0.05)))
+        .collect();
+    let outside_scores: HashMap<&String, &f32> =
+        outside.iter().map(|(slug, score)| (slug, score)).collect();
+    while heads.len() < slots {
+        let Some(slug) = draw_weighted(&mut outside_pool, rng) else { break };
+        let score = *outside_scores[&slug];
         let target = &catalog.cards[&slug];
         let shared = shared_tags(card, target);
         let mut why = format!("proche du centre de la branche ({score:.2})");

@@ -70,10 +70,14 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   commentaires en anglais** (visée open source — règle dans AGENTS.md).
   Retouches au test de Joel : **une branche est un segment** — poncer
   l'artiste courant, ou une marche de n morceaux sur plusieurs artistes
-  (un par artiste traversé), taille réglable par `b<n>` — et les
+  (un par artiste traversé), taille réglable par `b<n>` — les
   directions se proposent depuis **la branche entière** (voisins de
   graphe cumulés, centroïde des vecteurs), pas depuis le seul dernier
-  artiste (voir `docs/conception/forme-de-l-application.md`).
+  artiste — **rien n'est déterministe** (têtes et sauts tirés au sort
+  pondéré, 0012 appliquée aux branches) — et une 4e branche **« rester
+  dans l'univers du parcours »** fait tourner dans le cluster, revisites
+  permises tant qu'il reste des morceaux non joués (voir
+  `docs/conception/forme-de-l-application.md`).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
