@@ -10,9 +10,10 @@ futures-util = "0.3"
 librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
 librespot-discovery = { version = "0.8", default-features = false, features = ["with-libmdns", "rustls-tls-webpki-roots"] }
 librespot-oauth = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-playback = { version = "0.8", default-features = false, features = ["rodio-backend", "rustls-tls-webpki-roots"] }
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt", "macros"] }
+tokio = { version = "1", features = ["rt", "macros", "time"] }
 toml = "0.8"
 ureq = { version = "2", features = ["json"] }
