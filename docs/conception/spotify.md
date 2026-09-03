@@ -114,6 +114,14 @@ Premium et l'appli Spotify du téléphone (plus Omarchy-Spotify installé).
   l'ordre de préférence ci-dessous est donc morte ; on part sur la voie 1
   (client id de ncspot, comme tout l'écosystème), voie 3 en repli.
 
+- **Lecture par lecteur librespot embarqué : ✓ validée**
+  (`src/bin/spike-play.rs`, `librespot-playback` 0.8, backend rodio → alsa,
+  `libasound.so.2` présent sur l'hôte). forkstify **embarque le lecteur**
+  (pas seulement découverte + jeton), charge un `spotify:track:` et **le
+  son sort du binaire** — testé par Joel le 03/09/2026 (« ça marche très
+  bien »). C'est l'archi cible : forkstify est lui-même l'appareil, on ne
+  pilote aucun autre appareil par l'API. Construction : `rust:1-slim` +
+  `pkg-config` + `libasound2-dev` (à figer dans un Dockerfile).
 - **API Web par OAuth navigateur + client id de ncspot : ✓ validée**
   (`src/bin/spike-webapi.rs`, `librespot-oauth` 0.8, PKCE, callback
   `127.0.0.1:8989/login`). Le navigateur s'ouvre une fois, on autorise, le
@@ -182,13 +190,13 @@ Pour Joel seul, la voie 3 fonctionne toujours.
 - ~~**Étape 0 du PoC** : un *spike*~~ — **fait le 03/09/2026** (voir « Ce
   que le spike a tranché »). Découverte zeroconf ✓, jeton de session ✗ ;
   repli confirmé : OAuth navigateur + client id de ncspot.
-- **Le prochain pas son** : ~~l'OAuth navigateur avec le client id de
-  ncspot pour l'API Web~~ **fait** (spike-webapi). Reste à **jouer** :
-  ouvrir la session librespot en lecteur (backend audio, pas seulement
-  découverte + jeton), résoudre les titres d'un segment en `spotify:track:`
-  via `/v1/search`, et jouer — soit en pilotant l'appareil librespot par
-  l'API Web (`/v1/me/player/*`), soit en lisant directement dans librespot.
-  À trancher au prochain spike de lecture.
+- **Chantier son : les quatre briques validées** (03/09/2026) — découverte
+  zeroconf, session librespot, API Web (client id ncspot), lecture par
+  lecteur embarqué. La lecture directe est tranchée : on **ne pilote pas**
+  l'API `/v1/me/player/*`, forkstify joue lui-même. Reste à **câbler** :
+  brancher tout ça sur `forkstify parcours` — résoudre les titres d'un
+  segment en `spotify:track:` (via `/v1/search`, fait dans spike-webapi),
+  les enchaîner dans le lecteur, et gérer `e` / les branches en temps réel.
 - **Projet Linux ou projet Omarchy ?** Décide entre embarquer librespot et
   s'appuyer sur le backend d'Omarchy-Spotify. Le spike montre qu'embarquer
   librespot marche sans Omarchy — Joel a d'ailleurs remplacé

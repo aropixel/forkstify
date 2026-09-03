@@ -99,6 +99,12 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   étaient un throttle **compte/IP** temporaire (Retry-After décroissant,
   se résorbe au repos), pas un blocage de client id — le client réel doit
   respecter `Retry-After` (le spike le fait).
+- **Lecture validée** (03/09/2026, `src/bin/spike-play.rs`) : lecteur
+  librespot embarqué (`librespot-playback`, backend rodio → alsa), charge
+  un `spotify:track:` et **le son sort du binaire** — testé par Joel, « ça
+  marche très bien ». **Les quatre briques du chantier son sont validées**
+  (zeroconf, session, API Web, lecture) ; forkstify est lui-même
+  l'appareil, on ne pilote aucun autre appareil par l'API.
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
@@ -118,11 +124,10 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 1. **Étoffer la navigation** : zone de confort (0001) dans le choix auto,
    lecture d'`usage/` (cooldowns 0012), premiers keybinds d'affinage
    (0013) — au fil de l'usage du PoC.
-2. **Jouer le son** (fin de l'étape 3) : ouvrir la session librespot en
-   lecteur (backend audio, pas seulement découverte + jeton), résoudre les
-   titres d'un segment en `spotify:track:` (fait côté API), et jouer — via
-   l'API `/v1/me/player/*` ou directement dans librespot, à trancher au
-   spike de lecture. Puis brancher ça sur `forkstify parcours`.
+2. **Câbler le son sur `parcours`** : fondre les spikes en un module de
+   lecture (session librespot + lecteur + résolution titre → `spotify:track:`
+   via `/v1/search`), enchaîner les morceaux d'un segment, et faire agir `e`
+   et le choix de branche sur la lecture en cours. C'est le PoC qui joue.
 3. **Trousseau GNOME** pour les jetons (refresh OAuth, identifiants
    librespot) au lieu des caches `target/` des spikes.
 4. **TUI** (étape 4), à la neomd.
