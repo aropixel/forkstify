@@ -132,6 +132,13 @@ artiste traversé (un artiste sans tops est traversé sans morceau). La
 `b<n>`, future commande `:taille`. En condition réelle, la graine sera un
 morceau précis trouvé par la recherche, pas seulement un artiste.
 
+Et les directions suivantes se proposent depuis **la branche entière**,
+pas depuis son seul dernier artiste (Joel, 03/09/2026) : côté graphe, les
+voisins des n artistes cumulés — un candidat lié à plusieurs d'entre eux
+monte (« lié à 2 artistes de la branche ») ; côté vecteurs, le voisin du
+**centroïde** de la branche — son centre de gravité. Le ponçage et la
+marche interne d'une branche restent sur le dernier artiste.
+
 ### Choisir la graine
 
 Deux entrées, dans l'esprit neovim :

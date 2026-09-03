@@ -65,19 +65,22 @@ fn journey(catalog: &Catalog, seed: &str) {
     let mut size = 3usize;
 
     loop {
-        let current = rounds
+        // the context is the whole previous branch, not just its last artist
+        let context: Vec<String> = rounds
             .iter()
             .rev()
-            .find_map(|round| round.artists.last())
+            .find(|round| !round.artists.is_empty())
             .unwrap()
+            .artists
             .clone();
+        let current = context.last().unwrap().clone();
         let visited: HashSet<String> =
             rounds.iter().flat_map(|round| round.artists.iter().cloned()).collect();
         let played: HashSet<String> =
             rounds.iter().flat_map(|round| round.tracks.iter().cloned()).collect();
 
         println!("\n── depuis {} ──", catalog.cards[&current].name);
-        let branches = engine::propose(catalog, &current, &visited, &played, size, &mut rng);
+        let branches = engine::propose(catalog, &context, &visited, &played, size, &mut rng);
         if branches.is_empty() {
             println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
         }

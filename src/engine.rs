@@ -114,6 +114,76 @@ pub fn graph_neighbors(
     sorted
 }
 
+/// Neighbors of a whole branch through the graph: the neighbors of each
+/// of its artists, merged. A candidate linked to several of them fits the
+/// branch's direction better and climbs.
+fn graph_neighbors_of(
+    catalog: &Catalog,
+    context: &[String],
+    excluded: &HashSet<String>,
+) -> Vec<(String, f32, String)> {
+    let mut merged: HashMap<String, (u8, String, usize)> = HashMap::new();
+    for source in context {
+        for (slug, proximity, why) in graph_neighbors(catalog, source, excluded) {
+            let why = if source == context.last().unwrap() {
+                why
+            } else {
+                format!("via {} : {}", catalog.cards[source].name, why)
+            };
+            let entry = merged.entry(slug).or_insert((0, String::new(), 0));
+            entry.2 += 1;
+            if proximity > entry.0 {
+                entry.0 = proximity;
+                entry.1 = why;
+            }
+        }
+    }
+    let mut sorted: Vec<(String, f32, String)> = merged
+        .into_iter()
+        .map(|(slug, (proximity, mut why, count))| {
+            if count > 1 {
+                why.push_str(&format!(" · lié à {count} artistes de la branche"));
+            }
+            // half a point per extra artist of the branch backing it
+            (slug, proximity as f32 + 0.5 * (count as f32 - 1.0), why)
+        })
+        .collect();
+    sorted.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    sorted
+}
+
+/// Neighbors of a whole branch through the vector space: closest to the
+/// centroid of its artists' vectors — the branch's center of gravity.
+fn vector_neighbors_of(
+    catalog: &Catalog,
+    context: &[String],
+    excluded: &HashSet<String>,
+) -> Vec<(String, f32)> {
+    let known: Vec<&Vec<f32>> =
+        context.iter().filter_map(|slug| catalog.vectors.get(slug)).collect();
+    let Some(first) = known.first() else {
+        return Vec::new();
+    };
+    let mut centroid = vec![0.0f32; first.len()];
+    for vector in &known {
+        for (c, x) in centroid.iter_mut().zip(vector.iter()) {
+            *c += x / known.len() as f32;
+        }
+    }
+    let mut scores: Vec<(String, f32)> = catalog
+        .vectors
+        .iter()
+        .filter(|(slug, _)| {
+            !context.contains(slug)
+                && !excluded.contains(*slug)
+                && catalog.cards.contains_key(*slug)
+        })
+        .map(|(slug, vector)| (slug.clone(), cosine(&centroid, vector)))
+        .collect();
+    scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+    scores
+}
+
 /// Neighbors through the vector space, closest first.
 pub fn vector_neighbors(
     catalog: &Catalog,
@@ -218,17 +288,19 @@ fn walk(
 }
 
 /// Three branches, each a segment of `size` tracks: sanding the current
-/// artist when it still has unplayed tops, then directions — the graph
-/// for the reassuring side, the vector space outside the graph for the
-/// adventurous one.
+/// artist when it still has unplayed tops, then directions proposed from
+/// the WHOLE previous branch (its artists), not just the last one — the
+/// graph for the reassuring side, the vector space outside the graph for
+/// the adventurous one.
 pub fn propose(
     catalog: &Catalog,
-    current: &str,
+    context: &[String],
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
     rng: &mut impl Rng,
 ) -> Vec<Branch> {
+    let current = context.last().unwrap().as_str();
     let card = &catalog.cards[current];
     let mut branches = Vec::new();
     if let Some(branch) = sand(catalog, current, played, size, rng) {
@@ -236,17 +308,17 @@ pub fn propose(
     }
     let slots = 3 - branches.len();
 
-    let graph = graph_neighbors(catalog, current, visited);
+    let graph = graph_neighbors_of(catalog, context, visited);
     let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();
     let mut heads: Vec<(String, String, f32)> = graph
         .iter()
         .take(slots)
-        .map(|(slug, proximity, why)| (slug.clone(), why.clone(), *proximity as f32))
+        .map(|(slug, weight, why)| (slug.clone(), why.clone(), *weight))
         .collect();
 
     // The last direction comes from outside the graph when possible, and
     // vectors also fill whatever slots the graph left empty.
-    let outside: Vec<(String, f32)> = vector_neighbors(catalog, current, visited)
+    let outside: Vec<(String, f32)> = vector_neighbors_of(catalog, context, visited)
         .into_iter()
         .filter(|(slug, _)| !in_graph.contains(slug))
         .collect();
@@ -262,7 +334,7 @@ pub fn propose(
         }
         let target = &catalog.cards[&slug];
         let shared = shared_tags(card, target);
-        let mut why = format!("proche dans l'espace ({score:.2})");
+        let mut why = format!("proche du centre de la branche ({score:.2})");
         if !shared.is_empty() {
             why.push_str(" · tags communs : ");
             why.push_str(&shared.join(", "));
