@@ -153,6 +153,15 @@ Deux retours du deuxième test (Joel, 03/09/2026) :
   ont des morceaux non joués. C'est la branche qui permet de tourner dans
   un cluster aussi longtemps qu'on veut.
 
+Et un garde-fou du troisième test (The Cure proposait la chanson
+française à 0.67 de cosinus) : **la branche aventureuse a un plancher**.
+Un candidat vecteur doit être assez proche en absolu (≥ 0.72) **et**
+partager au moins un tag de genre avec la branche — pays et décennie ne
+justifient pas un pont — sauf s'il est très proche (≥ 0.80). En dessous,
+la branche aventureuse disparaît et le graphe reprend la place. Ces deux
+seuils sont des constantes en attendant d'être pilotés par la **zone de
+confort** (0001) : confort bas = plancher haut.
+
 ### Choisir la graine
 
 Deux entrées, dans l'esprit neovim :

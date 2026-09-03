@@ -46,8 +46,25 @@ fn label(kind: &str) -> &str {
         .unwrap_or(kind)
 }
 
+/// Below this cosine, the vector space is not trusted for an adventurous
+/// jump. A constant for now — meant to be driven by the comfort zone
+/// (decision 0001) once it enters the navigation.
+const VECTOR_FLOOR: f32 = 0.72;
+/// Above this cosine, the space may bridge without any shared genre tag.
+const VECTOR_TRUST: f32 = 0.80;
+
 fn shared_tags(a: &Card, b: &Card) -> Vec<String> {
     a.tags.iter().filter(|t| b.tags.contains(t)).cloned().collect()
+}
+
+/// Genre tags only: countries (2 letters) and decades ("80s", "2010s")
+/// are context, not kinship — they must not justify a bridge alone.
+fn genre_tags(card: &Card) -> impl Iterator<Item = &str> {
+    card.tags.iter().map(String::as_str).filter(|t| {
+        let decade = t.ends_with('s') && t[..t.len() - 1].chars().all(|c| c.is_ascii_digit());
+        let country = t.len() == 2 && t.chars().all(|c| c.is_ascii_alphabetic());
+        !decade && !country
+    })
 }
 
 fn reason(kind: &str, note: Option<&str>, a: &Card, b: &Card) -> String {
@@ -285,8 +302,9 @@ fn walk(
         if nexts.is_empty() {
             nexts = vector_neighbors(catalog, &last, &excluded)
                 .into_iter()
+                .filter(|(_, score)| *score >= VECTOR_FLOOR)
                 .take(3)
-                .map(|(slug, score)| (slug, (score - 0.5).max(0.05)))
+                .map(|(slug, score)| (slug, (score - 0.5).max(0.05).powi(3)))
                 .collect();
         }
         match draw_weighted(&mut nexts, rng) {
@@ -413,9 +431,20 @@ pub fn propose(
 
     let graph = graph_neighbors_of(catalog, context, visited);
     let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();
+    // adventurous candidates: outside the graph, close enough in absolute
+    // terms, and sharing a genre tag with the branch unless very close
+    let context_genres: HashSet<&str> = context
+        .iter()
+        .flat_map(|slug| genre_tags(&catalog.cards[slug]))
+        .collect();
     let outside: Vec<(String, f32)> = vector_neighbors_of(catalog, context, visited)
         .into_iter()
-        .filter(|(slug, _)| !in_graph.contains(slug))
+        .filter(|(slug, score)| {
+            !in_graph.contains(slug)
+                && *score >= VECTOR_FLOOR
+                && (*score >= VECTOR_TRUST
+                    || genre_tags(&catalog.cards[slug]).any(|t| context_genres.contains(t)))
+        })
         .collect();
     let graph_slots = if outside.is_empty() { slots } else { slots.saturating_sub(1) };
 
@@ -438,7 +467,7 @@ pub fn propose(
     let mut outside_pool: Vec<(String, f32)> = outside
         .iter()
         .take(6)
-        .map(|(slug, score)| (slug.clone(), (score - 0.5).max(0.05)))
+        .map(|(slug, score)| (slug.clone(), (score - 0.5).max(0.05).powi(3)))
         .collect();
     let outside_scores: HashMap<&String, &f32> =
         outside.iter().map(|(slug, score)| (slug, score)).collect();
