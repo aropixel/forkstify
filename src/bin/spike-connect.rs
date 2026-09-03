@@ -12,44 +12,71 @@
 //! the fallback is known: browser OAuth + ncspot's client id.
 
 use futures_util::StreamExt;
+use librespot_core::cache::Cache;
 use librespot_core::{Session, SessionConfig};
 use librespot_discovery::{DeviceType, Discovery};
-
-const SCOPES: &str = "user-read-private,user-library-read";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = SessionConfig::default();
+    // reusable credentials, so the phone tap happens once per machine
+    let cache = Cache::new(Some("target/spike-cache"), None, None, None)?;
 
-    let mut discovery = Discovery::builder(config.device_id.clone(), config.client_id.clone())
-        .name("forkstify (spike)")
-        .device_type(DeviceType::Computer)
-        .launch()?;
+    let credentials = match cache.credentials() {
+        Some(saved) => {
+            println!("Identifiants en cache (target/spike-cache), pas besoin du téléphone.");
+            saved
+        }
+        None => {
+            let mut discovery =
+                Discovery::builder(config.device_id.clone(), config.client_id.clone())
+                    .name("forkstify (spike)")
+                    .device_type(DeviceType::Computer)
+                    .launch()?;
 
-    println!("En attente sur le réseau local (mDNS).");
-    println!("Sur le téléphone : Spotify → un morceau → l'icône des appareils → « forkstify (spike) ».");
+            println!("En attente sur le réseau local (mDNS).");
+            println!("Sur le téléphone : Spotify → un morceau → l'icône des appareils → « forkstify (spike) ».");
 
-    let credentials = discovery
-        .next()
-        .await
-        .ok_or("découverte interrompue sans identifiants")?;
-    println!("\n✓ Point 1 — zeroconf entrant : identifiants reçus du téléphone.");
-    discovery.shutdown().await;
+            let credentials = discovery
+                .next()
+                .await
+                .ok_or("découverte interrompue sans identifiants")?;
+            println!("\n✓ Point 1 — zeroconf entrant : identifiants reçus du téléphone.");
+            discovery.shutdown().await;
+            credentials
+        }
+    };
 
-    let session = Session::new(config, None);
-    session.connect(credentials, false).await?;
+    let session = Session::new(config, Some(cache));
+    session.connect(credentials, true).await?;
     println!("✓ Session librespot ouverte (utilisateur : {}).", session.username());
 
-    let token = session.token_provider().get_token(SCOPES).await?;
+    // keymaster (mercury) answered 403 "Invalid request" on 03/09/2026 —
+    // the legacy path is closing. login5 is the modern one, used by
+    // librespot itself for its internal calls.
+    let token = session.login5().auth_token().await?;
     println!(
-        "✓ Jeton tiré de la session : scopes {:?}, expire dans {:?}.",
-        token.scopes, token.expires_in
+        "✓ Jeton login5 tiré de la session (expire dans {:?}).",
+        token.expires_in
     );
 
-    let me: serde_json::Value = ureq::get("https://api.spotify.com/v1/me")
+    let me: serde_json::Value = match ureq::get("https://api.spotify.com/v1/me")
         .set("Authorization", &format!("Bearer {}", token.access_token))
-        .call()?
-        .into_json()?;
+        .call()
+    {
+        Ok(response) => response.into_json()?,
+        Err(ureq::Error::Status(code, response)) => {
+            // diagnose: 429/403 are the known symptoms of a client id
+            // in restricted quota (spotify-player README)
+            let retry_after = response.header("retry-after").unwrap_or("?").to_string();
+            let body = response.into_string().unwrap_or_default();
+            println!(
+                "✗ Point 2 — /v1/me refuse : {code}, Retry-After: {retry_after}, corps : {body}"
+            );
+            return Err(format!("API Web refusée ({code})").into());
+        }
+        Err(e) => return Err(e.into()),
+    };
     println!(
         "✓ Point 2 — API Web : /v1/me répond ({}, produit {}).",
         me["display_name"].as_str().unwrap_or("?"),

@@ -85,17 +85,34 @@ MIT, ~23 000 lignes dont ~2 000 de Rust. Trois morceaux :
   passe ni de secret client, tokens redactés dans les erreurs. Modèle à
   suivre.
 
-## Ce qui n'est pas vérifié
+## Ce que le spike a tranché (03/09/2026)
 
-- **Un jeton d'API Web obtenu par la session librespot**, sans client id du
-  tout. librespot expose un fournisseur de jetons à scopes ; ni
-  spotify-player ni Omarchy-Spotify ne s'en servent pour l'API Web, tous
-  deux font un OAuth séparé avec le client id de ncspot. Confiance faible ;
-  le spike reste le moyen de trancher, mais on ne parie plus dessus.
-- **La découverte zeroconf entrante avec l'appli Spotify actuelle** :
-  Omarchy-Spotify l'a désactivée sans dire pourquoi. Spotify a changé ses
-  protocoles en 2024–2025. À tester ; si ça ne marche pas, le navigateur
-  est le repli standard.
+Spike `src/bin/spike-connect.rs`, lancé par Joel avec un vrai compte
+Premium et l'appli Spotify du téléphone (plus Omarchy-Spotify installé).
+
+- **Découverte zeroconf entrante : ✓ ça marche avec l'appli actuelle.**
+  « forkstify (spike) » apparaît dans la liste des appareils du téléphone,
+  un toucher envoie les identifiants par le réseau local, la session
+  librespot s'ouvre. Ce qu'Omarchy-Spotify avait désactivé n'était donc
+  pas cassé. `librespot-discovery` 0.8, backend `libmdns` (Rust pur), TLS
+  rustls — rien à installer sur l'hôte. Les identifiants sont réutilisables
+  (cache librespot), le toucher du téléphone n'a lieu qu'une fois.
+- **Jeton d'API Web tiré de la session librespot : ✗ inexploitable.**
+  Deux voies testées, toutes deux avec le client id du client officiel
+  desktop (celui de la session) :
+  - *keymaster* (mercury, `get_token`) → **403 « Invalid request »**. La
+    voie héritée, que librespot lui-même annonce en cours de remplacement.
+  - *login5* (`login5().auth_token()`, la voie moderne) → le jeton **sort**
+    (expire dans 3600 s) mais l'API Web le refuse **au premier appel** :
+    `/v1/me` → **429 « API rate limit exceeded »**, `Retry-After: 47`, et
+    **le 429 persiste après la fenêtre**. C'est le symptôme exact du client
+    id en quota restreint décrit par le README de spotify-player. Le client
+    id du desktop n'est pas habilité à porter nos appels d'API Web.
+
+  **Conclusion : le son passe par librespot (validé de bout en bout), mais
+  l'API Web ne peut pas s'appuyer sur le jeton de session.** La voie 2 de
+  l'ordre de préférence ci-dessous est donc morte ; on part sur la voie 1
+  (client id de ncspot, comme tout l'écosystème), voie 3 en repli.
 
 ## Orientations
 
@@ -122,9 +139,11 @@ Repli : OAuth dans le navigateur, comme spotify-player.
 
 1. **Client id historique partagé** (celui de ncspot), comme spotify-player
    et Omarchy-Spotify — le standard de fait de l'écosystème libre Linux.
-   Zone grise, révocable par Spotify du jour au lendemain.
-2. **Jeton issu de la session librespot** — si le spike montre que ça
-   marche, rien d'autre ; mais personne ne le fait, confiance faible.
+   Zone grise, révocable par Spotify du jour au lendemain. **Voie retenue**
+   après le spike du 03/09/2026.
+2. ~~**Jeton issu de la session librespot**~~ — **écartée par le spike** :
+   keymaster répond 403, login5 sort un jeton que l'API Web refuse en 429
+   persistant (client id desktop en quota restreint). Voir le spike ci-dessus.
 3. **Chaque utilisateur crée sa propre application** sur le dashboard (cinq
    minutes, mode développement, cinq utilisateurs) et colle son client id
    dans la configuration. Laid mais solide ; à garder comme option de
@@ -144,13 +163,17 @@ Pour Joel seul, la voie 3 fonctionne toujours.
 
 ## À trancher
 
-- **Étape 0 du PoC** : un *spike* qui teste les deux points non vérifiés —
-  forkstify découvert depuis le téléphone (zeroconf entrant), puis un appel
-  à `api.spotify.com` avec le jeton de la session librespot. Deux jours au
-  plus. Quel que soit le résultat, le repli est connu : OAuth navigateur +
-  client id de ncspot, comme tout le monde.
+- ~~**Étape 0 du PoC** : un *spike*~~ — **fait le 03/09/2026** (voir « Ce
+  que le spike a tranché »). Découverte zeroconf ✓, jeton de session ✗ ;
+  repli confirmé : OAuth navigateur + client id de ncspot.
+- **Le prochain pas son** : l'OAuth navigateur avec le client id de ncspot
+  pour l'API Web (recherche, bibliothèque, résolution titre → id), en plus
+  de la session librespot pour le son. Puis pousser un morceau dans la file
+  et le jouer.
 - **Projet Linux ou projet Omarchy ?** Décide entre embarquer librespot et
-  s'appuyer sur le backend d'Omarchy-Spotify.
+  s'appuyer sur le backend d'Omarchy-Spotify. Le spike montre qu'embarquer
+  librespot marche sans Omarchy — Joel a d'ailleurs remplacé
+  Omarchy-Spotify par le client officiel entre-temps.
 - **Conditions d'utilisation** : librespot n'est pas supporté par Spotify.
   fastpotify affirme n'avoir connaissance d'aucun compte suspendu ; le risque
   existe et doit être dit à l'utilisateur.

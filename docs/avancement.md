@@ -82,6 +82,16 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   branche mais la touche `e` / `<n>e`** (commande `:encore`) qui
   intercale n morceaux de l'artiste en cours (voir
   `docs/conception/forme-de-l-application.md`).
+- **Spike Spotify Connect fait** (03/09/2026, `src/bin/spike-connect.rs`,
+  lancé par Joel sur son compte Premium). **Découverte zeroconf entrante :
+  ✓** — l'appareil apparaît sur le téléphone, les identifiants arrivent, la
+  session librespot s'ouvre (le son est donc validé de bout en bout, sans
+  rien installer sur l'hôte, sans Omarchy). **Jeton de session pour l'API
+  Web : ✗** — keymaster répond 403, login5 sort un jeton refusé par l'API
+  en 429 persistant (client id desktop en quota restreint). Verdict : le
+  son passe par librespot embarqué, l'API Web passera par l'OAuth
+  navigateur + client id de ncspot (voie de tout l'écosystème). Détail
+  dans `docs/conception/spotify.md`.
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
@@ -101,9 +111,10 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 1. **Étoffer la navigation** : zone de confort (0001) dans le choix auto,
    lecture d'`usage/` (cooldowns 0012), premiers keybinds d'affinage
    (0013) — au fil de l'usage du PoC.
-2. **Spike Spotify Connect** (étape 3 du PoC) : librespot embarqué,
-   découverte depuis le téléphone, jeton d'API — voir
-   `docs/conception/spotify.md`.
+2. **Lecture du son** (étape 3 du PoC, suite du spike) : OAuth navigateur
+   + client id de ncspot pour l'API Web (recherche, bibliothèque,
+   résolution titre → id), la session librespot pour le son, pousser un
+   segment dans la file et le jouer. Trousseau GNOME pour les jetons.
 3. **TUI** (étape 4), à la neomd.
 4. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
    règle de langue du code (à l'occasion).
