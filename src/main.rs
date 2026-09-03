@@ -52,58 +52,63 @@ fn resolve(catalog: &Catalog, text: &str) -> Option<String> {
     }
 }
 
-/// A segment: a few tops, drawn without replacement over the session
-/// (decision 0012: repetition must never be endured).
-fn draw_segment(card: &catalog::Card, played: &mut HashSet<String>, rng: &mut impl Rng) -> Vec<String> {
-    let remaining: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
-    let drawn: Vec<String> = remaining
-        .choose_multiple(rng, 3)
-        .map(|t| (*t).clone())
-        .collect();
-    played.extend(drawn.iter().cloned());
-    drawn
+/// One chosen branch: the artists it walked (empty when sanding) and the
+/// tracks it played. `u` pops a whole round.
+struct Round {
+    artists: Vec<String>,
+    tracks: Vec<String>,
 }
 
 fn journey(catalog: &Catalog, seed: &str) {
     let mut rng = thread_rng();
-    let mut history: Vec<String> = vec![seed.to_string()];
-    let mut played: HashSet<String> = HashSet::new();
+    let mut rounds = vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }];
+    let mut size = 3usize;
 
     loop {
-        let current = history.last().unwrap().clone();
-        let card = &catalog.cards[&current];
-        let visited: HashSet<String> = history.iter().cloned().collect();
+        let current = rounds
+            .iter()
+            .rev()
+            .find_map(|round| round.artists.last())
+            .unwrap()
+            .clone();
+        let visited: HashSet<String> =
+            rounds.iter().flat_map(|round| round.artists.iter().cloned()).collect();
+        let played: HashSet<String> =
+            rounds.iter().flat_map(|round| round.tracks.iter().cloned()).collect();
 
-        println!("\n── {} ──", card.name);
-        let titles = draw_segment(card, &mut played, &mut rng);
-        if titles.is_empty() {
-            println!("   (pas de tops : le moteur piochera dans l'usage — à venir)");
-        }
-        for title in &titles {
-            println!("   ♪ {title}");
-        }
-
-        let branches = engine::propose(catalog, &current, &visited);
+        println!("\n── depuis {} ──", catalog.cards[&current].name);
+        let branches = engine::propose(catalog, &current, &visited, &played, size, &mut rng);
         if branches.is_empty() {
-            println!("\nCul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
-        } else {
-            println!();
-            for (i, branch) in branches.iter().enumerate() {
-                println!("  {}  {}\n     {}", i + 1, branch.name, branch.reason);
+            println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
+        }
+        for (i, branch) in branches.iter().enumerate() {
+            println!("\n  {}  {}", i + 1, branch.label);
+            if !branch.reason.is_empty() {
+                println!("     {}", branch.reason);
+            }
+            for stop in &branch.stops {
+                println!("     ♪ {} — {}", stop.title, stop.artist);
             }
         }
 
-        print!("\n[1-3, entrée = auto, u = retour, q = quitter] > ");
+        print!("\n[1-3, entrée = auto, b<n> = taille des branches, u = retour, q = quitter] > ");
         std::io::stdout().flush().unwrap();
         let mut line = String::new();
         if std::io::stdin().read_line(&mut line).unwrap_or(0) == 0 {
             break; // end of input
         }
+        let apply = |branch: &engine::Branch, rounds: &mut Vec<Round>| {
+            println!("→ {}", branch.label);
+            rounds.push(Round {
+                artists: branch.artists.clone(),
+                tracks: branch.stops.iter().map(|s| s.title.clone()).collect(),
+            });
+        };
         match line.trim() {
             "q" => break,
             "u" => {
-                if history.len() > 1 {
-                    history.pop();
+                if rounds.len() > 1 {
+                    rounds.pop();
                 } else {
                     println!("Déjà à la graine.");
                 }
@@ -115,24 +120,35 @@ fn journey(catalog: &Catalog, seed: &str) {
                 }
                 let weights: Vec<f32> = branches.iter().map(|b| b.weight.max(0.1)).collect();
                 let draw = WeightedIndex::new(&weights).unwrap();
-                let picked = &branches[draw.sample(&mut rng)];
-                println!("→ {} ({})", picked.name, picked.reason);
-                history.push(picked.slug.clone());
+                apply(&branches[draw.sample(&mut rng)], &mut rounds);
             }
-            text => match text.parse::<usize>() {
-                Ok(n) if n >= 1 && n <= branches.len() => {
-                    history.push(branches[n - 1].slug.clone());
+            text => {
+                if let Some(number) = text.strip_prefix('b') {
+                    match number.parse::<usize>() {
+                        Ok(n) if (1..=9).contains(&n) => {
+                            size = n;
+                            println!("Taille des branches : {n}");
+                        }
+                        _ => println!("Taille incomprise : {text} (b1 à b9)"),
+                    }
+                } else {
+                    match text.parse::<usize>() {
+                        Ok(n) if n >= 1 && n <= branches.len() => {
+                            apply(&branches[n - 1], &mut rounds);
+                        }
+                        _ => println!("Choix incompris : {text}"),
+                    }
                 }
-                _ => println!("Choix incompris : {text}"),
-            },
+            }
         }
     }
 
-    println!("\nParcours : {}", history
+    let path: Vec<&str> = rounds
         .iter()
+        .flat_map(|round| round.artists.iter())
         .map(|slug| catalog.cards[slug].name.as_str())
-        .collect::<Vec<_>>()
-        .join(" → "));
+        .collect();
+    println!("\nParcours : {}", path.join(" → "));
 }
 
 /// `forkstify check`: a card's neighbors in the vector space, to judge its

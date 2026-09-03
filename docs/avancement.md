@@ -68,6 +68,10 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   IAM → Zebda → Fabulous Trobadors → La Rue Kétanou → Camille ;
   The Cure → Siouxsie → Cult Hero → The Fall → Joy Division. **Code et
   commentaires en anglais** (visée open source — règle dans AGENTS.md).
+  Retouche au test de Joel : **une branche est un segment** — poncer
+  l'artiste courant, ou une marche de n morceaux sur plusieurs artistes
+  (un par artiste traversé), taille réglable par `b<n>` (voir
+  `docs/conception/forme-de-l-application.md`).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 

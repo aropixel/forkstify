@@ -114,6 +114,24 @@ Enfin, très neovim : chaque touche n'est que le raccourci d'une **commande
 rendent tout découvrable et scriptable ; les keybinds deviennent une table
 de correspondance, remappable dans un fichier de config.
 
+### Une branche est un segment
+
+Demandé par Joel au premier test de la navigation à sec (03/09/2026) :
+une branche ne propose pas *un artiste* mais **un segment de quelques
+morceaux, potentiellement sur plusieurs artistes**. Depuis The Cure :
+
+1. **Poncer The Cure** — encore des morceaux de l'artiste courant (tant
+   qu'il lui reste des tops non joués) ;
+2. Siouxsie and the Banshees → Cult Hero → Joy Division ;
+3. New Order → Depeche Mode → Nouvelle Vague.
+
+Une direction est une petite **marche** dans le graphe : on part d'un
+voisin, on enchaîne vers son voisin le plus proche, un morceau par
+artiste traversé (un artiste sans tops est traversé sans morceau). La
+**taille des branches** se règle en cours de route — raccourci provisoire
+`b<n>`, future commande `:taille`. En condition réelle, la graine sera un
+morceau précis trouvé par la recherche, pas seulement un artiste.
+
 ### Choisir la graine
 
 Deux entrées, dans l'esprit neovim :

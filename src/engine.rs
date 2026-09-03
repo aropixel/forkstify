@@ -2,14 +2,27 @@
 //! graph first (typed links, both ways), vectors to fill the gaps. Every
 //! proposal carries its reason — one sentence (project rule: any automatic
 //! decision must be explainable in one sentence).
+//!
+//! A branch IS a segment: a handful of tracks, possibly across several
+//! artists (asked by Joel while testing, 03/09/2026). The first branch
+//! sands the current artist; the others walk a direction, one track per
+//! artist along the way.
 
 use crate::catalog::{Card, Catalog};
+use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+pub struct Stop {
+    pub artist: String,
+    pub title: String,
+}
+
 pub struct Branch {
-    pub slug: String,
-    pub name: String,
+    pub label: String,
     pub reason: String,
+    /// Slugs walked by this branch (empty when sanding the current artist).
+    pub artists: Vec<String>,
+    pub stops: Vec<Stop>,
     /// On the proximity scale (1–5); vector scores are mapped onto it.
     pub weight: f32,
 }
@@ -124,34 +137,127 @@ pub fn vector_neighbors(
     scores
 }
 
-/// Three branches: the two best from the graph (the reassuring side), then
-/// the vector space outside the graph (the adventurous one). Vectors also
-/// fill in when the graph falls short.
-pub fn propose(catalog: &Catalog, current: &str, excluded: &HashSet<String>) -> Vec<Branch> {
+/// One unplayed top, at random (decision 0012: no repetition endured).
+fn fresh_track(card: &Card, played: &HashSet<String>, rng: &mut impl Rng) -> Option<String> {
+    let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
+    fresh.choose(rng).map(|t| (*t).clone())
+}
+
+/// The sanding branch: stay on the current artist, more of its tops.
+fn sand(catalog: &Catalog, current: &str, played: &HashSet<String>, size: usize, rng: &mut impl Rng) -> Option<Branch> {
     let card = &catalog.cards[current];
-    let graph = graph_neighbors(catalog, current, excluded);
-
-    let mut branches: Vec<Branch> = graph
-        .iter()
-        .take(2)
-        .map(|(slug, proximity, why)| Branch {
-            slug: slug.clone(),
-            name: catalog.cards[slug].name.clone(),
-            reason: why.clone(),
-            weight: *proximity as f32,
-        })
+    let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
+    if fresh.is_empty() {
+        return None;
+    }
+    let stops: Vec<Stop> = fresh
+        .choose_multiple(rng, size)
+        .map(|title| Stop { artist: card.name.clone(), title: (*title).clone() })
         .collect();
+    Some(Branch {
+        label: format!("Poncer {}", card.name),
+        reason: String::new(),
+        artists: Vec::new(),
+        stops,
+        weight: 4.0,
+    })
+}
 
-    let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();
-    for (slug, score) in vector_neighbors(catalog, current, excluded) {
-        if branches.len() >= 3 {
+/// A direction branch: start at a neighbor, then keep walking to the
+/// closest next artist — one track per artist along the way.
+fn walk(
+    catalog: &Catalog,
+    current: &str,
+    head: String,
+    head_reason: String,
+    head_weight: f32,
+    visited: &HashSet<String>,
+    played: &HashSet<String>,
+    size: usize,
+    rng: &mut impl Rng,
+) -> Branch {
+    let mut artists = vec![head];
+    let mut stops = Vec::new();
+    let mut hops = 0;
+
+    loop {
+        let last = artists.last().unwrap().clone();
+        let card = &catalog.cards[&last];
+        if let Some(title) = fresh_track(card, played, rng) {
+            stops.push(Stop { artist: card.name.clone(), title });
+        }
+        hops += 1;
+        if stops.len() >= size || hops >= size * 3 {
             break;
         }
-        // The third branch must come from outside the graph; when the graph
-        // could not fill its two slots, vectors complete freely.
-        let outside_required = branches.len() == 2;
-        if branches.iter().any(|b| b.slug == slug) || (outside_required && in_graph.contains(&slug))
-        {
+        let mut excluded: HashSet<String> = visited.clone();
+        excluded.insert(current.to_string());
+        excluded.extend(artists.iter().cloned());
+        let next = graph_neighbors(catalog, &last, &excluded)
+            .into_iter()
+            .next()
+            .map(|(slug, ..)| slug)
+            .or_else(|| {
+                vector_neighbors(catalog, &last, &excluded)
+                    .into_iter()
+                    .next()
+                    .map(|(slug, _)| slug)
+            });
+        match next {
+            Some(slug) => artists.push(slug),
+            None => break,
+        }
+    }
+
+    let label = artists
+        .iter()
+        .map(|slug| catalog.cards[slug].name.as_str())
+        .collect::<Vec<_>>()
+        .join(" → ");
+    Branch { label, reason: head_reason, artists, stops, weight: head_weight }
+}
+
+/// Three branches, each a segment of `size` tracks: sanding the current
+/// artist when it still has unplayed tops, then directions — the graph
+/// for the reassuring side, the vector space outside the graph for the
+/// adventurous one.
+pub fn propose(
+    catalog: &Catalog,
+    current: &str,
+    visited: &HashSet<String>,
+    played: &HashSet<String>,
+    size: usize,
+    rng: &mut impl Rng,
+) -> Vec<Branch> {
+    let card = &catalog.cards[current];
+    let mut branches = Vec::new();
+    if let Some(branch) = sand(catalog, current, played, size, rng) {
+        branches.push(branch);
+    }
+    let slots = 3 - branches.len();
+
+    let graph = graph_neighbors(catalog, current, visited);
+    let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();
+    let mut heads: Vec<(String, String, f32)> = graph
+        .iter()
+        .take(slots)
+        .map(|(slug, proximity, why)| (slug.clone(), why.clone(), *proximity as f32))
+        .collect();
+
+    // The last direction comes from outside the graph when possible, and
+    // vectors also fill whatever slots the graph left empty.
+    let outside: Vec<(String, f32)> = vector_neighbors(catalog, current, visited)
+        .into_iter()
+        .filter(|(slug, _)| !in_graph.contains(slug))
+        .collect();
+    if !outside.is_empty() && heads.len() >= slots {
+        heads.truncate(slots.saturating_sub(1));
+    }
+    for (slug, score) in outside {
+        if heads.len() >= slots {
+            break;
+        }
+        if heads.iter().any(|(head, ..)| *head == slug) {
             continue;
         }
         let target = &catalog.cards[&slug];
@@ -161,13 +267,11 @@ pub fn propose(catalog: &Catalog, current: &str, excluded: &HashSet<String>) -> 
             why.push_str(" · tags communs : ");
             why.push_str(&shared.join(", "));
         }
-        branches.push(Branch {
-            slug,
-            name: target.name.clone(),
-            reason: why,
-            weight: score * 5.0,
-        });
+        heads.push((slug, why, score * 5.0));
     }
 
+    for (slug, why, weight) in heads {
+        branches.push(walk(catalog, current, slug, why, weight, visited, played, size, rng));
+    }
     branches
 }
