@@ -101,7 +101,7 @@ fn journey(catalog: &Catalog, seed: &str) {
             }
         }
 
-        print!("\n[1-{}, entrée = auto, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
+        print!("\n[1-{}, entrée = auto, e/<n>e = encore, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
         std::io::stdout().flush().unwrap();
         let mut line = String::new();
         if std::io::stdin().read_line(&mut line).unwrap_or(0) == 0 {
@@ -140,6 +140,27 @@ fn journey(catalog: &Catalog, seed: &str) {
                             println!("Taille des branches : {n}");
                         }
                         _ => println!("Taille incomprise : {text} (b1 à b9)"),
+                    }
+                } else if let Some(number) = text.strip_suffix('e') {
+                    // `e` / `<n>e` — :encore. In the dry PoC there is no
+                    // playing track, so it targets the segment's last artist.
+                    let count = if number.is_empty() { size } else { number.parse().unwrap_or(0) };
+                    if count == 0 || count > 9 {
+                        println!("Encore incompris : {text} (e, 2e … 9e)");
+                    } else {
+                        let stops = engine::encore(catalog, &current, &played, count, &mut rng);
+                        if stops.is_empty() {
+                            println!("(plus de tops non joués chez {})", catalog.cards[&current].name);
+                        } else {
+                            println!("Encore {} :", catalog.cards[&current].name);
+                            for stop in &stops {
+                                println!("   ♪ {}", stop.title);
+                            }
+                            rounds.push(Round {
+                                artists: Vec::new(),
+                                tracks: stops.iter().map(|s| s.title.clone()).collect(),
+                            });
+                        }
                     }
                 } else {
                     match text.parse::<usize>() {

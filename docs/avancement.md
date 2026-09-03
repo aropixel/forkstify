@@ -74,9 +74,13 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   directions se proposent depuis **la branche entière** (voisins de
   graphe cumulés, centroïde des vecteurs), pas depuis le seul dernier
   artiste — **rien n'est déterministe** (têtes et sauts tirés au sort
-  pondéré, 0012 appliquée aux branches) — et une 4e branche **« rester
-  dans l'univers du parcours »** fait tourner dans le cluster, revisites
-  permises tant qu'il reste des morceaux non joués (voir
+  pondéré, 0012 appliquée aux branches) — une branche **« rester dans
+  l'univers du parcours »** fait tourner dans le cluster, revisites
+  permises tant qu'il reste des morceaux non joués — la branche
+  aventureuse a un **plancher** (cosinus ≥ 0.72 + un tag de genre commun,
+  constantes à piloter par le confort) — et **poncer n'est plus une
+  branche mais la touche `e` / `<n>e`** (commande `:encore`) qui
+  intercale n morceaux de l'artiste en cours (voir
   `docs/conception/forme-de-l-application.md`).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.

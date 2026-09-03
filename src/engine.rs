@@ -243,24 +243,22 @@ fn draw_weighted(pool: &mut Vec<(String, f32)>, rng: &mut impl Rng) -> Option<St
     Some(pool.swap_remove(dist.sample(rng)).0)
 }
 
-/// The sanding branch: stay on the current artist, more of its tops.
-fn sand(catalog: &Catalog, current: &str, played: &HashSet<String>, size: usize, rng: &mut impl Rng) -> Option<Branch> {
-    let card = &catalog.cards[current];
+/// `:encore` (keybind `e`, "poncer" in the French slang of the project):
+/// n more tracks from one artist, inserted right after the current track.
+/// Not a branch — branches propose futures, encore reacts to the moment.
+pub fn encore(
+    catalog: &Catalog,
+    artist: &str,
+    played: &HashSet<String>,
+    count: usize,
+    rng: &mut impl Rng,
+) -> Vec<Stop> {
+    let card = &catalog.cards[artist];
     let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
-    if fresh.is_empty() {
-        return None;
-    }
-    let stops: Vec<Stop> = fresh
-        .choose_multiple(rng, size)
+    fresh
+        .choose_multiple(rng, count)
         .map(|title| Stop { artist: card.name.clone(), title: (*title).clone() })
-        .collect();
-    Some(Branch {
-        label: format!("Poncer {}", card.name),
-        reason: String::new(),
-        artists: Vec::new(),
-        stops,
-        weight: 4.0,
-    })
+        .collect()
 }
 
 /// A direction branch: start at a neighbor, then keep walking to the
@@ -401,12 +399,13 @@ fn stay(
     })
 }
 
-/// Up to four branches, each a segment of `size` tracks: sanding the
-/// current artist while it has unplayed tops, staying in the journey's
-/// universe, then directions proposed from the WHOLE previous branch —
-/// the graph for the reassuring side, the vector space outside the graph
-/// for the adventurous one. Heads are drawn (weighted) from the best
-/// candidates, not fixed, so two journeys from the same seed differ.
+/// Up to three branches, all directions, each a segment of `size` tracks:
+/// staying in the journey's universe, then directions proposed from the
+/// WHOLE previous branch — the graph for the reassuring side, the vector
+/// space outside the graph for the adventurous one. Heads are drawn
+/// (weighted) from the best candidates, not fixed, so two journeys from
+/// the same seed differ. Staying on the artist is not a branch anymore:
+/// that is `encore` (keybind `e`).
 pub fn propose(
     catalog: &Catalog,
     context: &[String],
@@ -419,15 +418,10 @@ pub fn propose(
     let current = context.last().unwrap().as_str();
     let card = &catalog.cards[current];
     let mut branches = Vec::new();
-    if let Some(branch) = sand(catalog, current, played, size, rng) {
-        branches.push(branch);
-    }
     if let Some(branch) = stay(catalog, universe, current, played, size, rng) {
         branches.push(branch);
     }
-    // 4 branches when sanding and staying are both on the table, never
-    // more than 3 direction branches
-    let slots = (4usize.saturating_sub(branches.len())).min(3);
+    let slots = 3 - branches.len();
 
     let graph = graph_neighbors_of(catalog, context, visited);
     let in_graph: HashSet<String> = graph.iter().map(|(slug, ..)| slug.clone()).collect();

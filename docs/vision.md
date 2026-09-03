@@ -71,7 +71,7 @@ Les mots du projet. Les utiliser tels quels, dans le code comme dans la doc.
 | Terme               | Sens                                                                                   |
 |---------------------|----------------------------------------------------------------------------------------|
 | **Graine**          | Le morceau de départ choisi par l'utilisateur.                                         |
-| **Branche**         | Une direction d'écoute proposée : un titre lisible (« Poncer The Cure ») + une règle de sélection des morceaux. |
+| **Branche**         | Une direction d'écoute proposée : un titre lisible (« Siouxsie → Cult Hero → Joy Division ») + une règle de sélection des morceaux. |
 | **Embranchement**   | Le moment où l'application propose plusieurs branches et attend — ou n'attend pas — un choix. |
 | **Segment**         | Les quelques morceaux joués entre deux embranchements.                                  |
 | **Parcours**        | La session d'écoute complète : graine, suite des branches choisies, morceaux joués.     |
@@ -86,7 +86,9 @@ Les mots du projet. Les utiliser tels quels, dans le code comme dans la doc.
 
 Types de branches identifiés jusqu'ici (liste ouverte) :
 
-- **Poncer** — rester sur l'artiste courant.
+- **Poncer** — rester sur l'artiste courant. Plus une branche depuis le
+  03/09/2026 : c'est un geste, la touche `e` (commande `:encore`) —
+  « poncer » reste l'argot français du projet pour ce geste.
 - **Voisinage** — artistes proches (même scène, même époque, mêmes influences).
 - **Décalage** — un pas de côté : même ambiance, autre genre ou autre époque.
 - **Retour** — revenir vers la zone de confort quand on s'en est éloigné.

@@ -80,6 +80,7 @@ Sur le **morceau en cours** :
 |---|---|---|
 | `t` | Promouvoir en top | commit |
 | `T` | Retirer des tops | commit |
+| `e` / `<n>e` | **Encore** (« poncer », dans l'argot du projet) : intercaler n morceaux de plus de l'artiste du morceau en cours juste après lui, le segment reprend ensuite. n = taille des branches par défaut (`:encore n`) | lecture |
 | `x` | Sauter — « pas celui-là, pas maintenant » | mesure |
 | `X` | Écarter — « plus jamais celui-là » (liste noire dans `usage/` : un dégoût est personnel) | mesure |
 | `a` | Aimer (et le refléter en titre aimé Spotify) | mesure |
@@ -94,11 +95,13 @@ Sur l'**artiste** :
 
 | Touche | Action | Nature |
 |---|---|---|
-| `e` | Ouvrir la fiche dans `$EDITOR`, recommit au retour, vecteur recalculé | commit |
+| `E` | Ouvrir la fiche dans `$EDITOR`, recommit au retour, vecteur recalculé | commit |
 | `-` | Cet artiste, moins souvent (poids d'usage, sans le bannir) | mesure |
 
-Le `e` est le geste ultime à la vim : quand les raccourcis ne suffisent
-plus, on édite le texte — le fork est la surcouche, littéralement.
+Le `E` est le geste ultime à la vim : quand les raccourcis ne suffisent
+plus, on édite le texte — le fork est la surcouche, littéralement. (Il
+était sur `e`, cédé à encore le 03/09/2026 : minuscule = geste léger et
+fréquent, majuscule = geste lourd, comme `t`/`T` et `x`/`X`.)
 
 Sur le **parcours** (en plus de `1 2 3`, `h`/`l`, `.`, `n`) :
 
@@ -120,10 +123,19 @@ Demandé par Joel au premier test de la navigation à sec (03/09/2026) :
 une branche ne propose pas *un artiste* mais **un segment de quelques
 morceaux, potentiellement sur plusieurs artistes**. Depuis The Cure :
 
-1. **Poncer The Cure** — encore des morceaux de l'artiste courant (tant
-   qu'il lui reste des tops non joués) ;
-2. Siouxsie and the Banshees → Cult Hero → Joy Division ;
-3. New Order → Depeche Mode → Nouvelle Vague.
+1. Siouxsie and the Banshees → Cult Hero → Joy Division ;
+2. New Order → Depeche Mode → Nouvelle Vague ;
+3. (et, plus tard dans le parcours, « rester dans l'univers »).
+
+**Poncer n'est pas une branche** (Joel, 03/09/2026) : les branches
+proposent des futurs, poncer réagit au moment — « encore de *ça* ». C'est
+donc une touche, `e` / `<n>e` (commande `:encore`), qui intercale n
+morceaux de plus de l'artiste du morceau en cours juste après lui ; le
+segment choisi reprend ensuite. Conséquence assumée : le mode auto ne
+ponce plus jamais — s'attarder est un désir d'auditeur, pas une décision
+de moteur (la zone de confort pourra redonner ce penchant à l'auto).
+Nuance PoC : à sec il n'y a pas de « morceau en cours », `e` vise le
+dernier artiste du segment ; la vraie sémantique arrive avec le son.
 
 Une direction est une petite **marche** dans le graphe : on part d'un
 voisin, on enchaîne vers son voisin le plus proche, un morceau par
