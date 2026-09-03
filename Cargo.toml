@@ -6,7 +6,12 @@ description = "Lecteur de musique par branches — PoC : navigation à sec"
 
 [dependencies]
 anyhow = "1"
+futures-util = "0.3"
+librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-discovery = { version = "0.8", default-features = false, features = ["with-libmdns", "rustls-tls-webpki-roots"] }
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["rt", "macros"] }
 toml = "0.8"
+ureq = { version = "2", features = ["json"] }
