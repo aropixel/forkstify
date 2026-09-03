@@ -92,6 +92,13 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   son passe par librespot embarqué, l'API Web passera par l'OAuth
   navigateur + client id de ncspot (voie de tout l'écosystème). Détail
   dans `docs/conception/spotify.md`.
+- **API Web validée** (03/09/2026, `src/bin/spike-webapi.rs`) : OAuth PKCE
+  navigateur avec le client id de ncspot (`librespot-oauth`), refresh token
+  en cache. `/v1/me`, `/v1/search` (titre → `spotify:track:`) et
+  `/v1/me/albums` (247 albums) répondent. Leçon : les 429 rencontrés
+  étaient un throttle **compte/IP** temporaire (Retry-After décroissant,
+  se résorbe au repos), pas un blocage de client id — le client réel doit
+  respecter `Retry-After` (le spike le fait).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
@@ -111,12 +118,15 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 1. **Étoffer la navigation** : zone de confort (0001) dans le choix auto,
    lecture d'`usage/` (cooldowns 0012), premiers keybinds d'affinage
    (0013) — au fil de l'usage du PoC.
-2. **Lecture du son** (étape 3 du PoC, suite du spike) : OAuth navigateur
-   + client id de ncspot pour l'API Web (recherche, bibliothèque,
-   résolution titre → id), la session librespot pour le son, pousser un
-   segment dans la file et le jouer. Trousseau GNOME pour les jetons.
-3. **TUI** (étape 4), à la neomd.
-4. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
+2. **Jouer le son** (fin de l'étape 3) : ouvrir la session librespot en
+   lecteur (backend audio, pas seulement découverte + jeton), résoudre les
+   titres d'un segment en `spotify:track:` (fait côté API), et jouer — via
+   l'API `/v1/me/player/*` ou directement dans librespot, à trancher au
+   spike de lecture. Puis brancher ça sur `forkstify parcours`.
+3. **Trousseau GNOME** pour les jetons (refresh OAuth, identifiants
+   librespot) au lieu des caches `target/` des spikes.
+4. **TUI** (étape 4), à la neomd.
+5. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
    règle de langue du code (à l'occasion).
 
 ## Corrections en attente (petites)

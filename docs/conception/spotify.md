@@ -114,6 +114,22 @@ Premium et l'appli Spotify du téléphone (plus Omarchy-Spotify installé).
   l'ordre de préférence ci-dessous est donc morte ; on part sur la voie 1
   (client id de ncspot, comme tout l'écosystème), voie 3 en repli.
 
+- **API Web par OAuth navigateur + client id de ncspot : ✓ validée**
+  (`src/bin/spike-webapi.rs`, `librespot-oauth` 0.8, PKCE, callback
+  `127.0.0.1:8989/login`). Le navigateur s'ouvre une fois, on autorise, le
+  refresh token est mis en cache (le navigateur ne se rouvre plus). Testé :
+  `/v1/me` (Joël, premium), `/v1/search` (« The Cure A Forest » →
+  `spotify:track:4iVTSRiJAA18d3QglhyJ6Q`), `/v1/me/albums` (247 albums
+  aimés). Le refresh avec ce client id rend **tous** les scopes de ncspot
+  (playlist, user-top-read, library-modify…), plus large que demandé.
+- **Leçon 429 : le throttle est au niveau compte/IP, pas par client id.**
+  Nos premiers essais ont pris des 429 « rate limit exceeded » sur *les
+  deux* client ids, avec un `Retry-After` **décroissant** (47 → 24 → 16 s)
+  qui se résorbe au repos — c'est un throttle temporaire déclenché en
+  martelant l'API, pas un blocage de quota (qui serait un 403 permanent).
+  **À retenir pour le client réel : respecter `Retry-After` et réessayer**
+  (le spike le fait), et ne pas enchaîner les appels inutiles.
+
 ## Orientations
 
 ### Forkstify est lui-même l'appareil Connect
@@ -166,10 +182,13 @@ Pour Joel seul, la voie 3 fonctionne toujours.
 - ~~**Étape 0 du PoC** : un *spike*~~ — **fait le 03/09/2026** (voir « Ce
   que le spike a tranché »). Découverte zeroconf ✓, jeton de session ✗ ;
   repli confirmé : OAuth navigateur + client id de ncspot.
-- **Le prochain pas son** : l'OAuth navigateur avec le client id de ncspot
-  pour l'API Web (recherche, bibliothèque, résolution titre → id), en plus
-  de la session librespot pour le son. Puis pousser un morceau dans la file
-  et le jouer.
+- **Le prochain pas son** : ~~l'OAuth navigateur avec le client id de
+  ncspot pour l'API Web~~ **fait** (spike-webapi). Reste à **jouer** :
+  ouvrir la session librespot en lecteur (backend audio, pas seulement
+  découverte + jeton), résoudre les titres d'un segment en `spotify:track:`
+  via `/v1/search`, et jouer — soit en pilotant l'appareil librespot par
+  l'API Web (`/v1/me/player/*`), soit en lisant directement dans librespot.
+  À trancher au prochain spike de lecture.
 - **Projet Linux ou projet Omarchy ?** Décide entre embarquer librespot et
   s'appuyer sur le backend d'Omarchy-Spotify. Le spike montre qu'embarquer
   librespot marche sans Omarchy — Joel a d'ailleurs remplacé

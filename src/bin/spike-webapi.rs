@@ -23,16 +23,33 @@ const SCOPES: [&str; 5] = [
 ];
 const REFRESH_CACHE: &str = "target/spike-webapi-refresh";
 
+/// GET with a polite 429 backoff: Spotify throttles per account/IP, so we
+/// honor Retry-After and retry a few times rather than giving up. The real
+/// client will need this anyway.
 fn api_get(url: &str, token: &str) -> Result<serde_json::Value, String> {
-    match ureq::get(url).set("Authorization", &format!("Bearer {token}")).call() {
-        Ok(response) => response.into_json().map_err(|e| e.to_string()),
-        Err(ureq::Error::Status(code, response)) => {
-            let retry_after = response.header("retry-after").unwrap_or("?").to_string();
-            let body = response.into_string().unwrap_or_default();
-            Err(format!("{code} (Retry-After: {retry_after}) — {body}"))
+    for attempt in 1..=4 {
+        match ureq::get(url).set("Authorization", &format!("Bearer {token}")).call() {
+            Ok(response) => return response.into_json().map_err(|e| e.to_string()),
+            Err(ureq::Error::Status(429, response)) => {
+                let wait: u64 = response
+                    .header("retry-after")
+                    .and_then(|h| h.parse().ok())
+                    .unwrap_or(5)
+                    .min(60);
+                if attempt == 4 {
+                    return Err(format!("429 persistant après {attempt} essais"));
+                }
+                println!("  (429, j'attends {wait}s puis je réessaie — essai {attempt}/3)");
+                std::thread::sleep(std::time::Duration::from_secs(wait + 1));
+            }
+            Err(ureq::Error::Status(code, response)) => {
+                let body = response.into_string().unwrap_or_default();
+                return Err(format!("{code} — {body}"));
+            }
+            Err(e) => return Err(e.to_string()),
         }
-        Err(e) => Err(e.to_string()),
     }
+    unreachable!()
 }
 
 #[tokio::main(flavor = "current_thread")]
