@@ -408,6 +408,7 @@ dependencies = [
  "futures-util",
  "librespot-core",
  "librespot-discovery",
+ "librespot-oauth",
  "rand 0.8.8",
  "serde",
  "serde_json",
