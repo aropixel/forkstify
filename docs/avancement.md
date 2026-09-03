@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **02/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **03/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -55,6 +55,19 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   voisins cohérents (The Cure → Joy Division/Siouxsie ; IAM → le rap
   français ; Nina Simone → Ella/Nat King Cole) ; les fiches maigres ont
   des voisins flous à scores bas, ce que `check` doit justement révéler.
+- **Navigation à sec prototypée** (03/09/2026) — le premier code Rust,
+  dans ce dépôt : `forkstify parcours <graine>` propose 3 branches
+  lisibles avec leurs raisons (graphe d'abord — liens typés dans les deux
+  sens, proximité en cascade —, vecteurs pour combler et pour la branche
+  aventureuse), choix `1-3`, entrée = auto pondéré, `u` retour, `q` quitter ;
+  segments = 3 tops tirés sans remise (esprit 0012). `forkstify check
+  <artiste>` = les voisins dans l'espace, liens du graphe marqués. Se
+  construit dans un conteneur (`docker run --rm -v "$PWD":/app -w /app -v
+  forkstify-cargo:/usr/local/cargo/registry rust:1-slim cargo build
+  --release`), s'exécute sur l'hôte. Parcours constatés cohérents :
+  IAM → Zebda → Fabulous Trobadors → La Rue Kétanou → Camille ;
+  The Cure → Siouxsie → Cult Hero → The Fall → Joy Division. **Code et
+  commentaires en anglais** (visée open source — règle dans AGENTS.md).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 
@@ -71,13 +84,15 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Prochaines étapes, dans l'ordre
 
-1. **Navigation à sec** (étape 2 du PoC, premier code Rust) : graine →
-   3 branches lisibles avec leurs raisons → choix clavier → segments
-   affichés. D'abord sur connexions et tags, les vecteurs (prêts) pour
-   combler les trous. Critère : des parcours cohérents en les lisant.
-2. **Spike Spotify Connect** (étape 3) : librespot embarqué, découverte
-   depuis le téléphone, jeton d'API — voir `docs/conception/spotify.md`.
+1. **Étoffer la navigation** : zone de confort (0001) dans le choix auto,
+   lecture d'`usage/` (cooldowns 0012), premiers keybinds d'affinage
+   (0013) — au fil de l'usage du PoC.
+2. **Spike Spotify Connect** (étape 3 du PoC) : librespot embarqué,
+   découverte depuis le téléphone, jeton d'API — voir
+   `docs/conception/spotify.md`.
 3. **TUI** (étape 4), à la neomd.
+4. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
+   règle de langue du code (à l'occasion).
 
 ## Corrections en attente (petites)
 

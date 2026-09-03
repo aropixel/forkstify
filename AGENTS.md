@@ -59,7 +59,9 @@ Le détail est dans `docs/decisions/`. En résumé :
   sans remise, confort = profondeur ([0012](docs/decisions/0012-rotation-des-morceaux.md)).
 - **Affinage au clavier : chaque touche est une mesure ou une édition**,
   `u` annule, tout est commande `:` ([0013](docs/decisions/0013-affinage-clavier-mesure-ou-edition.md)).
-- **Langue** : français partout (dépôt, doc, commits, interface).
+- **Langue** : français partout (doc, commits, interface) — **sauf le
+  code : identifiants et commentaires en anglais** (visée open source,
+  demandé par Joel le 03/09/2026).
 
 ## Ce qui reste à trancher
 
