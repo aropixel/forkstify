@@ -79,6 +79,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
     // opening: play the seed's own tops, then show the first branches
     let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
     live.start_segment(vec![seed.to_string()], opening, true).await;
+    live.prefetch_next().await;
     live.prompt();
 
     loop {
@@ -94,6 +95,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                     && live.current_request_id.is_some() =>
                 {
                     live.on_track_over().await;
+                    live.prefetch_next().await;
                     live.prompt();
                 }
                 Some(_) => {}
@@ -104,6 +106,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                     if !live.on_input(line.trim()).await {
                         break;
                     }
+                    live.prefetch_next().await;
                     live.prompt();
                 }
                 None => break,
@@ -111,6 +114,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
             control = ctrl_rx.recv() => match control {
                 Some(control) => {
                     live.on_control(control).await;
+                    live.prefetch_next().await;
                     live.prompt();
                 }
                 None => {}
@@ -298,6 +302,24 @@ impl Live<'_> {
             for stop in &self.queue {
                 println!("   • {} — {}", stop.title, stop.artist);
             }
+        }
+    }
+
+    /// Resolve the *next* track's uri ahead of time so the transition is
+    /// instant instead of waiting on `/v1/search` when the current track
+    /// ends. The next track is a pending branch's first stop if one is
+    /// waiting, otherwise the head of the queue; nothing to do at an
+    /// undecided last track (we don't guess the auto-pick — later, maybe).
+    /// resolve() caches, so this is a no-op once warmed.
+    async fn prefetch_next(&mut self) {
+        let next = self
+            .pending_branch
+            .as_ref()
+            .and_then(|branch| branch.stops.first())
+            .or_else(|| self.queue.front());
+        if let Some(stop) = next {
+            let (title, artist) = (stop.title.clone(), stop.artist.clone());
+            let _ = self.web.resolve(&title, &artist).await;
         }
     }
 

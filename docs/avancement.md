@@ -77,7 +77,11 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   catalogue démarre un segment, une piste Spotify se joue et se raccroche à
   la fiche de son artiste s'il en a une (sinon hors catalogue). Choisir une
   branche **ne coupe pas le morceau en cours** : elle est mise en attente et
-  démarre à la fin de la piste (`j`/⏭ force tout de suite). Le moteur reste
+  démarre à la fin de la piste (`j`/⏭ force tout de suite). **Préchargement**
+  (04/09/2026) : la résolution titre → `spotify:track:` du morceau suivant
+  (branche en attente ou tête de file) est faite d'avance, en cache, pour
+  une transition sans attente API (le préchargement audio librespot reste en
+  réserve si besoin). Le moteur reste
   intact — il produit des morceaux, `sound`/`spotify` les jouent. `parcours`
   reste le mode à sec (rapide, sans Premium, pour itérer sur le moteur).
   Construction via l'image **`forkstify-build`** (`Dockerfile` : rust +
