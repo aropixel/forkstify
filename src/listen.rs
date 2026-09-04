@@ -9,6 +9,7 @@
 //! finished segment auto-advances so it never stops.
 
 use crate::catalog::Catalog;
+use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_over, Sound};
 use crate::spotify::WebApi;
 use crate::{show_branches, state_of, Round};
@@ -19,11 +20,13 @@ use std::collections::VecDeque;
 use std::io::BufRead;
 
 pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_all()
-        .build()?;
-    rt.block_on(async_run(catalog, seed))
+    // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
+    // callbacks) and must be driven with spawn_local. librespot's own tasks
+    // run fine here (as in spike-play).
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    let local = tokio::task::LocalSet::new();
+    local
+        .block_on(&rt, async_run(catalog, seed))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
@@ -31,7 +34,19 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
     println!("Connexion à Spotify…");
     let sound = Sound::connect().await?;
     let web = WebApi::new().await?;
-    println!("✓ Prêt. Le son sort de forkstify (appareil Connect).");
+
+    // MPRIS: let the desktop's media keys (⏮ ⏭ ⏯) drive us
+    let (ctrl_tx, mut ctrl_rx) = tokio::sync::mpsc::unbounded_channel::<Control>();
+    let _mpris = match mediakeys::start(ctrl_tx).await {
+        Ok(player) => {
+            println!("✓ Prêt. Le son sort de forkstify (touches multimédia actives via MPRIS).");
+            Some(player)
+        }
+        Err(e) => {
+            println!("✓ Prêt (MPRIS indisponible : {e} — touches multimédia inactives).");
+            None
+        }
+    };
 
     let mut live = Live {
         catalog,
@@ -43,6 +58,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
         current: None,
         queue: VecDeque::new(),
         current_request_id: None,
+        paused: false,
         branches: Vec::new(),
         size: 3,
     };
@@ -91,6 +107,13 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                 }
                 None => break,
             },
+            control = ctrl_rx.recv() => match control {
+                Some(control) => {
+                    live.on_control(control).await;
+                    live.prompt();
+                }
+                None => {}
+            },
         }
     }
 
@@ -118,6 +141,7 @@ struct Live<'a> {
     queue: VecDeque<crate::engine::Stop>,
     // the librespot play request currently on air, to filter stale events
     current_request_id: Option<u64>,
+    paused: bool,
     branches: Vec<crate::engine::Branch>,
     size: usize,
 }
@@ -223,6 +247,36 @@ impl Live<'_> {
         // segment finished — auto-advance so the music never stops
         if !self.advance().await {
             self.auto_advance().await;
+        }
+    }
+
+    /// A media-key / MPRIS control, mapped to the same actions as the keys.
+    async fn on_control(&mut self, control: Control) {
+        match control {
+            Control::Next => {
+                if !self.advance().await {
+                    self.auto_advance().await;
+                }
+            }
+            Control::Previous => self.back().await,
+            Control::PlayPause => {
+                self.paused = !self.paused;
+                if self.paused {
+                    self.sound.pause();
+                    println!("\n⏸ pause");
+                } else {
+                    self.sound.resume();
+                    println!("\n▶ reprise");
+                }
+            }
+            Control::Stop => {
+                self.paused = true;
+                self.sound.stop();
+                // the Stopped event we just caused must not be read as a
+                // track ending (which would advance) — drop the current id
+                self.current_request_id = None;
+                println!("\n⏹ arrêt");
+            }
         }
     }
 

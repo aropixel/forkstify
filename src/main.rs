@@ -10,6 +10,7 @@
 mod catalog;
 mod engine;
 mod listen;
+mod mediakeys;
 mod sound;
 mod spotify;
 

@@ -63,7 +63,10 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   fini → auto-avance pour ne jamais s'arrêter ; `1-3` saute vers une
   branche, `j`/`k` morceau suivant/précédent (player classique, timeline
   passé/courant/file, événements filtrés par `play_request_id`), `e`/`<n>e`
-  intercale, `b<n>` la taille, `u` branche précédente, `q` quitte). Le moteur reste
+  intercale, `b<n>` la taille, `u` branche précédente, `q` quitte). **Touches
+  multimédia** ⏮ ⏭ ⏯ prises en charge via **MPRIS** (D-Bus, module
+  `mediakeys.rs`, crate `mpris-server`) — comme `playerctl` ; boucle passée
+  en runtime current-thread + LocalSet pour héberger le serveur MPRIS. Le moteur reste
   intact — il produit des morceaux, `sound`/`spotify` les jouent. `parcours`
   reste le mode à sec (rapide, sans Premium, pour itérer sur le moteur).
   Construction via l'image **`forkstify-build`** (`Dockerfile` : rust +

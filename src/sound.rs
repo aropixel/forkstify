@@ -42,6 +42,14 @@ impl Sound {
         self.player.load(uri, true, 0);
     }
 
+    pub fn pause(&self) {
+        self.player.pause();
+    }
+
+    pub fn resume(&self) {
+        self.player.play();
+    }
+
     pub fn stop(&self) {
         self.player.stop();
     }
