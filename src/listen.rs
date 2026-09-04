@@ -77,7 +77,6 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
     // opening: play the seed's own tops, then show the first branches
     let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
     live.start_segment(vec![seed.to_string()], opening, true).await;
-    live.show_menu();
     live.prompt();
 
     loop {
@@ -162,6 +161,10 @@ impl Live<'_> {
         // the chosen segment replaces whatever was still ahead
         self.queue = stops.into();
         self.advance().await;
+        // branches for this segment are computed once, up front, so `1`-`3`
+        // and `p` work anytime; they are only *shown* on the last track
+        self.recompute();
+        self.render();
     }
 
     /// Enqueue more of the current artist right after the current track.
@@ -178,6 +181,7 @@ impl Live<'_> {
         for stop in stops.into_iter().rev() {
             self.queue.push_front(stop);
         }
+        self.render();
     }
 
     /// Resolve a stop and load it as the current track. Returns false when
@@ -245,20 +249,49 @@ impl Live<'_> {
 
     async fn on_track_over(&mut self) {
         // segment finished — auto-advance so the music never stops
-        if !self.advance().await {
+        if self.advance().await {
+            self.render();
+        } else {
             self.auto_advance().await;
         }
+    }
+
+    /// Show what plays now and what comes next; on the segment's last track,
+    /// show the branches instead of an empty « à suivre » (Joel, 04/09/2026).
+    fn render(&self) {
+        if self.queue.is_empty() {
+            let (_, current, ..) = state_of(&self.rounds);
+            println!("\n(dernier du segment — les branches :)");
+            show_branches(self.catalog, &current, &self.branches);
+        } else {
+            println!("\nà suivre :");
+            for stop in &self.queue {
+                println!("   • {} — {}", stop.title, stop.artist);
+            }
+        }
+    }
+
+    /// See the branches on demand, wherever we are in the segment (`p`).
+    /// A richer « preview then pick ahead » belongs to the future GUI.
+    fn preview(&self) {
+        let (_, current, ..) = state_of(&self.rounds);
+        show_branches(self.catalog, &current, &self.branches);
     }
 
     /// A media-key / MPRIS control, mapped to the same actions as the keys.
     async fn on_control(&mut self, control: Control) {
         match control {
             Control::Next => {
-                if !self.advance().await {
+                if self.advance().await {
+                    self.render();
+                } else {
                     self.auto_advance().await;
                 }
             }
-            Control::Previous => self.back().await,
+            Control::Previous => {
+                self.back().await;
+                self.render();
+            }
             Control::PlayPause => {
                 self.paused = !self.paused;
                 if self.paused {
@@ -287,14 +320,8 @@ impl Live<'_> {
         );
     }
 
-    fn show_menu(&mut self) {
-        self.recompute();
-        let (_, current, ..) = state_of(&self.rounds);
-        show_branches(self.catalog, &current, &self.branches);
-    }
-
     fn prompt(&self) {
-        print!("\n[1-{}, entrée/auto, j/k = suivant/précédent, e/<n>e = encore, b<n> = taille, u = branche préc., q = quitter] > ",
+        print!("\n[1-{}, entrée/auto, j/k = suivant/précédent, p = branches, e/<n>e = encore, b<n> = taille, u = branche préc., q = quitter] > ",
             self.branches.len().max(1));
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
@@ -311,7 +338,6 @@ impl Live<'_> {
         let branch = self.branches.swap_remove(index);
         println!("\n→ {}", branch.label);
         self.start_segment(branch.artists, branch.stops, false).await;
-        self.show_menu();
     }
 
     async fn choose(&mut self, n: usize) {
@@ -322,7 +348,6 @@ impl Live<'_> {
         let branch = self.branches.remove(n - 1);
         println!("→ {}", branch.label);
         self.start_segment(branch.artists, branch.stops, false).await;
-        self.show_menu();
     }
 
     /// Handle one input line; returns false to quit.
@@ -332,11 +357,17 @@ impl Live<'_> {
             "" => self.auto_advance().await,
             // player-style track navigation (vim: j down/next, k up/previous)
             "j" => {
-                if !self.advance().await {
+                if self.advance().await {
+                    self.render();
+                } else {
                     self.auto_advance().await;
                 }
             }
-            "k" => self.back().await,
+            "k" => {
+                self.back().await;
+                self.render();
+            }
+            "p" => self.preview(),
             "u" => {
                 if self.rounds.len() > 1 {
                     self.rounds.pop();
@@ -344,7 +375,6 @@ impl Live<'_> {
                     let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
                     self.queue.clear();
                     self.start_segment(vec![current], stops, false).await;
-                    self.show_menu();
                 } else {
                     println!("Déjà à la graine.");
                 }

@@ -138,6 +138,13 @@ de moteur (la zone de confort pourra redonner ce penchant à l'auto).
 Nuance PoC : à sec il n'y a pas de « morceau en cours », `e` vise le
 dernier artiste du segment ; la vraie sémantique arrive avec le son.
 
+Affichage pendant l'écoute (Joel, 04/09/2026) : on montre la **file des
+morceaux à venir** (le morceau courant sur la ligne `▶`), et les
+**branches n'apparaissent qu'au dernier morceau** du segment — au moment
+de choisir. `p` permet de les voir à l'avance à tout instant (et d'en
+choisir une avec `1`-`3`) ; la vraie « prévisualisation puis choix
+anticipé » se fera dans l'interface graphique.
+
 Une direction est une petite **marche** dans le graphe : on part d'un
 voisin, on enchaîne vers son voisin le plus proche, un morceau par
 artiste traversé (un artiste sans tops est traversé sans morceau). La
