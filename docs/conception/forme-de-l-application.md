@@ -31,7 +31,7 @@ Points de départ de la réflexion de Joel, et ce qu'on en retient :
   l'interface**.
 - **Rust** : `ratatui`, `rspotify`, `tokio`, `fastembed` pour les vecteurs
   ([0006](../decisions/0006-rust.md)).
-- **Affinage au clavier : chaque touche est une mesure (`usage/`) ou une
+- **Affinage au clavier : chaque touche est une mesure (`learned/`) ou une
   édition (un commit)**, `u` annule la dernière, chaque touche n'est que le
   raccourci d'une commande `:`
   ([0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)). La
@@ -66,7 +66,7 @@ Principe acté le 01/09/2026
 table des touches, elle, s'ajuste au fil du PoC. **Chaque touche est
 soit une mesure, soit une édition.**
 
-- Une **mesure** modifie `usage/` en silence (sauter, aimer) — c'est
+- Une **mesure** modifie `learned/` en silence (sauter, aimer) — c'est
   l'*appris* de [catalogue.md](catalogue.md).
 - Une **édition** modifie une fiche et produit **un commit lisible**
   (« top : + A Forest ») — c'est le *mien*, immédiatement partageable.
@@ -82,7 +82,7 @@ Sur le **morceau en cours** :
 | `T` | Retirer des tops | commit |
 | `e` / `<n>e` | **Encore** (« poncer », dans l'argot du projet) : intercaler n morceaux de plus de l'artiste du morceau en cours juste après lui, le segment reprend ensuite. n = taille des branches par défaut (`:encore n`) | lecture |
 | `x` | Sauter — « pas celui-là, pas maintenant » | mesure |
-| `X` | Écarter — « plus jamais celui-là » (liste noire dans `usage/` : un dégoût est personnel) | mesure |
+| `X` | Écarter — « plus jamais celui-là » (liste noire dans `learned/` : un dégoût est personnel) | mesure |
 | `a` | Aimer (et le refléter en titre aimé Spotify) | mesure |
 | `d` | En faire une **door** vers la direction du dernier embranchement pris — pré-remplie avec les tags de la branche, on valide | commit |
 | `m` | Marquer : le mettre dans une **récolte** à trier plus tard, sans interrompre l'écoute | mesure |

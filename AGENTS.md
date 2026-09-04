@@ -59,9 +59,13 @@ Le détail est dans `docs/decisions/`. En résumé :
   sans remise, confort = profondeur ([0012](docs/decisions/0012-rotation-des-morceaux.md)).
 - **Affinage au clavier : chaque touche est une mesure ou une édition**,
   `u` annule, tout est commande `:` ([0013](docs/decisions/0013-affinage-clavier-mesure-ou-edition.md)).
-- **Langue** : français partout (doc, commits, interface) — **sauf le
-  code : identifiants et commentaires en anglais** (visée open source,
-  demandé par Joel le 03/09/2026).
+- **L'appris vit dans `learned/`** (un fichier par artiste, compteurs
+  décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)).
+- **Langue** : français pour la prose (doc, commits, interface) ; **anglais
+  pour tout ce qui est interface publique du dépôt — code (identifiants,
+  commentaires) et vocabulaire sur disque (chemins, sous-dossiers, champs
+  des formats)** (visée open source, Joel les 03–04/09/2026). Le format de
+  fiche est déjà en anglais ; `learned/` de même.
 
 ## Ce qui reste à trancher
 

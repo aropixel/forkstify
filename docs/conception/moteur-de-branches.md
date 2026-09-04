@@ -77,11 +77,11 @@ explicable en une phrase (actés le 01/09/2026,
 
 1. **Le top est un poids, pas une liste fermée.** Le réservoir d'un artiste
    cumule : les tops (poids fort), les titres aimés de l'utilisateur chez
-   cet artiste (`usage/`), les doors, et le reste de la discographie connue
+   cet artiste (`learned/`), les doors, et le reste de la discographie connue
    (cache du top élargi Deezer/Spotify, hors catalogue). Le moteur **tire
    au sort pondéré** dans ce réservoir, il ne prend pas le premier de la
    liste.
-2. **La fraîcheur (cooldown).** Chaque lecture est datée dans `usage/` ;
+2. **La fraîcheur (cooldown).** Chaque lecture est datée dans `learned/` ;
    un morceau joué récemment est pénalisé, la pénalité décroît avec le
    temps. « Déjà joué mardi, je le laisse reposer. »
 3. **Sans remise dans le parcours.** Jamais deux fois le même morceau dans

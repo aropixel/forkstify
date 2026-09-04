@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **03/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **04/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -9,15 +9,16 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   l'algorithme »), vocabulaire, 13 décisions (`docs/decisions/`), 5 notes
   vivantes (`docs/conception/`). Rust, TOML, MBID, deux dépôts, format de
   fiche v1 (links typés anglais + proximité en cascade, doors en critère
-  additionnel, tout optionnel sauf `format`/`name`/`mbid`). Dernières
-  actées le 01/09/2026 : rotation des morceaux (0012) et affinage au
-  clavier — mesure ou édition (0013).
+  additionnel, tout optionnel sauf `format`/`name`/`mbid`). 14 décisions ;
+  dernière le 04/09/2026 : **forme de l'appris** — dossier `learned/`, un
+  fichier par artiste, compteurs décrus (demi-vie 6 mois) (0014). Le
+  vocabulaire sur disque (chemins, champs) est en anglais comme le code.
 - **Catalogue amorcé** (`~/Work/forkstify-catalog`, GitHub privé) :
   `catalogue.toml` (grille type → proximité), **30 fiches** écrites
   (`generated = true`, le haut du classement de Joel), **outillage/** —
   7 scripts Python d'amorçage (lecture bibliothèque/playlists Spotify via la
   session Omarchy-Spotify, récolte amis Spotify/Deezer, résolution MBID,
-  classement), **usage/** — 741 artistes scorés (titres aimés, albums,
+  classement), **learned/** — 741 artistes scorés (titres aimés, albums,
   #fipway, road trip BDX//ATX, suivis), 728 MBID résolus.
 - **Analyse d'Omarchy-Spotify** (code lu) : deux OAuth PKCE navigateur sans
   dashboard (client id ncspot pour l'API Web, client id desktop Spotify pour
@@ -40,7 +41,7 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   score ≥ 5 sans fiche. Correction en route : « Experience » (bibliothèque
   de Joel) résolu à tort en The Jimi Hendrix Experience — c'est
   **Expérience** (Michel Cloup, Toulouse), MBID corrigé dans
-  `usage/mbid.json`. Le catalogue compte **214 fiches** ; le lot 3 appelle
+  `learned/mbid.json`. Le catalogue compte **214 fiches** ; le lot 3 appelle
   à son tour **100 slugs** (lot 4, non généré — la traîne du classement à
   score 1–4 est aussi laissée de côté : ces artistes entreront quand un
   link les appellera).
@@ -147,9 +148,11 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 1. **Éprouver `ecouter`** : le tester en vrai (Joel), ajuster la résolution
    titre → id (versions live/remaster, homonymes) et le rythme des menus.
-2. **Étoffer la navigation** : zone de confort (0001) dans le choix auto et
-   les seuils de l'aventureuse, lecture d'`usage/` (cooldowns 0012),
-   premiers keybinds d'affinage (0013) — au fil de l'usage.
+2. **Fermer la boucle d'apprentissage** (format acté, 0014) : le moteur lit
+   `learned/artists/` (familiarité → zone de confort 0001 et seuils de
+   l'aventureuse, cooldowns 0012, poids) et les touches d'affinage (0013)
+   écrivent dedans (mesures) ou dans les fiches (éditions, commit). C'est le
+   cœur — « reprendre la main sur l'algorithme » rendu réel.
 3. **Trousseau GNOME** pour les jetons (refresh OAuth, identifiants
    librespot) au lieu des caches `target/` (spike-cache, spike-webapi-refresh).
 4. **TUI** (étape 4), à la neomd : touche unique sans Entrée, auto sur
@@ -160,9 +163,9 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 ## Corrections en attente (petites)
 
 - MBID de **Les Thugs** introuvable (homonymie probable) et une entrée au
-  nom vide dans `usage/mbid.json` ; 110 MBID résolus « par nom » à relire.
+  nom vide dans `learned/mbid.json` ; 110 MBID résolus « par nom » à relire.
 - `resoudre-mbid.py` ne lit que les fichiers Spotify — à adapter aux
-  récoltes Deezer (`usage/amis/*-deezer.json`).
+  récoltes Deezer (`learned/amis/*-deezer.json`).
 
 ## Règles de session
 

@@ -170,7 +170,7 @@ fork, tous dans git :
 2. **Le mien** — ce que j'ai écrit ou validé explicitement dans les fiches.
    C'est ce que je peux proposer à l'amont.
 3. **L'appris** — ce que l'usage a produit, dans un dossier à part
-   (`usage/`), versionné pour être portable, que l'application sait ne
+   (`learned/`), versionné pour être portable, que l'application sait ne
    jamais inclure dans une PR.
 
 Entre les deux derniers, la **promotion** : transformer un signal d'usage en
@@ -179,12 +179,14 @@ j'ajoute la connexion `voisinage` à la fiche ? » Une promotion = un commit
 lisible. C'est ce qui empêche le catalogue de devenir une boîte noire : tout
 ce qu'il a appris seul est un diff qu'on peut relire et annuler.
 
-### Forme de l'appris (proposé le 04/09/2026, à acter)
+### Forme de l'appris (acté le 04/09/2026, [0014](../decisions/0014-forme-de-l-appris.md))
 
-Comment `usage/` stocke ce que l'écoute apprend, et ce que le moteur en lit.
-Trois principes qui découlent du reste :
+Comment la couche *appris* (dossier `learned/`) stocke ce que l'écoute
+apprend, et ce que le moteur en lit. Le vocabulaire sur disque est en
+**anglais**, comme le format de fiche (le dépôt vise l'open source). Trois
+principes qui découlent du reste :
 
-- **Un fichier par artiste**, `usage/appris/<slug>.toml`, en miroir des
+- **Un fichier par artiste**, `learned/artists/<slug>.toml`, en miroir des
   fiches. Comme une fiche par artiste, ça diffe proprement, ça ne crée
   **jamais de conflit** avec l'amont (chacun le sien), et ça scale. Un seul
   gros fichier grossirait sans fin et casserait à chaque merge.
@@ -201,7 +203,7 @@ Trois principes qui découlent du reste :
 Forme d'un fichier :
 
 ```toml
-# usage/appris/the-cure.toml
+# learned/artists/the-cure.toml
 plays = 12.4          # écoutes, décrues dans le temps (familiarité)
 last  = "2026-09-04"  # dernière écoute (récence + cooldown)
 weight = 0.8          # correctif « - » (moins souvent) ; 1.0 = neutre
@@ -218,10 +220,10 @@ blacklisted = true    # « X » sur ce morceau
 ```
 
 Les **récoltes** (touche `m`, à trier plus tard) vivent à part, transverses
-aux artistes : `usage/recoltes/<nom>.toml` (liste de `{artist, title, at}`).
+aux artistes : `learned/marks/<name>.toml` (liste de `{artist, title, at}`).
 
 **Ce que chaque touche de [0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)
-écrit** — mesures dans `usage/appris/`, éditions dans la fiche (commit) :
+écrit** — mesures dans `learned/artists/`, éditions dans la fiche (commit) :
 
 | Touche | Effet | Où |
 |---|---|---|
@@ -230,7 +232,7 @@ aux artistes : `usage/recoltes/<nom>.toml` (liste de `{artist, title, at}`).
 | `X` écarter | `blacklisted = true` (top ou artiste) | appris (mesure) |
 | `a` aimer | `tops.<t>.liked = true` (+ titre aimé Spotify) | appris (mesure) |
 | `-` moins souvent | `weight ×= 0.7` (plancher) | appris (mesure) |
-| `m` marquer | ligne dans `usage/recoltes/` | appris (mesure) |
+| `m` marquer | ligne dans `learned/marks/` | appris (mesure) |
 | `t`/`T` top | ajoute/retire des `tops` | **fiche (commit)** |
 | `d` door | ajoute une `door` | **fiche (commit)** |
 | `E` éditer | ouvre la fiche dans `$EDITOR` | **fiche (commit)** |
@@ -238,9 +240,9 @@ aux artistes : `usage/recoltes/<nom>.toml` (liste de `{artist, title, at}`).
 **Ce que le moteur lit** de l'appris, en plus de la fiche :
 
 - **exclusion** des `blacklisted` (artiste et top) ;
-- **familiarité** = `plays` décru (+ l'amorce `classement.json` pour un
-  artiste sans appris encore) → nourrit la **zone de confort** (0001) et les
-  seuils de l'aventureuse ;
+- **familiarité** = `plays` décru (+ l'amorce `learned/classement.json` pour
+  un artiste sans appris encore) → nourrit la **zone de confort** (0001) et
+  les seuils de l'aventureuse ;
 - **cooldown** (0012) : un `last` récent baisse le poids / suspend, pour que
   ce qu'on vient d'écouter tourne (le « sans remise » d'une session, lui,
   reste en mémoire) ;
@@ -248,8 +250,14 @@ aux artistes : `usage/recoltes/<nom>.toml` (liste de `{artist, title, at}`).
   souvent `skipped` recule dans le segment, un top `liked` avance.
 
 `classement.json` (l'amorce, 741 artistes scorés depuis la bibliothèque)
-devient donc **la familiarité de départ** ; `usage/appris/` la prolonge et
-la corrige au fil de l'écoute.
+devient donc **la familiarité de départ** ; `learned/artists/` la prolonge
+et la corrige au fil de l'écoute.
+
+> Vocabulaire : la couche « appris » est le dossier **`learned/`** (renommé
+> depuis `learned/` le 04/09/2026 — pas de terme français dans les chemins ni
+> le format). Les fichiers d'amorce encore nommés en français dans
+> `learned/` (`amis/`, `artistes-*.json`) et leurs clés seront traduits avec
+> les scripts d'`outillage/`.
 
 Orientation : l'*appris* se modifie seul en silence (c'est de la mesure) ;
 la *promotion* se propose par défaut et peut passer en automatique par
@@ -289,7 +297,7 @@ Un nouvel utilisateur ne doit rien avoir à écrire :
 2. **Puis l'import personnel** (son Spotify ou son Deezer — les scripts
    d'`outillage/` en sont le prototype) : les artistes déjà dans la base ne
    coûtent rien (leurs signaux calibrent la zone de confort, dans
-   `usage/`) ; les absents passent par le pipeline de génération.
+   `learned/`) ; les absents passent par le pipeline de génération.
 
 **Le pipeline de génération** — mêmes sources vérifiées le 31/08/2026 :
 
@@ -328,7 +336,7 @@ premier lancement, générer en cours d'écoute (catalogue vivant).
   catalogue initial a doublé en volume et en qualité — comment en
   profiter ? » C'est une fusion git de l'amont dans le fork, et la structure
   aide : une fiche par artiste (les nouvelles fiches arrivent sans aucun
-  conflit), l'appris dans `usage/` (jamais en conflit avec l'amont), le mien
+  conflit), l'appris dans `learned/` (jamais en conflit avec l'amont), le mien
   concentré sur les fiches que j'ai touchées. Les conflits réels se limitent
   donc aux fiches modifiées des deux côtés — et là, une commande `forkstify
   catalogue sync` doit guider champ par champ (« l'amont a enrichi la
