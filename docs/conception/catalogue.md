@@ -179,6 +179,78 @@ j'ajoute la connexion `voisinage` à la fiche ? » Une promotion = un commit
 lisible. C'est ce qui empêche le catalogue de devenir une boîte noire : tout
 ce qu'il a appris seul est un diff qu'on peut relire et annuler.
 
+### Forme de l'appris (proposé le 04/09/2026, à acter)
+
+Comment `usage/` stocke ce que l'écoute apprend, et ce que le moteur en lit.
+Trois principes qui découlent du reste :
+
+- **Un fichier par artiste**, `usage/appris/<slug>.toml`, en miroir des
+  fiches. Comme une fiche par artiste, ça diffe proprement, ça ne crée
+  **jamais de conflit** avec l'amont (chacun le sien), et ça scale. Un seul
+  gros fichier grossirait sans fin et casserait à chaque merge.
+- **Des compteurs qui décroissent tout seuls dans le temps.** Plutôt que
+  garder l'historique de chaque écoute, on garde **un compte décru** : à
+  chaque écoute, `plays = plays × ½^((maintenant − last)/demi-vie) + 1`, et
+  `last = maintenant`. Un seul flottant et une date par artiste (et par top),
+  et une écoute d'il y a trois ans ne pèse presque plus — la question de la
+  décroissance est réglée par construction. Demi-vie par défaut : **6 mois**,
+  réglable.
+- **Silencieux, jamais reversé.** L'appris se modifie sans rien demander
+  (c'est de la mesure), et l'application ne l'inclut jamais dans une PR.
+
+Forme d'un fichier :
+
+```toml
+# usage/appris/the-cure.toml
+plays = 12.4          # écoutes, décrues dans le temps (familiarité)
+last  = "2026-09-04"  # dernière écoute (récence + cooldown)
+weight = 0.8          # correctif « - » (moins souvent) ; 1.0 = neutre
+blacklisted = false   # « X » sur l'artiste entier
+
+[tops."A Forest"]
+plays = 5.0
+last  = "2026-09-04"
+liked = true          # « a »
+skipped = 2           # « x » cumulés
+
+[tops."Killing an Arab"]
+blacklisted = true    # « X » sur ce morceau
+```
+
+Les **récoltes** (touche `m`, à trier plus tard) vivent à part, transverses
+aux artistes : `usage/recoltes/<nom>.toml` (liste de `{artist, title, at}`).
+
+**Ce que chaque touche de [0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)
+écrit** — mesures dans `usage/appris/`, éditions dans la fiche (commit) :
+
+| Touche | Effet | Où |
+|---|---|---|
+| écoute complète (auto) | `plays += 1`, `last` | appris (mesure) |
+| `x` sauter | `tops.<t>.skipped += 1` | appris (mesure) |
+| `X` écarter | `blacklisted = true` (top ou artiste) | appris (mesure) |
+| `a` aimer | `tops.<t>.liked = true` (+ titre aimé Spotify) | appris (mesure) |
+| `-` moins souvent | `weight ×= 0.7` (plancher) | appris (mesure) |
+| `m` marquer | ligne dans `usage/recoltes/` | appris (mesure) |
+| `t`/`T` top | ajoute/retire des `tops` | **fiche (commit)** |
+| `d` door | ajoute une `door` | **fiche (commit)** |
+| `E` éditer | ouvre la fiche dans `$EDITOR` | **fiche (commit)** |
+
+**Ce que le moteur lit** de l'appris, en plus de la fiche :
+
+- **exclusion** des `blacklisted` (artiste et top) ;
+- **familiarité** = `plays` décru (+ l'amorce `classement.json` pour un
+  artiste sans appris encore) → nourrit la **zone de confort** (0001) et les
+  seuils de l'aventureuse ;
+- **cooldown** (0012) : un `last` récent baisse le poids / suspend, pour que
+  ce qu'on vient d'écouter tourne (le « sans remise » d'une session, lui,
+  reste en mémoire) ;
+- **poids** : `weight` multiplie le poids de branche de l'artiste ; un top
+  souvent `skipped` recule dans le segment, un top `liked` avance.
+
+`classement.json` (l'amorce, 741 artistes scorés depuis la bibliothèque)
+devient donc **la familiarité de départ** ; `usage/appris/` la prolonge et
+la corrige au fil de l'écoute.
+
 Orientation : l'*appris* se modifie seul en silence (c'est de la mesure) ;
 la *promotion* se propose par défaut et peut passer en automatique par
 réglage — l'application n'exige jamais de décision, mais rend les siennes
@@ -277,9 +349,11 @@ premier lancement, générer en cours d'écoute (catalogue vivant).
   (accents, articles, homonymes).
 - **Promotion automatique ou avec confirmation** : réglage par défaut, et
   granularité (par type de promotion ?).
-- **Forme de l'appris** : un fichier par artiste dans `usage/`, ou un seul
-  fichier ? Quels compteurs exactement, avec quelle décroissance dans le
-  temps (une écoute d'il y a trois ans compte-t-elle encore) ?
+- **Forme de l'appris** : proposée le 04/09/2026 (voir l'orientation
+  « Forme de l'appris » plus haut — un fichier par artiste, compteurs
+  décrus). Restent à régler au fil du PoC : la **demi-vie** de décroissance
+  (6 mois par défaut), la **fenêtre de cooldown** (0012), et la formule
+  familiarité → zone de confort 0–5 (0001).
 - **Marquage des fiches générées** : un champ (`generee = true`), un
   dossier à part, ou les deux ?
 - **Licence** du catalogue partagé : une licence de données (ODbL comme
