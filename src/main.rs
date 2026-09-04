@@ -1,13 +1,17 @@
-//! forkstify — dry-navigation PoC: a seed, three readable branches with
-//! their reasons, a keyboard choice, segments printed without playing
-//! them. Success criterion: journeys that read as coherent
-//! (docs/conception/forme-de-l-application.md).
+//! forkstify — branch music player, PoC.
 //!
-//!   forkstify parcours <graine> [chemin-du-catalogue]
-//!   forkstify check <artiste> [chemin-du-catalogue]
+//!   forkstify parcours <graine> [catalogue]   navigate dry (no sound)
+//!   forkstify ecouter  <graine> [catalogue]   navigate and play (Spotify)
+//!   forkstify check    <artiste> [catalogue]  a card's neighbors in space
+//!
+//! `parcours` prints segments without playing — fast, for iterating on the
+//! engine. `ecouter` plays them through the embedded librespot device.
 
 mod catalog;
 mod engine;
+mod listen;
+mod sound;
+mod spotify;
 
 use catalog::Catalog;
 use rand::distributions::WeightedIndex;
@@ -52,11 +56,52 @@ fn resolve(catalog: &Catalog, text: &str) -> Option<String> {
     }
 }
 
-/// One chosen branch: the artists it walked (empty when sanding) and the
+/// One chosen branch: the artists it walked (empty for an encore) and the
 /// tracks it played. `u` pops a whole round.
-struct Round {
-    artists: Vec<String>,
-    tracks: Vec<String>,
+pub struct Round {
+    pub artists: Vec<String>,
+    pub tracks: Vec<String>,
+}
+
+/// The engine state derived from the journey so far: the context (last
+/// non-empty branch), the current artist, the universe/visited artists and
+/// the played tracks. Shared by the dry navigator and the live listener.
+pub fn state_of(rounds: &[Round]) -> (Vec<String>, String, Vec<String>, HashSet<String>, HashSet<String>) {
+    let context: Vec<String> = rounds
+        .iter()
+        .rev()
+        .find(|round| !round.artists.is_empty())
+        .unwrap()
+        .artists
+        .clone();
+    let current = context.last().unwrap().clone();
+    let mut universe: Vec<String> = Vec::new();
+    for slug in rounds.iter().flat_map(|round| round.artists.iter()) {
+        if !universe.contains(slug) {
+            universe.push(slug.clone());
+        }
+    }
+    let visited: HashSet<String> = universe.iter().cloned().collect();
+    let played: HashSet<String> =
+        rounds.iter().flat_map(|round| round.tracks.iter().cloned()).collect();
+    (context, current, universe, visited, played)
+}
+
+/// Print the branch menu (shared by both modes).
+pub fn show_branches(catalog: &Catalog, current: &str, branches: &[engine::Branch]) {
+    println!("\n── depuis {} ──", catalog.cards[current].name);
+    if branches.is_empty() {
+        println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
+    }
+    for (i, branch) in branches.iter().enumerate() {
+        println!("\n  {}  {}", i + 1, branch.label);
+        if !branch.reason.is_empty() {
+            println!("     {}", branch.reason);
+        }
+        for stop in &branch.stops {
+            println!("     ♪ {} — {}", stop.title, stop.artist);
+        }
+    }
 }
 
 fn journey(catalog: &Catalog, seed: &str) {
@@ -65,41 +110,10 @@ fn journey(catalog: &Catalog, seed: &str) {
     let mut size = 3usize;
 
     loop {
-        // the context is the whole previous branch, not just its last artist
-        let context: Vec<String> = rounds
-            .iter()
-            .rev()
-            .find(|round| !round.artists.is_empty())
-            .unwrap()
-            .artists
-            .clone();
-        let current = context.last().unwrap().clone();
-        // the universe: every artist of the journey, in order, once
-        let mut universe: Vec<String> = Vec::new();
-        for slug in rounds.iter().flat_map(|round| round.artists.iter()) {
-            if !universe.contains(slug) {
-                universe.push(slug.clone());
-            }
-        }
-        let visited: HashSet<String> = universe.iter().cloned().collect();
-        let played: HashSet<String> =
-            rounds.iter().flat_map(|round| round.tracks.iter().cloned()).collect();
-
-        println!("\n── depuis {} ──", catalog.cards[&current].name);
+        let (context, current, universe, visited, played) = state_of(&rounds);
         let branches =
             engine::propose(catalog, &context, &universe, &visited, &played, size, &mut rng);
-        if branches.is_empty() {
-            println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
-        }
-        for (i, branch) in branches.iter().enumerate() {
-            println!("\n  {}  {}", i + 1, branch.label);
-            if !branch.reason.is_empty() {
-                println!("     {}", branch.reason);
-            }
-            for stop in &branch.stops {
-                println!("     ♪ {} — {}", stop.title, stop.artist);
-            }
-        }
+        show_branches(catalog, &current, &branches);
 
         print!("\n[1-{}, entrée = auto, e/<n>e = encore, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
         std::io::stdout().flush().unwrap();
@@ -202,7 +216,7 @@ fn main() -> anyhow::Result<()> {
     let (command, target, path) = match args.as_slice() {
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify parcours <graine> [catalogue]\n        forkstify check <artiste> [catalogue]");
+            eprintln!("usage : forkstify parcours <graine> [catalogue]\n        forkstify ecouter <graine> [catalogue]\n        forkstify check <artiste> [catalogue]");
             std::process::exit(2);
         }
     };
@@ -214,6 +228,7 @@ fn main() -> anyhow::Result<()> {
 
     match command {
         "parcours" => journey(&catalog, &slug),
+        "ecouter" => listen::run(&catalog, &slug)?,
         "check" => check(&catalog, &slug),
         other => {
             eprintln!("commande inconnue : {other}");

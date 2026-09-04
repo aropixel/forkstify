@@ -1,0 +1,247 @@
+//! `forkstify ecouter` — the dry navigator, but it plays. Same engine and
+//! menus as `parcours`; here the segments actually sound, track by track,
+//! and the keys act on the ongoing playback. The engine stays untouched:
+//! it produces stops, this module resolves and plays them.
+//!
+//! Line-based input for now (Enter after each key); real-time single-key
+//! and auto-on-silence belong to the TUI step. Music plays in the
+//! background (librespot task), the menu is shown while it plays, and a
+//! finished segment auto-advances so it never stops.
+
+use crate::catalog::Catalog;
+use crate::sound::{is_track_over, Sound};
+use crate::spotify::WebApi;
+use crate::{show_branches, state_of, Round};
+use librespot_core::SpotifyUri;
+use rand::distributions::WeightedIndex;
+use rand::prelude::*;
+use std::collections::VecDeque;
+use std::io::BufRead;
+
+pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?;
+    rt.block_on(async_run(catalog, seed))
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
+}
+
+async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Connexion à Spotify…");
+    let sound = Sound::connect().await?;
+    let web = WebApi::new().await?;
+    println!("✓ Prêt. Le son sort de forkstify (appareil Connect).");
+
+    let mut live = Live {
+        catalog,
+        sound,
+        web,
+        rng: thread_rng(),
+        rounds: vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }],
+        queue: VecDeque::new(),
+        branches: Vec::new(),
+        size: 3,
+    };
+    let mut events = live.sound.events();
+
+    // stdin on a blocking thread → async channel
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    std::thread::spawn(move || {
+        for line in std::io::stdin().lock().lines().map_while(Result::ok) {
+            if tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+
+    // opening: play the seed's own tops, then show the first branches
+    let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
+    live.start_segment(vec![seed.to_string()], opening, true).await;
+    live.show_menu();
+
+    loop {
+        tokio::select! {
+            event = events.recv() => match event {
+                Some(ev) if is_track_over(&ev) => live.on_track_over().await,
+                Some(_) => {}
+                None => break,
+            },
+            line = rx.recv() => match line {
+                Some(line) => {
+                    if !live.on_input(line.trim()).await {
+                        break;
+                    }
+                }
+                None => break,
+            },
+        }
+    }
+
+    live.sound.stop();
+    let path: Vec<&str> = live
+        .rounds
+        .iter()
+        .flat_map(|round| round.artists.iter())
+        .map(|slug| catalog.cards[slug].name.as_str())
+        .collect();
+    println!("\nParcours : {}", path.join(" → "));
+    Ok(())
+}
+
+struct Live<'a> {
+    catalog: &'a Catalog,
+    sound: Sound,
+    web: WebApi,
+    rng: ThreadRng,
+    rounds: Vec<Round>,
+    queue: VecDeque<crate::engine::Stop>,
+    branches: Vec<crate::engine::Branch>,
+    size: usize,
+}
+
+impl Live<'_> {
+    /// Start a segment: record it, then play its first playable track.
+    /// `opening` = the seed's own tops (already the first round, don't push).
+    async fn start_segment(&mut self, artists: Vec<String>, stops: Vec<crate::engine::Stop>, opening: bool) {
+        if stops.is_empty() {
+            return;
+        }
+        let tracks = stops.iter().map(|s| s.title.clone()).collect();
+        if opening {
+            self.rounds[0].tracks = tracks;
+        } else {
+            self.rounds.push(Round { artists, tracks });
+        }
+        self.queue = stops.into();
+        self.play_next().await;
+    }
+
+    /// Enqueue more of the current artist right after the current track.
+    async fn encore(&mut self, count: usize) {
+        let (_, current, _, _, played) = state_of(&self.rounds);
+        let stops = crate::engine::encore(self.catalog, &current, &played, count, &mut self.rng);
+        if stops.is_empty() {
+            println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
+            return;
+        }
+        println!("↻ encore {} ({} morceaux)", self.catalog.cards[&current].name, stops.len());
+        self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
+        // insert at the front so they play next, without cutting the current track
+        for stop in stops.into_iter().rev() {
+            self.queue.push_front(stop);
+        }
+    }
+
+    /// Play the next playable track of the queue; skip titles Spotify can't
+    /// resolve. Returns false when the segment is exhausted (no recursion —
+    /// the caller decides whether to auto-advance, to keep futures sized).
+    async fn play_next(&mut self) -> bool {
+        while let Some(stop) = self.queue.pop_front() {
+            print!("\n▶ {} — {} … ", stop.title, stop.artist);
+            std::io::Write::flush(&mut std::io::stdout()).ok();
+            match self.web.resolve(&stop.title, &stop.artist).await {
+                Some(uri) => match SpotifyUri::from_uri(&uri) {
+                    Ok(track) => {
+                        println!("({uri})");
+                        self.sound.play(track);
+                        return true;
+                    }
+                    Err(_) => println!("uri illisible, on saute"),
+                },
+                None => println!("introuvable sur Spotify, on saute"),
+            }
+        }
+        false
+    }
+
+    async fn on_track_over(&mut self) {
+        // segment finished — auto-advance so the music never stops
+        if !self.play_next().await {
+            self.auto_advance().await;
+        }
+    }
+
+    fn recompute(&mut self) {
+        let (context, _, universe, visited, played) = state_of(&self.rounds);
+        self.branches = crate::engine::propose(
+            self.catalog, &context, &universe, &visited, &played, self.size, &mut self.rng,
+        );
+    }
+
+    fn show_menu(&mut self) {
+        self.recompute();
+        let (_, current, ..) = state_of(&self.rounds);
+        show_branches(self.catalog, &current, &self.branches);
+        print!("\n[1-{}, entrée/auto, e/<n>e = encore, b<n> = taille, u = retour, q = quitter] > ",
+            self.branches.len().max(1));
+        std::io::Write::flush(&mut std::io::stdout()).ok();
+    }
+
+    /// Take a branch (by weight) and start playing it.
+    async fn auto_advance(&mut self) {
+        self.recompute();
+        if self.branches.is_empty() {
+            println!("\n(cul-de-sac — « u » pour revenir, « q » pour quitter)");
+            return;
+        }
+        let weights: Vec<f32> = self.branches.iter().map(|b| b.weight.max(0.1)).collect();
+        let index = WeightedIndex::new(&weights).unwrap().sample(&mut self.rng);
+        let branch = self.branches.swap_remove(index);
+        println!("\n→ {}", branch.label);
+        self.start_segment(branch.artists, branch.stops, false).await;
+        self.show_menu();
+    }
+
+    async fn choose(&mut self, n: usize) {
+        if n == 0 || n > self.branches.len() {
+            println!("Choix incompris.");
+            return;
+        }
+        let branch = self.branches.remove(n - 1);
+        println!("→ {}", branch.label);
+        self.start_segment(branch.artists, branch.stops, false).await;
+        self.show_menu();
+    }
+
+    /// Handle one input line; returns false to quit.
+    async fn on_input(&mut self, text: &str) -> bool {
+        match text {
+            "q" => return false,
+            "" => self.auto_advance().await,
+            "u" => {
+                if self.rounds.len() > 1 {
+                    self.rounds.pop();
+                    let (_, current, _, _, played) = state_of(&self.rounds);
+                    let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
+                    self.queue.clear();
+                    self.start_segment(vec![current], stops, false).await;
+                    self.show_menu();
+                } else {
+                    println!("Déjà à la graine.");
+                }
+            }
+            _ if text.starts_with('b') => match text[1..].parse::<usize>() {
+                Ok(n) if (1..=9).contains(&n) => {
+                    self.size = n;
+                    println!("Taille des branches : {n}");
+                }
+                _ => println!("Taille incomprise (b1 à b9)."),
+            },
+            _ if text.ends_with('e') => {
+                let number = &text[..text.len() - 1];
+                let count = if number.is_empty() { self.size } else { number.parse().unwrap_or(0) };
+                if count == 0 || count > 9 {
+                    println!("Encore incompris (e, 2e … 9e).");
+                } else {
+                    self.encore(count).await;
+                }
+            }
+            _ => match text.parse::<usize>() {
+                Ok(n) => self.choose(n).await,
+                Err(_) => println!("Commande incomprise : {text}"),
+            },
+        }
+        true
+    }
+}

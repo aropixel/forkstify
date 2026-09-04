@@ -14,6 +14,7 @@ use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 pub struct Stop {
+    pub slug: String,
     pub artist: String,
     pub title: String,
 }
@@ -257,7 +258,11 @@ pub fn encore(
     let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
     fresh
         .choose_multiple(rng, count)
-        .map(|title| Stop { artist: card.name.clone(), title: (*title).clone() })
+        .map(|title| Stop {
+            slug: artist.to_string(),
+            artist: card.name.clone(),
+            title: (*title).clone(),
+        })
         .collect()
 }
 
@@ -282,7 +287,7 @@ fn walk(
         let last = artists.last().unwrap().clone();
         let card = &catalog.cards[&last];
         if let Some(title) = fresh_track(card, played, rng) {
-            stops.push(Stop { artist: card.name.clone(), title });
+            stops.push(Stop { slug: last.clone(), artist: card.name.clone(), title });
         }
         hops += 1;
         if stops.len() >= size || hops >= size * 3 {
@@ -378,7 +383,7 @@ fn stay(
         let Some(slug) = draw_weighted(&mut weighted, rng) else { break };
         let card = &catalog.cards[&slug];
         if let Some(title) = fresh_track(card, played, rng) {
-            stops.push(Stop { artist: card.name.clone(), title });
+            stops.push(Stop { slug: slug.clone(), artist: card.name.clone(), title });
             artists.push(slug);
         }
     }

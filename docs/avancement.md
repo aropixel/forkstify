@@ -55,6 +55,17 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   voisins cohérents (The Cure → Joy Division/Siouxsie ; IAM → le rap
   français ; Nina Simone → Ella/Nat King Cole) ; les fiches maigres ont
   des voisins flous à scores bas, ce que `check` doit justement révéler.
+- **Le son câblé sur la navigation** (04/09/2026) : `forkstify ecouter
+  <graine>` — même moteur et mêmes menus que `parcours`, mais **ça joue**.
+  Modules `sound.rs` (lecteur librespot embarqué), `spotify.rs` (Web API
+  ncspot : résolution titre → `spotify:track:`, cache disque, backoff 429)
+  et `listen.rs` (boucle async : lecture en fond, menu par-dessus, segment
+  fini → auto-avance pour ne jamais s'arrêter ; `1-3` saute, `e`/`<n>e`
+  intercale, `b<n>` la taille, `u` retour, `q` quitte). Le moteur reste
+  intact — il produit des morceaux, `sound`/`spotify` les jouent. `parcours`
+  reste le mode à sec (rapide, sans Premium, pour itérer sur le moteur).
+  Construction via l'image **`forkstify-build`** (`Dockerfile` : rust +
+  pkg-config + libasound2-dev).
 - **Navigation à sec prototypée** (03/09/2026) — le premier code Rust,
   dans ce dépôt : `forkstify parcours <graine>` propose 3 branches
   lisibles avec leurs raisons (graphe d'abord — liens typés dans les deux
@@ -121,16 +132,15 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Prochaines étapes, dans l'ordre
 
-1. **Étoffer la navigation** : zone de confort (0001) dans le choix auto,
-   lecture d'`usage/` (cooldowns 0012), premiers keybinds d'affinage
-   (0013) — au fil de l'usage du PoC.
-2. **Câbler le son sur `parcours`** : fondre les spikes en un module de
-   lecture (session librespot + lecteur + résolution titre → `spotify:track:`
-   via `/v1/search`), enchaîner les morceaux d'un segment, et faire agir `e`
-   et le choix de branche sur la lecture en cours. C'est le PoC qui joue.
+1. **Éprouver `ecouter`** : le tester en vrai (Joel), ajuster la résolution
+   titre → id (versions live/remaster, homonymes) et le rythme des menus.
+2. **Étoffer la navigation** : zone de confort (0001) dans le choix auto et
+   les seuils de l'aventureuse, lecture d'`usage/` (cooldowns 0012),
+   premiers keybinds d'affinage (0013) — au fil de l'usage.
 3. **Trousseau GNOME** pour les jetons (refresh OAuth, identifiants
-   librespot) au lieu des caches `target/` des spikes.
-4. **TUI** (étape 4), à la neomd.
+   librespot) au lieu des caches `target/` (spike-cache, spike-webapi-refresh).
+4. **TUI** (étape 4), à la neomd : touche unique sans Entrée, auto sur
+   silence, affichage du morceau en cours.
 5. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
    règle de langue du code (à l'occasion).
 
