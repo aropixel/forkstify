@@ -24,11 +24,24 @@ pub struct WebApi {
     expires_at: Instant,
     refresh_token: String,
     resolved: HashMap<String, Option<String>>,
+    prefer_studio: bool,
+}
+
+/// Does this text (a track or album name) mark a live recording? Token-based
+/// so "deliver" doesn't count as "live".
+fn is_live(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    if lower.contains("en public") {
+        return true;
+    }
+    lower
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| matches!(word, "live" | "unplugged" | "concert" | "vivo"))
 }
 
 impl WebApi {
     /// Reuse the cached refresh token; fall back to the browser flow once.
-    pub async fn new() -> Result<WebApi, Box<dyn std::error::Error>> {
+    pub async fn new(prefer_studio: bool) -> Result<WebApi, Box<dyn std::error::Error>> {
         let client = OAuthClientBuilder::new(CLIENT_ID, REDIRECT_URI, SCOPES.to_vec())
             .open_in_browser()
             .build()?;
@@ -55,6 +68,7 @@ impl WebApi {
             expires_at: token.expires_at,
             refresh_token: token.refresh_token,
             resolved,
+            prefer_studio,
         })
     }
 
@@ -78,15 +92,27 @@ impl WebApi {
         }
         self.refresh_if_needed().await.ok()?;
 
+        // when preferring studio, fetch several and pick the first non-live —
+        // unless the requested title itself asks for a live version
+        let limit = if self.prefer_studio && !is_live(title) { 8 } else { 1 };
         let query = format!("track:{title} artist:{artist}");
         let url = format!(
-            "https://api.spotify.com/v1/search?q={}&type=track&limit=1",
+            "https://api.spotify.com/v1/search?q={}&type=track&limit={limit}",
             encode(&query)
         );
-        let uri = self
-            .get_with_backoff(&url)
-            .await
-            .and_then(|body| body["tracks"]["items"][0]["uri"].as_str().map(String::from));
+        let body = self.get_with_backoff(&url).await;
+        let uri = body.as_ref().and_then(|body| {
+            let items = body["tracks"]["items"].as_array()?;
+            let studio = items.iter().find(|item| {
+                let name = item["name"].as_str().unwrap_or("");
+                let album = item["album"]["name"].as_str().unwrap_or("");
+                !is_live(name) && !is_live(album)
+            });
+            // the first studio hit if any, else the top result
+            studio
+                .or_else(|| items.first())
+                .and_then(|item| item["uri"].as_str().map(String::from))
+        });
 
         self.resolved.insert(key, uri.clone());
         if let Ok(text) = serde_json::to_string(&self.resolved) {

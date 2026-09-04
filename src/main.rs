@@ -8,6 +8,7 @@
 //! engine. `ecouter` plays them through the embedded librespot device.
 
 mod catalog;
+mod config;
 mod engine;
 mod listen;
 mod mediakeys;

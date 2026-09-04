@@ -32,8 +32,9 @@ pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
 
 async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("Connexion à Spotify…");
+    let config = crate::config::Config::load();
     let sound = Sound::connect().await?;
-    let web = WebApi::new().await?;
+    let web = WebApi::new(config.playback.prefer_studio).await?;
 
     // MPRIS: let the desktop's media keys (⏮ ⏭ ⏯) drive us
     let (ctrl_tx, mut ctrl_rx) = tokio::sync::mpsc::unbounded_channel::<Control>();
