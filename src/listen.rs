@@ -60,6 +60,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
         current_request_id: None,
         paused: false,
         branches: Vec::new(),
+        pending_branch: None,
         pending: Vec::new(),
         size: 3,
     };
@@ -143,6 +144,9 @@ struct Live<'a> {
     current_request_id: Option<u64>,
     paused: bool,
     branches: Vec<crate::engine::Branch>,
+    // a chosen branch waiting for the current track to end (Joel wants the
+    // song to finish before the branch starts); `j` forces it now
+    pending_branch: Option<crate::engine::Branch>,
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
     size: usize,
@@ -162,6 +166,8 @@ impl Live<'_> {
         if stops.is_empty() {
             return;
         }
+        // a new segment supersedes any branch that was waiting to start
+        self.pending_branch = None;
         let tracks = stops.iter().map(|s| s.title.clone()).collect();
         if opening {
             self.rounds[0].tracks = tracks;
@@ -257,13 +263,27 @@ impl Live<'_> {
         }
     }
 
-    async fn on_track_over(&mut self) {
-        // segment finished — auto-advance so the music never stops
-        if self.advance().await {
+    /// Move on from the current track: a branch chosen during it starts now
+    /// (this is where a deferred choice fires); otherwise the segment plays
+    /// its next track, and when it runs out the music auto-advances.
+    async fn next(&mut self) {
+        if let Some(branch) = self.pending_branch.take() {
+            self.start_branch(branch).await;
+        } else if self.advance().await {
             self.render();
         } else {
             self.auto_advance().await;
         }
+    }
+
+    async fn on_track_over(&mut self) {
+        self.next().await;
+    }
+
+    /// Start a chosen branch now (records it, plays its first track, shows it).
+    async fn start_branch(&mut self, branch: crate::engine::Branch) {
+        println!("\n→ {}", branch.label);
+        self.start_segment(branch.artists, branch.stops, false).await;
     }
 
     /// Show what plays now and what comes next; on the segment's last track,
@@ -376,13 +396,7 @@ impl Live<'_> {
     /// A media-key / MPRIS control, mapped to the same actions as the keys.
     async fn on_control(&mut self, control: Control) {
         match control {
-            Control::Next => {
-                if self.advance().await {
-                    self.render();
-                } else {
-                    self.auto_advance().await;
-                }
-            }
+            Control::Next => self.next().await,
             Control::Previous => {
                 self.back().await;
                 self.render();
@@ -445,8 +459,14 @@ impl Live<'_> {
             return;
         }
         let branch = self.branches.remove(n - 1);
-        println!("→ {}", branch.label);
-        self.start_segment(branch.artists, branch.stops, false).await;
+        // let the current track finish, then start the branch; if nothing is
+        // playing, start it right away
+        if self.current.is_some() {
+            println!("→ {} (à la fin du morceau — « j » pour tout de suite)", branch.label);
+            self.pending_branch = Some(branch);
+        } else {
+            self.start_branch(branch).await;
+        }
     }
 
     /// Handle one input line; returns false to quit.
@@ -468,13 +488,7 @@ impl Live<'_> {
             "q" => return false,
             "" => self.auto_advance().await,
             // player-style track navigation (vim: j down/next, k up/previous)
-            "j" => {
-                if self.advance().await {
-                    self.render();
-                } else {
-                    self.auto_advance().await;
-                }
-            }
+            "j" => self.next().await,
             "k" => {
                 self.back().await;
                 self.render();

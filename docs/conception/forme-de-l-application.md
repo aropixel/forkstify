@@ -145,6 +145,12 @@ de choisir. `p` permet de les voir à l'avance à tout instant (et d'en
 choisir une avec `1`-`3`) ; la vraie « prévisualisation puis choix
 anticipé » se fera dans l'interface graphique.
 
+**Choisir une branche ne coupe pas le morceau en cours** (Joel,
+04/09/2026) : la branche sélectionnée devient « en attente » et démarre à
+la **fin de la piste** courante — on choisit où aller ensuite, la chanson
+finit tranquillement. `j` (ou ⏭) force le passage immédiat. Un nouveau
+départ par un autre chemin (recherche, `u`) annule l'attente.
+
 Une direction est une petite **marche** dans le graphe : on part d'un
 voisin, on enchaîne vers son voisin le plus proche, un morceau par
 artiste traversé (un artiste sans tops est traversé sans morceau). La
