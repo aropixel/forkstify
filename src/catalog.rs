@@ -92,6 +92,21 @@ impl Catalog {
         Ok(Catalog { cards, proximities, vectors })
     }
 
+    /// Slugs whose card name matches the query (case-insensitive substring),
+    /// for the `/` search — best-effort, name only.
+    pub fn search_names(&self, query: &str, limit: usize) -> Vec<String> {
+        let needle = query.to_lowercase();
+        let mut hits: Vec<(&String, &String)> = self
+            .cards
+            .iter()
+            .filter(|(_, card)| card.name.to_lowercase().contains(&needle))
+            .map(|(slug, card)| (slug, &card.name))
+            .collect();
+        // exact-ish first (shorter names rank higher), then alphabetical
+        hits.sort_by(|a, b| a.1.len().cmp(&b.1.len()).then(a.0.cmp(b.0)));
+        hits.into_iter().take(limit).map(|(slug, _)| slug.clone()).collect()
+    }
+
     /// A link's proximity, resolved in cascade: the link itself, the
     /// catalog's grid, the built-in defaults (decision 0010).
     pub fn proximity(&self, link: &Link) -> u8 {

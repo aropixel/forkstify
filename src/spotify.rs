@@ -95,6 +95,35 @@ impl WebApi {
         uri
     }
 
+    /// Free-text track search (for the `/` shortcut): a few results as
+    /// (title, artist, uri), best match first.
+    pub async fn search_tracks(&mut self, query: &str, limit: usize) -> Vec<(String, String, String)> {
+        if self.refresh_if_needed().await.is_err() {
+            return Vec::new();
+        }
+        let url = format!(
+            "https://api.spotify.com/v1/search?q={}&type=track&limit={}",
+            encode(query),
+            limit
+        );
+        let Some(body) = self.get_with_backoff(&url).await else {
+            return Vec::new();
+        };
+        let Some(items) = body["tracks"]["items"].as_array() else {
+            return Vec::new();
+        };
+        items
+            .iter()
+            .filter_map(|track| {
+                Some((
+                    track["name"].as_str()?.to_string(),
+                    track["artists"][0]["name"].as_str()?.to_string(),
+                    track["uri"].as_str()?.to_string(),
+                ))
+            })
+            .collect()
+    }
+
     /// GET honoring Retry-After on 429 (spotify.md: throttle is account/IP).
     async fn get_with_backoff(&self, url: &str) -> Option<serde_json::Value> {
         let token = self.token.clone();

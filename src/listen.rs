@@ -60,6 +60,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
         current_request_id: None,
         paused: false,
         branches: Vec::new(),
+        pending: Vec::new(),
         size: 3,
     };
     let mut events = live.sound.events();
@@ -142,7 +143,16 @@ struct Live<'a> {
     current_request_id: Option<u64>,
     paused: bool,
     branches: Vec<crate::engine::Branch>,
+    // results of the last `/` search, awaiting a numeric pick
+    pending: Vec<Hit>,
     size: usize,
+}
+
+/// A `/` search result: a catalog artist to branch from, or a Spotify track
+/// to play (with its artist's slug when that artist has a card).
+enum Hit {
+    Artist(String),
+    Track { title: String, artist: String, uri: String, slug: Option<String> },
 }
 
 impl Live<'_> {
@@ -278,6 +288,91 @@ impl Live<'_> {
         show_branches(self.catalog, &current, &self.branches);
     }
 
+    /// `/` search: catalog artists first (branch-native), then Spotify tracks
+    /// (play anything). Results wait in `self.pending` for a numeric pick.
+    async fn search(&mut self, query: &str) {
+        let mut hits: Vec<Hit> = self
+            .catalog
+            .search_names(query, 5)
+            .into_iter()
+            .map(Hit::Artist)
+            .collect();
+        for (title, artist, uri) in self.web.search_tracks(query, 5).await {
+            let slug = self.catalog.search_names(&artist, 1).into_iter().next();
+            hits.push(Hit::Track { title, artist, uri, slug });
+        }
+
+        if hits.is_empty() {
+            println!("(rien pour « {query} »)");
+            return;
+        }
+        println!("\nRésultats pour « {query} » :");
+        for (i, hit) in hits.iter().enumerate() {
+            match hit {
+                Hit::Artist(slug) => {
+                    println!("  {}  [catalogue] {}", i + 1, self.catalog.cards[slug].name)
+                }
+                Hit::Track { title, artist, slug, .. } => {
+                    let mark = if slug.is_some() { "↳ branche ensuite" } else { "hors catalogue" };
+                    println!("  {}  [spotify]   {title} — {artist} ({mark})", i + 1);
+                }
+            }
+        }
+        self.pending = hits;
+    }
+
+    /// Pick a `/` result by number.
+    async fn pick_search(&mut self, n: usize) {
+        if n == 0 || n > self.pending.len() {
+            println!("Résultat incompris.");
+            self.pending.clear();
+            return;
+        }
+        let hit = self.pending.remove(n - 1);
+        self.pending.clear();
+        match hit {
+            Hit::Artist(slug) => {
+                let (_, _, _, _, played) = state_of(&self.rounds);
+                let stops = crate::engine::encore(self.catalog, &slug, &played, self.size, &mut self.rng);
+                println!("→ {}", self.catalog.cards[&slug].name);
+                self.start_segment(vec![slug], stops, false).await;
+            }
+            Hit::Track { title, artist, uri, slug } => {
+                // a one-track "segment": play it now, branch from its artist
+                // if we know it, otherwise it's off-map (no branches from here)
+                let round_artists = slug.iter().cloned().collect();
+                let stop = crate::engine::Stop {
+                    slug: slug.unwrap_or_default(),
+                    artist,
+                    title,
+                };
+                self.play_uri(round_artists, stop, &uri).await;
+            }
+        }
+    }
+
+    /// Play an exact Spotify uri now (from `/` search), as a fresh segment.
+    async fn play_uri(&mut self, round_artists: Vec<String>, stop: crate::engine::Stop, uri: &str) {
+        let Ok(track) = SpotifyUri::from_uri(uri) else {
+            println!("uri illisible, on ne joue pas");
+            return;
+        };
+        if let Some(current) = self.current.take() {
+            self.past.push(current);
+        }
+        let off_map = round_artists.is_empty();
+        self.rounds.push(Round { artists: round_artists, tracks: vec![stop.title.clone()] });
+        self.queue.clear();
+        println!("\n▶ {} — {}", stop.title, stop.artist);
+        self.sound.play(track);
+        self.current = Some(stop);
+        if off_map {
+            println!("(hors catalogue — les branches repartiront du dernier artiste connu)");
+        }
+        self.recompute();
+        self.render();
+    }
+
     /// A media-key / MPRIS control, mapped to the same actions as the keys.
     async fn on_control(&mut self, control: Control) {
         match control {
@@ -321,8 +416,12 @@ impl Live<'_> {
     }
 
     fn prompt(&self) {
-        print!("\n[1-{}, entrée/auto, j/k = suivant/précédent, p = branches, e/<n>e = encore, b<n> = taille, u = branche préc., q = quitter] > ",
-            self.branches.len().max(1));
+        if self.pending.is_empty() {
+            print!("\n[1-{}, entrée/auto, j/k = suiv./préc., /texte = chercher, p = branches, e/<n>e = encore, b<n> = taille, u, q] > ",
+                self.branches.len().max(1));
+        } else {
+            print!("\n[1-{} pour jouer un résultat, autre = annuler] > ", self.pending.len());
+        }
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
 
@@ -352,6 +451,19 @@ impl Live<'_> {
 
     /// Handle one input line; returns false to quit.
     async fn on_input(&mut self, text: &str) -> bool {
+        // `/query` starts a search; while results are pending, a number picks
+        // one of them rather than a branch
+        if let Some(query) = text.strip_prefix('/') {
+            self.search(query.trim()).await;
+            return true;
+        }
+        if !self.pending.is_empty() {
+            if let Ok(n) = text.parse::<usize>() {
+                self.pick_search(n).await;
+                return true;
+            }
+            self.pending.clear(); // any other key cancels the search
+        }
         match text {
             "q" => return false,
             "" => self.auto_advance().await,

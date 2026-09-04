@@ -186,13 +186,19 @@ confort** (0001) : confort bas = plancher haut.
 
 Deux entrées, dans l'esprit neovim :
 
-- **`/` puis du texte** : recherche incrémentale, d'abord dans le catalogue
-  actif (artistes, tops, portes), puis dans Spotify si rien ne correspond.
+- **`/` puis du texte** : recherche, dans le catalogue actif **et** dans
+  Spotify, présentée en une liste fusionnée. Implémentée dans `ecouter` le
+  04/09/2026 : un résultat `[catalogue]` démarre un segment sur cet artiste
+  (branches natives) ; un résultat `[spotify]` joue la piste — et si son
+  artiste a une fiche, le parcours s'y raccroche pour continuer à brancher,
+  sinon c'est hors catalogue (pas de branche depuis là jusqu'à la génération
+  de fiche à la volée). Les deux recherches ne servent pas la même chose :
+  les fiches disent *d'où brancher*, l'API permet de jouer *n'importe quoi*.
 - **Une liste** : la bibliothèque de l'utilisateur — artistes et albums
   aimés sur Spotify — parcourue au clavier (`j` / `k`), filtrée par `/`.
 
-Dans le PoC sans interface, la graine est simplement l'argument de la
-commande.
+Dans le PoC sans interface, la graine de départ est l'argument de la
+commande ; `/` sert ensuite à sauter n'importe où en cours de parcours.
 
 ### Le PoC : jouer l'application avant de jouer le son
 
