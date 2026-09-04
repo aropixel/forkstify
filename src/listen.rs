@@ -9,7 +9,7 @@
 //! finished segment auto-advances so it never stops.
 
 use crate::catalog::Catalog;
-use crate::sound::{is_track_over, Sound};
+use crate::sound::{request_started, track_over, Sound};
 use crate::spotify::WebApi;
 use crate::{show_branches, state_of, Round};
 use librespot_core::SpotifyUri;
@@ -39,7 +39,10 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
         web,
         rng: thread_rng(),
         rounds: vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }],
+        past: Vec::new(),
+        current: None,
         queue: VecDeque::new(),
+        current_request_id: None,
         branches: Vec::new(),
         size: 3,
     };
@@ -59,11 +62,23 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
     let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
     live.start_segment(vec![seed.to_string()], opening, true).await;
     live.show_menu();
+    live.prompt();
 
     loop {
         tokio::select! {
             event = events.recv() => match event {
-                Some(ev) if is_track_over(&ev) => live.on_track_over().await,
+                // remember which track is really current…
+                Some(ref ev) if request_started(ev).is_some() => {
+                    live.current_request_id = request_started(ev);
+                }
+                // …and only react to the end of THAT track, not stray events
+                // from one we already skipped past
+                Some(ref ev) if track_over(ev) == live.current_request_id
+                    && live.current_request_id.is_some() =>
+                {
+                    live.on_track_over().await;
+                    live.prompt();
+                }
                 Some(_) => {}
                 None => break,
             },
@@ -72,6 +87,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                     if !live.on_input(line.trim()).await {
                         break;
                     }
+                    live.prompt();
                 }
                 None => break,
             },
@@ -95,13 +111,19 @@ struct Live<'a> {
     web: WebApi,
     rng: ThreadRng,
     rounds: Vec<Round>,
+    // playback as a linear timeline: what was played, what plays now, what
+    // comes next — so `k` / `j` step back and forth like a normal player.
+    past: Vec<crate::engine::Stop>,
+    current: Option<crate::engine::Stop>,
     queue: VecDeque<crate::engine::Stop>,
+    // the librespot play request currently on air, to filter stale events
+    current_request_id: Option<u64>,
     branches: Vec<crate::engine::Branch>,
     size: usize,
 }
 
 impl Live<'_> {
-    /// Start a segment: record it, then play its first playable track.
+    /// Start a segment: record it, make it the future, play its first track.
     /// `opening` = the seed's own tops (already the first round, don't push).
     async fn start_segment(&mut self, artists: Vec<String>, stops: Vec<crate::engine::Stop>, opening: bool) {
         if stops.is_empty() {
@@ -113,8 +135,9 @@ impl Live<'_> {
         } else {
             self.rounds.push(Round { artists, tracks });
         }
+        // the chosen segment replaces whatever was still ahead
         self.queue = stops.into();
-        self.play_next().await;
+        self.advance().await;
     }
 
     /// Enqueue more of the current artist right after the current track.
@@ -133,31 +156,72 @@ impl Live<'_> {
         }
     }
 
-    /// Play the next playable track of the queue; skip titles Spotify can't
-    /// resolve. Returns false when the segment is exhausted (no recursion —
-    /// the caller decides whether to auto-advance, to keep futures sized).
-    async fn play_next(&mut self) -> bool {
+    /// Resolve a stop and load it as the current track. Returns false when
+    /// Spotify has no playable match (the caller skips it).
+    async fn load_stop(&mut self, stop: crate::engine::Stop) -> bool {
+        print!("\n▶ {} — {} … ", stop.title, stop.artist);
+        std::io::Write::flush(&mut std::io::stdout()).ok();
+        match self.web.resolve(&stop.title, &stop.artist).await {
+            Some(uri) => match SpotifyUri::from_uri(&uri) {
+                Ok(track) => {
+                    println!("({uri})");
+                    self.sound.play(track);
+                    self.current = Some(stop);
+                    true
+                }
+                Err(_) => {
+                    println!("uri illisible, on saute");
+                    false
+                }
+            },
+            None => {
+                println!("introuvable sur Spotify, on saute");
+                false
+            }
+        }
+    }
+
+    /// Move to the next track (the current one falls into the past). Returns
+    /// false when nothing is left ahead — no recursion, the caller decides
+    /// whether to auto-advance (keeps the async futures sized).
+    async fn advance(&mut self) -> bool {
+        if let Some(current) = self.current.take() {
+            self.past.push(current);
+        }
         while let Some(stop) = self.queue.pop_front() {
-            print!("\n▶ {} — {} … ", stop.title, stop.artist);
-            std::io::Write::flush(&mut std::io::stdout()).ok();
-            match self.web.resolve(&stop.title, &stop.artist).await {
-                Some(uri) => match SpotifyUri::from_uri(&uri) {
-                    Ok(track) => {
-                        println!("({uri})");
-                        self.sound.play(track);
-                        return true;
-                    }
-                    Err(_) => println!("uri illisible, on saute"),
-                },
-                None => println!("introuvable sur Spotify, on saute"),
+            if self.load_stop(stop).await {
+                return true;
             }
         }
         false
     }
 
+    /// Step back to the previous track, like a player's « précédent ». The
+    /// current track goes back to the front of the queue so `j` returns to it.
+    async fn back(&mut self) {
+        let interrupted = self.current.take();
+        loop {
+            match self.past.pop() {
+                Some(previous) => {
+                    if self.load_stop(previous).await {
+                        if let Some(current) = interrupted {
+                            self.queue.push_front(current);
+                        }
+                        return;
+                    }
+                }
+                None => {
+                    self.current = interrupted;
+                    println!("(déjà au premier morceau)");
+                    return;
+                }
+            }
+        }
+    }
+
     async fn on_track_over(&mut self) {
         // segment finished — auto-advance so the music never stops
-        if !self.play_next().await {
+        if !self.advance().await {
             self.auto_advance().await;
         }
     }
@@ -173,7 +237,10 @@ impl Live<'_> {
         self.recompute();
         let (_, current, ..) = state_of(&self.rounds);
         show_branches(self.catalog, &current, &self.branches);
-        print!("\n[1-{}, entrée/auto, e/<n>e = encore, b<n> = taille, u = retour, q = quitter] > ",
+    }
+
+    fn prompt(&self) {
+        print!("\n[1-{}, entrée/auto, j/k = suivant/précédent, e/<n>e = encore, b<n> = taille, u = branche préc., q = quitter] > ",
             self.branches.len().max(1));
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
@@ -209,6 +276,13 @@ impl Live<'_> {
         match text {
             "q" => return false,
             "" => self.auto_advance().await,
+            // player-style track navigation (vim: j down/next, k up/previous)
+            "j" => {
+                if !self.advance().await {
+                    self.auto_advance().await;
+                }
+            }
+            "k" => self.back().await,
             "u" => {
                 if self.rounds.len() > 1 {
                     self.rounds.pop();

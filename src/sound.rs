@@ -51,10 +51,22 @@ impl Sound {
     }
 }
 
-/// Has this event ended the current track (so we can load the next)?
-pub fn is_track_over(event: &PlayerEvent) -> bool {
-    matches!(
-        event,
-        PlayerEvent::EndOfTrack { .. } | PlayerEvent::Stopped { .. } | PlayerEvent::Unavailable { .. }
-    )
+/// If this event ends a track (finished, stopped, or unplayable), the play
+/// request id it belongs to — so the caller can ignore events left over
+/// from a track it already moved past.
+pub fn track_over(event: &PlayerEvent) -> Option<u64> {
+    match event {
+        PlayerEvent::EndOfTrack { play_request_id, .. }
+        | PlayerEvent::Stopped { play_request_id, .. }
+        | PlayerEvent::Unavailable { play_request_id, .. } => Some(*play_request_id),
+        _ => None,
+    }
+}
+
+/// The id of a newly started play request (emitted at the top of load).
+pub fn request_started(event: &PlayerEvent) -> Option<u64> {
+    match event {
+        PlayerEvent::PlayRequestIdChanged { play_request_id } => Some(*play_request_id),
+        _ => None,
+    }
 }

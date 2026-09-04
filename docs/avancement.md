@@ -60,8 +60,10 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   Modules `sound.rs` (lecteur librespot embarqué), `spotify.rs` (Web API
   ncspot : résolution titre → `spotify:track:`, cache disque, backoff 429)
   et `listen.rs` (boucle async : lecture en fond, menu par-dessus, segment
-  fini → auto-avance pour ne jamais s'arrêter ; `1-3` saute, `e`/`<n>e`
-  intercale, `b<n>` la taille, `u` retour, `q` quitte). Le moteur reste
+  fini → auto-avance pour ne jamais s'arrêter ; `1-3` saute vers une
+  branche, `j`/`k` morceau suivant/précédent (player classique, timeline
+  passé/courant/file, événements filtrés par `play_request_id`), `e`/`<n>e`
+  intercale, `b<n>` la taille, `u` branche précédente, `q` quitte). Le moteur reste
   intact — il produit des morceaux, `sound`/`spotify` les jouent. `parcours`
   reste le mode à sec (rapide, sans Premium, pour itérer sur le moteur).
   Construction via l'image **`forkstify-build`** (`Dockerfile` : rust +

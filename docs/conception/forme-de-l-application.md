@@ -107,6 +107,7 @@ Sur le **parcours** (en plus de `1 2 3`, `h`/`l`, `.`, `n`) :
 
 | Touche | Action |
 |---|---|
+| `j` / `k` | Morceau **suivant / précédent**, comme un player classique (implémenté dans `ecouter` le 04/09/2026) |
 | `u` | Annuler : le dernier choix de branche, ou la dernière édition |
 | `z` puis `0`–`5` | Régler la zone de confort en cours de route |
 | `?` | **Pourquoi** : afficher la phrase qui explique le morceau ou la branche |
