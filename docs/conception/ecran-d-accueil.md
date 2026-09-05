@@ -137,9 +137,39 @@ vocabulaire.
 Mais c'est une **édition** (créer une fiche), et aucune édition n'est câblée.
 À garder pour plus tard, et à ne pas maquetter comme si ça marchait.
 
+## Tranché par Joel le 05/09/2026
+
+- **La graine peut être les deux** : un artiste (on démarre un segment sur
+  lui, branches natives) ou un morceau (on le joue, puis on branche depuis
+  son artiste s'il a une fiche). C'est déjà ce que fait la recherche `/`
+  depuis le 04/09 ; l'accueil applique la même règle, et la contradiction de
+  vocabulaire tombe : `vision.md` dit « le morceau de départ », le code seed
+  sur un artiste — les deux sont vrais.
+- **Deux écrans, selon l'état de connexion.** Un écran spécifique quand on
+  n'est pas connecté, le vrai accueil quand on l'est. L'accueil ne se
+  dégrade donc pas : il n'existe qu'une fois les autorisations en place.
+
+Conséquence à ne pas manquer : **il y a deux autorisations distinctes**, et
+l'écran non connecté doit les traiter séparément —
+
+1. **librespot** : les identifiants viennent du téléphone par zeroconf (on
+   tape le nom de l'appareil dans Spotify). Sans eux, aucun son.
+2. **l'API Web** : OAuth navigateur, client id ncspot. Sans elle, on ne
+   résout aucun titre.
+
+Et deux situations très différentes se cachent derrière « non connecté » :
+**jamais autorisé** (accueil de premier lancement, il faut expliquer les deux
+gestes) et **autorisation perdue** (le jeton a expiré — cas réel, corrigé le
+05/09 : l'application redemande désormais l'autorisation d'elle-même). La
+seconde ne doit pas ressembler à la première.
+
+Enfin : **le catalogue est local**. Même sans aucune connexion, les fiches,
+les vecteurs et `learned/` sont lisibles — la navigation à sec reste
+possible. L'écran non connecté n'est donc pas un cul-de-sac.
+
 ## À trancher
 
-1. **Graine = un artiste ou un morceau ?** `vision.md` dit « le morceau de
+1. ~~**Graine = un artiste ou un morceau ?**~~ — tranché : les deux. `vision.md` dit « le morceau de
    départ », le code seed sur un **artiste** (`resolve()` rend un slug de
    fiche). L'écran d'accueil force à choisir — ou à assumer les deux, comme
    la recherche le fait déjà : un artiste démarre un segment, un morceau se
