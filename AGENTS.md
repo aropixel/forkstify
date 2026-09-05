@@ -24,6 +24,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 | `docs/decisions/`  | Une décision par fichier, numérotée et datée. **On ne modifie jamais une décision** : pour revenir dessus, on en écrit une nouvelle qui remplace l'ancienne. |
 | `docs/conception/` | Notes de travail par sujet, vivantes, réécrites au fil des échanges. Chacune distingue **décidé**, **orientation** (proposé, non contredit) et **à trancher**. |
 | `docs/avancement.md` | L'état courant : fait, en attente, prochaines étapes. Point d'entrée d'une session. |
+| `docs/keybindings.md` | La table des touches : câblé, décidé, proposé, et les collisions. Référence unique. |
 
 Le reste vient avec les décisions.
 

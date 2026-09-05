@@ -74,44 +74,19 @@ soit une mesure, soit une édition.**
   édition, effacement pour une mesure. L'historique d'affinage *est* le
   log git.
 
-Sur le **morceau en cours** :
-
-| Touche | Action | Nature |
-|---|---|---|
-| `t` | Promouvoir en top | commit |
-| `T` | Retirer des tops | commit |
-| `e` / `<n>e` | **Encore** (« poncer », dans l'argot du projet) : intercaler n morceaux de plus de l'artiste du morceau en cours juste après lui, le segment reprend ensuite. n = taille des branches par défaut (`:encore n`) | lecture |
-| `x` | Sauter — « pas celui-là, pas maintenant » | mesure |
-| `X` | Écarter — « plus jamais celui-là » (liste noire dans `learned/` : un dégoût est personnel) | mesure |
-| `a` | Aimer (et le refléter en titre aimé Spotify) | mesure |
-| `d` | En faire une **door** vers la direction du dernier embranchement pris — pré-remplie avec les tags de la branche, on valide | commit |
-| `m` | Marquer : le mettre dans une **récolte** à trier plus tard, sans interrompre l'écoute | mesure |
+**La table des touches vit désormais dans
+[`docs/keybindings.md`](../keybindings.md)** — état réel, décidé,
+proposé, et les collisions relevées. Ce qui suit est le raisonnement
+derrière les gestes, pas leur liste.
 
 Le `d` se fait au moment exact où une door a du sens (« c'est depuis ce
 morceau que je suis parti vers le post-punk ») — personne ne l'écrirait à
 froid dans un fichier.
 
-Sur l'**artiste** :
-
-| Touche | Action | Nature |
-|---|---|---|
-| `E` | Ouvrir la fiche dans `$EDITOR`, recommit au retour, vecteur recalculé | commit |
-| `-` | Cet artiste, moins souvent (poids d'usage, sans le bannir) | mesure |
-
 Le `E` est le geste ultime à la vim : quand les raccourcis ne suffisent
 plus, on édite le texte — le fork est la surcouche, littéralement. (Il
 était sur `e`, cédé à encore le 03/09/2026 : minuscule = geste léger et
 fréquent, majuscule = geste lourd, comme `t`/`T` et `x`/`X`.)
-
-Sur le **parcours** (en plus de `1 2 3`, `h`/`l`, `.`, `n`) :
-
-| Touche | Action |
-|---|---|
-| `j` / `k` | Morceau **suivant / précédent**, comme un player classique (implémenté dans `ecouter` le 04/09/2026) — aussi pilotable par les **touches multimédia** ⏮ ⏭ ⏯ via MPRIS (D-Bus), au même titre que `playerctl` |
-| `u` | Annuler : le dernier choix de branche, ou la dernière édition |
-| `z` puis `0`–`5` | Régler la zone de confort en cours de route |
-| `?` | **Pourquoi** : afficher la phrase qui explique le morceau ou la branche |
-| `y` / `n` | Répondre à une **promotion** proposée (« j'ajoute la connexion ? ») |
 
 Enfin, très neovim : chaque touche n'est que le raccourci d'une **commande
 `:`** (`:top`, `:door post-punk`, `:fiche`, `:confort 2`). Les commandes

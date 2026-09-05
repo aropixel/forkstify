@@ -18,19 +18,9 @@ orientation largement non implémentée.
 
 ### Ce qui marche aujourd'hui dans `ecouter`
 
-| Touche | Action | Détail |
-|---|---|---|
-| `1`–`3` | Choisir une branche | mise en attente, démarre **à la fin du morceau en cours** ; le reste du segment est **jeté** |
-| entrée | Auto | tire une branche au sort pondéré — **parmi celles affichées** depuis le 05/09/2026 |
-| `j` | Morceau suivant | force la branche en attente tout de suite |
-| `k` | Morceau précédent | |
-| `p` | Prévoir les branches | les affiche sans attendre le dernier morceau |
-| `e` / `<n>e` | Encore | intercale n morceaux de l'artiste en cours **juste après le morceau courant**, le reste de la file est **conservé** |
-| `b<n>` | Taille des branches | 1 à 9 |
-| `u` | Branche précédente | **≠ 0013**, voir « conflits » |
-| `/texte` | Chercher | catalogue + API Spotify, résultats fusionnés, un chiffre en choisit un |
-| `q` | Quitter | affiche le parcours |
-| ⏮ ⏭ ⏯ | Multimédia | via MPRIS/D-Bus (`Next`, `Previous`, `PlayPause`, `Stop`) |
+Onze gestes câblés, listés avec tout le reste dans
+**[`docs/keybindings.md`](../keybindings.md)** — la référence unique
+depuis le 05/09/2026.
 
 ### Ce qui manque et qu'on croit parfois avoir
 
