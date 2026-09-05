@@ -174,10 +174,11 @@ Statut : **proposition**, hors le double sens de « fork » déjà tranché.
 3. **Le compte se met avant, la cible après** — comme dans vim, où `3dd`
    compte et `f{char}` cible. Donc `3e` = trois encores, mais `f3` = la
    branche numéro 3.
-4. **Verbe + cible.** Sans cible, le geste porte sur le **morceau en
-   cours** ; le suffixe `a` (*artist*) l'élargit à l'artiste : `b` bannit
-   le morceau, `ba` bannit l'artiste. C'est la généralisation du `da`/`dt`
-   de Joel, avec le cas fréquent à une seule touche.
+4. **Verbe + cible explicite.** Chaque mesure se dit en deux lettres :
+   le verbe, puis `t` (*track*) ou `a` (*artist*) — `lt` like track, `la`
+   like artist. Le verbe seul vaut `<verbe>t`, parce que le morceau est la
+   cible neuf fois sur dix : `l` = `lt`, comme `1` = `f1`. C'est le `da`/`dt`
+   de Joel étendu aux trois verbes.
 
 Et un corollaire : **un geste fréquent a une touche, un réglage a une
 commande `:`**. `b<n>` (taille) devient `:size 5`, `z` (confort) devient
@@ -216,16 +217,23 @@ une **lettre** désigne une opération.
 
 ## Mesures — ce que le moteur apprend
 
-| Touche | Mot | Action | Cible |
-|---|---|---|---|
-| `l` / `la` | **like** | Aimer (reflété en titre aimé Spotify) | morceau / artiste |
-| `s` / `sa` | **skip** | Passer — « pas celui-là, pas maintenant » | morceau / artiste |
-| `b` / `ba` | **ban** | « Plus jamais » (liste noire de `learned/`) | morceau / artiste |
-| `m` | **mark** | Mettre dans une récolte à trier plus tard | morceau |
-| `+` / `-` | | Cet artiste, plus / moins souvent | artiste |
+| Touche | Mot | Action |
+|---|---|---|
+| `lt` | **like track** | Aimer le morceau (reflété en titre aimé Spotify) |
+| `la` | **like artist** | Cet artiste, plus souvent |
+| `st` | **skip track** | « Pas celui-là, pas maintenant » |
+| `sa` | **skip artist** | Cet artiste, moins souvent |
+| `bt` | **ban track** | « Plus jamais celui-là » (liste noire de `learned/`) |
+| `ba` | **ban artist** | « Plus jamais cet artiste » |
+| `l` `s` `b` | | Raccourcis de `lt` `st` `bt` |
+| `m` | **mark** | Mettre dans une récolte à trier plus tard |
 
-`s` et `b` remplacent `x`/`X` ; `l` remplace `a` (aimer) ; `b`/`ba`
-remplacent le `dt`/`da` demandé, sans doublonner avec l'existant.
+Trois verbes × deux cibles couvrent à eux seuls ce que la table précédente
+étalait sur six touches disparates (`a`, `x`, `X`, `-`, `+`, et le `dt`/`da`
+demandé). Sur l'artiste, les trois verbes forment une **échelle lisible** :
+`la` plus souvent, `sa` moins souvent, `ba` plus jamais. La nuance des
+anciens `+`/`-` n'est donc pas perdue — elle a juste cessé d'être un
+symbole sans mot derrière (Joel, 05/09/2026).
 
 ## Éditions — ce qui produit un commit
 
@@ -243,7 +251,7 @@ vocabulaire du projet plutôt que d'en inventer un.
 
 | Touche | Mot | Action |
 |---|---|---|
-| `j` / `k` | | Morceau suivant / précédent (convention vim, pas mnémonique) |
+| `j` / `k` | | Morceau **précédent / suivant** (Joel, 05/09/2026 — voir la réserve plus bas) |
 | espace | | **Pause / lecture** — comble le manque relevé |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) |
 | `q` | **quit** | Quitter |
@@ -293,14 +301,18 @@ La nuance est consignée dans le vocabulaire de
 
 ## Ce qui reste à trancher
 
-1. **`s` (skip) vs `j` (suivant).** Deux touches voisines pour passer un
-   morceau, avec une différence invisible : `j` avance sans rien noter,
-   `s` avance **et** le note dans `learned/`. Nuance juste sur le papier,
-   peut-être insensible dans les doigts.
-2. **`+` / `-`** sont les deux seuls gestes sans mot anglais derrière,
-   alors que c'était la règle. Ils pourraient disparaître au profit de
-   `la` / `sa` — au prix de la nuance entre « moins souvent » et
-   « jamais ».
+1. **Le sens de `j` / `k`.** Joel les veut horizontaux : `j` précédent
+   (gauche), `k` suivant (droite). Deux objections, à peser :
+   dans vim `j` est **bas** et `k` est **haut** — les touches horizontales
+   sont `h` et `l` ; et la file « à suivre » s'affiche **verticalement**, le
+   prochain morceau sous le courant, donc `j` (bas) = suivant est ce que
+   l'écran montre. La paire vim-exacte pour un axe horizontal serait
+   `h`/`l`, ce qui suppose de rendre `l` au clavier — possible depuis que
+   `lt` existe.
+2. **`st` (skip track) vs `k` (suivant).** Deux touches voisines pour
+   passer un morceau, avec une différence invisible : la navigation avance
+   sans rien noter, `st` avance **et** le note dans `learned/`. Nuance
+   juste sur le papier, peut-être insensible dans les doigts.
 
 ## Lettres libres après ce mapping
 
