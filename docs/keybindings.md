@@ -150,3 +150,138 @@ Sur **une trentaine de gestes** décrits dans le projet, **onze** sont
 câblés. Le reste est décidé ou proposé, et **huit collisions** attendent
 un arbitrage. C'est le moment de les trancher : elles ne coûtent rien
 aujourd'hui, elles coûteront cher une fois les touches dans les doigts.
+
+---
+
+# Mapping mnémonique proposé (05/09/2026)
+
+Demandé par Joel : **chaque touche doit venir d'un mot anglais**, à la vim
+(`y` yank, `c` change, `d` delete), en partant de son idée — **`f` pour
+fork**, puisque le produit s'appelle forkstify et que tout y est branche.
+
+Statut : **proposition**, rien n'est tranché. Elle remplacerait les tables
+ci-dessus et résoudrait les huit collisions.
+
+## Les trois règles
+
+1. **Une touche = un verbe anglais.** Sa majuscule est le geste lourd ou
+   l'inverse (`t` top / `T` untop, `l` like / `L` link).
+2. **Verbe + cible.** Sans cible, le geste porte sur le **morceau en
+   cours** ; le suffixe `a` (*artist*) l'élargit à l'artiste : `b` bannit
+   le morceau, `ba` bannit l'artiste. C'est la généralisation du `da`/`dt`
+   de Joel, avec le cas fréquent à une seule touche.
+3. **Un geste fréquent a une touche ; un réglage a une commande `:`.**
+   `b<n>` (taille) devient `:size 5`, `z` (confort) devient `:comfort 2`.
+   C'est ce qui libère les lettres et garde la surface petite.
+
+## Fork — les branches
+
+| Touche | Mot | Action |
+|---|---|---|
+| `f<n>` | **fork** | Prendre la branche n, **après la branche en cours** |
+| `f<n>n` | fork **now** | …après le morceau en cours, le reste conservé |
+| `f<n>n!` | fork now, **force** | …après le morceau en cours, le reste retiré |
+| `1` `2` `3` | | Raccourci de `f1` `f2` `f3` |
+| entrée | | Auto : tire au sort parmi les branches affichées |
+| `p` | **peek** | Prévoir les branches sans attendre |
+| `r` | **reroll** | Reproposer trois autres branches |
+| `w` | **wander** | Partir loin, hors de l'univers courant (retour n° 6) |
+| `u` | **undo** | Annuler la dernière action — y compris le dernier fork |
+
+Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
+Le `n` est *now*. Les deux se lisent à voix haute : « fork 1, now, force ».
+
+## Encore — même grammaire
+
+| Touche | Mot | Action |
+|---|---|---|
+| `<n>e` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** |
+| `<n>en` | encore **now** | …après le morceau en cours |
+| `<n>en!` | encore now, **force** | …après le morceau en cours, le reste retiré |
+
+« Encore » est un mot anglais qui veut dire exactement ça — on le garde.
+
+## Mesures — ce que le moteur apprend
+
+| Touche | Mot | Action | Cible |
+|---|---|---|---|
+| `l` / `la` | **like** | Aimer (reflété en titre aimé Spotify) | morceau / artiste |
+| `s` / `sa` | **skip** | Passer — « pas celui-là, pas maintenant » | morceau / artiste |
+| `b` / `ba` | **ban** | « Plus jamais » (liste noire de `learned/`) | morceau / artiste |
+| `m` | **mark** | Mettre dans une récolte à trier plus tard | morceau |
+| `+` / `-` | | Cet artiste, plus / moins souvent | artiste |
+
+`s` et `b` remplacent `x`/`X` ; `l` remplace `a` (aimer) ; `b`/`ba`
+remplacent le `dt`/`da` demandé, sans doublonner avec l'existant.
+
+## Éditions — ce qui produit un commit
+
+| Touche | Mot | Action |
+|---|---|---|
+| `t` / `T` | **top** | Promouvoir / retirer des tops |
+| `d` | **door** | En faire une door vers la dernière direction prise |
+| `L` | **link** | Lier l'artiste en cours à un autre (retour n° 8, format 0010) |
+| `E` | **edit** | Ouvrir la fiche dans `$EDITOR`, recommit, vecteur recalculé |
+
+`link` est déjà le mot du format sur disque (0010) — la touche reprend le
+vocabulaire du projet plutôt que d'en inventer un.
+
+## Lecture et session
+
+| Touche | Mot | Action |
+|---|---|---|
+| `j` / `k` | | Morceau suivant / précédent (convention vim, pas mnémonique) |
+| espace | | **Pause / lecture** — comble le manque relevé |
+| `q` | **quit** | Quitter |
+| `Q` | **queue** | Entrer en mode file d'attente (retour n° 11) |
+| `.` | | Répéter la dernière action (son vrai sens vim, libéré de « poncer ») |
+| `?` | **why** | La phrase qui explique le morceau ou la branche |
+| `/texte` | | Chercher |
+| `:commande` | | L'équivalent de chaque touche, plus les réglages |
+
+## Commandes `:` sans touche
+
+Les gestes rares n'encombrent pas le clavier : `:size <n>` (taille des
+branches), `:comfort <0-5>` (zone de confort, 0001), `:sync` / `:push` /
+`:pull` (retour n° 10), `:fork` (forker le catalogue, 0008).
+
+## Ce que ça résout
+
+Les huit collisions tombent :
+
+| Collision | Résolution |
+|---|---|
+| `u` undo vs branche précédente | `u` = **undo**, et annuler un fork *est* revenir en arrière — même geste |
+| `n` à trois sens | `n` = **now**, un seul sens ; `y`/`n` ne vit que dans une invite modale, comme les chiffres après `/` |
+| `d` action et préfixe | `d` = **door** seul ; le dislike devient `b`/`ba` |
+| `dt`/`da` recouvrent `X`/`-` | Fusionnés dans `b`/`ba`, plus de doublon |
+| `.` recouvre `e` | `.` reprend son sens vim (répéter) |
+| `h`/`l` recouvrent `1 2 3` | Abandonnés ; `l` devient **like** |
+| `p` action et préfixe | `p` = **peek** seul ; le préfixe des branches est `f` |
+| `pr` vs `p<n>` | `r` = **reroll**, sans préfixe |
+
+## La tension à trancher
+
+**« Fork » a déjà un sens dans le projet.** 0002 et 0008 l'emploient pour
+le **catalogue** — « le fork est la surcouche », « catalogue forkable ».
+Mettre `f` sur « prendre une branche » lui donne un second sens.
+
+Trois sorties possibles :
+
+- **(a)** garder `f` = prendre une branche (geste très fréquent, dans le
+  flux) et laisser le fork du catalogue en `:fork` (geste rare, une fois
+  par machine). Le mot a deux sens, mais jamais dans le même contexte.
+- **(b)** `b` = **branch** pour les branches, et le bannissement passe
+  ailleurs (`x` = *exclude* ?). Fidèle au vocabulaire des docs, qui disent
+  « branche » partout, mais perd l'idée de Joel.
+- **(c)** renommer le concept : les branches **sont** des forks, dans les
+  docs comme dans le code. Cohérent avec le nom du produit, mais c'est une
+  décision de vocabulaire (`docs/vision.md`), pas un choix de touche.
+
+Ma recommandation : **(a)**, avec la nuance notée dans `vision.md`.
+
+## Lettres libres après ce mapping
+
+`c`, `g`, `h`, `i`, `o`, `v`, `x`, `y`, `z`, et les majuscules hors
+`T`/`L`/`E`/`Q`/`B`. De quoi absorber le mode file d'attente et la suite
+sans réouvrir la table.
