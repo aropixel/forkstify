@@ -1,0 +1,156 @@
+# L'écran d'accueil
+
+Note ouverte le **05/09/2026** : Joel veut que les sous-commandes
+(`parcours`, `check`, et à terme `ecouter`) disparaissent au profit d'un
+simple `forkstify` qui ouvre l'application. Il faut donc un écran d'accueil,
+qu'il maquettera avec Claude Design.
+
+Rien n'est codé, rien n'est décidé. Cette note rassemble ce que le dépôt
+contraint déjà, ce que les données permettent vraiment, et les questions à
+trancher.
+
+## Ce qui est déjà écrit
+
+`forme-de-l-application.md` a tranché **deux entrées** pour la graine :
+
+- **`/` puis du texte** — recherche fusionnée catalogue + Spotify.
+  **Implémentée** le 04/09/2026.
+- **Une liste** — « la bibliothèque de l'utilisateur, artistes et albums
+  aimés sur Spotify, parcourue au clavier, filtrée par `/` ». Jamais écrite.
+
+L'écran d'accueil est donc le lieu où cette liste existe enfin. Il ne part
+pas de zéro.
+
+## Ce que les données permettent — les chiffres
+
+Relevés le 05/09/2026 sur le catalogue réel.
+
+| | |
+|---|---|
+| Artistes dans `classement.json` (la bibliothèque de Joel) | **741** |
+| Fiches du catalogue | **214** |
+| Artistes classés **qui ont une fiche** | **175** |
+| Fiches d'artistes **absents** du classement | **39** |
+
+Et la couverture par tranche du classement :
+
+| Tranche | Ont une fiche |
+|---|---|
+| top 20 | 20/20 |
+| top 50 | 48/50 |
+| top 100 | 83/100 |
+| score ≥ 20 | 25/25 (100 %) |
+| score ≥ 5 | 82/89 (92 %) |
+| score ≥ 2 | 122/289 (42 %) |
+| tout (score ≥ 1) | 175/741 (23 %) |
+
+**Trois conclusions qui commandent la maquette :**
+
+1. **Le haut de l'écoute est intégralement couvert.** Une liste « vos
+   habitués » trouvera toujours une fiche. Aucun risque de proposer un
+   artiste depuis lequel on ne peut pas brancher.
+2. **Le bas ne l'est pas.** Sous le score 2, moins d'un artiste sur deux a
+   une fiche — et **une graine sans fiche ne peut pas démarrer un parcours**
+   (`resolve()` exige une carte, et les branches viennent des liens et des
+   vecteurs de la fiche). L'axe « pousser ce qu'on écoute peu » bute donc
+   sur le bord du catalogue.
+3. **Le score médian du classement est 1.** La traîne du classement est du
+   bruit (un artiste croisé une fois). Le vivier utile, c'est le score ≥ 5 :
+   89 artistes, presque tous avec fiche.
+
+## Le point aveugle : il n'y a pas encore d'usage
+
+`learned/artists/` **n'existe pas** — aucune session réelle n'a encore été
+jouée. Au premier lancement, l'écran d'accueil n'aura donc que
+`classement.json`, c'est-à-dire **une photo de la bibliothèque Spotify**, pas
+un usage de forkstify.
+
+C'est la même contrainte que la zone de confort : l'écran doit être **bon le
+premier jour avec zéro historique**, et meilleur ensuite. Une maquette qui
+suppose des données d'écoute riches décrira un écran qu'on ne verra pas
+avant des semaines.
+
+## Sur l'idée de lister le compte Spotify
+
+**Ne pas le faire, et c'est une bonne nouvelle.** `classement.json` *est*
+déjà la bibliothèque de Joel, récoltée par `outillage/` : titres aimés,
+albums aimés, playlists, artistes suivis, #fipway, road trip. C'est plus
+riche que ce que l'API rendrait, et c'est **local, instantané, hors ligne**.
+
+Repasser par l'API coûterait en plus une **réautorisation** : `/v1/me/top/artists`
+demande le scope `user-top-read`, absent de nos cinq scopes actuels
+(`spotify.rs`). Ce serait payer un OAuth pour une donnée qu'on a déjà en
+moins bien.
+
+## L'idée forte : « délaissé » vaut mieux que « peu écouté »
+
+Joel propose d'opposer souvent écouté / peu écouté pour ne pas toujours
+tourner sur les mêmes. La couche `learned/` permet mieux que ça.
+
+Les compteurs de [0014](../decisions/0014-forme-de-l-appris.md) **décroissent
+d'eux-mêmes** (demi-vie six mois) et chaque artiste porte un `last`. On peut
+donc distinguer :
+
+- **peu écouté** — familiarité basse, on ne l'a jamais vraiment fréquenté ;
+- **délaissé** — familiarité qui *fut* haute et qui a décru, `last` ancien :
+  « vous les aimiez, vous ne les écoutez plus ».
+
+Le second est infiniment plus juste comme relance : c'est un rappel, pas une
+découverte. Et il est calculable dès qu'il y a de l'usage, sans donnée
+nouvelle. Le premier jour, seul « peu écouté » existera (via le classement).
+
+## La proposition : chaque bloc est une raison
+
+La règle de marque du projet — *toute décision automatique s'explique en une
+phrase* — s'applique à l'accueil. Un écran qui montre six artistes doit dire
+**pourquoi** chacun est là. Donc : pas de grille indifférenciée, mais quelques
+**portes d'entrée**, chacune portant sa raison en une ligne.
+
+Pistes, de la plus sûre à la plus discutable :
+
+1. **Chercher** (`/`) — la première ligne, toujours. Déjà implémentée, c'est
+   l'échappatoire qui rend tout le reste facultatif.
+2. **Reprendre** — la dernière graine et où on s'est arrêté. Demande une
+   donnée nouvelle (le dernier parcours), minuscule.
+3. **Vos habitués** — familiarité haute. Marche le premier jour.
+4. **Délaissés** — familiarité décrue, `last` ancien. Ne marche qu'après
+   usage ; le premier jour, remplacer par « du catalogue, jamais écoutés »
+   (les 39 fiches absentes du classement sont exactement ça).
+5. **Au hasard** — tirage pondéré, la porte qui ne demande pas de choisir.
+
+**Et le mélange devrait être gouverné par la zone de confort**, pas par un
+nouveau réglage. Le curseur 0–5 dit déjà « je reste chez ce que je connais »
+ou « je vais vers ce que je ne connais pas » ; c'est exactement l'axe entre
+« habitués » et « délaissés ». Au cocon l'accueil met les habitués devant, à
+l'exploration il met les délaissés. **Un seul axe dans le produit** —
+[0012](../decisions/0012-rotation-des-morceaux.md) §4 dit déjà « pas de
+deuxième réglage ».
+
+## Une porte de plus, très en phase avec le projet
+
+**Les artistes qu'on écoute beaucoup et qui n'ont pas de fiche** — 17 dans
+le top 100. Les montrer, c'est proposer de faire grandir le catalogue là où
+l'usage le réclame, ce qui est la promesse de
+[0002](../decisions/0002-catalogue-partage-forkable.md) et la *promotion* du
+vocabulaire.
+
+Mais c'est une **édition** (créer une fiche), et aucune édition n'est câblée.
+À garder pour plus tard, et à ne pas maquetter comme si ça marchait.
+
+## À trancher
+
+1. **Graine = un artiste ou un morceau ?** `vision.md` dit « le morceau de
+   départ », le code seed sur un **artiste** (`resolve()` rend un slug de
+   fiche). L'écran d'accueil force à choisir — ou à assumer les deux, comme
+   la recherche le fait déjà : un artiste démarre un segment, un morceau se
+   joue puis branche depuis son artiste.
+2. **Que deviennent `parcours` et `check` ?** `check` (les voisins d'une
+   fiche) est utile et pourrait devenir un geste sur un artiste sélectionné.
+   `parcours` est un outil de développement — un drapeau, ou rien.
+3. **L'accueil se rend-il avant la connexion Spotify ?** Aujourd'hui
+   `ecouter` ouvre librespot **et** l'OAuth avant d'afficher quoi que ce
+   soit. Un accueil devrait s'afficher **instantanément** depuis le catalogue
+   et `learned/` — tous deux locaux — et ne connecter qu'au moment de jouer.
+   C'est un changement d'ordre d'initialisation, pas un détail d'affichage.
+4. **Combien d'entrées par bloc ?** Trois branches à un embranchement ; la
+   même contrainte de lisibilité vaut sans doute ici.
