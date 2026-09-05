@@ -159,45 +159,58 @@ Demandé par Joel : **chaque touche doit venir d'un mot anglais**, à la vim
 (`y` yank, `c` change, `d` delete), en partant de son idée — **`f` pour
 fork**, puisque le produit s'appelle forkstify et que tout y est branche.
 
-Statut : **proposition**, rien n'est tranché. Elle remplacerait les tables
-ci-dessus et résoudrait les huit collisions.
+Révisé le 05/09/2026 : **`f` est un namespace**, pas une touche isolée.
+Tout ce qui touche aux branches s'enchaîne derrière lui, comme `g` ou `z`
+dans vim (demande de Joel).
 
-## Les trois règles
+Statut : **proposition**, hors le double sens de « fork » déjà tranché.
+
+## Les quatre règles
 
 1. **Une touche = un verbe anglais.** Sa majuscule est le geste lourd ou
    l'inverse (`t` top / `T` untop, `l` like / `L` link).
-2. **Verbe + cible.** Sans cible, le geste porte sur le **morceau en
+2. **`f` est le namespace des branches.** `f` seul ne fait rien ; il attend
+   un chiffre (quelle branche) ou une lettre (quelle opération).
+3. **Le compte se met avant, la cible après** — comme dans vim, où `3dd`
+   compte et `f{char}` cible. Donc `3e` = trois encores, mais `f3` = la
+   branche numéro 3.
+4. **Verbe + cible.** Sans cible, le geste porte sur le **morceau en
    cours** ; le suffixe `a` (*artist*) l'élargit à l'artiste : `b` bannit
    le morceau, `ba` bannit l'artiste. C'est la généralisation du `da`/`dt`
    de Joel, avec le cas fréquent à une seule touche.
-3. **Un geste fréquent a une touche ; un réglage a une commande `:`.**
-   `b<n>` (taille) devient `:size 5`, `z` (confort) devient `:comfort 2`.
-   C'est ce qui libère les lettres et garde la surface petite.
 
-## Fork — les branches
+Et un corollaire : **un geste fréquent a une touche, un réglage a une
+commande `:`**. `b<n>` (taille) devient `:size 5`, `z` (confort) devient
+`:comfort 2`. C'est ce qui libère les lettres.
+
+## `f` — le namespace des branches
 
 | Touche | Mot | Action |
 |---|---|---|
 | `f<n>` | **fork** | Prendre la branche n, **après la branche en cours** |
 | `f<n>n` | fork **now** | …après le morceau en cours, le reste conservé |
 | `f<n>n!` | fork now, **force** | …après le morceau en cours, le reste retiré |
-| `1` `2` `3` | | Raccourci de `f1` `f2` `f3` |
+| `fp` | fork **peek** | Prévoir les branches sans attendre le dernier morceau |
+| `fr` | fork **reroll** | Reproposer trois autres branches |
+| `fw` | fork **wander** | Partir loin, hors de l'univers courant (retour n° 6) |
+| `fu` | fork **undo** | Revenir à la branche précédente |
+| `1` `2` `3` | | Raccourci de `f1` `f2` `f3` — le geste le plus fréquent reste à une touche |
 | entrée | | Auto : tire au sort parmi les branches affichées |
-| `p` | **peek** | Prévoir les branches sans attendre |
-| `r` | **reroll** | Reproposer trois autres branches |
-| `w` | **wander** | Partir loin, hors de l'univers courant (retour n° 6) |
-| `u` | **undo** | Annuler la dernière action — y compris le dernier fork |
 
 Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
-Le `n` est *now*. Les deux se lisent à voix haute : « fork 1, now, force ».
+Le `n` est *now*. Ça se lit à voix haute : « fork 3, now, force ».
 
-## Encore — même grammaire
+Pas d'ambiguïté à l'analyse : après `f`, un **chiffre** désigne une branche,
+une **lettre** désigne une opération.
+
+## `e` — encore, même grammaire
 
 | Touche | Mot | Action |
 |---|---|---|
 | `<n>e` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** |
-| `<n>en` | encore **now** | …après le morceau en cours |
+| `<n>en` | encore **now** | …après le morceau en cours, le reste conservé |
 | `<n>en!` | encore now, **force** | …après le morceau en cours, le reste retiré |
+| `e` | | Encore avec n = taille des branches |
 
 « Encore » est un mot anglais qui veut dire exactement ça — on le garde.
 
@@ -232,12 +245,17 @@ vocabulaire du projet plutôt que d'en inventer un.
 |---|---|---|
 | `j` / `k` | | Morceau suivant / précédent (convention vim, pas mnémonique) |
 | espace | | **Pause / lecture** — comble le manque relevé |
+| `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) |
 | `q` | **quit** | Quitter |
 | `Q` | **queue** | Entrer en mode file d'attente (retour n° 11) |
 | `.` | | Répéter la dernière action (son vrai sens vim, libéré de « poncer ») |
 | `?` | **why** | La phrase qui explique le morceau ou la branche |
 | `/texte` | | Chercher |
 | `:commande` | | L'équivalent de chaque touche, plus les réglages |
+
+**`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
+(un top posé par erreur, un ban), `fu` remonte d'un cran dans le
+*parcours*. Séparer les deux lève la collision n° 1 sans sacrifier 0013.
 
 ## Commandes `:` sans touche
 
@@ -251,14 +269,14 @@ Les huit collisions tombent :
 
 | Collision | Résolution |
 |---|---|
-| `u` undo vs branche précédente | `u` = **undo**, et annuler un fork *est* revenir en arrière — même geste |
+| `u` undo vs branche précédente | `u` = **undo** d'un geste, `fu` = remonter d'une branche — deux choses distinctes, deux touches |
 | `n` à trois sens | `n` = **now**, un seul sens ; `y`/`n` ne vit que dans une invite modale, comme les chiffres après `/` |
 | `d` action et préfixe | `d` = **door** seul ; le dislike devient `b`/`ba` |
 | `dt`/`da` recouvrent `X`/`-` | Fusionnés dans `b`/`ba`, plus de doublon |
 | `.` recouvre `e` | `.` reprend son sens vim (répéter) |
 | `h`/`l` recouvrent `1 2 3` | Abandonnés ; `l` devient **like** |
-| `p` action et préfixe | `p` = **peek** seul ; le préfixe des branches est `f` |
-| `pr` vs `p<n>` | `r` = **reroll**, sans préfixe |
+| `p` action et préfixe | `p` disparaît seul : c'est `fp`, dans le namespace |
+| `pr` vs `p<n>` | `fr` dans le namespace, plus de préfixe ambigu |
 
 ## « Fork » a deux sens — tranché
 
@@ -273,8 +291,20 @@ l'écoute, et c'est la touche `f`.
 La nuance est consignée dans le vocabulaire de
 [`docs/vision.md`](vision.md).
 
+## Ce qui reste à trancher
+
+1. **`s` (skip) vs `j` (suivant).** Deux touches voisines pour passer un
+   morceau, avec une différence invisible : `j` avance sans rien noter,
+   `s` avance **et** le note dans `learned/`. Nuance juste sur le papier,
+   peut-être insensible dans les doigts.
+2. **`+` / `-`** sont les deux seuls gestes sans mot anglais derrière,
+   alors que c'était la règle. Ils pourraient disparaître au profit de
+   `la` / `sa` — au prix de la nuance entre « moins souvent » et
+   « jamais ».
+
 ## Lettres libres après ce mapping
 
-`c`, `g`, `h`, `i`, `o`, `v`, `x`, `y`, `z`, et les majuscules hors
-`T`/`L`/`E`/`Q`/`B`. De quoi absorber le mode file d'attente et la suite
-sans réouvrir la table.
+Le namespace `f` rend `p`, `r` et `w` au clavier. Restent donc libres :
+`c`, `g`, `h`, `i`, `o`, `p`, `r`, `v`, `w`, `x`, `y`, `z`, et les
+majuscules hors `T`/`L`/`E`/`Q`. De quoi absorber le mode file d'attente
+et la suite sans réouvrir la table.
