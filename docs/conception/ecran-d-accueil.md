@@ -167,6 +167,61 @@ Enfin : **le catalogue est local**. Même sans aucune connexion, les fiches,
 les vecteurs et `learned/` sont lisibles — la navigation à sec reste
 possible. L'écran non connecté n'est donc pas un cul-de-sac.
 
+## Les maquettes (Claude Design, 05/09/2026)
+
+Projet **« Accueil Forkstify »**, deux planches :
+
+- **`Raccourcis.dc.html`** — le menu du leader, un namespace à moitié tapé,
+  les touches multimédia. **Ce n'est pas une proposition** : c'est le rendu
+  fidèle de `help()`, vérifié ligne à ligne contre `src/listen.rs`. Il vaut
+  comme spécification visuelle de l'existant.
+- **`Accueil.dc.html`** — trois écrans : **A1** non connecté premier
+  lancement, **A2** autorisation perdue, **B** l'accueil connecté. Props
+  réglables : le confort (0–5, qui réordonne réellement les blocs), l'écran
+  montré, le thème Omarchy.
+
+Ce que la maquette adopte, et qui tient : chaque bloc porte sa raison en une
+ligne · la numérotation `1-5` court **à travers** les blocs, donc choisir une
+graine est le même geste que choisir une branche · la graine mélange artistes
+et morceaux dans la même liste (l'entrée 3 est un morceau, avec sa raison :
+« il se joue, puis les branches partent de New Order ») · le confort fait
+passer les délaissés devant à partir de 4 · A2 dit que librespot tient
+toujours, seuls les titres ne se résolvent plus — ce qui est exactement le
+comportement réel.
+
+### Quatre frottements à trancher
+
+1. **`p` est déjà la pause.** La maquette lui donne « parcourir à sec » sur
+   les écrans non connectés. Il n'y a pas de lecture à ce moment-là, donc pas
+   de collision *technique* — mais l'utilisateur apprend une touche, pas une
+   touche par écran. Et « parcourir » n'est pas un mot anglais, alors que
+   0015 l'exige. `b` (*browse*) ou `d` (*dry*) sont libres.
+2. **`*` pour « au hasard »** n'est pas un mot anglais non plus. Et le geste
+   existe déjà : **entrée** veut dire « choisis pour moi » partout ailleurs.
+   La réutiliser ici ne coûte aucune touche neuve.
+3. **`:confort`** apparaît sur la ligne d'invite de l'écran B — la commande
+   réelle est `:comfort`, en anglais comme toute interface publique du dépôt
+   (l'autre planche l'écrit correctement).
+4. **Le nom de l'appareil zeroconf** affiché est « forkstify (omarchy) » ; le
+   binaire annonce aujourd'hui **« forkstify (spike) »**
+   (`src/bin/spike-connect.rs`). Le nom de la maquette est meilleur — c'est le
+   code qu'il faudra changer, pas la maquette.
+
+### Deux comportements que la maquette suppose et qui n'existent pas
+
+Ils sont justes tous les deux, mais ce sont des chantiers, pas de l'affichage.
+
+- **forkstify s'annonce lui-même en zeroconf pendant que l'écran A1
+  s'affiche** (« en attente — aucun appareil ne s'est encore annoncé »).
+  Aujourd'hui la découverte vit dans le binaire séparé `spike-connect` ;
+  `Sound::connect()` se contente de relire le cache et échoue s'il est vide.
+  Il faut déplacer la boucle de découverte dans l'application.
+- **L'autorisation OAuth est différée** : la maquette attend qu'on appuie sur
+  une touche pour ouvrir le navigateur. Aujourd'hui `WebApi::new()` l'ouvre
+  **tout seul** au lancement. Le choix de la maquette est meilleur — on ne
+  veut pas d'un navigateur qui surgit à chaque démarrage — mais c'est un
+  changement de flux.
+
 ## À trancher
 
 1. ~~**Graine = un artiste ou un morceau ?**~~ — tranché : les deux. `vision.md` dit « le morceau de
