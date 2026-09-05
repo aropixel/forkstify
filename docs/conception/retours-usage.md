@@ -8,9 +8,9 @@ qui reste à trancher avant d'ajouter quoi que ce soit.
 Elle se traite **au fur et à mesure** : chaque entrée porte son statut, et
 ce qui est fait descend dans `docs/avancement.md`.
 
-**Point au soir du 05/09/2026 — 5 faits, 2 bloqués par `learned/`, 4 non
-commencés, et rien de vérifié en écoute réelle.** Les statuts ci-dessous
-sont relus contre le code, pas contre le souvenir.
+**Point après `learned/` (05/09/2026) — 7 faits, 1 à moitié, 3 non
+commencés, et toujours rien de vérifié en écoute réelle.** Les statuts
+ci-dessous sont relus contre le code, pas contre le souvenir.
 
 ## L'inventaire d'abord (retour n° 4)
 
@@ -166,24 +166,30 @@ gestes d'écoute — mais je ne tranche pas à ta place.
 
 ### 7. Câbler les raccourcis manquants (tops, édition de fiche…)
 
-**Statut** : **bloqué par `learned/`**, comme prévu. La grammaire est
-décidée et les touches réservées (`tt`/`tT` tops, `ae` éditer la fiche,
-`td` door…), elles répondent « décidé, pas encore câblé ». Douze gestes
-attendent la boucle d'apprentissage.
+**Statut** : **à moitié fait.** Le blocage est levé, il s'est déplacé.
 
-La table est déjà décidée (0013) et détaillée dans
-`forme-de-l-application.md`. Mais **les mesures n'ont nulle part où
-s'écrire** tant que la boucle d'apprentissage (0014, `learned/`) n'est pas
-fermée — c'est l'étape 2 de `docs/avancement.md`. Les **éditions** (tops,
-`E`) touchent les fiches et peuvent, elles, se faire tout de suite.
+**Les mesures marchent** (05/09/2026, `src/learned.rs`) : `tl` aimer, `ts`
+passer, `tb` bannir le morceau, `tm` récolter, `al`/`as` le poids de
+l'artiste, `ab` bannir l'artiste. Elles écrivent dans
+`learned/artists/<slug>.toml` à chaque geste, et le moteur les relit
+(exclusion des bannis, poids sur les branches).
 
-**Ordre proposé** : d'abord les éditions (`t`/`T`, `E`) qui ne dépendent que
-du catalogue, ensuite les mesures quand `learned/` est branché.
+**Les cinq éditions restent à faire** — `tt`/`tT` (tops), `td` (door),
+`ae` (ouvrir la fiche), `aL` (lier). Elles ne touchent pas l'appris mais la
+**fiche**, et doivent produire un commit lisible (0013). C'est une couche
+d'écriture du catalogue qui n'existe pas encore : c'est elle qui bloque
+désormais, plus `learned/`.
+
+Note : l'ordre proposé le matin — les éditions d'abord — a été inversé, et
+c'était le bon choix. Les mesures partagent toutes le même stockage, donc
+les câbler ensemble a coûté un module ; les éditions, elles, demandent une
+mécanique de commit qu'aucune autre ne réutilise encore.
 
 ### 8. Lier l'artiste en cours à un autre
 
-**Statut** : touche décidée (`aL`, *artist link*), **pas câblée**, et le
-mode de désignation de la cible reste à spécifier.
+**Statut** : **non commencé**, et c'est désormais une **édition** parmi
+cinq (voir retour n° 7) : la touche `aL` est décidée, il manque la couche
+qui écrit et commite une fiche, plus le mode de désignation de la cible.
 
 Une touche qui crée un **link typé** depuis l'artiste du morceau en cours
 vers un autre artiste — donc une **édition** au sens de 0013 (commit dans
@@ -194,13 +200,16 @@ quel type de link par défaut, et si la proximité se saisit ou se déduit.
 
 ### 9. Dire qu'on n'aime pas (`da` / `dt`)
 
-**Statut** : **conflit réglé**, câblage bloqué par `learned/`.
+**Statut** : **fait** (05/09/2026) — non vérifié en écoute réelle.
 
-Le doublon que craignait le conflit n° 2 est levé : `tb` (ban track) et
-`ab` (ban artist) absorbent à la fois le `dt`/`da` demandé et les `X` et
-`-` déjà décidés. Sur l'artiste, les trois verbes forment une échelle —
-`al` plus souvent, `as` moins souvent, `ab` plus jamais. Reste à câbler,
-avec le reste du namespace.
+`tb` (ban track) et `ab` (ban artist) absorbent à la fois le `dt`/`da`
+demandé et les `X` et `-` déjà décidés : plus de doublon. Sur l'artiste,
+les trois verbes forment une échelle — `al` plus souvent, `as` moins
+souvent, `ab` plus jamais.
+
+Les deux bans agissent **tout de suite** sur ce qui est prévu : `tb`
+retire le morceau de la file, `ab` en retire tous les morceaux de
+l'artiste, et le moteur cesse de les proposer.
 
 ### 10. Synchroniser par git (`gh`) entre machines
 
@@ -258,11 +267,19 @@ Restent ouverts :
 ## Ce qui n'a pas été vérifié
 
 **Rien de ce qui a été câblé le 05/09 n'a tourné dans une session
-d'écoute.** Le mode brut, le leader, les trois variantes, `fr`, `fu`, la
-pause sur `p` et `:size` sont vérifiés à la compilation et par les tests de
-grammaire — pas sous les doigts. C'est la première chose à faire à la
-prochaine session, avant d'ajouter quoi que ce soit.
+d'écoute** — ni la saisie en mode brut, ni les trois variantes, ni les
+sept mesures. Tout est vérifié à la compilation et par dix tests
+unitaires, rien sous les doigts.
 
-Deux points ne se jugeront qu'à ce moment-là : le **coût des deux frappes**
-sur les gestes fréquents, et le **sens de `h`/`l`** — la navigation est
-passée à l'horizontale alors que la file s'affiche verticalement.
+Cela pèse davantage depuis `learned/` : **les mesures écrivent dans le
+catalogue**. Le premier `ts` créera `learned/artists/` pour de vrai, et
+c'est du contenu versionné. Une session de test avant d'empiler la couche
+des éditions serait prudente.
+
+Trois paris ne se jugeront qu'à ce moment-là :
+
+- le **coût des deux frappes** sur les gestes fréquents (`tl`, `ts`) ;
+- le **sens de `h`/`l`**, la navigation étant passée à l'horizontale alors
+  que la file s'affiche verticalement ;
+- l'utilité réelle de **`ts` face à `l`**, dont la différence — noter ou
+  non — reste invisible dans les doigts.
