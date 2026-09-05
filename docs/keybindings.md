@@ -108,6 +108,8 @@ couche que l'appris.
 | espace | | **Le leader** : les touches disponibles, ou celles du namespace en cours de frappe | ✅ |
 | `/texte` | | Chercher — catalogue + Spotify, un chiffre choisit | ✅ |
 | `q` | **quit** | Quitter (affiche le parcours) | ✅ |
+| `r` | **resume** | Reprendre le dernier parcours — **accueil seulement** | ✅ |
+| `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |
 | `?` | **why** | Tags, familiarité, poids, liens, et la première branche d'ici | ✅ |

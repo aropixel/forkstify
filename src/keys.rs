@@ -49,6 +49,10 @@ pub enum Cmd {
     Help(Option<char>),
     Undo,
     Repeat,
+    /// `r` — resume: reprendre le dernier parcours (accueil).
+    Resume,
+    /// `b` — browse: parcourir à sec, sans son (écrans non connectés).
+    Browse,
     Why,
     Queue,
     Quit,
@@ -120,6 +124,8 @@ pub fn parse(buf: &str) -> Parse {
         ['h'] => Parse::Done(Cmd::Prev),
         ['l'] => Parse::Done(Cmd::Next),
         ['p'] => Parse::Done(Cmd::PlayPause),
+        ['r'] => Parse::Done(Cmd::Resume),
+        ['b'] => Parse::Done(Cmd::Browse),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
@@ -246,8 +252,10 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
 }
 
 /// Erase the half-typed command from the line before printing anything else.
+/// Only when something was actually echoed: a one-key command never echoes,
+/// and erasing then would wipe the line that was just drawn.
 fn clear_pending(pending: &mut String) {
-    if !pending.is_empty() {
+    if pending.chars().count() > 1 {
         print!("\r\x1b[K");
         std::io::stdout().flush().ok();
     }
@@ -360,6 +368,8 @@ mod tests {
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
         assert_eq!(parse("h").done(), Some(Cmd::Prev));
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
+        assert_eq!(parse("r").done(), Some(Cmd::Resume));
+        assert_eq!(parse("b").done(), Some(Cmd::Browse));
         assert_eq!(parse("l").done(), Some(Cmd::Next));
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));

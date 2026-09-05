@@ -10,6 +10,7 @@
 mod catalog;
 mod config;
 mod engine;
+mod home;
 mod keys;
 mod discography;
 mod learned;
@@ -226,12 +227,53 @@ fn check(catalog: &Catalog, slug: &str) {
     }
 }
 
+/// `forkstify` sans rien : l'accueil, puis une session, puis l'accueil de
+/// nouveau. L'écran se rend **avant** toute connexion — catalogue et appris
+/// sont locaux — et le réseau n'entre en jeu qu'au moment de jouer.
+fn accueil(path: Option<&String>) -> anyhow::Result<()> {
+    let dir = catalog_path(path);
+    let catalog = Catalog::load(&dir)?;
+    let _raw = keys::RawMode::enable();
+    let mut rx = home::reader();
+    let mut comfort =
+        engine::Comfort::new(config::Config::load().journey.comfort);
+
+    loop {
+        let status = home::Status::read();
+        if !status.connected() {
+            home::show_disconnected(&status, &catalog);
+            if !status.librespot {
+                // l'application s'annonce elle-même : brancher le téléphone
+                // fait partie du produit, ce n'est plus une mise en route
+                if let Err(e) = home::ask_phone() {
+                    println!("\n⏹ découverte interrompue ({e})");
+                    return Ok(());
+                }
+                continue;
+            }
+            // le jeton web se redemande tout seul à l'ouverture de la session
+        }
+
+        let learned = learned::Learned::load(&dir);
+        let tail = discography::Tail::load();
+        let Some(choice) = home::run(&catalog, &learned, &tail, &mut comfort, &mut rx) else {
+            return Ok(());
+        };
+        // la session consomme l'appris et le rend enrichi : on le relit au
+        // tour suivant, ce qui suffit à voir ses propres mesures
+        listen::run(&catalog, choice, learned, tail, comfort, &mut rx)?;
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // sans argument, forkstify ouvre son accueil — les sous-commandes sont
+    // vouées à disparaître (Joel, 05/09/2026)
     let (command, target, path) = match args.as_slice() {
+        [] => return accueil(None),
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify parcours <graine> [catalogue]\n        forkstify ecouter <graine> [catalogue]\n        forkstify check <artiste> [catalogue]");
+            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]");
             std::process::exit(2);
         }
     };
@@ -250,7 +292,18 @@ fn main() -> anyhow::Result<()> {
             &discography::Tail::load(),
             engine::Comfort::new(config::Config::load().journey.comfort),
         ),
-        "ecouter" => listen::run(&catalog, &slug, learned)?,
+        "ecouter" => {
+            let _raw = keys::RawMode::enable();
+            let mut rx = home::reader();
+            listen::run(
+                &catalog,
+                home::Choice::Artist(slug),
+                learned,
+                discography::Tail::load(),
+                engine::Comfort::new(config::Config::load().journey.comfort),
+                &mut rx,
+            )?
+        }
         "check" => check(&catalog, &slug),
         other => {
             eprintln!("commande inconnue : {other}");

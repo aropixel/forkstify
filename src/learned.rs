@@ -155,6 +155,43 @@ impl Learned {
         .clamp(0.0, 1.0) as f32
     }
 
+    /// Artists we used to play and no longer do — the count stored at the
+    /// last listen was high, and that listen is old. 0014's decay is what
+    /// makes this readable: « vous les aimiez, vous ne les écoutez plus ».
+    /// Returns (slug, months since the last listen), oldest neglect first.
+    pub fn neglected(&self, min_plays: f64, min_days: i64) -> Vec<(String, i64)> {
+        let mut out: Vec<(String, i64)> = self
+            .artists
+            .iter()
+            .filter(|(_, a)| a.plays >= min_plays && !a.blacklisted)
+            .filter_map(|(slug, a)| {
+                let days = self.today - from_iso(a.last.as_deref()?)?;
+                (days >= min_days).then(|| (slug.clone(), days / 30))
+            })
+            .collect();
+        out.sort_by_key(|(_, months)| std::cmp::Reverse(*months));
+        out
+    }
+
+    /// The tracks this listener liked anywhere — a seed that is a track
+    /// rather than an artist (arbitrage du 05/09 : la graine peut être les
+    /// deux).
+    pub fn liked_anywhere(&self) -> Vec<(String, String)> {
+        self.artists
+            .iter()
+            .flat_map(|(slug, a)| {
+                a.tops
+                    .iter()
+                    .filter(|(_, t)| t.liked && !t.blacklisted)
+                    .map(move |(title, _)| (slug.clone(), title.clone()))
+            })
+            .collect()
+    }
+
+    pub fn artist_is_banned(&self, slug: &str) -> bool {
+        self.artists.get(slug).is_some_and(|a| a.blacklisted)
+    }
+
     pub fn track_banned(&self, slug: &str, title: &str) -> bool {
         self.artists
             .get(slug)

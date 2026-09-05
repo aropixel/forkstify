@@ -12,6 +12,7 @@ use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
 use crate::engine::Comfort;
 use crate::discography::Tail;
+use crate::home::{Choice, LastSession};
 use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
@@ -22,7 +23,14 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashSet, VecDeque};
 
-pub fn run(catalog: &Catalog, seed: &str, learned: Learned) -> anyhow::Result<()> {
+pub fn run(
+    catalog: &Catalog,
+    choice: Choice,
+    learned: Learned,
+    tail: Tail,
+    comfort: Comfort,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
+) -> anyhow::Result<()> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -32,16 +40,23 @@ pub fn run(catalog: &Catalog, seed: &str, learned: Learned) -> anyhow::Result<()
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, seed, learned))
+        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
 async fn async_run(
     catalog: &Catalog,
-    seed: &str,
+    choice: Choice,
     learned: Learned,
+    tail: Tail,
+    comfort: Comfort,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let tail = Tail::load();
+    let (seed, opening_track) = match &choice {
+        Choice::Artist(slug) => (slug.clone(), None),
+        Choice::Track { slug, title } => (slug.clone(), Some(title.clone())),
+    };
+    let seed = seed.as_str();
     println!(
         "Appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache.",
         learned.known(),
@@ -79,7 +94,7 @@ async fn async_run(
         queue: VecDeque::new(),
         current_request_id: None,
         paused: false,
-        comfort: Comfort::new(config.journey.comfort),
+        comfort,
         warm_requested: false,
         branches: Vec::new(),
         pending_branch: None,
@@ -88,12 +103,12 @@ async fn async_run(
     };
     let mut events = live.sound.events();
 
-    // keys on a blocking thread → async channel, already parsed
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Cmd>();
-    keys::spawn_reader(tx);
+    // le lecteur de touches est celui de l'accueil : deux threads sur stdin
+    // se voleraient les octets
 
-    // opening: play the seed's own tops, then show the first branches
-    let opening = crate::engine::encore(
+    // opening: the chosen track first if the seed was one, then the seed's
+    // own tops (arbitrage du 05/09 : la graine peut être les deux)
+    let mut opening = crate::engine::encore(
         catalog,
         seed,
         &live.learned,
@@ -103,6 +118,18 @@ async fn async_run(
         live.size,
         &mut live.rng,
     );
+    if let Some(title) = opening_track {
+        opening.retain(|stop| stop.title != title);
+        opening.insert(
+            0,
+            crate::engine::Stop {
+                slug: seed.to_string(),
+                artist: catalog.cards[seed].name.clone(),
+                title,
+                source: crate::engine::Source::Top,
+            },
+        );
+    }
     live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
     live.prompt();
@@ -129,6 +156,7 @@ async fn async_run(
             cmd = rx.recv() => match cmd {
                 Some(cmd) => {
                     if !live.on_cmd(cmd).await {
+                        live.remember();
                         break;
                     }
                     live.prefetch_next().await;
@@ -190,7 +218,7 @@ struct Live<'a> {
 }
 
 /// What a comfort value means, so the number is never alone on screen.
-fn comfort_word(value: u8) -> &'static str {
+pub fn comfort_word(value: u8) -> &'static str {
     match value {
         0 => "cocon",
         1 => "prudent",
@@ -753,6 +781,9 @@ impl Live<'_> {
             Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
             Cmd::Why => self.why(),
             Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
+            // deux touches de l'accueil, sans emploi une fois qu'on écoute
+            Cmd::Resume => println!("\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
+            Cmd::Browse => println!("\n(« b » sert à l'accueil : ici, le son est déjà là)"),
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
@@ -930,6 +961,20 @@ impl Live<'_> {
             (Some(other), _) => self.not_yet(&format!(":{other}"), "cette commande"),
             (None, _) => {}
         }
+    }
+
+    /// Keep where we stopped, so the home screen can offer to resume.
+    fn remember(&self) {
+        let Some(stop) = &self.current else { return };
+        if stop.slug.is_empty() {
+            return;
+        }
+        crate::home::remember(&LastSession {
+            slug: stop.slug.clone(),
+            name: stop.artist.clone(),
+            title: stop.title.clone(),
+            at: "à l'instant".to_string(),
+        });
     }
 
     /// A gesture the grammar accepts but the code does not serve yet. Saying

@@ -51,6 +51,12 @@ fn is_live(text: &str) -> bool {
         .any(|word| matches!(word, "live" | "unplugged" | "concert" | "vivo"))
 }
 
+/// Is there a refresh token on disk? Asked by the home screen before
+/// anything is opened, so it can say what is connected without connecting.
+pub fn has_refresh() -> bool {
+    std::fs::read_to_string(REFRESH_CACHE).is_ok_and(|t| !t.trim().is_empty())
+}
+
 impl WebApi {
     /// Reuse the cached refresh token; fall back to the browser flow once.
     pub async fn new(prefer_studio: bool) -> Result<WebApi, Box<dyn std::error::Error>> {

@@ -2,8 +2,10 @@
 //! Connect device (validated by spike-play). The branch engine never
 //! touches this module — it produces tracks, this plays them.
 
+use futures_util::StreamExt;
 use librespot_core::cache::Cache;
 use librespot_core::{Session, SessionConfig};
+use librespot_discovery::{DeviceType, Discovery};
 use librespot_playback::audio_backend;
 use librespot_playback::config::{AudioFormat, PlayerConfig};
 use librespot_playback::mixer::NoOpVolume;
@@ -11,6 +13,45 @@ use librespot_playback::player::{Player, PlayerEvent, PlayerEventChannel};
 use std::sync::Arc;
 
 const CREDENTIALS_CACHE: &str = "target/spike-cache";
+
+/// The name that shows up in the phone's device list. It is the product's
+/// name in the outside world, so it says the distribution, not the spike it
+/// came from.
+pub const DEVICE_NAME: &str = "forkstify (omarchy)";
+
+/// Are there credentials on disk? Asked before anything is opened, so the
+/// home screen can say what is connected without connecting.
+pub fn has_credentials() -> bool {
+    Cache::new(Some(CREDENTIALS_CACHE), None, None, None)
+        .ok()
+        .and_then(|cache| cache.credentials())
+        .is_some()
+}
+
+/// Advertise on the local network and wait for the phone to hand over
+/// credentials. This used to live in the `spike-connect` binary; it belongs
+/// in the application, because « brancher le téléphone » is part of the
+/// product, not a setup step run once by hand.
+pub async fn discover() -> Result<(), Box<dyn std::error::Error>> {
+    let config = SessionConfig::default();
+    let cache = Cache::new(Some(CREDENTIALS_CACHE), None, None, None)?;
+    let mut discovery = Discovery::builder(config.device_id.clone(), config.client_id.clone())
+        .name(DEVICE_NAME)
+        .device_type(DeviceType::Computer)
+        .launch()?;
+
+    let credentials = discovery
+        .next()
+        .await
+        .ok_or("découverte interrompue sans identifiants")?;
+    discovery.shutdown().await;
+
+    // opening the session is what writes the credentials to the cache
+    let session = Session::new(config, Some(cache));
+    session.connect(credentials, true).await?;
+    println!("✓ identifiants reçus ({})", session.username());
+    Ok(())
+}
 
 pub struct Sound {
     player: Arc<Player>,
@@ -21,9 +62,9 @@ impl Sound {
     /// only ever happens once per machine.
     pub async fn connect() -> Result<Sound, Box<dyn std::error::Error>> {
         let cache = Cache::new(Some(CREDENTIALS_CACHE), None, None, None)?;
-        let credentials = cache.credentials().ok_or(
-            "pas d'identifiants librespot en cache — lance d'abord ./target/release/spike-connect",
-        )?;
+        let credentials = cache
+            .credentials()
+            .ok_or("pas d'identifiants librespot — l'accueil les demande au téléphone")?;
 
         let session = Session::new(SessionConfig::default(), Some(cache));
         session.connect(credentials, true).await?;

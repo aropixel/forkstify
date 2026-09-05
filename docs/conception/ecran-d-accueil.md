@@ -189,7 +189,20 @@ passer les délaissés devant à partir de 4 · A2 dit que librespot tient
 toujours, seuls les titres ne se résolvent plus — ce qui est exactement le
 comportement réel.
 
-### Quatre frottements à trancher
+### Quatre frottements — tranchés et corrigés le 05/09/2026
+
+1. **`p` reste la pause.** « Parcourir à sec » passe sur **`b`** (*browse*),
+   lettre libre et mot anglais comme 0015 l'exige.
+2. **« Au hasard » n'a pas de touche neuve** : c'est **entrée**, qui veut dire
+   « choisis pour moi » partout ailleurs. Le `*` de la maquette disparaît.
+3. **`:comfort`**, en anglais, comme le code l'écrit déjà.
+4. **Le nom zeroconf est passé à « forkstify (omarchy) »** dans le code
+   (`src/sound.rs`) : ici c'était la maquette qui avait raison.
+
+Ajouté au clavier : **`r`** (*resume*) pour reprendre. Les deux nouvelles
+touches sont sans préfixe, le test exhaustif de `keys.rs` le vérifie.
+
+### Les frottements, tels qu'ils ont été relevés
 
 1. **`p` est déjà la pause.** La maquette lui donne « parcourir à sec » sur
    les écrans non connectés. Il n'y a pas de lecture à ce moment-là, donc pas
