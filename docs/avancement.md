@@ -174,6 +174,34 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
   (`outillage/amis-*.py`).
 
+## Grammaire clavier câblée (05/09/2026)
+
+**Décision [0015](decisions/0015-grammaire-clavier-namespaces.md)** :
+quatre namespaces — `f` la branche, `e` encore, `t` le morceau, `a`
+l'artiste — la cible se préfixe, un geste fréquent a une touche et un
+réglage une commande `:`. Table unique dans
+[`docs/keybindings.md`](keybindings.md).
+
+Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
+
+- **Saisie en mode brut, sans Entrée** (retour n° 1) : termios via `libc`,
+  garde RAII qui rend le terminal même sur panique, flèches ← → reconnues,
+  `/` et `:` ouvrent une ligne éditable.
+- **Grammaire sans préfixe** : aucune commande complète n'est le début
+  d'une plus longue, donc tout se déclenche sans délai. C'est ce qui a
+  déplacé le modificateur **avant** le compte (`fn3`, `f!3`, `en2`, `e!2`).
+  Un test exhaustif sur toutes les séquences de trois touches le vérifie.
+- **Les trois variantes** (retours n° 2 et 3) pour les branches et pour
+  encore : fin de branche, `n` maintenant, `!` maintenant en retirant ce
+  qui suivait. **Corrige au passage** le défaut signalé : choisir une
+  branche ne jette plus le reste du segment — c'était la variante `!` qui
+  servait de défaut.
+- **`fp` peek, `fr` reroll** (retour n° 5), **`fu`** (branche précédente),
+  **espace** (la pause au clavier qui manquait), **`h`/`l`** et les flèches.
+
+Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
+par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
+
 ## Retours d'usage (05/09/2026)
 
 Les premières sessions longues d'`ecouter` ont produit **11 retours** de

@@ -10,6 +10,7 @@
 mod catalog;
 mod config;
 mod engine;
+mod keys;
 mod listen;
 mod mediakeys;
 mod sound;

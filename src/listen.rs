@@ -9,6 +9,7 @@
 //! finished segment auto-advances so it never stops.
 
 use crate::catalog::Catalog;
+use crate::keys::{self, Cmd, When};
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
@@ -17,12 +18,14 @@ use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::VecDeque;
-use std::io::BufRead;
 
 pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
+    // raw mode for the whole session (0015); the guard puts the terminal
+    // back even if we leave through an error or a panic
+    let _raw = keys::RawMode::enable();
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
@@ -67,19 +70,13 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
     };
     let mut events = live.sound.events();
 
-    // stdin on a blocking thread → async channel
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
-    std::thread::spawn(move || {
-        for line in std::io::stdin().lock().lines().map_while(Result::ok) {
-            if tx.send(line).is_err() {
-                break;
-            }
-        }
-    });
+    // keys on a blocking thread → async channel, already parsed
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Cmd>();
+    keys::spawn_reader(tx);
 
     // opening: play the seed's own tops, then show the first branches
     let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
-    live.start_segment(vec![seed.to_string()], opening, true).await;
+    live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
     live.prompt();
 
@@ -102,9 +99,9 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                 Some(_) => {}
                 None => break,
             },
-            line = rx.recv() => match line {
-                Some(line) => {
-                    if !live.on_input(line.trim()).await {
+            cmd = rx.recv() => match cmd {
+                Some(cmd) => {
+                    if !live.on_cmd(cmd).await {
                         break;
                     }
                     live.prefetch_next().await;
@@ -149,9 +146,9 @@ struct Live<'a> {
     current_request_id: Option<u64>,
     paused: bool,
     branches: Vec<crate::engine::Branch>,
-    // a chosen branch waiting for the current track to end (Joel wants the
-    // song to finish before the branch starts); `j` forces it now
-    pending_branch: Option<crate::engine::Branch>,
+    // a chosen branch and *when* it should take over (0015): at the end of
+    // the branch, or right after the current track
+    pending_branch: Option<(crate::engine::Branch, When)>,
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
     size: usize,
@@ -186,7 +183,13 @@ enum Advance {
 impl Live<'_> {
     /// Start a segment: record it, make it the future, play its first track.
     /// `opening` = the seed's own tops (already the first round, don't push).
-    async fn start_segment(&mut self, artists: Vec<String>, stops: Vec<crate::engine::Stop>, opening: bool) {
+    async fn start_segment(
+        &mut self,
+        artists: Vec<String>,
+        stops: Vec<crate::engine::Stop>,
+        opening: bool,
+        keep_queue: bool,
+    ) {
         if stops.is_empty() {
             return;
         }
@@ -198,8 +201,15 @@ impl Live<'_> {
         } else {
             self.rounds.push(Round { artists, tracks });
         }
-        // the chosen segment replaces whatever was still ahead
-        self.queue = stops.into();
+        // « now » keeps what was queued behind the new segment; the plain
+        // and « force » forms replace it (0015)
+        if keep_queue {
+            for stop in stops.into_iter().rev() {
+                self.queue.push_front(stop);
+            }
+        } else {
+            self.queue = stops.into();
+        }
         if let Advance::Blocked(why) = self.advance().await {
             self.blocked(&why);
             return;
@@ -210,19 +220,33 @@ impl Live<'_> {
         self.render();
     }
 
-    /// Enqueue more of the current artist right after the current track.
-    async fn encore(&mut self, count: usize) {
+    /// Enqueue more of the current artist. `when` says where they land
+    /// (0015): at the end of the branch, right after the current track, or
+    /// right after it with the rest dropped.
+    async fn encore(&mut self, count: usize, when: When) {
         let (_, current, _, _, played) = state_of(&self.rounds);
         let stops = crate::engine::encore(self.catalog, &current, &played, count, &mut self.rng);
         if stops.is_empty() {
             println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
             return;
         }
-        println!("↻ encore {} ({} morceaux)", self.catalog.cards[&current].name, stops.len());
+        let where_ = match when {
+            When::EndOfBranch => "en fin de branche",
+            When::Now => "tout de suite",
+            When::NowForce => "tout de suite, le reste retiré",
+        };
+        println!("↻ encore {} ({} morceaux, {where_})", self.catalog.cards[&current].name, stops.len());
         self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
-        // insert at the front so they play next, without cutting the current track
-        for stop in stops.into_iter().rev() {
-            self.queue.push_front(stop);
+        if when == When::NowForce {
+            self.queue.clear();
+        }
+        match when {
+            When::EndOfBranch => self.queue.extend(stops),
+            _ => {
+                for stop in stops.into_iter().rev() {
+                    self.queue.push_front(stop);
+                }
+            }
         }
         self.render();
     }
@@ -321,13 +345,22 @@ impl Live<'_> {
     /// (this is where a deferred choice fires); otherwise the segment plays
     /// its next track, and when it runs out the music auto-advances.
     async fn next(&mut self) {
-        if let Some(branch) = self.pending_branch.take() {
-            self.start_branch(branch).await;
+        // a branch asked for « now » takes over as soon as the track ends
+        if matches!(self.pending_branch, Some((_, When::Now)) | Some((_, When::NowForce))) {
+            let (branch, when) = self.pending_branch.take().unwrap();
+            self.start_branch(branch, when).await;
             return;
         }
         match self.advance().await {
             Advance::Playing => self.render(),
-            Advance::Exhausted => self.auto_advance().await,
+            Advance::Exhausted => {
+                // the branch ran out: one parked for its end takes over,
+                // otherwise we draw one
+                match self.pending_branch.take() {
+                    Some((branch, when)) => self.start_branch(branch, when).await,
+                    None => self.auto_advance().await,
+                }
+            }
             Advance::Blocked(why) => self.blocked(&why),
         }
     }
@@ -336,10 +369,10 @@ impl Live<'_> {
         self.next().await;
     }
 
-    /// Start a chosen branch now (records it, plays its first track, shows it).
-    async fn start_branch(&mut self, branch: crate::engine::Branch) {
+    /// Start a chosen branch (records it, plays its first track, shows it).
+    async fn start_branch(&mut self, branch: crate::engine::Branch, when: When) {
         println!("\n→ {}", branch.label);
-        self.start_segment(branch.artists, branch.stops, false).await;
+        self.start_segment(branch.artists, branch.stops, false, when == When::Now).await;
     }
 
     /// Show what plays now and what comes next; on the segment's last track,
@@ -367,7 +400,7 @@ impl Live<'_> {
         let next = self
             .pending_branch
             .as_ref()
-            .and_then(|branch| branch.stops.first())
+            .and_then(|(branch, _)| branch.stops.first())
             .or_else(|| self.queue.front());
         if let Some(stop) = next {
             let (title, artist) = (stop.title.clone(), stop.artist.clone());
@@ -434,7 +467,7 @@ impl Live<'_> {
                 let (_, _, _, _, played) = state_of(&self.rounds);
                 let stops = crate::engine::encore(self.catalog, &slug, &played, self.size, &mut self.rng);
                 println!("→ {}", self.catalog.cards[&slug].name);
-                self.start_segment(vec![slug], stops, false).await;
+                self.start_segment(vec![slug], stops, false, false).await;
             }
             Hit::Track { title, artist, uri, slug } => {
                 // a one-track "segment": play it now, branch from its artist
@@ -510,10 +543,12 @@ impl Live<'_> {
 
     fn prompt(&self) {
         if self.pending.is_empty() {
-            print!("\n[1-{}, entrée/auto, j/k = suiv./préc., /texte = chercher, p = branches, e/<n>e = encore, b<n> = taille, u, q] > ",
-                self.branches.len().max(1));
+            println!(
+                "\n[1-{} branche · fn/f! · e<n> · h/l · espace · fp fr fu · /texte · q]",
+                self.branches.len().max(1)
+            );
         } else {
-            print!("\n[1-{} pour jouer un résultat, autre = annuler] > ", self.pending.len());
+            println!("\n[1-{} pour jouer un résultat, autre touche = annuler]", self.pending.len());
         }
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
@@ -529,83 +564,119 @@ impl Live<'_> {
         let weights: Vec<f32> = self.branches.iter().map(|b| b.weight.max(0.1)).collect();
         let index = WeightedIndex::new(&weights).unwrap().sample(&mut self.rng);
         let branch = self.branches.swap_remove(index);
-        println!("\n→ {}", branch.label);
-        self.start_segment(branch.artists, branch.stops, false).await;
+        self.start_branch(branch, When::EndOfBranch).await;
     }
 
-    async fn choose(&mut self, n: usize) {
+    async fn choose(&mut self, n: usize, when: When) {
         if n == 0 || n > self.branches.len() {
             println!("Choix incompris.");
             return;
         }
         let branch = self.branches.remove(n - 1);
-        // let the current track finish, then start the branch; if nothing is
-        // playing, start it right away
-        if self.current.is_some() {
-            println!("→ {} (à la fin du morceau — « j » pour tout de suite)", branch.label);
-            self.pending_branch = Some(branch);
-        } else {
-            self.start_branch(branch).await;
+        // nothing playing: no reason to park it
+        if self.current.is_none() {
+            self.start_branch(branch, when).await;
+            return;
         }
+        match when {
+            When::EndOfBranch => println!(
+                "→ {} (à la fin de la branche — {} morceau(x) d'abord)",
+                branch.label,
+                self.queue.len()
+            ),
+            When::Now => println!("→ {} (à la fin du morceau)", branch.label),
+            When::NowForce => {
+                println!("→ {} (à la fin du morceau, le reste retiré)", branch.label);
+                self.queue.clear();
+            }
+        }
+        self.pending_branch = Some((branch, when));
+        self.render();
     }
 
-    /// Handle one input line; returns false to quit.
-    async fn on_input(&mut self, text: &str) -> bool {
-        // `/query` starts a search; while results are pending, a number picks
-        // one of them rather than a branch
-        if let Some(query) = text.strip_prefix('/') {
-            self.search(query.trim()).await;
-            return true;
-        }
+    /// One parsed command (0015). Returns false to quit.
+    async fn on_cmd(&mut self, cmd: Cmd) -> bool {
+        // while `/` results are on screen, a digit picks one of them rather
+        // than a branch; anything else dismisses them
         if !self.pending.is_empty() {
-            if let Ok(n) = text.parse::<usize>() {
-                self.pick_search(n).await;
-                return true;
+            match cmd {
+                Cmd::Digit(n) => {
+                    self.pick_search(n).await;
+                    return true;
+                }
+                _ => self.pending.clear(),
             }
-            self.pending.clear(); // any other key cancels the search
         }
-        match text {
-            "q" => return false,
-            "" => self.auto_advance().await,
-            // player-style track navigation (vim: j down/next, k up/previous)
-            "j" => self.next().await,
-            "k" => {
+
+        match cmd {
+            Cmd::Quit => return false,
+            Cmd::Auto => self.auto_advance().await,
+
+            // --- f, the branch namespace ---
+            Cmd::Digit(n) => self.choose(n, When::EndOfBranch).await,
+            Cmd::Fork { branch, when } => self.choose(branch, when).await,
+            Cmd::Peek => self.preview(),
+            Cmd::Reroll => {
+                self.recompute();
+                println!("\n\u{21bb} autres branches :");
+                self.preview();
+            }
+            Cmd::ForkUndo => self.fork_undo().await,
+
+            // --- e, encore ---
+            Cmd::Encore { count, when } => self.encore(count, when).await,
+
+            // --- navigation ---
+            Cmd::Next => self.next().await,
+            Cmd::Prev => {
                 self.back().await;
                 self.render();
             }
-            "p" => self.preview(),
-            "u" => {
-                if self.rounds.len() > 1 {
-                    self.rounds.pop();
-                    let (_, current, _, _, played) = state_of(&self.rounds);
-                    let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
-                    self.queue.clear();
-                    self.start_segment(vec![current], stops, false).await;
-                } else {
-                    println!("Déjà à la graine.");
-                }
-            }
-            _ if text.starts_with('b') => match text[1..].parse::<usize>() {
-                Ok(n) if (1..=9).contains(&n) => {
-                    self.size = n;
-                    println!("Taille des branches : {n}");
-                }
-                _ => println!("Taille incomprise (b1 à b9)."),
-            },
-            _ if text.ends_with('e') => {
-                let number = &text[..text.len() - 1];
-                let count = if number.is_empty() { self.size } else { number.parse().unwrap_or(0) };
-                if count == 0 || count > 9 {
-                    println!("Encore incompris (e, 2e … 9e).");
-                } else {
-                    self.encore(count).await;
-                }
-            }
-            _ => match text.parse::<usize>() {
-                Ok(n) => self.choose(n).await,
-                Err(_) => println!("Commande incomprise : {text}"),
-            },
+            Cmd::PlayPause => self.toggle_pause(),
+
+            Cmd::Search(query) => self.search(query.trim()).await,
+
+            // --- decided (0015), not wired yet ---
+            Cmd::Track(k) => self.not_yet(&format!("t{k}"), "affinage du morceau"),
+            Cmd::Artist(k) => self.not_yet(&format!("a{k}"), "affinage de l'artiste"),
+            Cmd::Wander => self.not_yet("fw", "partir hors de l'univers courant"),
+            Cmd::Undo => self.not_yet("u", "annuler le dernier geste"),
+            Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
+            Cmd::Why => self.not_yet("?", "expliquer le morceau ou la branche"),
+            Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
+            Cmd::Colon(text) => self.not_yet(&format!(":{text}"), "commandes \u{ab} : \u{bb}"),
         }
         true
+    }
+
+    /// A gesture the grammar accepts but the code does not serve yet. Saying
+    /// so beats a silent no-op: the key is right, the wiring is missing.
+    fn not_yet(&self, keys: &str, what: &str) {
+        println!("\n\u{ab} {keys} \u{bb} \u{2014} {what} : d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}.");
+    }
+
+    fn toggle_pause(&mut self) {
+        self.paused = !self.paused;
+        if self.paused {
+            self.sound.pause();
+            println!("\n\u{23f8} pause");
+        } else {
+            self.sound.resume();
+            println!("\n\u{25b6} reprise");
+        }
+    }
+
+    /// Back up one branch: drop the last round and replay the artist we were
+    /// on before it. Distinct from `u`, which undoes a *gesture* (0015).
+    async fn fork_undo(&mut self) {
+        if self.rounds.len() <= 1 {
+            println!("\n(d\u{e9}j\u{e0} \u{e0} la graine)");
+            return;
+        }
+        self.rounds.pop();
+        let (_, current, _, _, played) = state_of(&self.rounds);
+        let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
+        self.queue.clear();
+        self.start_segment(vec![current], stops, false, false).await;
     }
 }

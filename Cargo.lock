@@ -733,6 +733,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures-util",
+ "libc",
  "librespot-core",
  "librespot-discovery",
  "librespot-oauth",

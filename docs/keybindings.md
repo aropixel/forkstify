@@ -161,9 +161,23 @@ grammaire à **quatre namespaces**, où le premier caractère dit *sur quoi*
 on agit et le second *ce qu'on fait*.
 
 Statut : **acceptée** (Joel, 05/09/2026), formalisée par la décision
-[0015](decisions/0015-grammaire-clavier-namespaces.md). Le câblage est en
-cours ; la colonne « statut » des tables ci-dessus dit ce qui tourne
-vraiment.
+[0015](decisions/0015-grammaire-clavier-namespaces.md).
+
+**Câblé le 05/09/2026** : la saisie en mode brut (sans Entrée), le
+namespace `f` en entier sauf `fw`, le namespace `e` avec ses trois
+variantes, la navigation `h`/`l` et les flèches, l'espace, `/` et `q`.
+**Pas encore câblé** : `t` et `a` (l'affinage — il attend `learned/`,
+étape 2 de l'avancement), `fw`, `u`, `.`, `?`, `Q` et les commandes `:`.
+Ces touches répondent « décidé, pas encore câblé » plutôt que de ne rien
+faire.
+
+Le modificateur se place **avant** le compte — `fn3`, `f!3`, `en2`, `e!2`
+— et non après comme d'abord écrit. C'est imposé par l'analyse : la
+grammaire doit être **sans préfixe** (aucune commande complète n'est le
+début d'une plus longue) pour se déclencher sans délai ni retour arrière.
+`f3n` rendrait `f3` à la fois complet et préfixe. Un test exhaustif sur
+toutes les séquences de trois touches vérifie la propriété
+(`src/keys.rs`, `grammar_is_prefix_free`).
 
 ## La règle, en une ligne
 
@@ -187,8 +201,8 @@ Trois conséquences :
 | Touche | Mot | Action |
 |---|---|---|
 | `f<n>` | **fork** | Prendre la branche n, **après la branche en cours** |
-| `f<n>n` | fork **now** | …après le morceau en cours, le reste conservé |
-| `f<n>n!` | fork now, **force** | …après le morceau en cours, le reste retiré |
+| `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé |
+| `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré |
 | `fp` | fork **peek** | Prévoir les branches sans attendre le dernier morceau |
 | `fr` | fork **reroll** | Reproposer trois autres branches |
 | `fw` | fork **wander** | Partir loin, hors de l'univers courant (retour n° 6) |
@@ -197,7 +211,7 @@ Trois conséquences :
 | entrée | | Auto : tire au sort parmi les branches affichées |
 
 Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
-Le `n` est *now*. Ça se lit à voix haute : « fork 3, now, force ».
+Le `n` est *now*. Ça se lit à voix haute : « fork now 3 », « fork force 3 ».
 
 Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 
@@ -206,8 +220,8 @@ Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 | Touche | Mot | Action |
 |---|---|---|
 | `e<n>` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** |
-| `e<n>n` | encore **now** | …après le morceau en cours, le reste conservé |
-| `e<n>n!` | encore now, **force** | …après le morceau en cours, le reste retiré |
+| `en<n>` | encore **now** | …après le morceau en cours, le reste conservé |
+| `e!<n>` | encore now, **force** | …après le morceau en cours, le reste retiré |
 
 `e` seul n'est pas une commande : le compte est obligatoire, pour la même
 raison qu'il suit le namespace (règle 2).

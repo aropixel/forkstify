@@ -7,6 +7,7 @@ description = "Lecteur de musique par branches — PoC : navigation à sec"
 [dependencies]
 anyhow = "1"
 futures-util = "0.3"
+libc = "0.2"
 librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
 librespot-discovery = { version = "0.8", default-features = false, features = ["with-libmdns", "rustls-tls-webpki-roots"] }
 librespot-oauth = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
