@@ -61,9 +61,38 @@ artistes déjà rencontrés.
   chercher.
 - **Marque d'affichage** : une cinquième provenance à côté de `♪ ♥ ↳ + ~`.
 
-## À trancher
+## Câblé le 05/09/2026
 
-1. **La profondeur.** Le top élargi (`/v1/artists/{id}/top-tracks`, 10
+Joel a validé les arbitrages ; les deux points que la note laissait ouverts
+ont été pris au plus sobre, et dits comme tels : **récolte au moment du
+besoin** et **pas de péremption**.
+
+- `src/discography.rs` — le cache, `~/.cache/forkstify/discography/<slug>.json`,
+  chargé une fois au démarrage. Le moteur le lit **synchroniquement** ;
+  l'application le remplit.
+- `WebApi::discography()` — albums et singles, puis leurs pistes par lots de
+  vingt : quelques appels par artiste, une fois. Une récolte partielle est
+  gardée — la traîne est un réservoir, pas un inventaire.
+- **Quand** : automatiquement quand `e<n>` demande plus de profondeur que la
+  fiche n'en a, et `:warm` pour la forcer sur l'artiste en cours.
+- **Le curseur trouve son troisième levier** : la part de la traîne dans le
+  réservoir est exactement l'ouverture du confort (0012 §4). **Zéro au
+  cocon**, pleine à l'exploration. Un test le fige.
+- **Déduplication par titre normalisé** : Spotify livre la même chanson sous
+  dix habillages (« - 2004 Remaster », « (Remastered) »), et un titre déjà
+  dans les tops n'entre pas dans la traîne — la traîne, c'est ce qui n'est
+  *pas* déjà dans le réservoir.
+- **Marque `·`**, à côté de `♪ ♥ ↳ + ~`.
+
+Le champ `spotify` des fiches, présent depuis toujours et jamais lu par le
+code, l'est enfin : c'est lui qui ouvre la porte.
+
+## À trancher — ce qui reste
+
+*(Les trois points ci-dessous sont tranchés ; conservés pour mémoire du
+raisonnement.)*
+
+1. **La profondeur.** ~~Le top élargi~~ (`/v1/artists/{id}/top-tracks`, 10
    titres, un appel) recoupe largement les tops de la fiche et n'est donc
    presque pas une traîne. La vraie traîne demande la **discographie** :
    `/v1/artists/{id}/albums` puis `/v1/albums?ids=` par lots de 20 — de

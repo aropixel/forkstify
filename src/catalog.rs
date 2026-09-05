@@ -28,6 +28,9 @@ pub struct Door {
 #[derive(Deserialize)]
 pub struct Card {
     pub name: String,
+    /// The artist's Spotify id, when the card carries one (212 of 214) —
+    /// the way in to the long tail.
+    pub spotify: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]

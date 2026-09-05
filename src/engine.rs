@@ -9,6 +9,7 @@
 //! artist along the way.
 
 use crate::catalog::{Card, Catalog};
+use crate::discography::{self, Tail};
 use crate::learned::Learned;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
@@ -26,6 +27,8 @@ pub enum Source {
     Door,
     /// Known artist, none of the above — came in through a search.
     Outside,
+    /// The long tail: the rest of the known discography (0012 §1).
+    Tail,
     /// No card at all.
     Offmap,
 }
@@ -37,6 +40,7 @@ impl Source {
             Source::Top => '♪',
             Source::Liked => '♥',
             Source::Door => '↳',
+            Source::Tail => '·',
             Source::Outside => '+',
             Source::Offmap => '~',
         }
@@ -307,6 +311,14 @@ impl Comfort {
         1.0 - 2.0 * self.openness()
     }
 
+    /// The share the long tail gets in the reservoir — 0012 §4: « confort
+    /// haut : tirage serré sur les tops ; confort bas : la longue traîne
+    /// pèse davantage ». Read with the polarity above, that means **zero in
+    /// the cocon** and full weight wide open.
+    fn tail_share(self) -> f32 {
+        self.openness()
+    }
+
     /// What this dial does to a candidate of that familiarity. Never zero:
     /// a branch is discouraged, never forbidden — the application does not
     /// decide for the ear.
@@ -323,6 +335,10 @@ const W_TOP: f32 = 1.0;
 const W_LIKED: f32 = 0.8;
 const W_DOOR: f32 = 0.4;
 const DOOR_BONUS: f32 = 2.5;
+/// The tail's own weight, before the comfort dial scales it. Low per track,
+/// but a discography has ten times more tracks than a card has tops — so
+/// cumulatively it takes over as the dial opens, which is what 0012 §4 asks.
+const W_TAIL: f32 = 0.25;
 
 /// The reservoir of one artist — 0012 §1, « le top est un poids, pas une
 /// liste fermée ». Cumulates the tops, the tracks this listener liked here,
@@ -334,6 +350,8 @@ fn reservoir(
     card: &Card,
     slug: &str,
     learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
     played: &HashSet<String>,
     towards: &[String],
 ) -> Vec<(String, f32, Source)> {
@@ -363,6 +381,22 @@ fn reservoir(
             )),
         }
     }
+    // the long tail, scaled by the dial: nothing at the cocon, plenty open
+    let share = comfort.tail_share();
+    if share > 0.0 {
+        let known: HashSet<String> =
+            pool.iter().map(|(t, ..)| discography::normalize(t)).collect();
+        let mut seen = HashSet::new();
+        for track in tail.of(slug) {
+            let key = discography::normalize(&track.title);
+            // the tail is what is *not* already in the reservoir, and
+            // Spotify ships the same song under a dozen version names
+            if known.contains(&key) || !seen.insert(key) {
+                continue;
+            }
+            pool.push((track.title.clone(), W_TAIL * share, Source::Tail));
+        }
+    }
     pool.retain(|(title, ..)| !played.contains(title) && !learned.track_banned(slug, title));
     for entry in &mut pool {
         // a track often skipped falls back in the draw, it is not banned
@@ -376,11 +410,13 @@ fn fresh_track(
     card: &Card,
     slug: &str,
     learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
     played: &HashSet<String>,
     towards: &[String],
     rng: &mut impl Rng,
 ) -> Option<(String, Source)> {
-    let pool = reservoir(card, slug, learned, played, towards);
+    let pool = reservoir(card, slug, learned, tail, comfort, played, towards);
     let dist = WeightedIndex::new(pool.iter().map(|(_, w, _)| w.max(0.01))).ok()?;
     let (title, _, source) = &pool[dist.sample(rng)];
     Some((title.clone(), *source))
@@ -405,13 +441,15 @@ pub fn encore(
     catalog: &Catalog,
     artist: &str,
     learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
     played: &HashSet<String>,
     count: usize,
     rng: &mut impl Rng,
 ) -> Vec<Stop> {
     let card = &catalog.cards[artist];
     // staying put is not heading anywhere: a door earns no bonus here
-    let mut pool = reservoir(card, artist, learned, played, &[]);
+    let mut pool = reservoir(card, artist, learned, tail, comfort, played, &[]);
     let mut stops = Vec::new();
     while stops.len() < count && !pool.is_empty() {
         let Ok(dist) = WeightedIndex::new(pool.iter().map(|(_, w, _)| w.max(0.01))) else {
@@ -433,6 +471,7 @@ fn walk(
     head_reason: String,
     head_weight: f32,
     learned: &Learned,
+    tail: &Tail,
     comfort: Comfort,
     visited: &HashSet<String>,
     played: &HashSet<String>,
@@ -448,7 +487,7 @@ fn walk(
     loop {
         let last = artists.last().unwrap().clone();
         let card = &catalog.cards[&last];
-        if let Some((title, source)) = fresh_track(card, &last, learned, played, &towards, rng) {
+        if let Some((title, source)) = fresh_track(card, &last, learned, tail, comfort, played, &towards, rng) {
             stops.push(Stop { slug: last.clone(), artist: card.name.clone(), title, source });
         }
         hops += 1;
@@ -496,6 +535,8 @@ fn stay(
     universe: &[String],
     current: &str,
     learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
     played: &HashSet<String>,
     size: usize,
     rng: &mut impl Rng,
@@ -545,7 +586,7 @@ fn stay(
     while stops.len() < size {
         let Some(slug) = draw_weighted(&mut weighted, rng) else { break };
         let card = &catalog.cards[&slug];
-        if let Some((title, source)) = fresh_track(card, slug.as_str(), learned, played, &[], rng) {
+        if let Some((title, source)) = fresh_track(card, slug.as_str(), learned, tail, comfort, played, &[], rng) {
             stops.push(Stop { slug: slug.clone(), artist: card.name.clone(), title, source });
             artists.push(slug);
         }
@@ -579,6 +620,7 @@ pub fn propose(
     context: &[String],
     universe: &[String],
     learned: &Learned,
+    tail: &Tail,
     comfort: Comfort,
     visited: &HashSet<String>,
     played: &HashSet<String>,
@@ -588,7 +630,7 @@ pub fn propose(
     let current = context.last().unwrap().as_str();
     let card = &catalog.cards[current];
     let mut branches = Vec::new();
-    if let Some(branch) = stay(catalog, universe, current, learned, played, size, rng) {
+    if let Some(branch) = stay(catalog, universe, current, learned, tail, comfort, played, size, rng) {
         branches.push(branch);
     }
     let slots = 3 - branches.len();
@@ -655,7 +697,8 @@ pub fn propose(
 
     for (slug, why, weight) in heads {
         branches.push(walk(
-            catalog, current, slug, why, weight, learned, comfort, visited, played, size, rng,
+            catalog, current, slug, why, weight, learned, tail, comfort, visited, played, size,
+            rng,
         ));
     }
     branches
@@ -666,9 +709,16 @@ mod tests {
     use super::*;
     use crate::catalog::Door;
 
+    /// A blank tail: the tests that predate it must keep meaning the same
+    /// thing, and a cocon draws none of it anyway.
+    fn no_tail() -> Tail {
+        Tail::blank()
+    }
+
     fn the_cure() -> Card {
         Card {
             name: "The Cure".into(),
+            spotify: None,
             tags: vec!["post-punk".into(), "80s".into()],
             tops: vec!["Boys Don't Cry".into(), "A Forest".into()],
             doors: vec![Door {
@@ -690,7 +740,7 @@ mod tests {
         let card = the_cure();
         let mut learned = Learned::blank();
         learned.like_track("the-cure", "Killing an Arab");
-        let pool = reservoir(&card, "the-cure", &learned, &HashSet::new(), &[]);
+        let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
 
         // les deux tops, plus le titre aimé qui n'en est pas un
         assert_eq!(pool.len(), 3, "{pool:?}");
@@ -707,10 +757,18 @@ mod tests {
         let card = the_cure();
         let learned = Learned::blank();
 
-        let ailleurs = reservoir(&card, "the-cure", &learned, &HashSet::new(), &["rap".into()]);
+        let ailleurs = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &["rap".into()]);
         assert_eq!(weight_of(&ailleurs, "A Forest"), W_TOP, "aucune direction commune");
 
-        let vers = reservoir(&card, "the-cure", &learned, &HashSet::new(), &["post-punk".into()]);
+        let vers = reservoir(
+            &card,
+            "the-cure",
+            &learned,
+            &no_tail(),
+            Comfort::new(0),
+            &HashSet::new(),
+            &["post-punk".into()],
+        );
         assert_eq!(weight_of(&vers, "A Forest"), W_TOP * DOOR_BONUS);
         let door = vers.iter().find(|(t, ..)| t == "A Forest").unwrap();
         assert_eq!(door.2, Source::Door, "la provenance doit se voir à l'affichage");
@@ -725,7 +783,7 @@ mod tests {
         learned.ban_track("the-cure", "Boys Don't Cry");
         learned.skip_track("the-cure", "A Forest");
         learned.skip_track("the-cure", "A Forest");
-        let pool = reservoir(&card, "the-cure", &learned, &HashSet::new(), &[]);
+        let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
 
         assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
         // deux sauts : le poids est divisé par trois, sans jamais s'annuler
@@ -764,13 +822,55 @@ mod tests {
         assert_eq!(Comfort::new(9).value(), 5);
     }
 
+    /// 0012 §4 : c'est le confort qui règle la profondeur du tirage. Au
+    /// cocon la traîne ne pèse rien ; ouvert, elle prend le dessus.
+    #[test]
+    fn la_traine_ne_pese_que_quand_on_ouvre() {
+        let card = the_cure();
+        let learned = Learned::blank();
+        let mut tail = Tail::blank();
+        tail.keep(
+            "the-cure",
+            vec![
+                crate::discography::TailTrack {
+                    title: "Killing an Arab".into(),
+                    uri: "spotify:track:x".into(),
+                    album: "Three Imaginary Boys".into(),
+                },
+                // la même chanson, remasterisée : elle ne doit pas compter deux fois
+                crate::discography::TailTrack {
+                    title: "Killing an Arab - 2004 Remaster".into(),
+                    uri: "spotify:track:y".into(),
+                    album: "Boys Don't Cry".into(),
+                },
+                // et un titre déjà dans les tops n'entre pas dans la traîne
+                crate::discography::TailTrack {
+                    title: "A Forest (Remastered)".into(),
+                    uri: "spotify:track:z".into(),
+                    album: "Seventeen Seconds".into(),
+                },
+            ],
+        );
+
+        let cocon = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(0), &HashSet::new(), &[]);
+        assert!(!cocon.iter().any(|(_, _, s)| *s == Source::Tail), "au cocon, pas de traîne");
+        assert_eq!(cocon.len(), 2, "les deux tops, rien d'autre");
+
+        let ouvert = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &[]);
+        let traine: Vec<&(String, f32, Source)> =
+            ouvert.iter().filter(|(_, _, s)| *s == Source::Tail).collect();
+        assert_eq!(traine.len(), 1, "une seule fois Killing an Arab : {ouvert:?}");
+        assert_eq!(traine[0].0, "Killing an Arab");
+        assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "moins qu'un top, mais présente");
+    }
+
     /// Ce qu'un parcours a déjà joué ne revient pas (0012 §3).
     #[test]
     fn le_deja_joue_ne_revient_pas() {
         let card = the_cure();
         let learned = Learned::blank();
         let played: HashSet<String> = ["A Forest".to_string()].into_iter().collect();
-        let pool = reservoir(&card, "the-cure", &learned, &played, &[]);
+        let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &played, &[]);
         assert_eq!(pool.len(), 1);
         assert_eq!(pool[0].0, "Boys Don't Cry");
     }

@@ -202,6 +202,32 @@ Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
 Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
 par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
 
+## La longue traîne, quatrième source (05/09/2026)
+
+`src/discography.rs` + `WebApi::discography()`. Le réservoir de 0012 §1 est
+complet : tops, aimés, doors, **et le reste de la discographie**.
+
+Source **Spotify**, par le champ `spotify` des fiches — présent depuis
+toujours, jamais lu jusqu'ici. Il évite le `search` par artiste qu'imposerait
+Deezer (aucune fiche ne porte d'identifiant Deezer) et rend des
+`spotify:track:` directement, donc un morceau de traîne ne peut jamais
+devenir un « introuvable sur Spotify ».
+
+Cache dans `~/.cache/forkstify/discography/<slug>.json` — hors du dépôt,
+comme 0012 et `catalogue.md` le demandent : régénérable, jamais commité, non
+synchronisé. Récolté **au moment du besoin** (quand `e<n>` demande plus que
+la fiche n'a) ou par `:warm`. Pas de péremption.
+
+**Le curseur de confort a enfin son troisième levier** : la part de la
+traîne *est* l'ouverture du confort (0012 §4) — zéro au cocon, pleine à
+l'exploration.
+
+Déduplication par titre normalisé : Spotify livre la même chanson sous dix
+habillages, et un titre déjà top n'entre pas dans la traîne. Marque `·`.
+
+**Non vérifié en réseau** : la récolte demande une session Spotify, donc
+`:warm` n'a jamais tourné en vrai. Le reste est couvert par 14 tests.
+
 ## La zone de confort branchée (05/09/2026)
 
 `engine::Comfort` implémente [0001](decisions/0001-confort-familiarite.md) :

@@ -207,6 +207,60 @@ impl WebApi {
         Ok(hits)
     }
 
+    /// Harvest an artist's discography — the long tail, 0012 §1's fourth
+    /// source. Albums and singles, then their tracks in batches of twenty,
+    /// which keeps a whole artist to a handful of calls. Returns the tracks
+    /// with their uris, so nothing here will ever need resolving.
+    pub async fn discography(
+        &mut self,
+        spotify_id: &str,
+    ) -> Result<Vec<crate::discography::TailTrack>, String> {
+        if let Err(e) = self.refresh_if_needed().await {
+            return Err(format!("jeton Spotify périmé ({e})"));
+        }
+        let url = format!(
+            "https://api.spotify.com/v1/artists/{spotify_id}/albums\
+             ?include_groups=album,single&limit=50"
+        );
+        let Some(body) = self.get_with_backoff(&url).await else {
+            return Err("l'API Spotify n'a pas répondu".to_string());
+        };
+        let album_ids: Vec<String> = body["items"]
+            .as_array()
+            .map(|items| {
+                items.iter().filter_map(|a| a["id"].as_str().map(String::from)).collect()
+            })
+            .unwrap_or_default();
+
+        let mut tracks = Vec::new();
+        for chunk in album_ids.chunks(20) {
+            let url = format!("https://api.spotify.com/v1/albums?ids={}", chunk.join(","));
+            let Some(body) = self.get_with_backoff(&url).await else {
+                // a partial harvest is still worth keeping: the tail is a
+                // reservoir, not an inventory
+                break;
+            };
+            let Some(albums) = body["albums"].as_array() else { break };
+            for album in albums {
+                let album_name = album["name"].as_str().unwrap_or("").to_string();
+                let Some(items) = album["tracks"]["items"].as_array() else { continue };
+                for track in items {
+                    let (Some(title), Some(uri)) =
+                        (track["name"].as_str(), track["uri"].as_str())
+                    else {
+                        continue;
+                    };
+                    tracks.push(crate::discography::TailTrack {
+                        title: title.to_string(),
+                        uri: uri.to_string(),
+                        album: album_name.clone(),
+                    });
+                }
+            }
+        }
+        Ok(tracks)
+    }
+
     /// GET honoring Retry-After on 429 (spotify.md: throttle is account/IP).
     async fn get_with_backoff(&self, url: &str) -> Option<serde_json::Value> {
         let token = self.token.clone();

@@ -11,6 +11,7 @@ mod catalog;
 mod config;
 mod engine;
 mod keys;
+mod discography;
 mod learned;
 mod listen;
 mod mediakeys;
@@ -108,7 +109,13 @@ pub fn show_branches(catalog: &Catalog, current: &str, branches: &[engine::Branc
     }
 }
 
-fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned, comfort: engine::Comfort) {
+fn journey(
+    catalog: &Catalog,
+    seed: &str,
+    learned: &learned::Learned,
+    tail: &discography::Tail,
+    comfort: engine::Comfort,
+) {
     let mut rng = thread_rng();
     let mut rounds = vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }];
     let mut size = 3usize;
@@ -117,7 +124,8 @@ fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned, comfort: e
         let (context, current, universe, visited, played) = state_of(&rounds);
         let branches =
             engine::propose(
-                catalog, &context, &universe, learned, comfort, &visited, &played, size, &mut rng,
+                catalog, &context, &universe, learned, tail, comfort, &visited, &played, size,
+                &mut rng,
             );
         show_branches(catalog, &current, &branches);
 
@@ -168,7 +176,8 @@ fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned, comfort: e
                     if count == 0 || count > 9 {
                         println!("Encore incompris : {text} (e, 2e … 9e)");
                     } else {
-                        let stops = engine::encore(catalog, &current, learned, &played, count, &mut rng);
+                        let stops =
+                            engine::encore(catalog, &current, learned, tail, comfort, &played, count, &mut rng);
                         if stops.is_empty() {
                             println!("(plus de tops non joués chez {})", catalog.cards[&current].name);
                         } else {
@@ -238,6 +247,7 @@ fn main() -> anyhow::Result<()> {
             &catalog,
             &slug,
             &learned,
+            &discography::Tail::load(),
             engine::Comfort::new(config::Config::load().journey.comfort),
         ),
         "ecouter" => listen::run(&catalog, &slug, learned)?,

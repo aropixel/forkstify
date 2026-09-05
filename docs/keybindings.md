@@ -130,6 +130,7 @@ a gagné le tirage.
 | `♥` | Un titre **aimé** ici (`tl`), qui n'est pas un top |
 | `↳` | Une **door** ([0011](decisions/0011-doors-critere-additionnel.md)) dont la direction recoupe celle de la branche |
 | `+` | Artiste connu, morceau **hors tops** — c'est celui que `tt` promouvrait |
+| `·` | La **longue traîne** : le reste de la discographie, qui ne pèse qu'à mesure que le confort s'ouvre |
 | `~` | **Hors catalogue** : joué depuis Spotify, sans fiche |
 
 Une door ne prend sa marque que **quand elle s'ouvre** : hors de sa
@@ -145,6 +146,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 |---|---|---|
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
 | `:comfort <n>` | Zone de confort, **0 = cocon → 5 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
+| `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 

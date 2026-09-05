@@ -11,6 +11,7 @@
 use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
 use crate::engine::Comfort;
+use crate::discography::Tail;
 use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
@@ -40,10 +41,12 @@ async fn async_run(
     seed: &str,
     learned: Learned,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let tail = Tail::load();
     println!(
-        "Appris : {} artiste(s) écouté(s), {} de familiarité de départ.",
+        "Appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache.",
         learned.known(),
-        learned.seeded()
+        learned.seeded(),
+        tail.known()
     );
     println!("Connexion à Spotify…");
     let config = crate::config::Config::load();
@@ -66,6 +69,7 @@ async fn async_run(
     let mut live = Live {
         catalog,
         learned,
+        tail,
         sound,
         web,
         rng: thread_rng(),
@@ -76,6 +80,7 @@ async fn async_run(
         current_request_id: None,
         paused: false,
         comfort: Comfort::new(config.journey.comfort),
+        warm_requested: false,
         branches: Vec::new(),
         pending_branch: None,
         pending: Vec::new(),
@@ -88,7 +93,16 @@ async fn async_run(
     keys::spawn_reader(tx);
 
     // opening: play the seed's own tops, then show the first branches
-    let opening = crate::engine::encore(catalog, seed, &live.learned, &Default::default(), live.size, &mut live.rng);
+    let opening = crate::engine::encore(
+        catalog,
+        seed,
+        &live.learned,
+        &live.tail,
+        live.comfort,
+        &Default::default(),
+        live.size,
+        &mut live.rng,
+    );
     live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
     live.prompt();
@@ -147,6 +161,8 @@ async fn async_run(
 struct Live<'a> {
     catalog: &'a Catalog,
     learned: Learned,
+    /// The long tail, harvested on demand (0012 §1, fourth source).
+    tail: Tail,
     sound: Sound,
     web: WebApi,
     rng: ThreadRng,
@@ -161,6 +177,9 @@ struct Live<'a> {
     paused: bool,
     /// The comfort dial (0001), from the config, adjustable with `:comfort`.
     comfort: Comfort,
+    /// `:warm` asked for a harvest; the command handler is not async, the
+    /// loop does it on the next turn.
+    warm_requested: bool,
     branches: Vec<crate::engine::Branch>,
     // a chosen branch and *when* it should take over (0015): at the end of
     // the branch, or right after the current track
@@ -253,7 +272,22 @@ impl Live<'_> {
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
         let (_, current, _, _, played) = self.state();
-        let stops = crate::engine::encore(self.catalog, &current, &self.learned, &played, count, &mut self.rng);
+        // sanding is where depth is wanted: if the card cannot serve the
+        // whole request, go and get the tail first (0012 §1)
+        if self.catalog.cards[&current].tops.len() < count + played.len().min(3) {
+            self.harvest(&current).await;
+        }
+        let (_, current, _, _, played) = self.state();
+        let stops = crate::engine::encore(
+            self.catalog,
+            &current,
+            &self.learned,
+            &self.tail,
+            self.comfort,
+            &played,
+            count,
+            &mut self.rng,
+        );
         if stops.is_empty() {
             println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
             return;
@@ -512,7 +546,16 @@ impl Live<'_> {
         match hit {
             Hit::Artist(slug) => {
                 let (_, _, _, _, played) = self.state();
-                let stops = crate::engine::encore(self.catalog, &slug, &self.learned, &played, self.size, &mut self.rng);
+                let stops = crate::engine::encore(
+                    self.catalog,
+                    &slug,
+                    &self.learned,
+                    &self.tail,
+                    self.comfort,
+                    &played,
+                    self.size,
+                    &mut self.rng,
+                );
                 println!("→ {}", self.catalog.cards[&slug].name);
                 self.start_segment(vec![slug], stops, false, false).await;
             }
@@ -592,8 +635,8 @@ impl Live<'_> {
     fn recompute(&mut self) {
         let (context, _, universe, visited, played) = self.state();
         self.branches = crate::engine::propose(
-            self.catalog, &context, &universe, &self.learned, self.comfort, &visited, &played,
-            self.size, &mut self.rng,
+            self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort, &visited,
+            &played, self.size, &mut self.rng,
         );
         // « moins souvent » / « plus souvent » ride on the branches that
         // start with the artist concerned (0014)
@@ -708,7 +751,13 @@ impl Live<'_> {
             Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
             Cmd::Why => self.why(),
             Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
-            Cmd::Colon(text) => self.colon(&text),
+            Cmd::Colon(text) => {
+                self.colon(&text);
+                if std::mem::take(&mut self.warm_requested) {
+                    let (_, current, ..) = self.state();
+                    self.harvest(&current).await;
+                }
+            }
         }
         true
     }
@@ -823,6 +872,29 @@ impl Live<'_> {
         }
     }
 
+    /// Go and get an artist's discography, once. A partial harvest is kept:
+    /// the tail is a reservoir, not an inventory.
+    async fn harvest(&mut self, slug: &str) {
+        if self.tail.has(slug) {
+            return;
+        }
+        let card = &self.catalog.cards[slug];
+        let Some(spotify_id) = card.spotify.clone() else {
+            println!("\n({} n'a pas d'identifiant Spotify dans sa fiche)", card.name);
+            return;
+        };
+        print!("\n… discographie de {} ", card.name);
+        std::io::Write::flush(&mut std::io::stdout()).ok();
+        match self.web.discography(&spotify_id).await {
+            Ok(tracks) => {
+                let count = tracks.len();
+                self.tail.keep(slug, tracks);
+                println!("→ {count} titres en cache");
+            }
+            Err(why) => println!("→ échec ({why})"),
+        }
+    }
+
     /// `:` commands — 0013 makes every key the shortcut of one. Only
     /// `:size` is served so far: it replaces the old `b<n>`, which the
     /// move to raw mode dropped on the way.
@@ -847,6 +919,7 @@ impl Live<'_> {
                 }
                 _ => println!("Confort attendu entre 0 (cocon) et 5 (exploration)."),
             },
+            (Some("warm"), _) => self.warm_requested = true,
             (Some("comfort"), None) => println!(
                 "Zone de confort : {} — {}",
                 self.comfort.value(),
@@ -915,7 +988,8 @@ impl Live<'_> {
                 ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
                 (":comfort <n>", "zone de confort, 0 cocon → 5 exploration", true),
-                ("♪♥↳+~", "top · aimé · door · hors tops · hors catalogue", true),
+                (":warm", "récolter la discographie de l'artiste en cours", true),
+                ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
             ],
         };
@@ -958,7 +1032,16 @@ impl Live<'_> {
         }
         self.rounds.pop();
         let (_, current, _, _, played) = self.state();
-        let stops = crate::engine::encore(self.catalog, &current, &self.learned, &played, self.size, &mut self.rng);
+        let stops = crate::engine::encore(
+            self.catalog,
+            &current,
+            &self.learned,
+            &self.tail,
+            self.comfort,
+            &played,
+            self.size,
+            &mut self.rng,
+        );
         self.queue.clear();
         self.start_segment(vec![current], stops, false, false).await;
     }
