@@ -155,36 +155,27 @@ aujourd'hui, elles coûteront cher une fois les touches dans les doigts.
 
 # Mapping mnémonique proposé (05/09/2026)
 
-Demandé par Joel : **chaque touche doit venir d'un mot anglais**, à la vim
-(`y` yank, `c` change, `d` delete), en partant de son idée — **`f` pour
-fork**, puisque le produit s'appelle forkstify et que tout y est branche.
-
-Révisé le 05/09/2026 : **`f` est un namespace**, pas une touche isolée.
-Tout ce qui touche aux branches s'enchaîne derrière lui, comme `g` ou `z`
-dans vim (demande de Joel).
+Demandé par Joel : **chaque touche vient d'un mot anglais**, à la vim
+(`y` yank, `c` change, `d` delete). Trois révisions le 05/09 ont mené à une
+grammaire à **quatre namespaces**, où le premier caractère dit *sur quoi*
+on agit et le second *ce qu'on fait*.
 
 Statut : **proposition**, hors le double sens de « fork » déjà tranché.
 
-## Les quatre règles
+## La règle, en une ligne
 
-1. **Une touche = un verbe anglais.** Sa majuscule est le geste lourd ou
-   l'inverse (`t` top / `T` untop, `l` like / `L` link).
-2. **`f` est le namespace des branches.** `f` seul ne fait rien ; il attend
-   un chiffre (quelle branche) ou une lettre (quelle opération).
-3. **Le compte se met avant, la cible après** — comme dans vim, où `3dd`
-   compte et `f{char}` cible. Donc `3e` = trois encores, mais `f3` = la
-   branche numéro 3.
-4. **Verbe + cible explicite.** Chaque mesure se dit en deux lettres :
-   le verbe, puis `t` (*track*) ou `a` (*artist*) — `lt` like track, `la`
-   like artist. Le verbe seul vaut `<verbe>t`, parce que le morceau est la
-   cible neuf fois sur dix : `l` = `lt`, comme `1` = `f1`. C'est le `da`/`dt`
-   de Joel étendu aux trois verbes.
+> **`f` la branche · `e` encore · `t` le morceau · `a` l'artiste** —
+> le reste du clavier ne sert qu'à naviguer et à piloter la session.
 
-Et un corollaire : **un geste fréquent a une touche, un réglage a une
-commande `:`**. `b<n>` (taille) devient `:size 5`, `z` (confort) devient
-`:comfort 2`. C'est ce qui libère les lettres.
+Trois conséquences :
 
-## `f` — le namespace des branches
+1. **Aucune collision possible.** Deux gestes ne peuvent se marcher dessus
+   que dans le même namespace, où l'on maîtrise les lettres.
+2. **Le compte se met avant, la cible après** — comme dans vim, où `3dd`
+   compte et `f{char}` cible. Donc `3e` = trois encores, `f3` = la branche 3.
+3. **Le clavier nu est presque vide**, donc extensible sans rien casser.
+
+## `f` — la branche
 
 | Touche | Mot | Action |
 |---|---|---|
@@ -195,16 +186,15 @@ commande `:`**. `b<n>` (taille) devient `:size 5`, `z` (confort) devient
 | `fr` | fork **reroll** | Reproposer trois autres branches |
 | `fw` | fork **wander** | Partir loin, hors de l'univers courant (retour n° 6) |
 | `fu` | fork **undo** | Revenir à la branche précédente |
-| `1` `2` `3` | | Raccourci de `f1` `f2` `f3` — le geste le plus fréquent reste à une touche |
+| `1` `2` `3` | | Raccourci de `f1` `f2` `f3` |
 | entrée | | Auto : tire au sort parmi les branches affichées |
 
 Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
 Le `n` est *now*. Ça se lit à voix haute : « fork 3, now, force ».
 
-Pas d'ambiguïté à l'analyse : après `f`, un **chiffre** désigne une branche,
-une **lettre** désigne une opération.
+Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 
-## `e` — encore, même grammaire
+## `e` — encore
 
 | Touche | Mot | Action |
 |---|---|---|
@@ -213,57 +203,56 @@ une **lettre** désigne une opération.
 | `<n>en!` | encore now, **force** | …après le morceau en cours, le reste retiré |
 | `e` | | Encore avec n = taille des branches |
 
-« Encore » est un mot anglais qui veut dire exactement ça — on le garde.
+`f` et `e` sont les deux namespaces de **lecture** : ils décident de ce qui
+va sonner. `t` et `a` sont ceux de l'**affinage** : ils décident de ce que
+le moteur retient.
 
-## Mesures — ce que le moteur apprend
+## `t` — le morceau en cours
 
-| Touche | Mot | Action |
-|---|---|---|
-| `lt` | **like track** | Aimer le morceau (reflété en titre aimé Spotify) |
-| `la` | **like artist** | Cet artiste, plus souvent |
-| `st` | **skip track** | « Pas celui-là, pas maintenant » |
-| `sa` | **skip artist** | Cet artiste, moins souvent |
-| `bt` | **ban track** | « Plus jamais celui-là » (liste noire de `learned/`) |
-| `ba` | **ban artist** | « Plus jamais cet artiste » |
-| `l` `s` `b` | | Raccourcis de `lt` `st` `bt` |
-| `m` | **mark** | Mettre dans une récolte à trier plus tard |
+| Touche | Mot | Action | Nature |
+|---|---|---|---|
+| `tl` | track **like** | Aimer (reflété en titre aimé Spotify) | mesure |
+| `ts` | track **skip** | « Pas celui-là, pas maintenant » | mesure |
+| `tb` | track **ban** | « Plus jamais celui-là » | mesure |
+| `tm` | track **mark** | Mettre dans une récolte à trier plus tard | mesure |
+| `tt` | track **top** | Promouvoir en top | édition |
+| `tT` | track **untop** | Retirer des tops | édition |
+| `td` | track **door** | En faire une door vers la dernière direction prise | édition |
 
-Trois verbes × deux cibles couvrent à eux seuls ce que la table précédente
-étalait sur six touches disparates (`a`, `x`, `X`, `-`, `+`, et le `dt`/`da`
-demandé). Sur l'artiste, les trois verbes forment une **échelle lisible** :
-`la` plus souvent, `sa` moins souvent, `ba` plus jamais. La nuance des
-anciens `+`/`-` n'est donc pas perdue — elle a juste cessé d'être un
-symbole sans mot derrière (Joel, 05/09/2026).
+## `a` — l'artiste en cours
 
-## Éditions — ce qui produit un commit
+| Touche | Mot | Action | Nature |
+|---|---|---|---|
+| `al` | artist **like** | Cet artiste, plus souvent | mesure |
+| `as` | artist **skip** | Cet artiste, moins souvent | mesure |
+| `ab` | artist **ban** | Plus jamais cet artiste | mesure |
+| `ae` | artist **edit** | Ouvrir la fiche dans `$EDITOR`, recommit, vecteur recalculé | édition |
+| `aL` | artist **link** | Lier à un autre artiste (retour n° 8, format 0010) | édition |
 
-| Touche | Mot | Action |
-|---|---|---|
-| `t` / `T` | **top** | Promouvoir / retirer des tops |
-| `d` | **door** | En faire une door vers la dernière direction prise |
-| `L` | **link** | Lier l'artiste en cours à un autre (retour n° 8, format 0010) |
-| `E` | **edit** | Ouvrir la fiche dans `$EDITOR`, recommit, vecteur recalculé |
+Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
+souvent, `as` moins souvent, `ab` plus jamais. Les anciens `+`/`-`
+disparaissent — ils étaient les deux seuls gestes sans mot derrière.
 
-`link` est déjà le mot du format sur disque (0010) — la touche reprend le
-vocabulaire du projet plutôt que d'en inventer un.
-
-## Lecture et session
+## Navigation et session
 
 | Touche | Mot | Action |
 |---|---|---|
-| `j` / `k` | | Morceau **précédent / suivant** (Joel, 05/09/2026 — voir la réserve plus bas) |
+| `h` / `l` | | Morceau **précédent / suivant** — vim, axe horizontal |
+| ← / → | | Idem, pour les doigts qui ne sont pas sur la rangée d'accueil |
 | espace | | **Pause / lecture** — comble le manque relevé |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) |
 | `q` | **quit** | Quitter |
 | `Q` | **queue** | Entrer en mode file d'attente (retour n° 11) |
-| `.` | | Répéter la dernière action (son vrai sens vim, libéré de « poncer ») |
+| `.` | | Répéter la dernière action (son sens vim) |
 | `?` | **why** | La phrase qui explique le morceau ou la branche |
 | `/texte` | | Chercher |
-| `:commande` | | L'équivalent de chaque touche, plus les réglages |
+| `:commande` | | L'équivalent de chaque geste, plus les réglages |
 
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
-(un top posé par erreur, un ban), `fu` remonte d'un cran dans le
-*parcours*. Séparer les deux lève la collision n° 1 sans sacrifier 0013.
+(un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.
+
+`j` et `k` ne servent plus : la navigation passe à l'horizontale, ce qui
+correspond à la façon dont Joel lit le temps d'un parcours (05/09/2026).
 
 ## Commandes `:` sans touche
 
@@ -273,50 +262,64 @@ branches), `:comfort <0-5>` (zone de confort, 0001), `:sync` / `:push` /
 
 ## Ce que ça résout
 
-Les huit collisions tombent :
+Les huit collisions relevées le 05/09 tombent toutes :
 
 | Collision | Résolution |
 |---|---|
-| `u` undo vs branche précédente | `u` = **undo** d'un geste, `fu` = remonter d'une branche — deux choses distinctes, deux touches |
-| `n` à trois sens | `n` = **now**, un seul sens ; `y`/`n` ne vit que dans une invite modale, comme les chiffres après `/` |
-| `d` action et préfixe | `d` = **door** seul ; le dislike devient `b`/`ba` |
-| `dt`/`da` recouvrent `X`/`-` | Fusionnés dans `b`/`ba`, plus de doublon |
+| `u` undo vs branche précédente | `u` annule un geste, `fu` remonte d'une branche |
+| `n` à trois sens | `n` = **now** ; `y`/`n` ne vit que dans une invite modale |
+| `d` action et préfixe | `d` disparaît du clavier nu : c'est `td` |
+| `dt`/`da` recouvrent `X`/`-` | Absorbés par `tb` et `as`/`ab` |
 | `.` recouvre `e` | `.` reprend son sens vim (répéter) |
-| `h`/`l` recouvrent `1 2 3` | Abandonnés ; `l` devient **like** |
-| `p` action et préfixe | `p` disparaît seul : c'est `fp`, dans le namespace |
-| `pr` vs `p<n>` | `fr` dans le namespace, plus de préfixe ambigu |
+| `h`/`l` recouvrent `1 2 3` | `h`/`l` deviennent la navigation, `1 2 3` restent les branches |
+| `p` action et préfixe | `p` disparaît du clavier nu : c'est `fp` |
+| `pr` vs `p<n>` | `fr`, dans le namespace |
+
+## Le prix à payer
+
+**Les gestes fréquents coûtent deux frappes** (`tl` pour aimer, `ts` pour
+passer), là où vim garde une touche pour ce qu'on fait le plus. C'est le
+vrai coût de la régularité, et il ne se jugera qu'à l'usage.
+
+Deux garde-fous existent si ça pèse : `1` `2` `3` restent le raccourci de
+`f1` `f2` `f3` — l'exception assumée, parce que choisir une branche est
+**le** geste du produit ; et le clavier nu est assez vide pour qu'on y
+promeuve plus tard un ou deux gestes qui se révéleraient constants.
+
+## Le point faible
+
+`aL` (link) est le seul geste dont la lettre ne suit pas la règle de
+casse du reste : dans son namespace, `al` est *like* et `aL` est *link* —
+deux verbes différents, pas un verbe et son inverse comme `tt`/`tT`. La
+justification tient (minuscule = mesure, majuscule = édition), mais elle
+est plus faible qu'ailleurs. Alternative si ça gratte : `ac` pour *connect*,
+au prix de perdre le mot « link », qui est celui du format sur disque
+([0010](decisions/0010-format-revise-links-sans-portes.md)).
 
 ## « Fork » a deux sens — tranché
 
 **Arbitrage de Joel, 05/09/2026 : `f` = prendre une branche.**
 
 0002 et 0008 emploient déjà « fork » pour le **catalogue** (« le fork est
-la surcouche »). Le mot garde donc deux sens, mais ils ne se croisent
-jamais : forker le catalogue est un geste rare, une fois par machine, qui
-reste la commande `:fork` ; forker le parcours est le geste constant de
-l'écoute, et c'est la touche `f`.
+la surcouche »). Le mot garde deux sens, mais ils ne se croisent jamais :
+forker le catalogue est un geste rare, une fois par machine, qui reste la
+commande `:fork` ; forker le parcours est le geste constant de l'écoute, et
+c'est la touche `f`.
 
 La nuance est consignée dans le vocabulaire de
 [`docs/vision.md`](vision.md).
 
 ## Ce qui reste à trancher
 
-1. **Le sens de `j` / `k`.** Joel les veut horizontaux : `j` précédent
-   (gauche), `k` suivant (droite). Deux objections, à peser :
-   dans vim `j` est **bas** et `k` est **haut** — les touches horizontales
-   sont `h` et `l` ; et la file « à suivre » s'affiche **verticalement**, le
-   prochain morceau sous le courant, donc `j` (bas) = suivant est ce que
-   l'écran montre. La paire vim-exacte pour un axe horizontal serait
-   `h`/`l`, ce qui suppose de rendre `l` au clavier — possible depuis que
-   `lt` existe.
-2. **`st` (skip track) vs `k` (suivant).** Deux touches voisines pour
-   passer un morceau, avec une différence invisible : la navigation avance
-   sans rien noter, `st` avance **et** le note dans `learned/`. Nuance
-   juste sur le papier, peut-être insensible dans les doigts.
+1. **`ts` (skip track) vs `l` (suivant).** Deux gestes pour passer un
+   morceau, avec une différence invisible : `l` avance sans rien noter,
+   `ts` avance **et** le note dans `learned/`. Nuance juste sur le papier,
+   peut-être insensible dans les doigts.
+2. **`aL` ou `ac`** pour lier deux artistes — voir « le point faible ».
 
 ## Lettres libres après ce mapping
 
-Le namespace `f` rend `p`, `r` et `w` au clavier. Restent donc libres :
-`c`, `g`, `h`, `i`, `o`, `p`, `r`, `v`, `w`, `x`, `y`, `z`, et les
-majuscules hors `T`/`L`/`E`/`Q`. De quoi absorber le mode file d'attente
-et la suite sans réouvrir la table.
+Le clavier nu ne garde que `h`, `l`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`.
+Restent donc libres : `b`, `c`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`,
+`p`, `r`, `s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`.
+Le mode file d'attente peut s'installer sans rien déplacer.
