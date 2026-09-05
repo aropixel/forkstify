@@ -43,6 +43,10 @@ pub enum Cmd {
     Prev,
     Next,
     PlayPause,
+    /// Space, the leader: show what is available. Carries the namespace
+    /// that was half-typed, so `f` then space lists only the branch keys —
+    /// which-key, in a terminal.
+    Help(Option<char>),
     Undo,
     Repeat,
     Why,
@@ -115,7 +119,7 @@ pub fn parse(buf: &str) -> Parse {
         // --- the bare keyboard ---
         ['h'] => Parse::Done(Cmd::Prev),
         ['l'] => Parse::Done(Cmd::Next),
-        [' '] => Parse::Done(Cmd::PlayPause),
+        ['p'] => Parse::Done(Cmd::PlayPause),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
@@ -191,6 +195,17 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     }
                 }
                 clear_pending(&mut pending);
+                continue;
+            }
+
+            // space is the leader, not a key of the grammar: it reports
+            // what can be typed, here or inside the pending namespace
+            if key == ' ' {
+                let namespace = pending.chars().next();
+                clear_pending(&mut pending);
+                if tx.send(Cmd::Help(namespace)).is_err() {
+                    return;
+                }
                 continue;
             }
 
@@ -281,7 +296,7 @@ mod tests {
     #[test]
     fn grammar_is_prefix_free() {
         let alphabet: Vec<char> =
-            "0123456789fenatlsbmTdLpruwhq Q.?!\r".chars().collect();
+            "0123456789fenatlsbmTdLpruwhqQ.?!\r".chars().collect();
         let mut complete: Vec<String> = Vec::new();
         // every sequence up to 3 keys
         let mut queue: Vec<String> = vec![String::new()];
@@ -344,6 +359,7 @@ mod tests {
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
         assert_eq!(parse("h").done(), Some(Cmd::Prev));
+        assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
         assert_eq!(parse("l").done(), Some(Cmd::Next));
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));

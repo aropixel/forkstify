@@ -544,7 +544,7 @@ impl Live<'_> {
     fn prompt(&self) {
         if self.pending.is_empty() {
             println!(
-                "\n[1-{} branche · fn/f! · e<n> · h/l · espace · fp fr fu · /texte · q]",
+                "\n[1-{} branche · h/l · p · espace = les touches · q]",
                 self.branches.len().max(1)
             );
         } else {
@@ -633,6 +633,7 @@ impl Live<'_> {
                 self.render();
             }
             Cmd::PlayPause => self.toggle_pause(),
+            Cmd::Help(namespace) => self.help(namespace),
 
             Cmd::Search(query) => self.search(query.trim()).await,
 
@@ -653,6 +654,78 @@ impl Live<'_> {
     /// so beats a silent no-op: the key is right, the wiring is missing.
     fn not_yet(&self, keys: &str, what: &str) {
         println!("\n\u{ab} {keys} \u{bb} \u{2014} {what} : d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}.");
+    }
+
+    /// Space, the leader: what can I type from here? With a namespace
+    /// half-typed, only that namespace — which-key, in a terminal. Each
+    /// line says whether the gesture is wired, so the menu never promises
+    /// what the code does not do.
+    fn help(&self, namespace: Option<char>) {
+        let rows: &[(&str, &str, bool)] = match namespace {
+            Some('f') => &[
+                ("f<n>", "branche n, en fin de branche", true),
+                ("fn<n>", "branche n, apr\u{e8}s le morceau", true),
+                ("f!<n>", "branche n, apr\u{e8}s le morceau, le reste retir\u{e9}", true),
+                ("fp", "peek \u{2014} pr\u{e9}voir les branches", true),
+                ("fr", "reroll \u{2014} en reproposer trois autres", true),
+                ("fu", "undo \u{2014} revenir \u{e0} la branche pr\u{e9}c\u{e9}dente", true),
+                ("fw", "wander \u{2014} partir hors de l'univers", false),
+            ],
+            Some('e') => &[
+                ("e<n>", "n encores, en fin de branche", true),
+                ("en<n>", "n encores, apr\u{e8}s le morceau", true),
+                ("e!<n>", "n encores, le reste retir\u{e9}", true),
+            ],
+            Some('t') => &[
+                ("tl", "like \u{2014} aimer le morceau", false),
+                ("ts", "skip \u{2014} pas celui-l\u{e0}, pas maintenant", false),
+                ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", false),
+                ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", false),
+                ("tt", "top \u{2014} promouvoir en top", false),
+                ("tT", "untop \u{2014} retirer des tops", false),
+                ("td", "door \u{2014} en faire une door", false),
+            ],
+            Some('a') => &[
+                ("al", "like \u{2014} cet artiste, plus souvent", false),
+                ("as", "skip \u{2014} cet artiste, moins souvent", false),
+                ("ab", "ban \u{2014} plus jamais cet artiste", false),
+                ("ae", "edit \u{2014} ouvrir la fiche", false),
+                ("aL", "link \u{2014} lier \u{e0} un autre artiste", false),
+            ],
+            _ => &[
+                ("1-9", "prendre une branche", true),
+                ("f\u{2026}", "la branche \u{2014} espace pour le d\u{e9}tail", true),
+                ("e\u{2026}", "encore \u{2014} espace pour le d\u{e9}tail", true),
+                ("t\u{2026}", "le morceau \u{2014} espace pour le d\u{e9}tail", false),
+                ("a\u{2026}", "l'artiste \u{2014} espace pour le d\u{e9}tail", false),
+                ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
+                ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
+                ("p", "pause / lecture", true),
+                ("/texte", "chercher", true),
+                ("u", "annuler le dernier geste", false),
+                (".", "r\u{e9}p\u{e9}ter le dernier geste", false),
+                ("?", "pourquoi ce morceau", false),
+                ("Q", "mode file d'attente", false),
+                ("q", "quitter", true),
+            ],
+        };
+        let title = match namespace {
+            Some('f') => "f \u{2014} la branche",
+            Some('e') => "e \u{2014} encore",
+            Some('t') => "t \u{2014} le morceau",
+            Some('a') => "a \u{2014} l'artiste",
+            _ => "les touches",
+        };
+        println!("\n\u{250c}\u{2500} {title} \u{2500}");
+        for (keys, what, wired) in rows {
+            let mark = if *wired { " " } else { "\u{b7}" };
+            println!("\u{2502} {mark} {keys:<8} {what}");
+        }
+        if rows.iter().any(|(_, _, wired)| !wired) {
+            println!("\u{2514}\u{2500} \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}");
+        } else {
+            println!("\u{2514}\u{2500}");
+        }
     }
 
     fn toggle_pause(&mut self) {

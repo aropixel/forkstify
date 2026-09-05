@@ -165,7 +165,8 @@ Statut : **acceptée** (Joel, 05/09/2026), formalisée par la décision
 
 **Câblé le 05/09/2026** : la saisie en mode brut (sans Entrée), le
 namespace `f` en entier sauf `fw`, le namespace `e` avec ses trois
-variantes, la navigation `h`/`l` et les flèches, l'espace, `/` et `q`.
+variantes, la navigation `h`/`l` et les flèches, `p` (pause), l'espace
+(le leader), `/` et `q`.
 **Pas encore câblé** : `t` et `a` (l'affinage — il attend `learned/`,
 étape 2 de l'avancement), `fw`, `u`, `.`, `?`, `Q` et les commandes `:`.
 Ces touches répondent « décidé, pas encore câblé » plutôt que de ne rien
@@ -183,6 +184,13 @@ toutes les séquences de trois touches vérifie la propriété
 
 > **`f` la branche · `e` encore · `t` le morceau · `a` l'artiste** —
 > le reste du clavier ne sert qu'à naviguer et à piloter la session.
+
+**Espace est le leader** : il n'appartient pas à la grammaire, il montre ce
+qu'on peut taper — tout, ou seulement le namespace en cours de frappe.
+Comme dans LazyVim (Joel, 05/09/2026). La pause est donc sur `p`
+(*pause*), libre depuis que peek est devenu `fp`. Ajustement de table :
+[0015](decisions/0015-grammaire-clavier-namespaces.md) rend ce document
+seul juge de la table, la décision elle-même n'est pas touchée.
 
 Trois conséquences :
 
@@ -262,7 +270,8 @@ disparaissent — ils étaient les deux seuls gestes sans mot derrière.
 |---|---|---|
 | `h` / `l` | | Morceau **précédent / suivant** — vim, axe horizontal |
 | ← / → | | Idem, pour les doigts qui ne sont pas sur la rangée d'accueil |
-| espace | | **Pause / lecture** — comble le manque relevé |
+| `p` | **pause** | Pause / lecture — comble le manque relevé |
+| espace | | **Le leader** : afficher les touches disponibles ; après un namespace à moitié tapé (`f`, `e`, `t`, `a`), seulement les siennes — which-key, dans un terminal |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) |
 | `q` | **quit** | Quitter |
 | `Q` | **queue** | Entrer en mode file d'attente (retour n° 11) |
@@ -342,7 +351,7 @@ La nuance est consignée dans le vocabulaire de
 
 ## Lettres libres après ce mapping
 
-Le clavier nu ne garde que `h`, `l`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`.
+Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`.
 Restent donc libres : `b`, `c`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`,
-`p`, `r`, `s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`.
+`r`, `s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`.
 Le mode file d'attente peut s'installer sans rien déplacer.
