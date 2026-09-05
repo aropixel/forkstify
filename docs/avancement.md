@@ -317,19 +317,41 @@ que ce soit. Ils se traitent au fur et à mesure.
 
 ## Prochaines étapes, dans l'ordre
 
-1. **Éprouver `ecouter`** : le tester en vrai (Joel), ajuster la résolution
-   titre → id (versions live/remaster, homonymes) et le rythme des menus.
-2. **Fermer la boucle d'apprentissage** (format acté, 0014) : le moteur lit
-   `learned/artists/` (familiarité → zone de confort 0001 et seuils de
-   l'aventureuse, cooldowns 0012, poids) et les touches d'affinage (0013)
-   écrivent dedans (mesures) ou dans les fiches (éditions, commit). C'est le
-   cœur — « reprendre la main sur l'algorithme » rendu réel.
-3. **Trousseau GNOME** pour les jetons (refresh OAuth, identifiants
-   librespot) au lieu des caches `target/` (spike-cache, spike-webapi-refresh).
-4. **TUI** (étape 4), à la neomd : touche unique sans Entrée, auto sur
-   silence, affichage du morceau en cours.
-5. **Traduire en anglais** les scripts d'`outillage/` écrits avant la
-   règle de langue du code (à l'occasion).
+Relu le 05/09/2026 au soir, contre le code. Les étapes 2 et 4 de la liste
+précédente sont largement faites ; ce qui suit est ce qui reste.
+
+1. **Éprouver `ecouter` en vrai.** Rien de ce qui a été livré le 05/09 n'a
+   tourné dans une session : le mode brut, les sept mesures qui **écrivent
+   dans le catalogue**, le réservoir, le confort, la traîne. C'est le
+   premier geste, et il passe avant tout ajout. `:warm` est le test le plus
+   court de la récolte.
+2. **Les cinq éditions** — `tt`/`tT` (tops), `td` (door), `ae` ($EDITOR),
+   `aL` (lier deux artistes). Elles touchent une **fiche**, pas l'appris, et
+   demandent la couche qui écrit et commite le catalogue, qui n'existe pas.
+   C'est le dernier tiers de [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)
+   et le retour n° 8 de Joel.
+3. **Le cooldown daté** ([0012](decisions/0012-rotation-des-morceaux.md) §2) :
+   `learned/` date chaque écoute par morceau, le réservoir ne s'en sert pas
+   encore. Un morceau joué hier devrait reculer, la pénalité décroissant
+   avec le temps. Les données sont là, la formule reste à régler.
+4. **`u` — annuler le dernier geste** ([0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)).
+   Sans lui, un `tb` de travers ne se reprend qu'à la main dans le TOML.
+   Il devient nécessaire dès que les éditions arrivent (revert d'un commit).
+5. **Le mode file d'attente** (`Q`, retour n° 11). Le plus gros morceau :
+   `rounds` est une **liste plate**, alors que « retirer toute la profondeur
+   d'une branche » suppose un arbre manipulable.
+6. **La synchronisation git** (`:sync`/`:push`/`:pull`, retour n° 10) : à
+   concevoir — fusion des compteurs de `learned/` (une fusion textuelle n'a
+   pas de sens sur des flottants décrus), fréquence, comportement hors ligne.
+7. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
+   clarification de Joel : sortir du cluster, ou repartir d'une graine ?
+8. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
+   `cargo clean` efface aujourd'hui l'authentification.
+9. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
+   touche par touche est faite, l'affichage reste celui d'un terminal qui
+   déroule.
+10. **Traduire en anglais** les scripts d'`outillage/` écrits avant la règle
+    de langue du code (à l'occasion).
 
 ## Corrections en attente (petites)
 
