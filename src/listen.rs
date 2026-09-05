@@ -11,7 +11,7 @@
 use crate::catalog::Catalog;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_over, Sound};
-use crate::spotify::WebApi;
+use crate::spotify::{Resolved, WebApi};
 use crate::{show_branches, state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
@@ -164,6 +164,25 @@ enum Hit {
     Track { title: String, artist: String, uri: String, slug: Option<String> },
 }
 
+/// What came of trying to load one stop.
+enum Load {
+    Playing,
+    /// Spotify has no such track: skip it, the walk goes on.
+    Missing,
+    /// The lookup never went through. The stop comes back untouched so the
+    /// caller can put it away instead of losing it.
+    Failed(crate::engine::Stop, String),
+}
+
+/// What came of trying to move forward.
+enum Advance {
+    Playing,
+    /// Nothing left ahead — time to take a branch.
+    Exhausted,
+    /// An outage, not an end: the walk holds where it is.
+    Blocked(String),
+}
+
 impl Live<'_> {
     /// Start a segment: record it, make it the future, play its first track.
     /// `opening` = the seed's own tops (already the first round, don't push).
@@ -181,7 +200,10 @@ impl Live<'_> {
         }
         // the chosen segment replaces whatever was still ahead
         self.queue = stops.into();
-        self.advance().await;
+        if let Advance::Blocked(why) = self.advance().await {
+            self.blocked(&why);
+            return;
+        }
         // branches for this segment are computed once, up front, so `1`-`3`
         // and `p` work anytime; they are only *shown* on the last track
         self.recompute();
@@ -205,44 +227,63 @@ impl Live<'_> {
         self.render();
     }
 
-    /// Resolve a stop and load it as the current track. Returns false when
-    /// Spotify has no playable match (the caller skips it).
-    async fn load_stop(&mut self, stop: crate::engine::Stop) -> bool {
+    /// Resolve a stop and load it as the current track.
+    async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
         print!("\n▶ {} — {} … ", stop.title, stop.artist);
         std::io::Write::flush(&mut std::io::stdout()).ok();
         match self.web.resolve(&stop.title, &stop.artist).await {
-            Some(uri) => match SpotifyUri::from_uri(&uri) {
+            Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
                     println!("({uri})");
                     self.sound.play(track);
                     self.current = Some(stop);
-                    true
+                    Load::Playing
                 }
                 Err(_) => {
                     println!("uri illisible, on saute");
-                    false
+                    Load::Missing
                 }
             },
-            None => {
+            Resolved::Absent => {
                 println!("introuvable sur Spotify, on saute");
-                false
+                Load::Missing
+            }
+            Resolved::Failed(why) => {
+                println!("échec — {why}");
+                Load::Failed(stop, why)
             }
         }
     }
 
-    /// Move to the next track (the current one falls into the past). Returns
-    /// false when nothing is left ahead — no recursion, the caller decides
-    /// whether to auto-advance (keeps the async futures sized).
-    async fn advance(&mut self) -> bool {
+    /// An outage stops the walk rather than turning every remaining track
+    /// into a « introuvable ». Nothing is lost — the queue kept its head.
+    fn blocked(&self, why: &str) {
+        println!("\n⏹ lecture interrompue : {why}.");
+        println!("   Le morceau reste en tête de file — « j » pour réessayer.");
+        println!("   Si ça persiste : « q » puis relancer — l'autorisation");
+        println!("   Spotify sera redemandée d'elle-même si elle a expiré.");
+    }
+
+    /// Move to the next track (the current one falls into the past). No
+    /// recursion — the caller decides what to do with the outcome (keeps
+    /// the async futures sized).
+    async fn advance(&mut self) -> Advance {
         if let Some(current) = self.current.take() {
             self.past.push(current);
         }
         while let Some(stop) = self.queue.pop_front() {
-            if self.load_stop(stop).await {
-                return true;
+            match self.load_stop(stop).await {
+                Load::Playing => return Advance::Playing,
+                Load::Missing => {}
+                Load::Failed(stop, why) => {
+                    // a fault that has nothing to do with these tracks must
+                    // not consume them: put the head back and hold
+                    self.queue.push_front(stop);
+                    return Advance::Blocked(why);
+                }
             }
         }
-        false
+        Advance::Exhausted
     }
 
     /// Step back to the previous track, like a player's « précédent ». The
@@ -251,14 +292,22 @@ impl Live<'_> {
         let interrupted = self.current.take();
         loop {
             match self.past.pop() {
-                Some(previous) => {
-                    if self.load_stop(previous).await {
+                Some(previous) => match self.load_stop(previous).await {
+                    Load::Playing => {
                         if let Some(current) = interrupted {
                             self.queue.push_front(current);
                         }
                         return;
                     }
-                }
+                    Load::Missing => {}
+                    Load::Failed(stop, why) => {
+                        // keep the past intact, stay where we were
+                        self.past.push(stop);
+                        self.current = interrupted;
+                        self.blocked(&why);
+                        return;
+                    }
+                },
                 None => {
                     self.current = interrupted;
                     println!("(déjà au premier morceau)");
@@ -274,10 +323,12 @@ impl Live<'_> {
     async fn next(&mut self) {
         if let Some(branch) = self.pending_branch.take() {
             self.start_branch(branch).await;
-        } else if self.advance().await {
-            self.render();
-        } else {
-            self.auto_advance().await;
+            return;
+        }
+        match self.advance().await {
+            Advance::Playing => self.render(),
+            Advance::Exhausted => self.auto_advance().await,
+            Advance::Blocked(why) => self.blocked(&why),
         }
     }
 
@@ -340,9 +391,14 @@ impl Live<'_> {
             .into_iter()
             .map(Hit::Artist)
             .collect();
-        for (title, artist, uri) in self.web.search_tracks(query, 5).await {
-            let slug = self.catalog.search_names(&artist, 1).into_iter().next();
-            hits.push(Hit::Track { title, artist, uri, slug });
+        match self.web.search_tracks(query, 5).await {
+            Ok(tracks) => {
+                for (title, artist, uri) in tracks {
+                    let slug = self.catalog.search_names(&artist, 1).into_iter().next();
+                    hits.push(Hit::Track { title, artist, uri, slug });
+                }
+            }
+            Err(why) => println!("(Spotify injoignable — {why} ; catalogue seul)"),
         }
 
         if hits.is_empty() {
@@ -462,9 +518,10 @@ impl Live<'_> {
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
 
-    /// Take a branch (by weight) and start playing it.
+    /// Take a branch (by weight) and start playing it. The draw is over the
+    /// branches *on show*: proposing three then playing a fourth made
+    /// « entrée » unreadable (Joel, 05/09/2026).
     async fn auto_advance(&mut self) {
-        self.recompute();
         if self.branches.is_empty() {
             println!("\n(cul-de-sac — « u » pour revenir, « q » pour quitter)");
             return;

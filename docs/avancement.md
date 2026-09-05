@@ -140,6 +140,26 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   marche très bien ». **Les quatre briques du chantier son sont validées**
   (zeroconf, session, API Web, lecture) ; forkstify est lui-même
   l'appareil, on ne pilote aucun autre appareil par l'API.
+- **Panne d'authentification silencieuse corrigée** (05/09/2026, premier
+  test long d'`ecouter` par Joel) : au bout de ~2 h, tous les morceaux
+  devenaient « introuvable sur Spotify » et le parcours s'arrêtait. Cause :
+  le flux PKCE de Spotify **fait tourner les refresh tokens**, or
+  `refresh_if_needed` ne gardait que l'access token — ni en mémoire ni sur
+  disque — et `WebApi::new` prenait le refresh de la *réponse*, vide quand
+  elle n'en porte pas. Le jeton stocké devenait donc périmé, et
+  `resolve()` noyait l'erreur dans un `None` indiscernable d'un morceau
+  absent. Trois corrections : (a) `resolve()` rend un **`Resolved`**
+  (`Track` / `Absent` / `Failed`) — un échec d'appel n'est plus une absence,
+  `search_tracks` de même ; (b) le refresh renouvelé est **conservé et
+  réécrit** à chaque rotation (`keep_refresh`), et un refresh mort
+  **redemande l'autorisation navigateur** au lieu d'échouer ; (c) le cache
+  disque ne mémorise plus que les **vraies** absences — un appel qui n'a pas
+  abouti n'y entre pas (une entrée déjà empoisonnée purgée :
+  The Limiñanas — « Au début c'était le début »). Côté navigation, une panne
+  **arrête le parcours** au lieu de brûler la file : le morceau reste en
+  tête, `j` réessaie. **Et « entrée/auto » tire désormais parmi les branches
+  affichées** — `auto_advance` recalculait trois nouvelles branches et jouait
+  donc ce que Joel n'avait pas vu (arbitrage Joel, 05/09/2026).
 - **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
   branche `main`. Plan de reprise chorizo à jour.
 

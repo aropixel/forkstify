@@ -2,6 +2,10 @@
 //! refresh) and the one call navigation needs — resolve a title to a
 //! playable track uri. Validated by spike-webapi. Resolutions are cached
 //! on disk to spare the rate limit (the 429 lesson of spotify.md).
+//!
+//! A lookup that did not go through is never a "no match": the two are
+//! separate outcomes (`Resolved`), only the real absence is cached, and a
+//! dead token says so instead of looking like a missing track.
 
 use librespot_oauth::OAuthClientBuilder;
 use std::collections::HashMap;
@@ -18,6 +22,14 @@ const SCOPES: [&str; 5] = [
 ];
 const REFRESH_CACHE: &str = "target/spike-webapi-refresh";
 const RESOLVE_CACHE: &str = "target/resolve-cache.json";
+
+/// Outcome of a title lookup. `Absent` is an answer from Spotify (worth
+/// caching); `Failed` means the question never got asked (never cached).
+pub enum Resolved {
+    Track(String),
+    Absent,
+    Failed(String),
+}
 
 pub struct WebApi {
     token: String,
@@ -46,15 +58,24 @@ impl WebApi {
             .open_in_browser()
             .build()?;
 
-        let token = match std::fs::read_to_string(REFRESH_CACHE) {
-            Ok(refresh) if !refresh.trim().is_empty() => {
-                client.refresh_token_async(refresh.trim()).await?
-            }
-            _ => {
+        let cached = std::fs::read_to_string(REFRESH_CACHE)
+            .ok()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty());
+
+        // a refresh token that no longer works is not a fatal error: it
+        // just means the authorization has to be asked for again
+        let token = match &cached {
+            Some(refresh) => match client.refresh_token_async(refresh).await {
+                Ok(token) => token,
+                Err(e) => {
+                    println!("Autorisation Spotify expirée ({e}) — on la redemande.");
+                    client.get_access_token_async().await?
+                }
+            },
+            None => {
                 println!("Autorisation Spotify dans le navigateur (une fois)…");
-                let token = client.get_access_token_async().await?;
-                std::fs::write(REFRESH_CACHE, &token.refresh_token)?;
-                token
+                client.get_access_token_async().await?
             }
         };
 
@@ -63,13 +84,18 @@ impl WebApi {
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
 
-        Ok(WebApi {
+        let mut api = WebApi {
             token: token.access_token,
             expires_at: token.expires_at,
-            refresh_token: token.refresh_token,
+            // the refresh we came in with; a rotated one replaces it below.
+            // Taking it from the response alone would wipe it whenever the
+            // refresh answer carries none.
+            refresh_token: cached.unwrap_or_default(),
             resolved,
             prefer_studio,
-        })
+        };
+        api.keep_refresh(token.refresh_token);
+        Ok(api)
     }
 
     async fn refresh_if_needed(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -80,17 +106,35 @@ impl WebApi {
         let token = client.refresh_token_async(&self.refresh_token).await?;
         self.token = token.access_token;
         self.expires_at = token.expires_at;
+        self.keep_refresh(token.refresh_token);
         Ok(())
     }
 
-    /// Resolve "title" by "artist" to a spotify:track: uri (cached). None
-    /// when Spotify has no match.
-    pub async fn resolve(&mut self, title: &str, artist: &str) -> Option<String> {
+    /// Spotify's PKCE flow rotates refresh tokens: the one we just used may
+    /// already be dead, so the new one has to replace it in memory *and* on
+    /// disk. An empty field means the response carried none — keep the old.
+    fn keep_refresh(&mut self, refresh: String) {
+        if refresh.is_empty() || refresh == self.refresh_token {
+            return;
+        }
+        self.refresh_token = refresh;
+        if let Err(e) = std::fs::write(REFRESH_CACHE, &self.refresh_token) {
+            eprintln!("jeton de renouvellement non enregistré ({e})");
+        }
+    }
+
+    /// Resolve "title" by "artist" to a spotify:track: uri (cached).
+    pub async fn resolve(&mut self, title: &str, artist: &str) -> Resolved {
         let key = format!("{artist}\u{1}{title}");
         if let Some(hit) = self.resolved.get(&key) {
-            return hit.clone();
+            return match hit {
+                Some(uri) => Resolved::Track(uri.clone()),
+                None => Resolved::Absent,
+            };
         }
-        self.refresh_if_needed().await.ok()?;
+        if let Err(e) = self.refresh_if_needed().await {
+            return Resolved::Failed(format!("jeton Spotify périmé ({e})"));
+        }
 
         // when preferring studio, fetch several and pick the first non-live —
         // unless the requested title itself asks for a live version
@@ -100,8 +144,12 @@ impl WebApi {
             "https://api.spotify.com/v1/search?q={}&type=track&limit={limit}",
             encode(&query)
         );
-        let body = self.get_with_backoff(&url).await;
-        let uri = body.as_ref().and_then(|body| {
+        // no body = the call never went through; that is not an answer and
+        // must not be remembered as one
+        let Some(body) = self.get_with_backoff(&url).await else {
+            return Resolved::Failed("l'API Spotify n'a pas répondu".to_string());
+        };
+        let uri = (|| {
             let items = body["tracks"]["items"].as_array()?;
             let studio = items.iter().find(|item| {
                 let name = item["name"].as_str().unwrap_or("");
@@ -112,20 +160,28 @@ impl WebApi {
             studio
                 .or_else(|| items.first())
                 .and_then(|item| item["uri"].as_str().map(String::from))
-        });
+        })();
 
         self.resolved.insert(key, uri.clone());
         if let Ok(text) = serde_json::to_string(&self.resolved) {
             let _ = std::fs::write(RESOLVE_CACHE, text);
         }
-        uri
+        match uri {
+            Some(uri) => Resolved::Track(uri),
+            None => Resolved::Absent,
+        }
     }
 
     /// Free-text track search (for the `/` shortcut): a few results as
     /// (title, artist, uri), best match first.
-    pub async fn search_tracks(&mut self, query: &str, limit: usize) -> Vec<(String, String, String)> {
-        if self.refresh_if_needed().await.is_err() {
-            return Vec::new();
+    pub async fn search_tracks(
+        &mut self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String, String)>, String> {
+        // an unreachable Spotify is not an empty result — say which it is
+        if let Err(e) = self.refresh_if_needed().await {
+            return Err(format!("jeton Spotify périmé ({e})"));
         }
         let url = format!(
             "https://api.spotify.com/v1/search?q={}&type=track&limit={}",
@@ -133,12 +189,12 @@ impl WebApi {
             limit
         );
         let Some(body) = self.get_with_backoff(&url).await else {
-            return Vec::new();
+            return Err("l'API Spotify n'a pas répondu".to_string());
         };
         let Some(items) = body["tracks"]["items"].as_array() else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
-        items
+        let hits = items
             .iter()
             .filter_map(|track| {
                 Some((
@@ -147,7 +203,8 @@ impl WebApi {
                     track["uri"].as_str()?.to_string(),
                 ))
             })
-            .collect()
+            .collect();
+        Ok(hits)
     }
 
     /// GET honoring Retry-After on 429 (spotify.md: throttle is account/IP).
