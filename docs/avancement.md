@@ -174,6 +174,15 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
   (`outillage/amis-*.py`).
 
+## Retours d'usage (05/09/2026)
+
+Les premières sessions longues d'`ecouter` ont produit **11 retours** de
+Joel, consignés et instruits dans
+[`docs/conception/retours-usage.md`](conception/retours-usage.md) — avec
+l'**inventaire réel des raccourcis** (ce qui marche vs la table projetée,
+largement non implémentée) et **5 points à trancher** avant d'ajouter quoi
+que ce soit. Ils se traitent au fur et à mesure.
+
 ## Prochaines étapes, dans l'ordre
 
 1. **Éprouver `ecouter`** : le tester en vrai (Joel), ajuster la résolution
