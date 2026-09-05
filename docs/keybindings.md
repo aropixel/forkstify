@@ -144,7 +144,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | Commande | Action | |
 |---|---|---|
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
-| `:comfort <0-5>` | Zone de confort ([0001](decisions/0001-confort-familiarite.md)) | 📋 |
+| `:comfort <n>` | Zone de confort, **0 = cocon → 5 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
 | `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 

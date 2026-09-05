@@ -10,6 +10,7 @@
 
 use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
+use crate::engine::Comfort;
 use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
@@ -74,6 +75,7 @@ async fn async_run(
         queue: VecDeque::new(),
         current_request_id: None,
         paused: false,
+        comfort: Comfort::new(config.journey.comfort),
         branches: Vec::new(),
         pending_branch: None,
         pending: Vec::new(),
@@ -157,6 +159,8 @@ struct Live<'a> {
     // the librespot play request currently on air, to filter stale events
     current_request_id: Option<u64>,
     paused: bool,
+    /// The comfort dial (0001), from the config, adjustable with `:comfort`.
+    comfort: Comfort,
     branches: Vec<crate::engine::Branch>,
     // a chosen branch and *when* it should take over (0015): at the end of
     // the branch, or right after the current track
@@ -164,6 +168,18 @@ struct Live<'a> {
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
     size: usize,
+}
+
+/// What a comfort value means, so the number is never alone on screen.
+fn comfort_word(value: u8) -> &'static str {
+    match value {
+        0 => "cocon",
+        1 => "prudent",
+        2 => "équilibré",
+        3 => "curieux",
+        4 => "aventureux",
+        _ => "exploration",
+    }
 }
 
 /// A `/` search result: a catalog artist to branch from, or a Spotify track
@@ -576,8 +592,8 @@ impl Live<'_> {
     fn recompute(&mut self) {
         let (context, _, universe, visited, played) = self.state();
         self.branches = crate::engine::propose(
-            self.catalog, &context, &universe, &self.learned, &visited, &played, self.size,
-            &mut self.rng,
+            self.catalog, &context, &universe, &self.learned, self.comfort, &visited, &played,
+            self.size, &mut self.rng,
         );
         // « moins souvent » / « plus souvent » ride on the branches that
         // start with the artist concerned (0014)
@@ -716,8 +732,8 @@ impl Live<'_> {
             println!("│  tags : {}", card.tags.join(", "));
         }
         println!(
-            "│  familiarité {:.1} · poids {:.2} · {} lien(s), {} top(s)",
-            self.learned.familiarity(&stop.slug, &card.name),
+            "│  familiarité {:.0}% · poids {:.2} · {} lien(s), {} top(s)",
+            self.learned.familiarity01(&stop.slug, &card.name) * 100.0,
             self.learned.weight(&stop.slug),
             card.links.len(),
             card.tops.len()
@@ -821,6 +837,21 @@ impl Live<'_> {
                 _ => println!("Taille attendue entre 1 et 9."),
             },
             (Some("size"), None) => println!("Taille des branches : {}", self.size),
+            (Some("comfort"), Some(n)) => match n.parse::<u8>() {
+                Ok(n) if n <= 5 => {
+                    self.comfort = Comfort::new(n);
+                    println!("Zone de confort : {n} — {}", comfort_word(n));
+                    // the dial changes which branches make sense from here
+                    self.recompute();
+                    self.preview();
+                }
+                _ => println!("Confort attendu entre 0 (cocon) et 5 (exploration)."),
+            },
+            (Some("comfort"), None) => println!(
+                "Zone de confort : {} — {}",
+                self.comfort.value(),
+                comfort_word(self.comfort.value())
+            ),
             (Some(other), _) => self.not_yet(&format!(":{other}"), "cette commande"),
             (None, _) => {}
         }
@@ -883,6 +914,7 @@ impl Live<'_> {
                 ("?", "pourquoi ce morceau", true),
                 ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
+                (":comfort <n>", "zone de confort, 0 cocon → 5 exploration", true),
                 ("♪♥↳+~", "top · aimé · door · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
             ],

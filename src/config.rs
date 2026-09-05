@@ -10,6 +10,26 @@ use std::path::PathBuf;
 pub struct Config {
     #[serde(default)]
     pub playback: Playback,
+    #[serde(default)]
+    pub journey: Journey,
+}
+
+#[derive(Deserialize)]
+pub struct Journey {
+    /// Comfort zone (0001): 0 = cocon, 5 = exploration. Set at opening,
+    /// adjustable in the journey with `:comfort`.
+    #[serde(default = "two")]
+    pub comfort: u8,
+}
+
+fn two() -> u8 {
+    2
+}
+
+impl Default for Journey {
+    fn default() -> Self {
+        Journey { comfort: two() }
+    }
 }
 
 #[derive(Deserialize)]
@@ -35,6 +55,12 @@ const TEMPLATE: &str = "\
 [playback]
 # Privilégier les versions studio plutôt que live à la résolution d'un titre.
 prefer_studio = true
+
+[journey]
+# Zone de confort, de 0 à 5 : 0 = cocon (on reste chez ce qu'on connaît),
+# 5 = exploration (on va vers ce qu'on ne connaît pas). Réglable en cours
+# d'écoute avec « :comfort 4 ».
+comfort = 2
 ";
 
 fn path() -> PathBuf {

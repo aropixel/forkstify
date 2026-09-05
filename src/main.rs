@@ -108,7 +108,7 @@ pub fn show_branches(catalog: &Catalog, current: &str, branches: &[engine::Branc
     }
 }
 
-fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned) {
+fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned, comfort: engine::Comfort) {
     let mut rng = thread_rng();
     let mut rounds = vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }];
     let mut size = 3usize;
@@ -116,7 +116,9 @@ fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned) {
     loop {
         let (context, current, universe, visited, played) = state_of(&rounds);
         let branches =
-            engine::propose(catalog, &context, &universe, learned, &visited, &played, size, &mut rng);
+            engine::propose(
+                catalog, &context, &universe, learned, comfort, &visited, &played, size, &mut rng,
+            );
         show_branches(catalog, &current, &branches);
 
         print!("\n[1-{}, entrée = auto, e/<n>e = encore, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
@@ -232,7 +234,12 @@ fn main() -> anyhow::Result<()> {
     };
 
     match command {
-        "parcours" => journey(&catalog, &slug, &learned),
+        "parcours" => journey(
+            &catalog,
+            &slug,
+            &learned,
+            engine::Comfort::new(config::Config::load().journey.comfort),
+        ),
         "ecouter" => listen::run(&catalog, &slug, learned)?,
         "check" => check(&catalog, &slug),
         other => {

@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Plays at which familiarity reaches half — beyond, it saturates.
+const PLAYS_REFERENCE: f64 = 5.0;
+
 /// Six months, in days (0014).
 const HALF_LIFE: f64 = 182.5;
 
@@ -74,6 +77,9 @@ fn is_zero_u32(n: &u32) -> bool {
 pub struct Learned {
     root: PathBuf,
     artists: HashMap<String, Artist>,
+    /// The best seed score, to bring the ranking onto the same 0–1 scale as
+    /// our own plays — they are counts, it is a composite score.
+    seed_max: f64,
     /// `classement.json`: the familiarity an artist starts with, before any
     /// listening of our own (0014). Keyed by display name — the seed file
     /// predates slugs.
@@ -121,7 +127,8 @@ impl Learned {
             }
         }
 
-        Learned { root, artists, seed, today: today() }
+        let seed_max = seed.values().copied().fold(1.0, f64::max);
+        Learned { root, artists, seed, seed_max, today: today() }
     }
 
     pub fn known(&self) -> usize {
@@ -132,13 +139,20 @@ impl Learned {
         self.seed.len()
     }
 
-    /// How familiar an artist is: our own decayed plays, or the seed score
-    /// when we have never played them.
-    pub fn familiarity(&self, slug: &str, name: &str) -> f64 {
+    /// Familiarity on a 0–1 scale, which is what the comfort dial needs
+    /// (0001: comfort *is* familiarity). Our own plays saturate — the tenth
+    /// listen says much less than the first — and the seed ranking is
+    /// brought onto the same scale by its own maximum, since one is a count
+    /// and the other a composite score.
+    pub fn familiarity01(&self, slug: &str, name: &str) -> f32 {
         match self.artists.get(slug) {
-            Some(artist) if artist.plays > 0.0 => decay(artist.plays, artist.last.as_deref(), self.today),
-            _ => self.seed.get(&name.to_lowercase()).copied().unwrap_or(0.0),
+            Some(artist) if artist.plays > 0.0 => {
+                let plays = decay(artist.plays, artist.last.as_deref(), self.today);
+                1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
+            }
+            _ => self.seed.get(&name.to_lowercase()).map_or(0.0, |s| s / self.seed_max),
         }
+        .clamp(0.0, 1.0) as f32
     }
 
     pub fn track_banned(&self, slug: &str, title: &str) -> bool {
@@ -333,6 +347,7 @@ impl Learned {
             root: std::env::temp_dir().join("forkstify-tests"),
             artists: HashMap::new(),
             seed: HashMap::new(),
+            seed_max: 1.0,
             today: 20_000,
         }
     }
@@ -397,7 +412,7 @@ mod tests {
     fn les_poids_restent_dans_leurs_bornes() {
         let mut learned =
             Learned { root: PathBuf::from("/nonexistent"), artists: HashMap::new(),
-                      seed: HashMap::new(), today: 20_000 };
+                      seed: HashMap::new(), seed_max: 1.0, today: 20_000 };
         for _ in 0..40 {
             learned.skip_artist("x");
         }

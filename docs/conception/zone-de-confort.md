@@ -11,6 +11,35 @@ proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
 - Sert à **choisir seul** la branche à un embranchement quand l'utilisateur ne
   choisit pas activement. L'application ne bloque jamais.
 
+## Câblé le 05/09/2026
+
+`engine::Comfort` (0 à 5), lu dans `~/.config/forkstify/config.toml`
+(`[journey] comfort`) et réglable en écoute par `:comfort <n>`. Il agit sur
+deux leviers, ceux que `avancement.md` désignait déjà comme « constantes à
+piloter par le confort » :
+
+- **Le plancher de la branche aventureuse** s'abaisse quand on ouvre :
+  cosinus ≥ 0.80 au cocon, ≥ 0.60 à l'exploration. **Le confort 2 reproduit
+  exactement le réglage fixe d'avant** (0.72 / 0.80) — l'ancien accord
+  devient le milieu du curseur, pas une valeur perdue.
+- **La familiarité penche le tirage des têtes de branche** (0001 : le
+  confort *est* la familiarité). Au cocon, un artiste familier passe devant
+  un inconnu ; ouvert, c'est l'inverse. Le facteur est borné à [0.25, 2.0] :
+  **on décourage, on n'interdit jamais** — l'application ne décide pas à la
+  place de l'oreille.
+
+**Le piège de polarité, à ne jamais rouvrir sans lire ceci.**
+[0012](../decisions/0012-rotation-des-morceaux.md) §4 écrit « confort haut :
+tirage serré sur les tops ; confort bas : la longue traîne pèse davantage ».
+Ce « confort haut » désigne le **sentiment** de confort — le cocon — c'est-à-dire
+la valeur **0** de cette échelle, pas 5. Lu à la lettre avec « 5 =
+exploration », le curseur s'inverse entièrement. Un test le fige
+(`le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu`).
+
+Détail de forme : avec six valeurs entières, **il n'y a pas de milieu
+exact**. 2 penche encore un peu vers le connu, 3 déjà un peu vers l'inconnu ;
+la bascule tombe entre les deux.
+
 ## Orientations
 
 - **Le réglage structure l'éventail proposé**, pas seulement le choix par
@@ -26,10 +55,13 @@ proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
 
 ## À trancher
 
-- Comment l'application sait ce que l'utilisateur **connaît** : bibliothèque
-  Spotify (titres et artistes suivis), historique d'écoute, parcours passés,
-  fiches modifiées dans son fork du catalogue ? Probablement tout ça, avec
-  des poids.
+- ~~Comment l'application sait ce que l'utilisateur **connaît**~~ —
+  **tranché de fait par [0014](../decisions/0014-forme-de-l-appris.md)** :
+  c'est `learned/`. Nos écoutes décrues d'abord (saturantes — la dixième
+  écoute dit beaucoup moins que la première), et à défaut `classement.json`,
+  ramené sur la même échelle 0–1 par son propre maximum, puisque l'un est un
+  compte et l'autre un score composite. Restent hors du calcul : les fiches
+  modifiées dans le fork, qui pourraient peser un jour.
 - Combien de temps l'application attend à un embranchement avant de choisir
   seule : jusqu'à la fin du segment, un délai fixe, ou pas d'attente du tout
   (elle enchaîne et l'utilisateur peut dévier à tout moment) ?

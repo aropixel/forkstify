@@ -202,6 +202,32 @@ Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
 Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
 par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
 
+## La zone de confort branchée (05/09/2026)
+
+`engine::Comfort` implémente [0001](decisions/0001-confort-familiarite.md) :
+0 = cocon, 5 = exploration, lu dans `[journey] comfort` du fichier de
+config et réglable en écoute par `:comfort <n>` (avec un mot à côté du
+chiffre : cocon, prudent, équilibré, curieux, aventureux, exploration).
+
+Deux leviers, ceux qu'`avancement.md` désignait déjà comme « constantes à
+piloter par le confort » : le **plancher de la branche aventureuse**
+(cosinus ≥ 0.80 au cocon, ≥ 0.60 ouvert — **le confort 2 reproduit
+exactement l'ancien 0.72 / 0.80**) et la **familiarité qui penche le tirage
+des têtes**, bornée à [0.25, 2.0] : on décourage, on n'interdit pas.
+
+**Un piège de polarité consigné** dans
+[`zone-de-confort.md`](conception/zone-de-confort.md) et figé par un test :
+le « confort haut » de 0012 §4 désigne le *sentiment* de confort, donc la
+valeur **0**, pas 5. Lu à la lettre, tout le curseur s'inverse.
+
+Question ouverte de 0001 **tranchée de fait** : ce que l'application sait
+de ce qu'on connaît, c'est `learned/` — nos écoutes décrues, saturantes,
+et à défaut `classement.json` ramené sur la même échelle par son maximum.
+
+**Il manque au curseur son troisième levier** : la profondeur du tirage
+dans le réservoir (0012 §4), qui n'aura rien à régler tant que la longue
+traîne n'existe pas — voir [`longue-traine.md`](conception/longue-traine.md).
+
 ## Le réservoir ouvert, les doors réveillées (05/09/2026)
 
 Question de Joel — « est-ce qu'on a prévu que des morceaux soient joués

@@ -82,9 +82,15 @@ fn label(kind: &str) -> &str {
 /// Below this cosine, the vector space is not trusted for an adventurous
 /// jump. A constant for now — meant to be driven by the comfort zone
 /// (decision 0001) once it enters the navigation.
-const VECTOR_FLOOR: f32 = 0.72;
+/// The adventurous floor, at the cocon and wide open. The old fixed 0.72
+/// and 0.80 sit at comfort 2 — today's tuning becomes the middle of the
+/// dial rather than a constant.
+const FLOOR_COCON: f32 = 0.80;
+const FLOOR_OPEN: f32 = 0.60;
+const TRUST_COCON: f32 = 0.86;
+const TRUST_OPEN: f32 = 0.70;
+
 /// Above this cosine, the space may bridge without any shared genre tag.
-const VECTOR_TRUST: f32 = 0.80;
 
 fn shared_tags(a: &Card, b: &Card) -> Vec<String> {
     a.tags.iter().filter(|t| b.tags.contains(t)).cloned().collect()
@@ -258,6 +264,57 @@ pub fn vector_neighbors(
     scores
 }
 
+/// The comfort dial (0001): **0 = cocon, 5 = exploration**.
+///
+/// **Read this before touching the polarity.** 0012 §4 says « confort haut :
+/// tirage serré sur les tops ; confort bas : la longue traîne pèse
+/// davantage ». That « confort haut » is the *feeling* of comfort — the
+/// cocon — which is value **0** here, not 5. `zone-de-confort.md` fixes the
+/// scale as « 0 = cocon, 5 = exploration ». Read the other way round, the
+/// whole dial inverts and nobody notices for weeks.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Comfort(u8);
+
+impl Comfort {
+    pub fn new(value: u8) -> Comfort {
+        Comfort(value.min(5))
+    }
+
+    pub fn value(self) -> u8 {
+        self.0
+    }
+
+    /// 0.0 in the cocon, 1.0 wide open.
+    fn openness(self) -> f32 {
+        self.0 as f32 / 5.0
+    }
+
+    /// How far the adventurous branch may leap. The floor drops as the dial
+    /// opens — the constants avancement.md already flagged as « à piloter
+    /// par le confort ».
+    fn floor(self) -> f32 {
+        FLOOR_COCON + (FLOOR_OPEN - FLOOR_COCON) * self.openness()
+    }
+
+    fn trust(self) -> f32 {
+        TRUST_COCON + (TRUST_OPEN - TRUST_COCON) * self.openness()
+    }
+
+    /// The pull of what we already know (0001: comfort *is* familiarity):
+    /// +1 in the cocon, 0 in the middle, −1 wide open, where the unknown is
+    /// what we are after.
+    fn pull(self) -> f32 {
+        1.0 - 2.0 * self.openness()
+    }
+
+    /// What this dial does to a candidate of that familiarity. Never zero:
+    /// a branch is discouraged, never forbidden — the application does not
+    /// decide for the ear.
+    fn favours(self, familiarity: f32) -> f32 {
+        (1.0 + self.pull() * (2.0 * familiarity - 1.0)).clamp(0.25, 2.0)
+    }
+}
+
 /// Weights of the reservoir (0012 §1). A top is the norm, a liked track
 /// nearly as much, a door on its own is thinner — until the direction we
 /// are heading towards matches it, and then it jumps ahead. None of this is
@@ -376,6 +433,7 @@ fn walk(
     head_reason: String,
     head_weight: f32,
     learned: &Learned,
+    comfort: Comfort,
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
@@ -409,7 +467,7 @@ fn walk(
         if nexts.is_empty() {
             nexts = vector_neighbors(catalog, &last, &excluded)
                 .into_iter()
-                .filter(|(_, score)| *score >= VECTOR_FLOOR)
+                .filter(|(_, score)| *score >= comfort.floor())
                 .take(3)
                 .map(|(slug, score)| (slug, (score - 0.5).max(0.05).powi(3)))
                 .collect();
@@ -521,6 +579,7 @@ pub fn propose(
     context: &[String],
     universe: &[String],
     learned: &Learned,
+    comfort: Comfort,
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
@@ -546,8 +605,8 @@ pub fn propose(
         .into_iter()
         .filter(|(slug, score)| {
             !in_graph.contains(slug)
-                && *score >= VECTOR_FLOOR
-                && (*score >= VECTOR_TRUST
+                && *score >= comfort.floor()
+                && (*score >= comfort.trust()
                     || genre_tags(&catalog.cards[slug]).any(|t| context_genres.contains(t)))
         })
         .collect();
@@ -559,10 +618,15 @@ pub fn propose(
         .map(|(slug, weight, why)| (slug, (weight, why)))
         .collect();
     let mut heads: Vec<(String, String, f32)> = Vec::new();
+    // 0001 : le confort *est* la familiarité. Il ne filtre pas, il penche —
+    // vers ce qu'on connaît au cocon, vers ce qu'on ne connaît pas ouvert.
+    let favours = |slug: &String| {
+        comfort.favours(learned.familiarity01(slug, &catalog.cards[slug].name))
+    };
     let mut graph_pool: Vec<(String, f32)> = graph
         .iter()
         .take(6)
-        .map(|(slug, weight, _)| (slug.clone(), weight * weight))
+        .map(|(slug, weight, _)| (slug.clone(), weight * weight * favours(slug)))
         .collect();
     while heads.len() < graph_slots {
         let Some(slug) = draw_weighted(&mut graph_pool, rng) else { break };
@@ -572,7 +636,7 @@ pub fn propose(
     let mut outside_pool: Vec<(String, f32)> = outside
         .iter()
         .take(6)
-        .map(|(slug, score)| (slug.clone(), (score - 0.5).max(0.05).powi(3)))
+        .map(|(slug, score)| (slug.clone(), (score - 0.5).max(0.05).powi(3) * favours(slug)))
         .collect();
     let outside_scores: HashMap<&String, &f32> =
         outside.iter().map(|(slug, score)| (slug, score)).collect();
@@ -591,7 +655,7 @@ pub fn propose(
 
     for (slug, why, weight) in heads {
         branches.push(walk(
-            catalog, current, slug, why, weight, learned, visited, played, size, rng,
+            catalog, current, slug, why, weight, learned, comfort, visited, played, size, rng,
         ));
     }
     branches
@@ -666,6 +730,38 @@ mod tests {
         assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
         // deux sauts : le poids est divisé par trois, sans jamais s'annuler
         assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
+    }
+
+    /// 0001 : le confort *est* la familiarité — et la polarité de l'échelle
+    /// est le piège de cette décision (voir la doc de `Comfort`).
+    #[test]
+    fn le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu() {
+        let cocon = Comfort::new(0);
+        let milieu = Comfort::new(2);
+        let ouvert = Comfort::new(5);
+
+        // au cocon, un artiste familier passe devant un inconnu
+        assert!(cocon.favours(1.0) > cocon.favours(0.0));
+        // ouvert, c'est l'inverse — sinon le curseur ne sert à rien
+        assert!(ouvert.favours(0.0) > ouvert.favours(1.0));
+        // et jamais une exclusion : on décourage, on n'interdit pas
+        assert!(cocon.favours(0.0) >= 0.25 && ouvert.favours(1.0) >= 0.25);
+
+        // le plancher de l'aventureuse s'abaisse quand on ouvre
+        assert!(cocon.floor() > milieu.floor());
+        assert!(milieu.floor() > ouvert.floor());
+        // le confort 2 reproduit le réglage fixe d'avant le curseur
+        assert!((milieu.floor() - 0.72).abs() < 1e-6, "{}", milieu.floor());
+        assert!((milieu.trust() - 0.796).abs() < 1e-3, "{}", milieu.trust());
+
+        // six valeurs entières : il n'y a pas de milieu exact. 2 penche
+        // encore vers le connu, 3 déjà vers l'inconnu — la bascule tombe
+        // entre les deux, et c'est une propriété, pas un défaut.
+        assert!(milieu.favours(1.0) > milieu.favours(0.0));
+        let trois = Comfort::new(3);
+        assert!(trois.favours(0.0) > trois.favours(1.0));
+        // et la valeur est bornée
+        assert_eq!(Comfort::new(9).value(), 5);
     }
 
     /// Ce qu'un parcours a déjà joué ne revient pas (0012 §3).

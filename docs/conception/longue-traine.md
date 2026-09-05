@@ -89,3 +89,9 @@ recompilant.
 0001 est déjà décidée et `learned/` fournit depuis aujourd'hui la
 familiarité dont elle a besoin. La brancher d'abord donne à la traîne son
 bouton de volume le jour où elle arrive.
+
+**Fait le 05/09/2026** (arbitrage de Joel) : `engine::Comfort` existe, il
+pilote le plancher de l'aventureuse et le tirage des têtes. Il lui manque
+son troisième levier — **la profondeur du tirage dans le réservoir**
+(0012 §4), qui n'a rien à régler tant que la traîne n'existe pas. Le
+bouton attend son volume.
