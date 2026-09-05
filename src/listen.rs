@@ -526,7 +526,9 @@ impl Live<'_> {
                     println!("  {}  [catalogue] {}", i + 1, self.catalog.cards[slug].name)
                 }
                 Hit::Track { title, artist, slug, .. } => {
-                    let mark = if slug.is_some() { "↳ branche ensuite" } else { "hors catalogue" };
+                    // prose, not a glyph: « ↳ » belongs to the door in the
+                    // provenance marks, and one glyph must carry one meaning
+                    let mark = if slug.is_some() { "branche ensuite" } else { "hors catalogue" };
                     println!("  {}  [spotify]   {title} — {artist} ({mark})", i + 1);
                 }
             }

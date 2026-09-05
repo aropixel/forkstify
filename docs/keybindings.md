@@ -128,7 +128,7 @@ a gagné le tirage.
 |---|---|
 | `♪` | Un **top** de la fiche |
 | `♥` | Un titre **aimé** ici (`tl`), qui n'est pas un top |
-| `↳` | Une **door** ([0011](decisions/0011-doors-critere-additionnel.md)) dont la direction recoupe celle de la branche |
+| `↳` | Une **door** ([0011](decisions/0011-doors-critere-additionnel.md)) dont la direction recoupe celle de la branche. Le glyphe lui est réservé : la recherche dit `(branche ensuite)` en toutes lettres, un glyphe ne portant qu'un sens (05/09/2026) |
 | `+` | Artiste connu, morceau **hors tops** — c'est celui que `tt` promouvrait |
 | `·` | La **longue traîne** : le reste de la discographie, qui ne pèse qu'à mesure que le confort s'ouvre |
 | `~` | **Hors catalogue** : joué depuis Spotify, sans fiche |
