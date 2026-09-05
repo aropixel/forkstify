@@ -645,9 +645,28 @@ impl Live<'_> {
             Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
             Cmd::Why => self.not_yet("?", "expliquer le morceau ou la branche"),
             Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
-            Cmd::Colon(text) => self.not_yet(&format!(":{text}"), "commandes \u{ab} : \u{bb}"),
+            Cmd::Colon(text) => self.colon(&text),
         }
         true
+    }
+
+    /// `:` commands — 0013 makes every key the shortcut of one. Only
+    /// `:size` is served so far: it replaces the old `b<n>`, which the
+    /// move to raw mode dropped on the way.
+    fn colon(&mut self, text: &str) {
+        let mut words = text.split_whitespace();
+        match (words.next(), words.next()) {
+            (Some("size"), Some(n)) => match n.parse::<usize>() {
+                Ok(n) if (1..=9).contains(&n) => {
+                    self.size = n;
+                    println!("Taille des branches : {n}");
+                }
+                _ => println!("Taille attendue entre 1 et 9."),
+            },
+            (Some("size"), None) => println!("Taille des branches : {}", self.size),
+            (Some(other), _) => self.not_yet(&format!(":{other}"), "cette commande"),
+            (None, _) => {}
+        }
     }
 
     /// A gesture the grammar accepts but the code does not serve yet. Saying
@@ -706,6 +725,7 @@ impl Live<'_> {
                 (".", "r\u{e9}p\u{e9}ter le dernier geste", false),
                 ("?", "pourquoi ce morceau", false),
                 ("Q", "mode file d'attente", false),
+                (":size <n>", "taille des branches", true),
                 ("q", "quitter", true),
             ],
         };
