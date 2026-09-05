@@ -20,7 +20,7 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashSet, VecDeque};
 
-pub fn run(catalog: &Catalog, seed: &str, catalog_dir: &std::path::Path) -> anyhow::Result<()> {
+pub fn run(catalog: &Catalog, seed: &str, learned: Learned) -> anyhow::Result<()> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -30,16 +30,15 @@ pub fn run(catalog: &Catalog, seed: &str, catalog_dir: &std::path::Path) -> anyh
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, seed, catalog_dir))
+        .block_on(&rt, async_run(catalog, seed, learned))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
 async fn async_run(
     catalog: &Catalog,
     seed: &str,
-    catalog_dir: &std::path::Path,
+    learned: Learned,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let learned = Learned::load(catalog_dir);
     println!(
         "Appris : {} artiste(s) écouté(s), {} de familiarité de départ.",
         learned.known(),
@@ -87,7 +86,7 @@ async fn async_run(
     keys::spawn_reader(tx);
 
     // opening: play the seed's own tops, then show the first branches
-    let opening = crate::engine::encore(catalog, seed, &Default::default(), live.size, &mut live.rng);
+    let opening = crate::engine::encore(catalog, seed, &live.learned, &Default::default(), live.size, &mut live.rng);
     live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
     live.prompt();
@@ -238,7 +237,7 @@ impl Live<'_> {
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
         let (_, current, _, _, played) = self.state();
-        let stops = crate::engine::encore(self.catalog, &current, &played, count, &mut self.rng);
+        let stops = crate::engine::encore(self.catalog, &current, &self.learned, &played, count, &mut self.rng);
         if stops.is_empty() {
             println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
             return;
@@ -266,7 +265,7 @@ impl Live<'_> {
 
     /// Resolve a stop and load it as the current track.
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
-        print!("\n▶ {} — {} … ", stop.title, stop.artist);
+        print!("\n▶ {} {} — {} … ", stop.source.mark(), stop.title, stop.artist);
         std::io::Write::flush(&mut std::io::stdout()).ok();
         match self.web.resolve(&stop.title, &stop.artist).await {
             Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
@@ -417,7 +416,7 @@ impl Live<'_> {
         } else {
             println!("\nà suivre :");
             for stop in &self.queue {
-                println!("   • {} — {}", stop.title, stop.artist);
+                println!("   {} {} — {}", stop.source.mark(), stop.title, stop.artist);
             }
         }
     }
@@ -497,18 +496,26 @@ impl Live<'_> {
         match hit {
             Hit::Artist(slug) => {
                 let (_, _, _, _, played) = self.state();
-                let stops = crate::engine::encore(self.catalog, &slug, &played, self.size, &mut self.rng);
+                let stops = crate::engine::encore(self.catalog, &slug, &self.learned, &played, self.size, &mut self.rng);
                 println!("→ {}", self.catalog.cards[&slug].name);
                 self.start_segment(vec![slug], stops, false, false).await;
             }
             Hit::Track { title, artist, uri, slug } => {
                 // a one-track "segment": play it now, branch from its artist
                 // if we know it, otherwise it's off-map (no branches from here)
-                let round_artists = slug.iter().cloned().collect();
+                let round_artists: Vec<String> = slug.iter().cloned().collect();
+                // a searched track may or may not already be one of the
+                // artist's tops — that is exactly what `tt` would change
+                let source = match slug.as_ref().map(|s| &self.catalog.cards[s]) {
+                    Some(card) if card.tops.contains(&title) => crate::engine::Source::Top,
+                    Some(_) => crate::engine::Source::Outside,
+                    None => crate::engine::Source::Offmap,
+                };
                 let stop = crate::engine::Stop {
                     slug: slug.unwrap_or_default(),
                     artist,
                     title,
+                    source,
                 };
                 self.play_uri(round_artists, stop, &uri).await;
             }
@@ -527,7 +534,7 @@ impl Live<'_> {
         let off_map = round_artists.is_empty();
         self.rounds.push(Round { artists: round_artists, tracks: vec![stop.title.clone()] });
         self.queue.clear();
-        println!("\n▶ {} — {}", stop.title, stop.artist);
+        println!("\n▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         self.sound.play(track);
         self.current = Some(stop);
         if off_map {
@@ -569,7 +576,8 @@ impl Live<'_> {
     fn recompute(&mut self) {
         let (context, _, universe, visited, played) = self.state();
         self.branches = crate::engine::propose(
-            self.catalog, &context, &universe, &visited, &played, self.size, &mut self.rng,
+            self.catalog, &context, &universe, &self.learned, &visited, &played, self.size,
+            &mut self.rng,
         );
         // « moins souvent » / « plus souvent » ride on the branches that
         // start with the artist concerned (0014)
@@ -875,6 +883,7 @@ impl Live<'_> {
                 ("?", "pourquoi ce morceau", true),
                 ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
+                ("♪♥↳+~", "top · aimé · door · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
             ],
         };
@@ -917,7 +926,7 @@ impl Live<'_> {
         }
         self.rounds.pop();
         let (_, current, _, _, played) = self.state();
-        let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
+        let stops = crate::engine::encore(self.catalog, &current, &self.learned, &played, self.size, &mut self.rng);
         self.queue.clear();
         self.start_segment(vec![current], stops, false, false).await;
     }

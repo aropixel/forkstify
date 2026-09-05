@@ -103,12 +103,12 @@ pub fn show_branches(catalog: &Catalog, current: &str, branches: &[engine::Branc
             println!("     {}", branch.reason);
         }
         for stop in &branch.stops {
-            println!("     ♪ {} — {}", stop.title, stop.artist);
+            println!("     {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         }
     }
 }
 
-fn journey(catalog: &Catalog, seed: &str) {
+fn journey(catalog: &Catalog, seed: &str, learned: &learned::Learned) {
     let mut rng = thread_rng();
     let mut rounds = vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }];
     let mut size = 3usize;
@@ -116,7 +116,7 @@ fn journey(catalog: &Catalog, seed: &str) {
     loop {
         let (context, current, universe, visited, played) = state_of(&rounds);
         let branches =
-            engine::propose(catalog, &context, &universe, &visited, &played, size, &mut rng);
+            engine::propose(catalog, &context, &universe, learned, &visited, &played, size, &mut rng);
         show_branches(catalog, &current, &branches);
 
         print!("\n[1-{}, entrée = auto, e/<n>e = encore, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
@@ -166,13 +166,13 @@ fn journey(catalog: &Catalog, seed: &str) {
                     if count == 0 || count > 9 {
                         println!("Encore incompris : {text} (e, 2e … 9e)");
                     } else {
-                        let stops = engine::encore(catalog, &current, &played, count, &mut rng);
+                        let stops = engine::encore(catalog, &current, learned, &played, count, &mut rng);
                         if stops.is_empty() {
                             println!("(plus de tops non joués chez {})", catalog.cards[&current].name);
                         } else {
                             println!("Encore {} :", catalog.cards[&current].name);
                             for stop in &stops {
-                                println!("   ♪ {}", stop.title);
+                                println!("   {} {}", stop.source.mark(), stop.title);
                             }
                             rounds.push(Round {
                                 artists: Vec::new(),
@@ -226,13 +226,14 @@ fn main() -> anyhow::Result<()> {
     };
 
     let catalog = Catalog::load(&catalog_path(path))?;
+    let learned = learned::Learned::load(&catalog_path(path));
     let Some(slug) = resolve(&catalog, target) else {
         std::process::exit(1);
     };
 
     match command {
-        "parcours" => journey(&catalog, &slug),
-        "ecouter" => listen::run(&catalog, &slug, &catalog_path(path))?,
+        "parcours" => journey(&catalog, &slug, &learned),
+        "ecouter" => listen::run(&catalog, &slug, learned)?,
         "check" => check(&catalog, &slug),
         other => {
             eprintln!("commande inconnue : {other}");

@@ -14,6 +14,17 @@ pub struct Link {
     pub proximity: Option<u8>,
 }
 
+/// A door (0011): one track singled out as the way *out* of an artist
+/// towards a direction. `to` points at tags, never at artists. It is an
+/// additional criterion, never the main one.
+#[derive(Deserialize)]
+pub struct Door {
+    pub track: String,
+    #[serde(default)]
+    pub to: Vec<String>,
+    pub note: Option<String>,
+}
+
 #[derive(Deserialize)]
 pub struct Card {
     pub name: String,
@@ -21,6 +32,8 @@ pub struct Card {
     pub tags: Vec<String>,
     #[serde(default)]
     pub tops: Vec<String>,
+    #[serde(default)]
+    pub doors: Vec<Door>,
     #[serde(default)]
     pub links: Vec<Link>,
 }

@@ -116,6 +116,26 @@ couche que l'appris.
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
 (un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.
 
+## D'où vient chaque morceau
+
+Toute chanson affichée — dans la file, dans les branches, sur la ligne `▶`
+— porte la marque de sa **provenance**. Le réservoir d'un artiste cumule
+plusieurs sources ([0012](decisions/0012-rotation-des-morceaux.md) §1 :
+« le top est un poids, pas une liste fermée »), et la marque dit laquelle
+a gagné le tirage.
+
+| Marque | Provenance |
+|---|---|
+| `♪` | Un **top** de la fiche |
+| `♥` | Un titre **aimé** ici (`tl`), qui n'est pas un top |
+| `↳` | Une **door** ([0011](decisions/0011-doors-critere-additionnel.md)) dont la direction recoupe celle de la branche |
+| `+` | Artiste connu, morceau **hors tops** — c'est celui que `tt` promouvrait |
+| `~` | **Hors catalogue** : joué depuis Spotify, sans fiche |
+
+Une door ne prend sa marque que **quand elle s'ouvre** : hors de sa
+direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
+« critère additionnel, jamais principal ».
+
 ## Commandes `:`
 
 0013 veut que chaque touche soit le raccourci d'une commande `:`. Seule

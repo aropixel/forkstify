@@ -202,6 +202,31 @@ Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
 Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
 par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
 
+## Le réservoir ouvert, les doors réveillées (05/09/2026)
+
+Question de Joel — « est-ce qu'on a prévu que des morceaux soient joués
+sans être top ? » — qui a mis au jour un écart : **[0012](decisions/0012-rotation-des-morceaux.md) §1
+prévoyait quatre sources, le moteur n'en tirait qu'une**. Pire, le champ
+`doors` était écrit dans **13 fiches** depuis le 02/09 et le mot n'apparaissait
+nulle part dans `src/` : [0011](decisions/0011-doors-critere-additionnel.md)
+dormait.
+
+`engine::reservoir()` cumule désormais trois des quatre sources, chacune
+avec son poids : les **tops** (1.0), les **titres aimés** de `learned/`
+(0.8), les **doors** (0.4, ×2.5 quand la direction de la branche recoupe
+leurs tags — le bonus de 0011). Un morceau souvent passé recule
+(`poids ÷ (1 + skipped)`), un banni sort. Le tirage est pondéré, sans
+remise dans un parcours.
+
+**Chaque morceau affiché porte sa provenance** : `♪` top · `♥` aimé ·
+`↳` door · `+` hors tops · `~` hors catalogue. Vérifié à sec — depuis
+Joy Division ou The Fall, `↳ A Forest — The Cure` apparaît.
+
+**La quatrième source manque** : la longue traîne de la discographie
+(cache API Deezer/Spotify), qui demande une couche de cache inexistante.
+Le cooldown daté de 0012 §2 n'est pas appliqué non plus, ni la zone de
+confort de 0001 qui doit régler la profondeur du tirage.
+
 ## La boucle d'apprentissage ouverte (05/09/2026)
 
 `src/learned.rs` implémente [0014](decisions/0014-forme-de-l-appris.md) :

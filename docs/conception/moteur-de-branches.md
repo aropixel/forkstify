@@ -81,6 +81,11 @@ explicable en une phrase (actés le 01/09/2026,
    (cache du top élargi Deezer/Spotify, hors catalogue). Le moteur **tire
    au sort pondéré** dans ce réservoir, il ne prend pas le premier de la
    liste.
+   **Implémenté le 05/09/2026** (`engine::reservoir`) pour les **trois
+   premières** sources : tops 1.0, aimés 0.8, doors 0.4 avec un ×2.5 quand
+   la direction de la branche recoupe leurs tags. La quatrième — la longue
+   traîne — attend le cache d'API. Chaque morceau affiché porte sa
+   provenance (`♪ ♥ ↳ + ~`).
 2. **La fraîcheur (cooldown).** Chaque lecture est datée dans `learned/` ;
    un morceau joué récemment est pénalisé, la pénalité décroît avec le
    temps. « Déjà joué mardi, je le laisse reposer. »

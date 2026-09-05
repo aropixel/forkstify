@@ -141,6 +141,27 @@ impl Learned {
         }
     }
 
+    pub fn track_banned(&self, slug: &str, title: &str) -> bool {
+        self.artists
+            .get(slug)
+            .and_then(|a| a.tops.get(title))
+            .is_some_and(|t| t.blacklisted)
+    }
+
+    /// The tracks this listener has liked at an artist — they join the
+    /// reservoir beside the tops (0012 §1).
+    pub fn liked_tracks(&self, slug: &str) -> Vec<&String> {
+        self.artists
+            .get(slug)
+            .map(|a| a.tops.iter().filter(|(_, t)| t.liked).map(|(title, _)| title).collect())
+            .unwrap_or_default()
+    }
+
+    /// How many times this track was skipped: it pushes it back in the draw.
+    pub fn skipped(&self, slug: &str, title: &str) -> u32 {
+        self.artists.get(slug).and_then(|a| a.tops.get(title)).map_or(0, |t| t.skipped)
+    }
+
     /// Every banned track of every artist, as the engine excludes by title.
     pub fn banned_tracks(&self) -> impl Iterator<Item = &String> {
         self.artists
@@ -301,6 +322,20 @@ fn from_iso(text: &str) -> Option<i64> {
     let doy = (153 * mp + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     Some(era * 146_097 + doe - 719_468)
+}
+
+#[cfg(test)]
+impl Learned {
+    /// A blank layer for tests. Its root is a temp dir: measures may write,
+    /// nobody reads it back.
+    pub fn blank() -> Learned {
+        Learned {
+            root: std::env::temp_dir().join("forkstify-tests"),
+            artists: HashMap::new(),
+            seed: HashMap::new(),
+            today: 20_000,
+        }
+    }
 }
 
 #[cfg(test)]

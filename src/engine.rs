@@ -9,15 +9,46 @@
 //! artist along the way.
 
 use crate::catalog::{Card, Catalog};
+use crate::learned::Learned;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
+
+/// Where a track came from — 0012 §1: « le top est un poids, pas une liste
+/// fermée ». The reservoir of an artist cumulates several sources, and the
+/// display says which one won, so a journey stays explainable.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Source {
+    Top,
+    /// Liked by this listener at this artist (`learned/`).
+    Liked,
+    /// A door (0011): singled out as the way out towards a direction.
+    Door,
+    /// Known artist, none of the above — came in through a search.
+    Outside,
+    /// No card at all.
+    Offmap,
+}
+
+impl Source {
+    /// One glyph, so a queue stays scannable.
+    pub fn mark(self) -> char {
+        match self {
+            Source::Top => '♪',
+            Source::Liked => '♥',
+            Source::Door => '↳',
+            Source::Outside => '+',
+            Source::Offmap => '~',
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Stop {
     pub slug: String,
     pub artist: String,
     pub title: String,
+    pub source: Source,
 }
 
 pub struct Branch {
@@ -227,10 +258,75 @@ pub fn vector_neighbors(
     scores
 }
 
-/// One unplayed top, at random (decision 0012: no repetition endured).
-fn fresh_track(card: &Card, played: &HashSet<String>, rng: &mut impl Rng) -> Option<String> {
-    let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
-    fresh.choose(rng).map(|t| (*t).clone())
+/// Weights of the reservoir (0012 §1). A top is the norm, a liked track
+/// nearly as much, a door on its own is thinner — until the direction we
+/// are heading towards matches it, and then it jumps ahead. None of this is
+/// a rule: it is what the weighted draw is given to chew on.
+const W_TOP: f32 = 1.0;
+const W_LIKED: f32 = 0.8;
+const W_DOOR: f32 = 0.4;
+const DOOR_BONUS: f32 = 2.5;
+
+/// The reservoir of one artist — 0012 §1, « le top est un poids, pas une
+/// liste fermée ». Cumulates the tops, the tracks this listener liked here,
+/// and the doors, each with its weight; a door only gets its bonus when
+/// `towards` (the direction the branch is heading) meets its tags (0011).
+/// The long tail of the discography — the fourth source — needs an API
+/// cache that does not exist yet.
+fn reservoir(
+    card: &Card,
+    slug: &str,
+    learned: &Learned,
+    played: &HashSet<String>,
+    towards: &[String],
+) -> Vec<(String, f32, Source)> {
+    let mut pool: Vec<(String, f32, Source)> = Vec::new();
+    for title in &card.tops {
+        pool.push((title.clone(), W_TOP, Source::Top));
+    }
+    for title in learned.liked_tracks(slug) {
+        if !pool.iter().any(|(t, ..)| t == title) {
+            pool.push((title.clone(), W_LIKED, Source::Liked));
+        }
+    }
+    for door in &card.doors {
+        let opens = door.to.iter().any(|tag| towards.iter().any(|t| t == tag));
+        match pool.iter_mut().find(|(t, ..)| *t == door.track) {
+            // a door that is also a top keeps its place and gains the bonus
+            Some(entry) => {
+                if opens {
+                    entry.1 *= DOOR_BONUS;
+                    entry.2 = Source::Door;
+                }
+            }
+            None => pool.push((
+                door.track.clone(),
+                if opens { W_DOOR * DOOR_BONUS } else { W_DOOR },
+                Source::Door,
+            )),
+        }
+    }
+    pool.retain(|(title, ..)| !played.contains(title) && !learned.track_banned(slug, title));
+    for entry in &mut pool {
+        // a track often skipped falls back in the draw, it is not banned
+        entry.1 /= 1.0 + learned.skipped(slug, &entry.0) as f32;
+    }
+    pool
+}
+
+/// One track from the reservoir, drawn by weight, with where it came from.
+fn fresh_track(
+    card: &Card,
+    slug: &str,
+    learned: &Learned,
+    played: &HashSet<String>,
+    towards: &[String],
+    rng: &mut impl Rng,
+) -> Option<(String, Source)> {
+    let pool = reservoir(card, slug, learned, played, towards);
+    let dist = WeightedIndex::new(pool.iter().map(|(_, w, _)| w.max(0.01))).ok()?;
+    let (title, _, source) = &pool[dist.sample(rng)];
+    Some((title.clone(), *source))
 }
 
 /// Weighted draw without replacement — decision 0012 applied to the
@@ -251,20 +347,24 @@ fn draw_weighted(pool: &mut Vec<(String, f32)>, rng: &mut impl Rng) -> Option<St
 pub fn encore(
     catalog: &Catalog,
     artist: &str,
+    learned: &Learned,
     played: &HashSet<String>,
     count: usize,
     rng: &mut impl Rng,
 ) -> Vec<Stop> {
     let card = &catalog.cards[artist];
-    let fresh: Vec<&String> = card.tops.iter().filter(|t| !played.contains(*t)).collect();
-    fresh
-        .choose_multiple(rng, count)
-        .map(|title| Stop {
-            slug: artist.to_string(),
-            artist: card.name.clone(),
-            title: (*title).clone(),
-        })
-        .collect()
+    // staying put is not heading anywhere: a door earns no bonus here
+    let mut pool = reservoir(card, artist, learned, played, &[]);
+    let mut stops = Vec::new();
+    while stops.len() < count && !pool.is_empty() {
+        let Ok(dist) = WeightedIndex::new(pool.iter().map(|(_, w, _)| w.max(0.01))) else {
+            break;
+        };
+        // without replacement, as 0012 asks of a second sanding
+        let (title, _, source) = pool.swap_remove(dist.sample(rng));
+        stops.push(Stop { slug: artist.to_string(), artist: card.name.clone(), title, source });
+    }
+    stops
 }
 
 /// A direction branch: start at a neighbor, then keep walking to the
@@ -275,11 +375,14 @@ fn walk(
     head: String,
     head_reason: String,
     head_weight: f32,
+    learned: &Learned,
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
     rng: &mut impl Rng,
 ) -> Branch {
+    // the direction this branch heads towards: what a door has to match
+    let towards: Vec<String> = catalog.cards[&head].tags.clone();
     let mut artists = vec![head];
     let mut stops = Vec::new();
     let mut hops = 0;
@@ -287,8 +390,8 @@ fn walk(
     loop {
         let last = artists.last().unwrap().clone();
         let card = &catalog.cards[&last];
-        if let Some(title) = fresh_track(card, played, rng) {
-            stops.push(Stop { slug: last.clone(), artist: card.name.clone(), title });
+        if let Some((title, source)) = fresh_track(card, &last, learned, played, &towards, rng) {
+            stops.push(Stop { slug: last.clone(), artist: card.name.clone(), title, source });
         }
         hops += 1;
         if stops.len() >= size || hops >= size * 3 {
@@ -334,6 +437,7 @@ fn stay(
     catalog: &Catalog,
     universe: &[String],
     current: &str,
+    learned: &Learned,
     played: &HashSet<String>,
     size: usize,
     rng: &mut impl Rng,
@@ -383,8 +487,8 @@ fn stay(
     while stops.len() < size {
         let Some(slug) = draw_weighted(&mut weighted, rng) else { break };
         let card = &catalog.cards[&slug];
-        if let Some(title) = fresh_track(card, played, rng) {
-            stops.push(Stop { slug: slug.clone(), artist: card.name.clone(), title });
+        if let Some((title, source)) = fresh_track(card, slug.as_str(), learned, played, &[], rng) {
+            stops.push(Stop { slug: slug.clone(), artist: card.name.clone(), title, source });
             artists.push(slug);
         }
     }
@@ -416,6 +520,7 @@ pub fn propose(
     catalog: &Catalog,
     context: &[String],
     universe: &[String],
+    learned: &Learned,
     visited: &HashSet<String>,
     played: &HashSet<String>,
     size: usize,
@@ -424,7 +529,7 @@ pub fn propose(
     let current = context.last().unwrap().as_str();
     let card = &catalog.cards[current];
     let mut branches = Vec::new();
-    if let Some(branch) = stay(catalog, universe, current, played, size, rng) {
+    if let Some(branch) = stay(catalog, universe, current, learned, played, size, rng) {
         branches.push(branch);
     }
     let slots = 3 - branches.len();
@@ -485,7 +590,92 @@ pub fn propose(
     }
 
     for (slug, why, weight) in heads {
-        branches.push(walk(catalog, current, slug, why, weight, visited, played, size, rng));
+        branches.push(walk(
+            catalog, current, slug, why, weight, learned, visited, played, size, rng,
+        ));
     }
     branches
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::catalog::Door;
+
+    fn the_cure() -> Card {
+        Card {
+            name: "The Cure".into(),
+            tags: vec!["post-punk".into(), "80s".into()],
+            tops: vec!["Boys Don't Cry".into(), "A Forest".into()],
+            doors: vec![Door {
+                track: "A Forest".into(),
+                to: vec!["post-punk".into(), "atmospherique".into()],
+                note: None,
+            }],
+            links: Vec::new(),
+        }
+    }
+
+    fn weight_of(pool: &[(String, f32, Source)], title: &str) -> f32 {
+        pool.iter().find(|(t, ..)| t == title).map(|(_, w, _)| *w).expect(title)
+    }
+
+    /// 0012 §1 : le top est un poids, pas une liste fermée.
+    #[test]
+    fn le_reservoir_cumule_les_sources() {
+        let card = the_cure();
+        let mut learned = Learned::blank();
+        learned.like_track("the-cure", "Killing an Arab");
+        let pool = reservoir(&card, "the-cure", &learned, &HashSet::new(), &[]);
+
+        // les deux tops, plus le titre aimé qui n'en est pas un
+        assert_eq!(pool.len(), 3, "{pool:?}");
+        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP);
+        assert_eq!(weight_of(&pool, "Killing an Arab"), W_LIKED);
+        let liked = pool.iter().find(|(t, ..)| t == "Killing an Arab").unwrap();
+        assert_eq!(liked.2, Source::Liked);
+    }
+
+    /// 0011 : une door est un critère additionnel, jamais principal — son
+    /// bonus ne tombe que si la direction recoupe ses tags.
+    #[test]
+    fn la_door_ne_gagne_que_vers_sa_direction() {
+        let card = the_cure();
+        let learned = Learned::blank();
+
+        let ailleurs = reservoir(&card, "the-cure", &learned, &HashSet::new(), &["rap".into()]);
+        assert_eq!(weight_of(&ailleurs, "A Forest"), W_TOP, "aucune direction commune");
+
+        let vers = reservoir(&card, "the-cure", &learned, &HashSet::new(), &["post-punk".into()]);
+        assert_eq!(weight_of(&vers, "A Forest"), W_TOP * DOOR_BONUS);
+        let door = vers.iter().find(|(t, ..)| t == "A Forest").unwrap();
+        assert_eq!(door.2, Source::Door, "la provenance doit se voir à l'affichage");
+        // et le bonus reste local : l'autre top ne bouge pas
+        assert_eq!(weight_of(&vers, "Boys Don't Cry"), W_TOP);
+    }
+
+    #[test]
+    fn un_banni_sort_et_un_passe_recule() {
+        let card = the_cure();
+        let mut learned = Learned::blank();
+        learned.ban_track("the-cure", "Boys Don't Cry");
+        learned.skip_track("the-cure", "A Forest");
+        learned.skip_track("the-cure", "A Forest");
+        let pool = reservoir(&card, "the-cure", &learned, &HashSet::new(), &[]);
+
+        assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
+        // deux sauts : le poids est divisé par trois, sans jamais s'annuler
+        assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
+    }
+
+    /// Ce qu'un parcours a déjà joué ne revient pas (0012 §3).
+    #[test]
+    fn le_deja_joue_ne_revient_pas() {
+        let card = the_cure();
+        let learned = Learned::blank();
+        let played: HashSet<String> = ["A Forest".to_string()].into_iter().collect();
+        let pool = reservoir(&card, "the-cure", &learned, &played, &[]);
+        assert_eq!(pool.len(), 1);
+        assert_eq!(pool[0].0, "Boys Don't Cry");
+    }
 }
