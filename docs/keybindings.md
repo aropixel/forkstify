@@ -260,25 +260,18 @@ Les huit collisions tombent :
 | `p` action et préfixe | `p` = **peek** seul ; le préfixe des branches est `f` |
 | `pr` vs `p<n>` | `r` = **reroll**, sans préfixe |
 
-## La tension à trancher
+## « Fork » a deux sens — tranché
 
-**« Fork » a déjà un sens dans le projet.** 0002 et 0008 l'emploient pour
-le **catalogue** — « le fork est la surcouche », « catalogue forkable ».
-Mettre `f` sur « prendre une branche » lui donne un second sens.
+**Arbitrage de Joel, 05/09/2026 : `f` = prendre une branche.**
 
-Trois sorties possibles :
+0002 et 0008 emploient déjà « fork » pour le **catalogue** (« le fork est
+la surcouche »). Le mot garde donc deux sens, mais ils ne se croisent
+jamais : forker le catalogue est un geste rare, une fois par machine, qui
+reste la commande `:fork` ; forker le parcours est le geste constant de
+l'écoute, et c'est la touche `f`.
 
-- **(a)** garder `f` = prendre une branche (geste très fréquent, dans le
-  flux) et laisser le fork du catalogue en `:fork` (geste rare, une fois
-  par machine). Le mot a deux sens, mais jamais dans le même contexte.
-- **(b)** `b` = **branch** pour les branches, et le bannissement passe
-  ailleurs (`x` = *exclude* ?). Fidèle au vocabulaire des docs, qui disent
-  « branche » partout, mais perd l'idée de Joel.
-- **(c)** renommer le concept : les branches **sont** des forks, dans les
-  docs comme dans le code. Cohérent avec le nom du produit, mais c'est une
-  décision de vocabulaire (`docs/vision.md`), pas un choix de touche.
-
-Ma recommandation : **(a)**, avec la nuance notée dans `vision.md`.
+La nuance est consignée dans le vocabulaire de
+[`docs/vision.md`](vision.md).
 
 ## Lettres libres après ce mapping
 

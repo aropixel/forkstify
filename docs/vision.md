@@ -83,6 +83,7 @@ Les mots du projet. Les utiliser tels quels, dans le code comme dans la doc.
 | **Lien** (`links`)  | Un lien explicite entre deux fiches : un type fermé (`member`, `family`, `collab`, `scene`, `similar`, `influence`), une note qui l'explique, une proximité (par défaut selon le type, corrigeable). |
 | **Base / mien / appris** | Les trois états d'une information du catalogue : venue de l'amont ; écrite ou validée par moi ; produite par mon usage. Voir [conception/catalogue.md](conception/catalogue.md). |
 | **Promotion**       | Transformer un signal d'usage (*appris*) en connaissance lisible (*mien*) : un commit sur une fiche. |
+| **Fork**            | Deux sens, jamais dans le même contexte : **forker le catalogue** (le cloner pour se l'approprier, [0008](decisions/0008-le-fork-est-la-surcouche.md)) — geste rare, commande `:fork` ; et **forker le parcours**, c'est-à-dire prendre une branche — geste constant, touche `f` (Joel, 05/09/2026, voir [keybindings.md](keybindings.md)). |
 
 Types de branches identifiés jusqu'ici (liste ouverte) :
 
