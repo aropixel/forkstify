@@ -10,16 +10,17 @@
 
 use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
+use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
-use crate::sound::{request_started, track_over, Sound};
+use crate::sound::{request_started, track_finished, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
 use crate::{show_branches, state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
-pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
+pub fn run(catalog: &Catalog, seed: &str, catalog_dir: &std::path::Path) -> anyhow::Result<()> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -29,11 +30,21 @@ pub fn run(catalog: &Catalog, seed: &str) -> anyhow::Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, seed))
+        .block_on(&rt, async_run(catalog, seed, catalog_dir))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
-async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn async_run(
+    catalog: &Catalog,
+    seed: &str,
+    catalog_dir: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let learned = Learned::load(catalog_dir);
+    println!(
+        "Appris : {} artiste(s) écouté(s), {} de familiarité de départ.",
+        learned.known(),
+        learned.seeded()
+    );
     println!("Connexion à Spotify…");
     let config = crate::config::Config::load();
     let sound = Sound::connect().await?;
@@ -54,6 +65,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
 
     let mut live = Live {
         catalog,
+        learned,
         sound,
         web,
         rng: thread_rng(),
@@ -92,7 +104,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
                 Some(ref ev) if track_over(ev) == live.current_request_id
                     && live.current_request_id.is_some() =>
                 {
-                    live.on_track_over().await;
+                    live.on_track_over(track_finished(ev)).await;
                     live.prefetch_next().await;
                     live.prompt();
                 }
@@ -133,6 +145,7 @@ async fn async_run(catalog: &Catalog, seed: &str) -> Result<(), Box<dyn std::err
 
 struct Live<'a> {
     catalog: &'a Catalog,
+    learned: Learned,
     sound: Sound,
     web: WebApi,
     rng: ThreadRng,
@@ -224,7 +237,7 @@ impl Live<'_> {
     /// (0015): at the end of the branch, right after the current track, or
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
-        let (_, current, _, _, played) = state_of(&self.rounds);
+        let (_, current, _, _, played) = self.state();
         let stops = crate::engine::encore(self.catalog, &current, &played, count, &mut self.rng);
         if stops.is_empty() {
             println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
@@ -365,8 +378,27 @@ impl Live<'_> {
         }
     }
 
-    async fn on_track_over(&mut self) {
+    async fn on_track_over(&mut self, finished: bool) {
+        // a track played through is the only thing that counts as a listen
+        if finished {
+            if let Some(stop) = self.current.clone() {
+                if !stop.slug.is_empty() {
+                    self.learned.played(&stop.slug, &stop.title);
+                }
+            }
+        }
         self.next().await;
+    }
+
+    /// The journey's state, with what the learned layer excludes folded in.
+    /// The engine already excludes by slug (`visited`) and by title
+    /// (`played`); a ban rides those channels rather than a new parameter
+    /// threaded through every call.
+    fn state(&self) -> (Vec<String>, String, Vec<String>, HashSet<String>, HashSet<String>) {
+        let (context, current, universe, mut visited, mut played) = state_of(&self.rounds);
+        visited.extend(self.learned.banned_artists().cloned());
+        played.extend(self.learned.banned_tracks().cloned());
+        (context, current, universe, visited, played)
     }
 
     /// Start a chosen branch (records it, plays its first track, shows it).
@@ -464,7 +496,7 @@ impl Live<'_> {
         self.pending.clear();
         match hit {
             Hit::Artist(slug) => {
-                let (_, _, _, _, played) = state_of(&self.rounds);
+                let (_, _, _, _, played) = self.state();
                 let stops = crate::engine::encore(self.catalog, &slug, &played, self.size, &mut self.rng);
                 println!("→ {}", self.catalog.cards[&slug].name);
                 self.start_segment(vec![slug], stops, false, false).await;
@@ -535,10 +567,17 @@ impl Live<'_> {
     }
 
     fn recompute(&mut self) {
-        let (context, _, universe, visited, played) = state_of(&self.rounds);
+        let (context, _, universe, visited, played) = self.state();
         self.branches = crate::engine::propose(
             self.catalog, &context, &universe, &visited, &played, self.size, &mut self.rng,
         );
+        // « moins souvent » / « plus souvent » ride on the branches that
+        // start with the artist concerned (0014)
+        for branch in &mut self.branches {
+            if let Some(first) = branch.artists.first() {
+                branch.weight *= self.learned.weight(first);
+            }
+        }
     }
 
     fn prompt(&self) {
@@ -638,16 +677,126 @@ impl Live<'_> {
             Cmd::Search(query) => self.search(query.trim()).await,
 
             // --- decided (0015), not wired yet ---
-            Cmd::Track(k) => self.not_yet(&format!("t{k}"), "affinage du morceau"),
-            Cmd::Artist(k) => self.not_yet(&format!("a{k}"), "affinage de l'artiste"),
+            Cmd::Track(k) => self.on_track_key(k).await,
+            Cmd::Artist(k) => self.on_artist_key(k),
             Cmd::Wander => self.not_yet("fw", "partir hors de l'univers courant"),
             Cmd::Undo => self.not_yet("u", "annuler le dernier geste"),
             Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
-            Cmd::Why => self.not_yet("?", "expliquer le morceau ou la branche"),
+            Cmd::Why => self.why(),
             Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
             Cmd::Colon(text) => self.colon(&text),
         }
         true
+    }
+
+    /// `?` — why this track. Says what the catalogue knows of the artist
+    /// and what the listening has learned of them: familiarity (our own
+    /// decayed plays, or the seed ranking before we ever played them) and
+    /// the weight our own « plus / moins souvent » has set.
+    fn why(&self) {
+        let Some(stop) = self.current.as_ref() else {
+            println!("\n(rien en cours)");
+            return;
+        };
+        println!("\n┌─ {} — {}", stop.title, stop.artist);
+        if stop.slug.is_empty() {
+            println!("└─ hors catalogue : joué depuis Spotify, sans fiche");
+            return;
+        }
+        let card = &self.catalog.cards[&stop.slug];
+        if !card.tags.is_empty() {
+            println!("│  tags : {}", card.tags.join(", "));
+        }
+        println!(
+            "│  familiarité {:.1} · poids {:.2} · {} lien(s), {} top(s)",
+            self.learned.familiarity(&stop.slug, &card.name),
+            self.learned.weight(&stop.slug),
+            card.links.len(),
+            card.tops.len()
+        );
+        match self.branches.first() {
+            Some(branch) => println!("└─ d'ici : {} ({})", branch.label, branch.reason),
+            None => println!("└─"),
+        }
+    }
+
+    /// The track under the needle, or a word saying why there is none.
+    fn under_needle(&self) -> Option<crate::engine::Stop> {
+        match &self.current {
+            None => {
+                println!("\n(rien en cours)");
+                None
+            }
+            Some(stop) if stop.slug.is_empty() => {
+                println!("\n({} — hors catalogue, rien à apprendre)", stop.artist);
+                None
+            }
+            Some(stop) => Some(stop.clone()),
+        }
+    }
+
+    /// `t` — the current track. Measures write to `learned/` at once and
+    /// without asking (0013); the editions still wait for the layer that
+    /// writes cards and commits them.
+    async fn on_track_key(&mut self, key: char) {
+        let Some(stop) = self.under_needle() else { return };
+        match key {
+            'l' => {
+                self.learned.like_track(&stop.slug, &stop.title);
+                println!("\n♥ {} — aimé", stop.title);
+            }
+            's' => {
+                self.learned.skip_track(&stop.slug, &stop.title);
+                println!("\n↷ {} — passé, noté", stop.title);
+                self.next().await;
+            }
+            'b' => {
+                self.learned.ban_track(&stop.slug, &stop.title);
+                self.queue.retain(|s| s.title != stop.title);
+                println!("\n⊘ {} — plus jamais", stop.title);
+                self.next().await;
+            }
+            'm' => match self.learned.mark(&stop.artist, &stop.title) {
+                Ok(()) => println!("\n⚑ {} — mis de côté", stop.title),
+                Err(e) => println!("\n(récolte non écrite : {e})"),
+            },
+            't' => self.not_yet("tt", "promouvoir en top (édition de fiche)"),
+            'T' => self.not_yet("tT", "retirer des tops (édition de fiche)"),
+            'd' => self.not_yet("td", "en faire une door (édition de fiche)"),
+            _ => {}
+        }
+    }
+
+    /// `a` — the artist under the needle. The three verbs are one scale:
+    /// more often, less often, never again.
+    fn on_artist_key(&mut self, key: char) {
+        let Some(stop) = self.under_needle() else { return };
+        match key {
+            'l' => {
+                let weight = self.learned.like_artist(&stop.slug);
+                println!("\n↑ {} — plus souvent (poids {weight:.2})", stop.artist);
+                self.recompute();
+            }
+            's' => {
+                let weight = self.learned.skip_artist(&stop.slug);
+                println!("\n↓ {} — moins souvent (poids {weight:.2})", stop.artist);
+                self.recompute();
+            }
+            'b' => {
+                self.learned.ban_artist(&stop.slug);
+                let before = self.queue.len();
+                self.queue.retain(|s| s.slug != stop.slug);
+                println!(
+                    "\n⊘ {} — plus jamais ({} morceau(x) retiré(s) de la file)",
+                    stop.artist,
+                    before - self.queue.len()
+                );
+                self.recompute();
+            }
+            'e' => self.not_yet("ae", "ouvrir la fiche dans $EDITOR"),
+            'L' => self.not_yet("aL", "lier à un autre artiste"),
+            _ => {}
+        }
     }
 
     /// `:` commands — 0013 makes every key the shortcut of one. Only
@@ -696,18 +845,18 @@ impl Live<'_> {
                 ("e!<n>", "n encores, le reste retir\u{e9}", true),
             ],
             Some('t') => &[
-                ("tl", "like \u{2014} aimer le morceau", false),
-                ("ts", "skip \u{2014} pas celui-l\u{e0}, pas maintenant", false),
-                ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", false),
-                ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", false),
+                ("tl", "like \u{2014} aimer le morceau", true),
+                ("ts", "skip \u{2014} pas celui-l\u{e0}, pas maintenant", true),
+                ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
+                ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
                 ("tt", "top \u{2014} promouvoir en top", false),
                 ("tT", "untop \u{2014} retirer des tops", false),
                 ("td", "door \u{2014} en faire une door", false),
             ],
             Some('a') => &[
-                ("al", "like \u{2014} cet artiste, plus souvent", false),
-                ("as", "skip \u{2014} cet artiste, moins souvent", false),
-                ("ab", "ban \u{2014} plus jamais cet artiste", false),
+                ("al", "like \u{2014} cet artiste, plus souvent", true),
+                ("as", "skip \u{2014} cet artiste, moins souvent", true),
+                ("ab", "ban \u{2014} plus jamais cet artiste", true),
                 ("ae", "edit \u{2014} ouvrir la fiche", false),
                 ("aL", "link \u{2014} lier \u{e0} un autre artiste", false),
             ],
@@ -715,15 +864,15 @@ impl Live<'_> {
                 ("1-9", "prendre une branche", true),
                 ("f\u{2026}", "la branche \u{2014} espace pour le d\u{e9}tail", true),
                 ("e\u{2026}", "encore \u{2014} espace pour le d\u{e9}tail", true),
-                ("t\u{2026}", "le morceau \u{2014} espace pour le d\u{e9}tail", false),
-                ("a\u{2026}", "l'artiste \u{2014} espace pour le d\u{e9}tail", false),
+                ("t\u{2026}", "le morceau \u{2014} espace pour le d\u{e9}tail", true),
+                ("a\u{2026}", "l'artiste \u{2014} espace pour le d\u{e9}tail", true),
                 ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
                 ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
                 ("p", "pause / lecture", true),
                 ("/texte", "chercher", true),
                 ("u", "annuler le dernier geste", false),
                 (".", "r\u{e9}p\u{e9}ter le dernier geste", false),
-                ("?", "pourquoi ce morceau", false),
+                ("?", "pourquoi ce morceau", true),
                 ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
                 ("q", "quitter", true),
@@ -767,7 +916,7 @@ impl Live<'_> {
             return;
         }
         self.rounds.pop();
-        let (_, current, _, _, played) = state_of(&self.rounds);
+        let (_, current, _, _, played) = self.state();
         let stops = crate::engine::encore(self.catalog, &current, &played, self.size, &mut self.rng);
         self.queue.clear();
         self.start_segment(vec![current], stops, false, false).await;

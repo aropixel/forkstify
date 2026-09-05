@@ -13,6 +13,7 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+#[derive(Clone)]
 pub struct Stop {
     pub slug: String,
     pub artist: String,

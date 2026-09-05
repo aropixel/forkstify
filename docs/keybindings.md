@@ -68,10 +68,10 @@ moteur retient.
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
-| `tl` | track **like** | Aimer (reflété en titre aimé Spotify) | mesure | 📋 |
-| `ts` | track **skip** | « Pas celui-là, pas maintenant » | mesure | 📋 |
-| `tb` | track **ban** | « Plus jamais celui-là » | mesure | 📋 |
-| `tm` | track **mark** | Mettre dans une récolte à trier plus tard | mesure | 📋 |
+| `tl` | track **like** | Aimer le morceau | mesure | ✅ |
+| `ts` | track **skip** | « Pas celui-là, pas maintenant » — note et passe | mesure | ✅ |
+| `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
+| `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tt` | track **top** | Promouvoir en top | édition | 📋 |
 | `tT` | track **untop** | Retirer des tops | édition | 📋 |
 | `td` | track **door** | En faire une door vers la dernière direction prise | édition | 📋 |
@@ -80,19 +80,23 @@ moteur retient.
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
-| `al` | artist **like** | Cet artiste, plus souvent | mesure | 📋 |
-| `as` | artist **skip** | Cet artiste, moins souvent | mesure | 📋 |
-| `ab` | artist **ban** | Plus jamais cet artiste | mesure | 📋 |
+| `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) | mesure | ✅ |
+| `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) | mesure | ✅ |
+| `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file | mesure | ✅ |
 | `ae` | artist **edit** | Ouvrir la fiche dans `$EDITOR`, recommit, vecteur recalculé | édition | 📋 |
 | `aL` | artist **link** | Lier à un autre artiste (format [0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | 📋 |
 
 Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
 souvent, `as` moins souvent, `ab` plus jamais.
 
-**Tout ce namespace et le précédent attendent `learned/`** — la boucle
-d'apprentissage ([0014](decisions/0014-forme-de-l-appris.md)), étape 2 de
-[`avancement.md`](avancement.md). Les mesures n'ont nulle part où
-s'écrire tant qu'elle n'est pas fermée.
+**Les mesures des deux namespaces écrivent dans `learned/`** depuis le
+05/09/2026 ([0014](decisions/0014-forme-de-l-appris.md)) : un fichier TOML
+par artiste dans le catalogue, compteurs à décroissance intégrée
+(demi-vie six mois), écrit à chaque geste, silencieux et jamais reversé.
+
+**Les éditions attendent encore** : `tt`, `tT`, `td`, `ae` et `aL`
+modifient une *fiche* et doivent produire un commit — c'est une autre
+couche que l'appris.
 
 ## Navigation et session
 
@@ -106,7 +110,7 @@ s'écrire tant qu'elle n'est pas fermée.
 | `q` | **quit** | Quitter (affiche le parcours) | ✅ |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |
-| `?` | **why** | La phrase qui explique le morceau ou la branche | 📋 |
+| `?` | **why** | Tags, familiarité, poids, liens, et la première branche d'ici | ✅ |
 | `Q` | **queue** | Entrer en mode file d'attente | 📋 |
 
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*

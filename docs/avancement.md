@@ -202,6 +202,33 @@ Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
 Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
 par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
 
+## La boucle d'apprentissage ouverte (05/09/2026)
+
+`src/learned.rs` implémente [0014](decisions/0014-forme-de-l-appris.md) :
+`learned/artists/<slug>.toml` dans le catalogue, un fichier par artiste,
+**compteurs à décroissance intégrée** (`plays = plays × ½^((now−last)/6 mois) + 1`),
+`learned/marks/inbox.toml` pour les récoltes. Écrit à chaque geste,
+silencieux, jamais reversé. `classement.json` (741 artistes) sert de
+familiarité de départ.
+
+**Sept mesures câblées** : `tl` aimer, `ts` passer (note et avance), `tb`
+bannir le morceau, `tm` récolter, `al`/`as` le poids de l'artiste, `ab`
+bannir l'artiste. Plus le **comptage automatique** d'une écoute complète —
+seul `EndOfTrack` compte, un saut n'est pas une écoute.
+
+**Trois lectures par le moteur** : exclusion des bannis (artistes et
+morceaux), poids de l'artiste appliqué aux branches qui partent de lui, et
+`?` qui affiche familiarité et poids. Les bans passent par les canaux
+d'exclusion que le moteur a déjà (`visited` par slug, `played` par titre),
+donc sans toucher à sa signature.
+
+**Ce qui manque encore côté lecture** : la familiarité ne nourrit pas
+encore la zone de confort ([0001](decisions/0001-confort-familiarite.md)),
+et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
+appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
+touchent les fiches et demandent la couche qui écrit et commite le
+catalogue.
+
 ## Retours d'usage (05/09/2026)
 
 Les premières sessions longues d'`ecouter` ont produit **11 retours** de

@@ -71,6 +71,12 @@ pub fn track_over(event: &PlayerEvent) -> Option<u64> {
     }
 }
 
+/// Did this event end a track by *playing it through*? A skip or a failure
+/// also ends it, but they are not a listen and must not count as one (0014).
+pub fn track_finished(event: &PlayerEvent) -> bool {
+    matches!(event, PlayerEvent::EndOfTrack { .. })
+}
+
 /// The id of a newly started play request (emitted at the top of load).
 pub fn request_started(event: &PlayerEvent) -> Option<u64> {
     match event {

@@ -11,6 +11,7 @@ mod catalog;
 mod config;
 mod engine;
 mod keys;
+mod learned;
 mod listen;
 mod mediakeys;
 mod sound;
@@ -231,7 +232,7 @@ fn main() -> anyhow::Result<()> {
 
     match command {
         "parcours" => journey(&catalog, &slug),
-        "ecouter" => listen::run(&catalog, &slug)?,
+        "ecouter" => listen::run(&catalog, &slug, &catalog_path(path))?,
         "check" => check(&catalog, &slug),
         other => {
             eprintln!("commande inconnue : {other}");
