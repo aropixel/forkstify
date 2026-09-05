@@ -153,14 +153,17 @@ aujourd'hui, elles coûteront cher une fois les touches dans les doigts.
 
 ---
 
-# Mapping mnémonique proposé (05/09/2026)
+# La grammaire — décidée le 05/09/2026 ([0015](decisions/0015-grammaire-clavier-namespaces.md))
 
 Demandé par Joel : **chaque touche vient d'un mot anglais**, à la vim
 (`y` yank, `c` change, `d` delete). Trois révisions le 05/09 ont mené à une
 grammaire à **quatre namespaces**, où le premier caractère dit *sur quoi*
 on agit et le second *ce qu'on fait*.
 
-Statut : **proposition**, hors le double sens de « fork » déjà tranché.
+Statut : **acceptée** (Joel, 05/09/2026), formalisée par la décision
+[0015](decisions/0015-grammaire-clavier-namespaces.md). Le câblage est en
+cours ; la colonne « statut » des tables ci-dessus dit ce qui tourne
+vraiment.
 
 ## La règle, en une ligne
 
@@ -171,8 +174,12 @@ Trois conséquences :
 
 1. **Aucune collision possible.** Deux gestes ne peuvent se marcher dessus
    que dans le même namespace, où l'on maîtrise les lettres.
-2. **Le compte se met avant, la cible après** — comme dans vim, où `3dd`
-   compte et `f{char}` cible. Donc `3e` = trois encores, `f3` = la branche 3.
+2. **Le compte suit le namespace** : `f3` la branche 3, `e3` trois encores.
+   La règle vim (`3dd`) voudrait l'inverse, mais elle est incompatible avec
+   le raccourci `1 2 3` — une frappe de `3` serait à la fois « branche 3 »
+   et « début d'un compte », et l'analyseur ne peut pas trancher sans
+   attendre la touche suivante, ce qui ralentirait le geste le plus
+   fréquent. Avantage collatéral : `f` et `e` deviennent symétriques.
 3. **Le clavier nu est presque vide**, donc extensible sans rien casser.
 
 ## `f` — la branche
@@ -198,10 +205,12 @@ Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 
 | Touche | Mot | Action |
 |---|---|---|
-| `<n>e` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** |
-| `<n>en` | encore **now** | …après le morceau en cours, le reste conservé |
-| `<n>en!` | encore now, **force** | …après le morceau en cours, le reste retiré |
-| `e` | | Encore avec n = taille des branches |
+| `e<n>` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** |
+| `e<n>n` | encore **now** | …après le morceau en cours, le reste conservé |
+| `e<n>n!` | encore now, **force** | …après le morceau en cours, le reste retiré |
+
+`e` seul n'est pas une commande : le compte est obligatoire, pour la même
+raison qu'il suit le namespace (règle 2).
 
 `f` et `e` sont les deux namespaces de **lecture** : ils décident de ce qui
 va sonner. `t` et `a` sont ceux de l'**affinage** : ils décident de ce que

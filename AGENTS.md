@@ -60,6 +60,10 @@ Le détail est dans `docs/decisions/`. En résumé :
   sans remise, confort = profondeur ([0012](docs/decisions/0012-rotation-des-morceaux.md)).
 - **Affinage au clavier : chaque touche est une mesure ou une édition**,
   `u` annule, tout est commande `:` ([0013](docs/decisions/0013-affinage-clavier-mesure-ou-edition.md)).
+- **Grammaire clavier : quatre namespaces** — `f` la branche, `e` encore,
+  `t` le morceau, `a` l'artiste ; la cible se préfixe, le compte suit le
+  namespace, la table fait foi dans `docs/keybindings.md`
+  ([0015](docs/decisions/0015-grammaire-clavier-namespaces.md)).
 - **L'appris vit dans `learned/`** (un fichier par artiste, compteurs
   décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)).
 - **Langue** : français pour la prose (doc, commits, interface) ; **anglais
