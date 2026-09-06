@@ -306,6 +306,38 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les éditions écrivent enfin dans les fiches (06/09/2026)
+
+`src/edit.rs` ferme le dernier tiers de
+[0013](decisions/0013-affinage-clavier-mesure-ou-edition.md) : quatre des
+cinq éditions modifient une fiche **et produisent un commit lisible**
+(`tt`, `tT`, `td`, `aL`). Le message de commit et ce qui s'affiche à l'écran
+sont **la même phrase** — ce que l'utilisateur lit est ce que git retiendra.
+
+**Les fiches sont retouchées textuellement, jamais réécrites.** Une
+relecture par serde perdrait tout ce que le code ne modélise pas —
+`format`, `generated`, `mbid`, `spotify`, `begin`, `origin`, `description`,
+l'ordre des clés, les guillemets choisis à la main. Une fiche est une
+**interface publique** ([0002](decisions/0002-catalogue-partage-forkable.md))
+qu'un humain lit et corrige : on y insère une ligne, on n'en régénère pas le
+tout. Six tests couvrent ce qui se corromprait en silence, dont deux qui
+vérifient qu'après chaque insertion **la fiche se relit encore comme une
+fiche** — titre à guillemets compris.
+
+Choix faits faute d'un moyen de saisie : `td` prend pour direction les tags
+de l'**artiste suivant** dans la file (0011 : une door pointe vers des tags,
+là où l'on va), et `aL` lie à l'artiste **d'où l'on vient**. Les deux se
+relisent et se corrigent dans la fiche.
+
+**`ae` reste la cinquième**, pour une raison d'architecture : ouvrir
+`$EDITOR` demande de rendre l'entrée au terminal, or le lecteur de touches
+tient `stdin` en permanence et lui volerait ses frappes. Il affiche le
+chemin de la fiche en attendant une saisie interrogée plutôt qu'un fil
+bloqué.
+
+**Limite dite à l'écran** : le catalogue en mémoire ne bouge pas, donc une
+édition ne compte pour le moteur qu'au prochain lancement.
+
 ## L'accueil rapproché de sa maquette (06/09/2026)
 
 Retouches graphiques demandées par Joel, toutes tirées de
