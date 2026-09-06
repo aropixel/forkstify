@@ -312,6 +312,11 @@ Demande de Joel, d'après la colonne ajoutée à `Accueil.dc.html` : à gauche
 ce que forkstify **propose**, à droite ce qu'il **possède**. « La colonne ne
 propose rien : elle liste. »
 
+Le partage est **proportionnel, 60/40** (Joel, 06/09/2026) : la gauche porte
+des raisons et des morceaux, la droite une liste. Une seule constante à
+changer pour passer à moitié-moitié (`LEFT_SHARE`). Sous 60 colonnes la
+liste s'efface — mieux vaut une colonne lisible que deux illisibles.
+
 Elle réunit le catalogue **et** le classement — 780 noms, dont 214 avec
 fiche — avec pour chacun une jauge de familiarité, son nom, et depuis quand
 il n'a pas sonné (`auj.`, `hier`, `-3s`, `-7m`, `jamais`, en orange au-delà

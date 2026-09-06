@@ -25,6 +25,11 @@ const CATALOG: Color = Color::Blue;
 const VECTOR: Color = Color::Cyan;
 const DOOR: Color = Color::LightRed;
 const MUTED: Color = Color::Gray;
+
+/// La part de largeur donnée aux propositions, à l'accueil. 60 laisse à la
+/// collection de quoi montrer un nom long sans couper ; 50 la rend plus
+/// présente. Une seule valeur à changer.
+const LEFT_SHARE: u16 = 60;
 const DIM: Color = Color::DarkGray;
 
 fn role_of(source: Source) -> Color {
@@ -387,12 +392,18 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     ])
     .areas(area);
 
-    // à gauche ce que forkstify propose, à droite ce qu'il possède
-    let column = 46.min(whole.width / 2);
-    let (body, collection) = match (&view.collection, column >= 24) {
+    // à gauche ce que forkstify propose, à droite ce qu'il possède. Le
+    // partage est proportionnel (Joel, 06/09/2026) : la gauche porte des
+    // raisons et des morceaux, la droite une liste — d'où 60/40 plutôt que
+    // moitié-moitié. Sous 60 colonnes, la liste s'efface : mieux vaut une
+    // colonne lisible que deux illisibles.
+    let (body, collection) = match (&view.collection, whole.width >= 60) {
         (Some(_), true) => {
-            let [left, right] =
-                Layout::horizontal([Constraint::Min(30), Constraint::Length(column)]).areas(whole);
+            let [left, right] = Layout::horizontal([
+                Constraint::Percentage(LEFT_SHARE),
+                Constraint::Percentage(100 - LEFT_SHARE),
+            ])
+            .areas(whole);
             (left, Some(right))
         }
         _ => (whole, None),
