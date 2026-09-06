@@ -306,6 +306,37 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La TUI, première version (06/09/2026)
+
+`ratatui` entre dans le projet (décision [0006](decisions/0006-rust.md), qui
+le nommait déjà). `src/tui.rs` dessine la session ; **la saisie reste celle
+de `keys.rs`** — termios brut, grammaire sans préfixe — parce qu'elle est
+éprouvée et que ratatui n'a pas besoin de posséder l'entrée.
+
+**Variante 1b des maquettes** : une colonne pleine largeur pour l'axe de
+lecture, et un volet qui se pose dessus à l'embranchement puis s'en va
+(`Clear` + `Block::bordered`). Passer à 1a — le volet permanent — ne
+changera qu'un `Layout` ; c'est resté ouvert exprès.
+
+L'écran tient en quatre zones : l'en-tête (le parcours, la graine, le
+segment, le confort), **l'axe** (ce qui a sonné, ce qui sonne en inversion,
+ce qui suit), le **journal** de ce que forkstify vient de dire, et l'invite
+en dernière ligne avec la jauge de confort — la place que
+[`ecran-d-accueil.md`](conception/ecran-d-accueil.md) lui donnait.
+
+Conséquence sur le code : les **69 impressions** de la session sont devenues
+des lignes de journal (`say!`), vidées à chaque commande pour qu'un bloc —
+le menu du leader, `?` — s'affiche seul et en entier. Le journal est un
+`RefCell` : dire quelque chose ne demande pas d'emprunt exclusif, ce qui
+évitait de rendre mutables trente méthodes qui ne le sont pas.
+
+**Une couture assumée** : l'accueil imprime encore dans le terminal normal,
+la session prend l'écran alterné, et on revient à l'accueil en quittant.
+Cohérent, mais ce n'est pas encore une seule interface.
+
+**Non vérifié** : rien de tout cela n'a tourné en session réelle. La TUI est
+vérifiée à la compilation ; l'accueil, lui, tourne.
+
 ## Retours d'usage (05/09/2026)
 
 Les premières sessions longues d'`ecouter` ont produit **11 retours** de

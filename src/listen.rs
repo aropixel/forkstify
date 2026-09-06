@@ -10,6 +10,15 @@
 
 use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
+use crate::tui::{Tui, View};
+
+/// Ce que la session dit à l'écran. Une ligne de journal, pas un print :
+/// depuis la TUI, il n'y a plus de flux où écrire — il y a une zone.
+macro_rules! say {
+    ($self:ident, $($arg:tt)*) => {
+        $self.notice(format!($($arg)*))
+    };
+}
 use crate::engine::Comfort;
 use crate::discography::Tail;
 use crate::home::{Choice, LastSession};
@@ -17,7 +26,7 @@ use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
-use crate::{show_branches, state_of, Round};
+use crate::{state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
@@ -95,6 +104,9 @@ async fn async_run(
         current_request_id: None,
         paused: false,
         comfort,
+        notices: std::cell::RefCell::new(Vec::new()),
+        tui: Tui::enter()?,
+        force_panel: std::cell::Cell::new(false),
         warm_requested: false,
         branches: Vec::new(),
         pending_branch: None,
@@ -132,7 +144,7 @@ async fn async_run(
     }
     live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
-    live.prompt();
+    live.paint();
 
     loop {
         tokio::select! {
@@ -148,7 +160,7 @@ async fn async_run(
                 {
                     live.on_track_over(track_finished(ev)).await;
                     live.prefetch_next().await;
-                    live.prompt();
+                    live.paint();
                 }
                 Some(_) => {}
                 None => break,
@@ -160,7 +172,7 @@ async fn async_run(
                         break;
                     }
                     live.prefetch_next().await;
-                    live.prompt();
+                    live.paint();
                 }
                 None => break,
             },
@@ -168,7 +180,7 @@ async fn async_run(
                 Some(control) => {
                     live.on_control(control).await;
                     live.prefetch_next().await;
-                    live.prompt();
+                    live.paint();
                 }
                 None => {}
             },
@@ -176,12 +188,15 @@ async fn async_run(
     }
 
     live.sound.stop();
-    let path: Vec<&str> = live
+    let path: Vec<String> = live
         .rounds
         .iter()
         .flat_map(|round| round.artists.iter())
-        .map(|slug| catalog.cards[slug].name.as_str())
+        .map(|slug| catalog.cards[slug].name.clone())
         .collect();
+    // la TUI tient l'écran alterné : on la rend avant d'écrire le parcours,
+    // sinon il s'afficherait sur un écran qui va disparaître
+    drop(live);
     println!("\nParcours : {}", path.join(" → "));
     Ok(())
 }
@@ -205,6 +220,12 @@ struct Live<'a> {
     paused: bool,
     /// The comfort dial (0001), from the config, adjustable with `:comfort`.
     comfort: Comfort,
+    /// Ce que forkstify vient de dire — vidé à chaque commande, pour qu'un
+    /// bloc (le leader, « ? ») s'affiche seul et en entier.
+    notices: std::cell::RefCell<Vec<String>>,
+    tui: Tui,
+    /// « fp » a demandé le volet avant la fin du segment.
+    force_panel: std::cell::Cell<bool>,
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
@@ -317,7 +338,7 @@ impl Live<'_> {
             &mut self.rng,
         );
         if stops.is_empty() {
-            println!("(plus de tops non joués chez {})", self.catalog.cards[&current].name);
+            say!(self, "(plus de tops non joués chez {})", self.catalog.cards[&current].name);
             return;
         }
         let where_ = match when {
@@ -325,7 +346,7 @@ impl Live<'_> {
             When::Now => "tout de suite",
             When::NowForce => "tout de suite, le reste retiré",
         };
-        println!("↻ encore {} ({} morceaux, {where_})", self.catalog.cards[&current].name, stops.len());
+        say!(self, "↻ encore {} ({} morceaux, {where_})", self.catalog.cards[&current].name, stops.len());
         self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
         if when == When::NowForce {
             self.queue.clear();
@@ -343,27 +364,26 @@ impl Live<'_> {
 
     /// Resolve a stop and load it as the current track.
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
-        print!("\n▶ {} {} — {} … ", stop.source.mark(), stop.title, stop.artist);
-        std::io::Write::flush(&mut std::io::stdout()).ok();
+        let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         match self.web.resolve(&stop.title, &stop.artist).await {
             Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
-                    println!("({uri})");
+                    say!(self, "{heading}");
                     self.sound.play(track);
                     self.current = Some(stop);
                     Load::Playing
                 }
                 Err(_) => {
-                    println!("uri illisible, on saute");
+                    say!(self, "{heading} — uri illisible, on saute");
                     Load::Missing
                 }
             },
             Resolved::Absent => {
-                println!("introuvable sur Spotify, on saute");
+                say!(self, "{heading} — introuvable sur Spotify, on saute");
                 Load::Missing
             }
             Resolved::Failed(why) => {
-                println!("échec — {why}");
+                say!(self, "{heading} — échec : {why}");
                 Load::Failed(stop, why)
             }
         }
@@ -372,10 +392,10 @@ impl Live<'_> {
     /// An outage stops the walk rather than turning every remaining track
     /// into a « introuvable ». Nothing is lost — the queue kept its head.
     fn blocked(&self, why: &str) {
-        println!("\n⏹ lecture interrompue : {why}.");
-        println!("   Le morceau reste en tête de file — « j » pour réessayer.");
-        println!("   Si ça persiste : « q » puis relancer — l'autorisation");
-        println!("   Spotify sera redemandée d'elle-même si elle a expiré.");
+        say!(self, "\n⏹ lecture interrompue : {why}.");
+        say!(self, "   Le morceau reste en tête de file — « j » pour réessayer.");
+        say!(self, "   Si ça persiste : « q » puis relancer — l'autorisation");
+        say!(self, "   Spotify sera redemandée d'elle-même si elle a expiré.");
     }
 
     /// Move to the next track (the current one falls into the past). No
@@ -424,7 +444,7 @@ impl Live<'_> {
                 },
                 None => {
                     self.current = interrupted;
-                    println!("(déjà au premier morceau)");
+                    say!(self, "(déjà au premier morceau)");
                     return;
                 }
             }
@@ -480,24 +500,16 @@ impl Live<'_> {
 
     /// Start a chosen branch (records it, plays its first track, shows it).
     async fn start_branch(&mut self, branch: crate::engine::Branch, when: When) {
-        println!("\n→ {}", branch.label);
+        say!(self, "\n→ {}", branch.label);
         self.start_segment(branch.artists, branch.stops, false, when == When::Now).await;
     }
 
     /// Show what plays now and what comes next; on the segment's last track,
     /// show the branches instead of an empty « à suivre » (Joel, 04/09/2026).
-    fn render(&self) {
-        if self.queue.is_empty() {
-            let (_, current, ..) = state_of(&self.rounds);
-            println!("\n(dernier du segment — les branches :)");
-            show_branches(self.catalog, &current, &self.branches);
-        } else {
-            println!("\nà suivre :");
-            for stop in &self.queue {
-                println!("   {} {} — {}", stop.source.mark(), stop.title, stop.artist);
-            }
-        }
-    }
+    /// L'axe et le volet se dessinent depuis l'état : il n'y a plus rien à
+    /// imprimer ici. La méthode reste comme point d'accroche des appels
+    /// existants.
+    fn render(&self) {}
 
     /// Resolve the *next* track's uri ahead of time so the transition is
     /// instant instead of waiting on `/v1/search` when the current track
@@ -519,9 +531,9 @@ impl Live<'_> {
 
     /// See the branches on demand, wherever we are in the segment (`p`).
     /// A richer « preview then pick ahead » belongs to the future GUI.
+    /// `fp` — faire venir le volet sans attendre le dernier morceau (1b).
     fn preview(&self) {
-        let (_, current, ..) = state_of(&self.rounds);
-        show_branches(self.catalog, &current, &self.branches);
+        self.force_panel.set(true);
     }
 
     /// `/` search: catalog artists first (branch-native), then Spotify tracks
@@ -540,24 +552,24 @@ impl Live<'_> {
                     hits.push(Hit::Track { title, artist, uri, slug });
                 }
             }
-            Err(why) => println!("(Spotify injoignable — {why} ; catalogue seul)"),
+            Err(why) => say!(self, "(Spotify injoignable — {why} ; catalogue seul)"),
         }
 
         if hits.is_empty() {
-            println!("(rien pour « {query} »)");
+            say!(self, "(rien pour « {query} »)");
             return;
         }
-        println!("\nRésultats pour « {query} » :");
+        say!(self, "\nRésultats pour « {query} » :");
         for (i, hit) in hits.iter().enumerate() {
             match hit {
                 Hit::Artist(slug) => {
-                    println!("  {}  [catalogue] {}", i + 1, self.catalog.cards[slug].name)
+                    say!(self, "  {}  [catalogue] {}", i + 1, self.catalog.cards[slug].name)
                 }
                 Hit::Track { title, artist, slug, .. } => {
                     // prose, not a glyph: « ↳ » belongs to the door in the
                     // provenance marks, and one glyph must carry one meaning
                     let mark = if slug.is_some() { "branche ensuite" } else { "hors catalogue" };
-                    println!("  {}  [spotify]   {title} — {artist} ({mark})", i + 1);
+                    say!(self, "  {}  [spotify]   {title} — {artist} ({mark})", i + 1);
                 }
             }
         }
@@ -567,7 +579,7 @@ impl Live<'_> {
     /// Pick a `/` result by number.
     async fn pick_search(&mut self, n: usize) {
         if n == 0 || n > self.pending.len() {
-            println!("Résultat incompris.");
+            say!(self, "Résultat incompris.");
             self.pending.clear();
             return;
         }
@@ -586,7 +598,7 @@ impl Live<'_> {
                     self.size,
                     &mut self.rng,
                 );
-                println!("→ {}", self.catalog.cards[&slug].name);
+                say!(self, "→ {}", self.catalog.cards[&slug].name);
                 self.start_segment(vec![slug], stops, false, false).await;
             }
             Hit::Track { title, artist, uri, slug } => {
@@ -614,7 +626,7 @@ impl Live<'_> {
     /// Play an exact Spotify uri now (from `/` search), as a fresh segment.
     async fn play_uri(&mut self, round_artists: Vec<String>, stop: crate::engine::Stop, uri: &str) {
         let Ok(track) = SpotifyUri::from_uri(uri) else {
-            println!("uri illisible, on ne joue pas");
+            say!(self, "uri illisible, on ne joue pas");
             return;
         };
         if let Some(current) = self.current.take() {
@@ -623,11 +635,11 @@ impl Live<'_> {
         let off_map = round_artists.is_empty();
         self.rounds.push(Round { artists: round_artists, tracks: vec![stop.title.clone()] });
         self.queue.clear();
-        println!("\n▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
+        say!(self, "\n▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         self.sound.play(track);
         self.current = Some(stop);
         if off_map {
-            println!("(hors catalogue — les branches repartiront du dernier artiste connu)");
+            say!(self, "(hors catalogue — les branches repartiront du dernier artiste connu)");
         }
         self.recompute();
         self.render();
@@ -645,10 +657,10 @@ impl Live<'_> {
                 self.paused = !self.paused;
                 if self.paused {
                     self.sound.pause();
-                    println!("\n⏸ pause");
+                    say!(self, "\n⏸ pause");
                 } else {
                     self.sound.resume();
-                    println!("\n▶ reprise");
+                    say!(self, "\n▶ reprise");
                 }
             }
             Control::Stop => {
@@ -657,7 +669,7 @@ impl Live<'_> {
                 // the Stopped event we just caused must not be read as a
                 // track ending (which would advance) — drop the current id
                 self.current_request_id = None;
-                println!("\n⏹ arrêt");
+                say!(self, "\n⏹ arrêt");
             }
         }
     }
@@ -677,24 +689,13 @@ impl Live<'_> {
         }
     }
 
-    fn prompt(&self) {
-        if self.pending.is_empty() {
-            println!(
-                "\n[1-{} branche · h/l · p · espace = les touches · q]",
-                self.branches.len().max(1)
-            );
-        } else {
-            println!("\n[1-{} pour jouer un résultat, autre touche = annuler]", self.pending.len());
-        }
-        std::io::Write::flush(&mut std::io::stdout()).ok();
-    }
 
     /// Take a branch (by weight) and start playing it. The draw is over the
     /// branches *on show*: proposing three then playing a fourth made
     /// « entrée » unreadable (Joel, 05/09/2026).
     async fn auto_advance(&mut self) {
         if self.branches.is_empty() {
-            println!("\n(cul-de-sac — « u » pour revenir, « q » pour quitter)");
+            say!(self, "\n(cul-de-sac — « u » pour revenir, « q » pour quitter)");
             return;
         }
         let weights: Vec<f32> = self.branches.iter().map(|b| b.weight.max(0.1)).collect();
@@ -705,7 +706,7 @@ impl Live<'_> {
 
     async fn choose(&mut self, n: usize, when: When) {
         if n == 0 || n > self.branches.len() {
-            println!("Choix incompris.");
+            say!(self, "Choix incompris.");
             return;
         }
         let branch = self.branches.remove(n - 1);
@@ -715,14 +716,14 @@ impl Live<'_> {
             return;
         }
         match when {
-            When::EndOfBranch => println!(
+            When::EndOfBranch => say!(self, 
                 "→ {} (à la fin de la branche — {} morceau(x) d'abord)",
                 branch.label,
                 self.queue.len()
             ),
-            When::Now => println!("→ {} (à la fin du morceau)", branch.label),
+            When::Now => say!(self, "→ {} (à la fin du morceau)", branch.label),
             When::NowForce => {
-                println!("→ {} (à la fin du morceau, le reste retiré)", branch.label);
+                say!(self, "→ {} (à la fin du morceau, le reste retiré)", branch.label);
                 self.queue.clear();
             }
         }
@@ -732,6 +733,8 @@ impl Live<'_> {
 
     /// One parsed command (0015). Returns false to quit.
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
+        self.notices.borrow_mut().clear();
+        self.force_panel.set(false);
         // while `/` results are on screen, a digit picks one of them rather
         // than a branch; anything else dismisses them
         if !self.pending.is_empty() {
@@ -754,7 +757,7 @@ impl Live<'_> {
             Cmd::Peek => self.preview(),
             Cmd::Reroll => {
                 self.recompute();
-                println!("\n\u{21bb} autres branches :");
+                say!(self, "\n\u{21bb} autres branches :");
                 self.preview();
             }
             Cmd::ForkUndo => self.fork_undo().await,
@@ -782,8 +785,8 @@ impl Live<'_> {
             Cmd::Why => self.why(),
             Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
             // deux touches de l'accueil, sans emploi une fois qu'on écoute
-            Cmd::Resume => println!("\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
-            Cmd::Browse => println!("\n(« b » sert à l'accueil : ici, le son est déjà là)"),
+            Cmd::Resume => say!(self, "\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
+            Cmd::Browse => say!(self, "\n(« b » sert à l'accueil : ici, le son est déjà là)"),
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
@@ -801,19 +804,19 @@ impl Live<'_> {
     /// the weight our own « plus / moins souvent » has set.
     fn why(&self) {
         let Some(stop) = self.current.as_ref() else {
-            println!("\n(rien en cours)");
+            say!(self, "\n(rien en cours)");
             return;
         };
-        println!("\n┌─ {} — {}", stop.title, stop.artist);
+        say!(self, "\n┌─ {} — {}", stop.title, stop.artist);
         if stop.slug.is_empty() {
-            println!("└─ hors catalogue : joué depuis Spotify, sans fiche");
+            say!(self, "└─ hors catalogue : joué depuis Spotify, sans fiche");
             return;
         }
         let card = &self.catalog.cards[&stop.slug];
         if !card.tags.is_empty() {
-            println!("│  tags : {}", card.tags.join(", "));
+            say!(self, "│  tags : {}", card.tags.join(", "));
         }
-        println!(
+        say!(self, 
             "│  familiarité {:.0}% · poids {:.2} · {} lien(s), {} top(s)",
             self.learned.familiarity01(&stop.slug, &card.name) * 100.0,
             self.learned.weight(&stop.slug),
@@ -821,20 +824,69 @@ impl Live<'_> {
             card.tops.len()
         );
         match self.branches.first() {
-            Some(branch) => println!("└─ d'ici : {} ({})", branch.label, branch.reason),
-            None => println!("└─"),
+            Some(branch) => say!(self, "└─ d'ici : {} ({})", branch.label, branch.reason),
+            None => say!(self, "└─"),
         }
+    }
+
+    /// Une ligne de plus dans le journal de l'écran.
+    fn notice(&self, line: String) {
+        let mut notices = self.notices.borrow_mut();
+        for part in line.split('\n') {
+            notices.push(part.to_string());
+        }
+        let excess = notices.len().saturating_sub(14);
+        notices.drain(..excess);
+    }
+
+    /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
+    /// décide de rien.
+    fn paint(&mut self) {
+        let path: Vec<String> = state_of(&self.rounds)
+            .2
+            .iter()
+            .filter_map(|slug| self.catalog.cards.get(slug).map(|c| c.name.clone()))
+            .collect();
+        let seed = self.rounds[0].artists.first().cloned().unwrap_or_default();
+        let prompt = if self.pending.is_empty() {
+            format!(
+                "[1-{} branche · h/l · p · espace = les touches · q]",
+                self.branches.len().max(1)
+            )
+        } else {
+            format!("[1-{} pour jouer un résultat, autre touche = annuler]", self.pending.len())
+        };
+        // 1b : le volet n'est là qu'au moment du choix — dernier morceau du
+        // segment, ou « fp » demandé
+        let notices = self.notices.borrow();
+        let view = View {
+            path,
+            seed: &seed,
+            segment: self.rounds.len(),
+            past: &self.past,
+            current: self.current.as_ref(),
+            paused: self.paused,
+            queue: self.queue.as_slices().0,
+            branches: &self.branches,
+            panel: self.force_panel.get() || (self.queue.is_empty() && self.current.is_some()),
+            pending: self.pending_branch.as_ref().map(|(b, _)| b.label.clone()),
+            notices: &notices,
+            comfort: self.comfort.value(),
+            comfort_word: comfort_word(self.comfort.value()),
+            prompt,
+        };
+        let _ = self.tui.draw(&view);
     }
 
     /// The track under the needle, or a word saying why there is none.
     fn under_needle(&self) -> Option<crate::engine::Stop> {
         match &self.current {
             None => {
-                println!("\n(rien en cours)");
+                say!(self, "\n(rien en cours)");
                 None
             }
             Some(stop) if stop.slug.is_empty() => {
-                println!("\n({} — hors catalogue, rien à apprendre)", stop.artist);
+                say!(self, "\n({} — hors catalogue, rien à apprendre)", stop.artist);
                 None
             }
             Some(stop) => Some(stop.clone()),
@@ -849,22 +901,22 @@ impl Live<'_> {
         match key {
             'l' => {
                 self.learned.like_track(&stop.slug, &stop.title);
-                println!("\n♥ {} — aimé", stop.title);
+                say!(self, "\n♥ {} — aimé", stop.title);
             }
             's' => {
                 self.learned.skip_track(&stop.slug, &stop.title);
-                println!("\n↷ {} — passé, noté", stop.title);
+                say!(self, "\n↷ {} — passé, noté", stop.title);
                 self.next().await;
             }
             'b' => {
                 self.learned.ban_track(&stop.slug, &stop.title);
                 self.queue.retain(|s| s.title != stop.title);
-                println!("\n⊘ {} — plus jamais", stop.title);
+                say!(self, "\n⊘ {} — plus jamais", stop.title);
                 self.next().await;
             }
             'm' => match self.learned.mark(&stop.artist, &stop.title) {
-                Ok(()) => println!("\n⚑ {} — mis de côté", stop.title),
-                Err(e) => println!("\n(récolte non écrite : {e})"),
+                Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
+                Err(e) => say!(self, "\n(récolte non écrite : {e})"),
             },
             't' => self.not_yet("tt", "promouvoir en top (édition de fiche)"),
             'T' => self.not_yet("tT", "retirer des tops (édition de fiche)"),
@@ -880,19 +932,19 @@ impl Live<'_> {
         match key {
             'l' => {
                 let weight = self.learned.like_artist(&stop.slug);
-                println!("\n↑ {} — plus souvent (poids {weight:.2})", stop.artist);
+                say!(self, "\n↑ {} — plus souvent (poids {weight:.2})", stop.artist);
                 self.recompute();
             }
             's' => {
                 let weight = self.learned.skip_artist(&stop.slug);
-                println!("\n↓ {} — moins souvent (poids {weight:.2})", stop.artist);
+                say!(self, "\n↓ {} — moins souvent (poids {weight:.2})", stop.artist);
                 self.recompute();
             }
             'b' => {
                 self.learned.ban_artist(&stop.slug);
                 let before = self.queue.len();
                 self.queue.retain(|s| s.slug != stop.slug);
-                println!(
+                say!(self, 
                     "\n⊘ {} — plus jamais ({} morceau(x) retiré(s) de la file)",
                     stop.artist,
                     before - self.queue.len()
@@ -913,18 +965,17 @@ impl Live<'_> {
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
-            println!("\n({} n'a pas d'identifiant Spotify dans sa fiche)", card.name);
+            say!(self, "\n({} n'a pas d'identifiant Spotify dans sa fiche)", card.name);
             return;
         };
-        print!("\n… discographie de {} ", card.name);
-        std::io::Write::flush(&mut std::io::stdout()).ok();
+        say!(self, "\n… discographie de {} ", card.name);
         match self.web.discography(&spotify_id).await {
             Ok(tracks) => {
                 let count = tracks.len();
                 self.tail.keep(slug, tracks);
-                println!("→ {count} titres en cache");
+                say!(self, "→ {count} titres en cache");
             }
-            Err(why) => println!("→ échec ({why})"),
+            Err(why) => say!(self, "→ échec ({why})"),
         }
     }
 
@@ -937,23 +988,23 @@ impl Live<'_> {
             (Some("size"), Some(n)) => match n.parse::<usize>() {
                 Ok(n) if (1..=9).contains(&n) => {
                     self.size = n;
-                    println!("Taille des branches : {n}");
+                    say!(self, "Taille des branches : {n}");
                 }
-                _ => println!("Taille attendue entre 1 et 9."),
+                _ => say!(self, "Taille attendue entre 1 et 9."),
             },
-            (Some("size"), None) => println!("Taille des branches : {}", self.size),
+            (Some("size"), None) => say!(self, "Taille des branches : {}", self.size),
             (Some("comfort"), Some(n)) => match n.parse::<u8>() {
                 Ok(n) if n <= 5 => {
                     self.comfort = Comfort::new(n);
-                    println!("Zone de confort : {n} — {}", comfort_word(n));
+                    say!(self, "Zone de confort : {n} — {}", comfort_word(n));
                     // the dial changes which branches make sense from here
                     self.recompute();
                     self.preview();
                 }
-                _ => println!("Confort attendu entre 0 (cocon) et 5 (exploration)."),
+                _ => say!(self, "Confort attendu entre 0 (cocon) et 5 (exploration)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
-            (Some("comfort"), None) => println!(
+            (Some("comfort"), None) => say!(self, 
                 "Zone de confort : {} — {}",
                 self.comfort.value(),
                 comfort_word(self.comfort.value())
@@ -980,7 +1031,7 @@ impl Live<'_> {
     /// A gesture the grammar accepts but the code does not serve yet. Saying
     /// so beats a silent no-op: the key is right, the wiring is missing.
     fn not_yet(&self, keys: &str, what: &str) {
-        println!("\n\u{ab} {keys} \u{bb} \u{2014} {what} : d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}.");
+        say!(self, "\n\u{ab} {keys} \u{bb} \u{2014} {what} : d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}.");
     }
 
     /// Space, the leader: what can I type from here? With a namespace
@@ -1047,15 +1098,15 @@ impl Live<'_> {
             Some('a') => "a \u{2014} l'artiste",
             _ => "les touches",
         };
-        println!("\n\u{250c}\u{2500} {title} \u{2500}");
+        say!(self, "\n\u{250c}\u{2500} {title} \u{2500}");
         for (keys, what, wired) in rows {
             let mark = if *wired { " " } else { "\u{b7}" };
-            println!("\u{2502} {mark} {keys:<8} {what}");
+            say!(self, "\u{2502} {mark} {keys:<8} {what}");
         }
         if rows.iter().any(|(_, _, wired)| !wired) {
-            println!("\u{2514}\u{2500} \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}");
+            say!(self, "\u{2514}\u{2500} \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}");
         } else {
-            println!("\u{2514}\u{2500}");
+            say!(self, "\u{2514}\u{2500}");
         }
     }
 
@@ -1063,10 +1114,10 @@ impl Live<'_> {
         self.paused = !self.paused;
         if self.paused {
             self.sound.pause();
-            println!("\n\u{23f8} pause");
+            say!(self, "\n\u{23f8} pause");
         } else {
             self.sound.resume();
-            println!("\n\u{25b6} reprise");
+            say!(self, "\n\u{25b6} reprise");
         }
     }
 
@@ -1074,7 +1125,7 @@ impl Live<'_> {
     /// on before it. Distinct from `u`, which undoes a *gesture* (0015).
     async fn fork_undo(&mut self) {
         if self.rounds.len() <= 1 {
-            println!("\n(d\u{e9}j\u{e0} \u{e0} la graine)");
+            say!(self, "\n(d\u{e9}j\u{e0} \u{e0} la graine)");
             return;
         }
         self.rounds.pop();

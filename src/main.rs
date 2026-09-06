@@ -17,6 +17,7 @@ mod learned;
 mod listen;
 mod mediakeys;
 mod sound;
+mod tui;
 mod spotify;
 
 use catalog::Catalog;
