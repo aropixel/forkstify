@@ -367,6 +367,8 @@ pub struct HomeView<'a> {
     pub prompt: String,
     pub comfort: u8,
     pub comfort_word: &'a str,
+    /// La colonne de droite. Elle ne propose rien, elle liste.
+    pub collection: Option<Collection<'a>>,
 }
 
 impl Tui {
@@ -378,12 +380,23 @@ impl Tui {
 
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
-    let [head, body, prompt] = Layout::vertical([
+    let [head, whole, prompt] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(3),
         Constraint::Length(1),
     ])
     .areas(area);
+
+    // à gauche ce que forkstify propose, à droite ce qu'il possède
+    let column = 46.min(whole.width / 2);
+    let (body, collection) = match (&view.collection, column >= 24) {
+        (Some(_), true) => {
+            let [left, right] =
+                Layout::horizontal([Constraint::Min(30), Constraint::Length(column)]).areas(whole);
+            (left, Some(right))
+        }
+        _ => (whole, None),
+    };
 
     // le mot-marque à gauche, l'état à droite, sur la même ligne : le blanc
     // entre les deux est calculé, faute de justification en cellules
@@ -507,6 +520,10 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     }
     frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), body);
 
+    if let (Some(area), Some(list)) = (collection, view.collection.as_ref()) {
+        render_collection(frame, area, list);
+    }
+
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -586,4 +603,118 @@ impl Tui {
     pub fn clear(&mut self) {
         let _ = self.terminal.clear();
     }
+}
+
+/// Une ligne de la collection : la jauge de familiarité, le nom, ce qu'on en
+/// sait, et depuis quand il n'a pas sonné.
+#[derive(Clone)]
+pub struct CollectionRow {
+    pub familiarity: u8,
+    /// Depuis combien de jours il n'a pas sonné — sert au tri, pas à
+    /// l'affichage, qui montre `age`.
+    pub days: Option<i64>,
+    pub name: String,
+    /// Vrai si l'artiste a une fiche — c'est ce qui décide s'il peut servir
+    /// de graine, puisque les branches viennent de la fiche.
+    pub carded: bool,
+    pub age: String,
+    /// Une écoute ancienne se signale : c'est un délaissé.
+    pub neglected: bool,
+}
+
+pub struct Collection<'a> {
+    pub rows: &'a [CollectionRow],
+    pub total: usize,
+    pub carded: usize,
+    pub cursor: Option<usize>,
+    pub sort: &'a str,
+}
+
+/// La colonne de droite : elle **ne propose rien, elle liste**. C'est la
+/// contrepartie des portes d'entrée — pour qui veut choisir lui-même.
+fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) {
+    let [head, body, foot] = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Min(3),
+        Constraint::Length(2),
+    ])
+    .areas(area);
+
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled("── ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    "la collection",
+                    Style::default().fg(MUTED).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("  {} · {} avec fiche", view.total, view.carded),
+                    Style::default().fg(DIM),
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled("trié par ", Style::default().fg(DIM)),
+                Span::styled(view.sort.to_string(), Style::default().fg(CATALOG)),
+                Span::styled("   s pour changer", Style::default().fg(DIM)),
+            ]),
+        ]),
+        head,
+    );
+
+    // on suit le curseur plutôt que le début de la liste
+    let height = body.height as usize;
+    let cursor = view.cursor.unwrap_or(0);
+    let offset = cursor.saturating_sub(height / 2).min(view.rows.len().saturating_sub(height));
+    let lines: Vec<Line> = view
+        .rows
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(height)
+        .map(|(i, row)| {
+            let gauge: String = (0..5)
+                .map(|n| if n < row.familiarity { '█' } else { '░' })
+                .collect();
+            let name_style = if row.carded {
+                Style::default().fg(Color::Reset)
+            } else {
+                Style::default().fg(MUTED)
+            };
+            let spans = vec![
+                Span::styled(gauge, Style::default().fg(CATALOG)),
+                Span::raw(" "),
+                Span::styled(row.name.clone(), name_style),
+                Span::styled(
+                    format!("  {}", row.age),
+                    Style::default().fg(if row.neglected { DOOR } else { DIM }),
+                ),
+            ];
+            if view.cursor == Some(i) {
+                let text: String = spans.iter().map(|s| s.content.as_ref()).collect();
+                Line::from(Span::styled(
+                    text,
+                    Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+                ))
+            } else {
+                Line::from(spans)
+            }
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines), body);
+
+    let rest = view.rows.len().saturating_sub(offset + height);
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                if rest > 0 { format!("── {rest} de plus") } else { "──".into() },
+                Style::default().fg(DIM),
+            )),
+            Line::from(Span::styled(
+                "↑↓ parcourir · entrée démarrer · s trier",
+                Style::default().fg(DIM),
+            )),
+        ]),
+        foot,
+    );
 }

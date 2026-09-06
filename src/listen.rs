@@ -888,6 +888,7 @@ impl Live<'_> {
             Cmd::Browse => say!(self, "\n(« b » sert à l'accueil : ici, le son est déjà là)"),
             // déjà traités plus haut : ils ne font qu'afficher
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
+            Cmd::Sort => say!(self, "(« s » trie la collection, à l'accueil)"),
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {

@@ -80,6 +80,9 @@ pub struct Learned {
     /// The best seed score, to bring the ranking onto the same 0–1 scale as
     /// our own plays — they are counts, it is a composite score.
     seed_max: f64,
+    /// Le nom tel qu'il est écrit dans le classement — la clé est en
+    /// minuscules pour comparer, mais la collection s'affiche telle quelle.
+    seed_names: HashMap<String, String>,
     /// `classement.json`: the familiarity an artist starts with, before any
     /// listening of our own (0014). Keyed by display name — the seed file
     /// predates slugs.
@@ -113,6 +116,7 @@ impl Learned {
         }
 
         let mut seed = HashMap::new();
+        let mut seed_names: HashMap<String, String> = HashMap::new();
         if let Ok(text) = std::fs::read_to_string(root.join("classement.json")) {
             if let Ok(rows) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
                 for row in rows {
@@ -122,13 +126,14 @@ impl Learned {
                         (row["nom"].as_str(), row["score"].as_f64())
                     {
                         seed.insert(name.to_lowercase(), score);
+                        seed_names.insert(name.to_lowercase(), name.to_string());
                     }
                 }
             }
         }
 
         let seed_max = seed.values().copied().fold(1.0, f64::max);
-        Learned { root, artists, seed, seed_max, today: today() }
+        Learned { root, artists, seed, seed_max, seed_names, today: today() }
     }
 
     pub fn known(&self) -> usize {
@@ -192,6 +197,18 @@ impl Learned {
 
     pub fn artist_is_banned(&self, slug: &str) -> bool {
         self.artists.get(slug).is_some_and(|a| a.blacklisted)
+    }
+
+    /// Tous les noms du classement, tels qu'ils y sont écrits.
+    pub fn ranked_names(&self) -> impl Iterator<Item = &String> {
+        self.seed_names.values()
+    }
+
+    /// Depuis combien de jours cet artiste n'a-t-il pas sonné ? `None` s'il
+    /// n'a jamais sonné du tout.
+    pub fn days_since(&self, slug: &str) -> Option<i64> {
+        let artist = self.artists.get(slug)?;
+        Some((self.today - from_iso(artist.last.as_deref()?)?).max(0))
     }
 
     pub fn track_banned(&self, slug: &str, title: &str) -> bool {
@@ -387,6 +404,7 @@ impl Learned {
             artists: HashMap::new(),
             seed: HashMap::new(),
             seed_max: 1.0,
+            seed_names: HashMap::new(),
             today: 20_000,
         }
     }

@@ -17,7 +17,7 @@ use crate::discography::Tail;
 use crate::engine::Comfort;
 use crate::keys::{self, Cmd};
 use crate::learned::Learned;
-use crate::tui::{HomeView, Row, Tui};
+use crate::tui::{Collection, CollectionRow, HomeView, Row, Tui};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -58,6 +58,105 @@ pub fn remember(last: &LastSession) {
 
 fn recall() -> Option<LastSession> {
     serde_json::from_str(&std::fs::read_to_string(last_path()).ok()?).ok()
+}
+
+/// Comment la collection est triée. Trois lectures d'une même liste : ce
+/// qu'on connaît le mieux, l'ordre alphabétique, et ce qu'on n'a pas joué
+/// depuis longtemps.
+#[derive(Clone, Copy, PartialEq)]
+enum Sort {
+    Familiarity,
+    Alphabetical,
+    LastPlayed,
+}
+
+impl Sort {
+    fn next(self) -> Sort {
+        match self {
+            Sort::Familiarity => Sort::Alphabetical,
+            Sort::Alphabetical => Sort::LastPlayed,
+            Sort::LastPlayed => Sort::Familiarity,
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Sort::Familiarity => "familiarité",
+            Sort::Alphabetical => "a-z",
+            Sort::LastPlayed => "dernière écoute",
+        }
+    }
+}
+
+/// « il y a n jours » en deux caractères, comme une TUI le dit.
+fn age(days: Option<i64>) -> String {
+    match days {
+        None => "jamais".into(),
+        Some(0) => "auj.".into(),
+        Some(1) => "hier".into(),
+        Some(d) if d < 14 => format!("-{d}j"),
+        Some(d) if d < 60 => format!("-{}s", d / 7),
+        Some(d) if d < 365 => format!("-{}m", d / 30),
+        Some(d) => format!("-{}a", d / 365),
+    }
+}
+
+/// La collection entière : le catalogue **et** le classement, réunis. Un
+/// artiste sans fiche y figure, mais il ne peut pas servir de graine — les
+/// branches viennent de la fiche, et le dire vaut mieux que le cacher.
+fn collection(catalog: &Catalog, learned: &Learned, sort: Sort) -> Vec<(Option<String>, CollectionRow)> {
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut rows: Vec<(Option<String>, CollectionRow)> = Vec::new();
+
+    for (slug, card) in &catalog.cards {
+        seen.insert(card.name.to_lowercase());
+        let days = learned.days_since(slug);
+        rows.push((
+            Some(slug.clone()),
+            CollectionRow {
+                familiarity: (learned.familiarity01(slug, &card.name) * 5.0).round() as u8,
+                days,
+                name: card.name.clone(),
+                carded: true,
+                age: age(days),
+                neglected: days.is_some_and(|d| d >= 180),
+            },
+        ));
+    }
+    for name in learned.ranked_names() {
+        if seen.contains(&name.to_lowercase()) {
+            continue;
+        }
+        rows.push((
+            None,
+            CollectionRow {
+                familiarity: (learned.familiarity01("", name) * 5.0).round() as u8,
+                days: None,
+                name: name.clone(),
+                carded: false,
+                age: "jamais".into(),
+                neglected: false,
+            },
+        ));
+    }
+
+    match sort {
+        Sort::Familiarity => rows.sort_by(|a, b| {
+            b.1.familiarity.cmp(&a.1.familiarity).then_with(|| a.1.name.cmp(&b.1.name))
+        }),
+        Sort::Alphabetical => rows.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase())),
+        // le plus récemment joué d'abord ; ceux qui n'ont jamais sonné
+        // ferment la marche, puisqu'ils n'ont pas de dernière écoute
+        Sort::LastPlayed => rows.sort_by(|a, b| {
+            match (a.1.days, b.1.days) {
+                (Some(x), Some(y)) => x.cmp(&y),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+            .then_with(|| a.1.name.cmp(&b.1.name))
+        }),
+    }
+    rows
 }
 
 /// Ce qui est autorisé, lu sur disque sans rien ouvrir.
@@ -336,7 +435,15 @@ pub fn run(
     // ce qui est en train d'être tapé : la seule chose qui bouge en bas
     let mut typed = String::new();
     let mut said = String::new();
+    let mut sort = Sort::Familiarity;
+    // le curseur de la collection : tant qu'il n'existe pas, entrée garde son
+    // sens de toujours — « choisis pour moi »
+    let mut cursor: Option<usize> = None;
     loop {
+        let listing = collection(catalog, learned, sort);
+        // le Vec doit vivre aussi longtemps que la vue qui l'emprunte
+        let shelf: Vec<CollectionRow> = listing.iter().map(|(_, row)| row.clone()).collect();
+        let carded = listing.iter().filter(|(slug, _)| slug.is_some()).count();
         let blocks = entries(catalog, learned, *comfort);
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
         let (rows, count) = rows_of(learned, &blocks);
@@ -360,6 +467,13 @@ pub fn run(
             },
             comfort: comfort.value(),
             comfort_word: crate::listen::comfort_word(comfort.value()),
+            collection: Some(Collection {
+                rows: &shelf,
+                total: listing.len(),
+                carded,
+                cursor,
+                sort: sort.label(),
+            }),
         });
 
         let cmd = rx.blocking_recv()?;
@@ -403,6 +517,21 @@ pub fn run(
             },
             // entrée veut dire « choisis pour moi » partout ailleurs : elle
             // garde ce sens ici, et « au hasard » ne coûte pas de touche neuve
+            // le curseur de la collection prend le pas : entrée démarre ce
+            // qui est sous lui, sinon elle garde son sens de toujours
+            Cmd::Auto if cursor.is_some() => {
+                let index = cursor.unwrap();
+                match listing.get(index) {
+                    Some((Some(slug), _)) => return Some(Choice::Artist(slug.clone())),
+                    Some((None, row)) => {
+                        said = format!(
+                            "{} n'a pas de fiche : rien d'où brancher (le catalogue grandit avec l'usage)",
+                            row.name
+                        )
+                    }
+                    None => {}
+                }
+            }
             Cmd::Auto => {
                 if let Some(entry) = flat.first() {
                     return Some(match &entry.choice {
@@ -427,6 +556,16 @@ pub fn run(
                     _ => {}
                 }
             }
+            Cmd::Up => {
+                let here = cursor.unwrap_or(0);
+                cursor = Some(here.saturating_sub(1));
+            }
+            Cmd::Down => {
+                let here = cursor.map_or(0, |i| i + 1);
+                cursor = Some(here.min(listing.len().saturating_sub(1)));
+            }
+            Cmd::Escape => cursor = None,
+            Cmd::Sort => sort = sort.next(),
             Cmd::Help(_) => {}
             _ => {}
         }

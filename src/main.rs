@@ -263,6 +263,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 prompt: "[en attente sur le réseau local (mdns) · q]".into(),
                 comfort: comfort.value(),
                 comfort_word: listen::comfort_word(comfort.value()),
+                collection: None,
             });
             if !status.librespot {
                 // l'application s'annonce elle-même : brancher le téléphone

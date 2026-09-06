@@ -306,6 +306,33 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La collection entière, à droite de l'accueil (06/09/2026)
+
+Demande de Joel, d'après la colonne ajoutée à `Accueil.dc.html` : à gauche
+ce que forkstify **propose**, à droite ce qu'il **possède**. « La colonne ne
+propose rien : elle liste. »
+
+Elle réunit le catalogue **et** le classement — 780 noms, dont 214 avec
+fiche — avec pour chacun une jauge de familiarité, son nom, et depuis quand
+il n'a pas sonné (`auj.`, `hier`, `-3s`, `-7m`, `jamais`, en orange au-delà
+de six mois). `s` fait tourner l'ordre : familiarité, a-z, dernière écoute.
+
+**Deux écarts avec la maquette, tous deux assumés.**
+
+La maquette entre dans la colonne par `c` — or `c` est le réglage du confort
+depuis la veille. Plutôt que de déplacer l'un des deux, **il n'y a pas de
+touche pour entrer** : les flèches ↑↓ y déplacent un curseur, et `entrée`
+démarre l'artiste sous lui. C'est exactement le geste de la session
+(sélection puis entrée), et sans curseur `entrée` garde son sens de
+toujours — « choisis pour moi ». Une touche de moins à apprendre.
+
+La maquette dit qu'« un artiste sans fiche démarre quand même : la première
+branche vient des vecteurs ». **Ce n'est pas vrai chez nous** : le moteur
+part de la fiche (liens, tags, vecteur), et un artiste du seul classement
+n'en a aucun. La colonne les liste — c'est bien la collection entière — mais
+les choisir répond que le catalogue grandit avec l'usage, plutôt que
+d'échouer sans le dire.
+
 ## Les éditions écrivent enfin dans les fiches (06/09/2026)
 
 `src/edit.rs` ferme le dernier tiers de

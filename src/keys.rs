@@ -51,6 +51,8 @@ pub enum Cmd {
     Escape,
     /// `c` — comfort : ouvre le réglage, les flèches le bougent, entrée valide.
     ComfortMode,
+    /// `s` — sort : change l'ordre de la collection, à l'accueil.
+    Sort,
     PlayPause,
     /// Space, the leader: show what is available. Carries the namespace
     /// that was half-typed, so `f` then space lists only the branch keys —
@@ -145,6 +147,7 @@ pub fn parse(buf: &str) -> Parse {
         ['r'] => Parse::Done(Cmd::Resume),
         ['b'] => Parse::Done(Cmd::Browse),
         ['c'] => Parse::Done(Cmd::ComfortMode),
+        ['s'] => Parse::Done(Cmd::Sort),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
@@ -399,6 +402,7 @@ mod tests {
         assert_eq!(parse("r").done(), Some(Cmd::Resume));
         assert_eq!(parse("b").done(), Some(Cmd::Browse));
         assert_eq!(parse("c").done(), Some(Cmd::ComfortMode));
+        assert_eq!(parse("s").done(), Some(Cmd::Sort));
         assert_eq!(parse("l").done(), Some(Cmd::Next));
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));
