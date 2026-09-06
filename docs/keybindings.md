@@ -73,9 +73,9 @@ moteur retient.
 | `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
-| `tt` | track **top** | Promouvoir en top | édition | 📋 |
-| `tT` | track **untop** | Retirer des tops | édition | 📋 |
-| `td` | track **door** | En faire une door vers la dernière direction prise | édition | 📋 |
+| `tt` | track **top** | Promouvoir en top | édition | ✅ |
+| `tT` | track **untop** | Retirer des tops | édition | ✅ |
+| `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
 
 ## `a` — l'artiste en cours
 
@@ -84,8 +84,8 @@ moteur retient.
 | `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) | mesure | ✅ |
 | `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) | mesure | ✅ |
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file | mesure | ✅ |
-| `ae` | artist **edit** | Ouvrir la fiche dans `$EDITOR`, recommit, vecteur recalculé | édition | 📋 |
-| `aL` | artist **link** | Lier à un autre artiste (format [0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | 📋 |
+| `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
+| `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
 
 Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
 souvent, `as` moins souvent, `ab` plus jamais.
@@ -95,9 +95,12 @@ souvent, `as` moins souvent, `ab` plus jamais.
 par artiste dans le catalogue, compteurs à décroissance intégrée
 (demi-vie six mois), écrit à chaque geste, silencieux et jamais reversé.
 
-**Les éditions attendent encore** : `tt`, `tT`, `td`, `ae` et `aL`
-modifient une *fiche* et doivent produire un commit — c'est une autre
-couche que l'appris.
+**Les éditions écrivent dans les fiches depuis le 06/09/2026** : `tt`,
+`tT`, `td` et `aL` modifient une fiche **et produisent un commit lisible**
+(`src/edit.rs`). La fiche est retouchée textuellement, jamais réécrite —
+c'est une interface publique, et une relecture par serde perdrait tout ce
+que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
+**prochain lancement**, et le produit le dit.
 
 ## Navigation et session
 
