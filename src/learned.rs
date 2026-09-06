@@ -469,7 +469,8 @@ mod tests {
     fn les_poids_restent_dans_leurs_bornes() {
         let mut learned =
             Learned { root: PathBuf::from("/nonexistent"), artists: HashMap::new(),
-                      seed: HashMap::new(), seed_max: 1.0, today: 20_000 };
+                      seed: HashMap::new(), seed_max: 1.0,
+                      seed_names: HashMap::new(), today: 20_000 };
         for _ in 0..40 {
             learned.skip_artist("x");
         }
