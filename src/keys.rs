@@ -226,6 +226,12 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                 continue;
             }
 
+            // les octets de contrôle ne sont pas des touches : un NUL ou un
+            // ^C arrivé du pty ne doit pas devenir « (inconnu) »
+            if byte[0] < 0x20 && byte[0] != b'\r' && byte[0] != b'\n' {
+                continue;
+            }
+
             pending.push(key);
             match parse(&pending) {
                 Parse::Done(cmd) => {

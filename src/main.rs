@@ -235,19 +235,37 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let dir = catalog_path(path);
     let catalog = Catalog::load(&dir)?;
     let _raw = keys::RawMode::enable();
+    let mut tui = tui::Tui::enter()?;
     let mut rx = home::reader();
     let mut comfort =
         engine::Comfort::new(config::Config::load().journey.comfort);
+    let mut last_path: Vec<String> = Vec::new();
 
     loop {
         let status = home::Status::read();
         if !status.connected() {
-            home::show_disconnected(&status, &catalog);
+            let rows = home::disconnected_rows(&status, &catalog);
+            let _ = tui.draw_home(&tui::HomeView {
+                status: vec![
+                    (
+                        if status.librespot { "✓ librespot" } else { "⏹ aucun son" }.into(),
+                        status.librespot,
+                    ),
+                    (
+                        if status.web { "✓ api web" } else { "⏹ aucun titre résolu" }.into(),
+                        status.web,
+                    ),
+                ],
+                census: String::new(),
+                rows: &rows,
+                prompt: "[en attente · q]".into(),
+                comfort: comfort.value(),
+                comfort_word: listen::comfort_word(comfort.value()),
+            });
             if !status.librespot {
                 // l'application s'annonce elle-même : brancher le téléphone
                 // fait partie du produit, ce n'est plus une mise en route
-                if let Err(e) = home::ask_phone() {
-                    println!("\n⏹ découverte interrompue ({e})");
+                if home::ask_phone().is_err() {
                     return Ok(());
                 }
                 continue;
@@ -257,13 +275,22 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
 
         let learned = learned::Learned::load(&dir);
         let tail = discography::Tail::load();
-        let Some(choice) = home::run(&catalog, &learned, &tail, &mut comfort, &mut rx) else {
-            return Ok(());
+        let Some(choice) =
+            home::run(&catalog, &learned, &tail, &mut comfort, &mut rx, &mut tui)
+        else {
+            break;
         };
         // la session consomme l'appris et le rend enrichi : on le relit au
         // tour suivant, ce qui suffit à voir ses propres mesures
-        listen::run(&catalog, choice, learned, tail, comfort, &mut rx)?;
+        last_path = listen::run(&catalog, choice, learned, tail, comfort, &mut rx, &mut tui)?;
     }
+
+    // l'écran alterné rendu, on laisse le parcours derrière soi
+    drop(tui);
+    if !last_path.is_empty() {
+        println!("\nParcours : {}", last_path.join(" → "));
+    }
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
@@ -296,14 +323,18 @@ fn main() -> anyhow::Result<()> {
         "ecouter" => {
             let _raw = keys::RawMode::enable();
             let mut rx = home::reader();
-            listen::run(
+            let mut tui = tui::Tui::enter()?;
+            let path = listen::run(
                 &catalog,
                 home::Choice::Artist(slug),
                 learned,
                 discography::Tail::load(),
                 engine::Comfort::new(config::Config::load().journey.comfort),
                 &mut rx,
-            )?
+                &mut tui,
+            )?;
+            drop(tui);
+            println!("\nParcours : {}", path.join(" → "));
         }
         "check" => check(&catalog, &slug),
         other => {

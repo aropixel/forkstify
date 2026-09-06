@@ -330,9 +330,13 @@ le menu du leader, `?` — s'affiche seul et en entier. Le journal est un
 `RefCell` : dire quelque chose ne demande pas d'emprunt exclusif, ce qui
 évitait de rendre mutables trente méthodes qui ne le sont pas.
 
-**Une couture assumée** : l'accueil imprime encore dans le terminal normal,
-la session prend l'écran alterné, et on revient à l'accueil en quittant.
-Cohérent, mais ce n'est pas encore une seule interface.
+**La couture est levée le jour même** (Joel l'a vue au premier lancement :
+« quand je le lance, j'ai du terminal basique »). L'accueil passe lui aussi
+par la TUI : **un seul écran alterné pour toute l'application**, ouvert par
+`accueil()` et prêté à la session. L'accueil décide *quoi* dire — une liste
+de `Row` — et la TUI *comment* : la même séparation qu'entre le moteur et le
+son. Le parcours final remonte à l'accueil au lieu de s'imprimer sur un
+écran qui disparaît.
 
 **Non vérifié** : rien de tout cela n'a tourné en session réelle. La TUI est
 vérifiée à la compilation ; l'accueil, lui, tourne.

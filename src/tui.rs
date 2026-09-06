@@ -254,3 +254,148 @@ fn render_panel(frame: &mut ratatui::Frame, area: Rect, view: &View) {
         ));
     frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), panel);
 }
+
+/// Une ligne de l'accueil. L'accueil décide **quoi** dire, la TUI **comment**
+/// — c'est la même séparation qu'entre le moteur et le son.
+pub enum Row {
+    Rule(String),
+    Text(String),
+    Dim(String),
+    /// Une porte d'entrée numérotée : la numérotation court à travers les
+    /// blocs, si bien que choisir une graine est le geste qui choisit une
+    /// branche.
+    Entry { n: usize, label: String, reason: String, tracks: Vec<String> },
+    /// Une touche et ce qu'elle fait ; `wired` faux la montre estompée,
+    /// jamais comme si elle marchait.
+    Key { key: String, what: String, note: String, wired: bool },
+}
+
+pub struct HomeView<'a> {
+    pub status: Vec<(String, bool)>,
+    pub census: String,
+    pub rows: &'a [Row],
+    pub prompt: String,
+    pub comfort: u8,
+    pub comfort_word: &'a str,
+}
+
+impl Tui {
+    pub fn draw_home(&mut self, view: &HomeView) -> std::io::Result<()> {
+        self.terminal.draw(|frame| render_home(frame, view))?;
+        Ok(())
+    }
+}
+
+fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
+    let area = frame.area();
+    let [head, body, prompt] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(3),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+
+    let mut status: Vec<Span> = Vec::new();
+    for (i, (text, ok)) in view.status.iter().enumerate() {
+        if i > 0 {
+            status.push(Span::styled(" · ", Style::default().fg(DIM)));
+        }
+        status.push(Span::styled(
+            text.clone(),
+            Style::default().fg(if *ok { PLAYING } else { Color::Red }),
+        ));
+    }
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                "forkstify",
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(status),
+            Line::from(Span::styled(view.census.clone(), Style::default().fg(DIM))),
+        ]),
+        head,
+    );
+
+    let mut lines: Vec<Line> = Vec::new();
+    for row in view.rows {
+        match row {
+            Row::Rule(title) => {
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![
+                    Span::styled("── ", Style::default().fg(DIM)),
+                    Span::styled(title.clone(), Style::default().fg(MUTED)),
+                    Span::styled(" ──", Style::default().fg(DIM)),
+                ]));
+            }
+            Row::Text(text) => lines.push(Line::from(Span::styled(
+                text.clone(),
+                Style::default().fg(Color::Reset),
+            ))),
+            Row::Dim(text) => {
+                lines.push(Line::from(Span::styled(text.clone(), Style::default().fg(DIM))))
+            }
+            Row::Entry { n, label, reason, tracks } => {
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("  {n}  "),
+                        Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        label.clone(),
+                        Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+                lines.push(Line::from(Span::styled(
+                    format!("     {reason}"),
+                    Style::default().fg(MUTED),
+                )));
+                for track in tracks {
+                    lines.push(Line::from(vec![
+                        Span::styled("     ♪ ", Style::default().fg(PLAYING)),
+                        Span::styled(track.clone(), Style::default().fg(MUTED)),
+                    ]));
+                }
+            }
+            Row::Key { key, what, note, wired } => {
+                let fade = if *wired { Color::White } else { DIM };
+                let mut spans = vec![
+                    Span::styled(
+                        if *wired { "  " } else { "  · " }.to_string(),
+                        Style::default().fg(DIM),
+                    ),
+                    Span::styled(
+                        format!("{key}  "),
+                        Style::default().fg(fade).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        what.clone(),
+                        Style::default().fg(if *wired { MUTED } else { DIM }),
+                    ),
+                ];
+                if !note.is_empty() {
+                    spans.push(Span::styled(
+                        format!(" — {note}"),
+                        Style::default().fg(DIM),
+                    ));
+                }
+                lines.push(Line::from(spans));
+            }
+        }
+    }
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), body);
+
+    let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
+            Span::raw("  "),
+            Span::styled(gauge, Style::default().fg(VECTOR)),
+            Span::styled(
+                format!(" {} — {}", view.comfort, view.comfort_word),
+                Style::default().fg(DIM),
+            ),
+        ])),
+        prompt,
+    );
+}

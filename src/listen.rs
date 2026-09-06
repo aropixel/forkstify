@@ -39,7 +39,8 @@ pub fn run(
     tail: Tail,
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
-) -> anyhow::Result<()> {
+    tui: &mut Tui,
+) -> anyhow::Result<Vec<String>> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -49,7 +50,7 @@ pub fn run(
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx))
+        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
@@ -60,7 +61,8 @@ async fn async_run(
     tail: Tail,
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
-) -> Result<(), Box<dyn std::error::Error>> {
+    tui: &mut Tui,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let (seed, opening_track) = match &choice {
         Choice::Artist(slug) => (slug.clone(), None),
         Choice::Track { slug, title } => (slug.clone(), Some(title.clone())),
@@ -105,7 +107,7 @@ async fn async_run(
         paused: false,
         comfort,
         notices: std::cell::RefCell::new(Vec::new()),
-        tui: Tui::enter()?,
+        tui,
         force_panel: std::cell::Cell::new(false),
         warm_requested: false,
         branches: Vec::new(),
@@ -194,11 +196,9 @@ async fn async_run(
         .flat_map(|round| round.artists.iter())
         .map(|slug| catalog.cards[slug].name.clone())
         .collect();
-    // la TUI tient l'écran alterné : on la rend avant d'écrire le parcours,
-    // sinon il s'afficherait sur un écran qui va disparaître
-    drop(live);
-    println!("\nParcours : {}", path.join(" → "));
-    Ok(())
+    // l'écran alterné appartient à l'application entière : le parcours
+    // remonte à l'accueil au lieu de s'imprimer sur un écran qui disparaît
+    Ok(path)
 }
 
 struct Live<'a> {
@@ -223,7 +223,7 @@ struct Live<'a> {
     /// Ce que forkstify vient de dire — vidé à chaque commande, pour qu'un
     /// bloc (le leader, « ? ») s'affiche seul et en entier.
     notices: std::cell::RefCell<Vec<String>>,
-    tui: Tui,
+    tui: &'a mut Tui,
     /// « fp » a demandé le volet avant la fin du segment.
     force_panel: std::cell::Cell<bool>,
     /// `:warm` asked for a harvest; the command handler is not async, the

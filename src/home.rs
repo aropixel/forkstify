@@ -17,6 +17,7 @@ use crate::discography::Tail;
 use crate::engine::Comfort;
 use crate::keys::{self, Cmd};
 use crate::learned::Learned;
+use crate::tui::{HomeView, Row, Tui};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -82,56 +83,67 @@ struct Entry {
     preview: Vec<String>,
 }
 
-fn rule(title: &str) {
-    println!("\n── {title} ──");
-}
 
 /// L'écran non connecté. Deux situations qui ne se ressemblent pas : jamais
 /// autorisé, où il faut expliquer les deux gestes ; autorisation perdue, qui
 /// est un passage et non un mur.
-pub fn show_disconnected(status: &Status, catalog: &Catalog) {
-    println!("\nforkstify");
-    let son = if status.librespot { "✓ librespot" } else { "⏹ aucun son" };
-    let api = if status.web { "✓ api web" } else { "⏹ aucun titre résolu" };
-    println!("{son} · {api}");
-
+pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
+    let mut rows = Vec::new();
     if !status.librespot && !status.web {
-        rule("premier lancement");
-        println!("aucune autorisation encore donnée. il en faut deux, elles sont indépendantes.");
-        println!("\n  1 librespot — le son");
-        println!("     les identifiants arrivent du téléphone par zeroconf — rien à taper ici.");
-        println!(
+        rows.push(Row::Rule("premier lancement".into()));
+        rows.push(Row::Text(
+            "aucune autorisation encore donnée. il en faut deux, elles sont indépendantes.".into(),
+        ));
+        rows.push(Row::Text(String::new()));
+        rows.push(Row::Text("  1 librespot — le son".into()));
+        rows.push(Row::Dim(
+            "     les identifiants arrivent du téléphone par zeroconf — rien à taper ici.".into(),
+        ));
+        rows.push(Row::Text(format!(
             "     ouvrez spotify sur le téléphone, « appareils disponibles »,\n     puis choisissez « {} » dans la liste.",
             crate::sound::DEVICE_NAME
-        );
-        println!("     sans lui, aucun son.");
-        println!("\n  2 l'api web — les titres");
-        println!("     une autorisation oauth dans le navigateur (client id ncspot, cinq scopes).");
-        println!("     sans elle, aucun titre résolu.");
+        )));
+        rows.push(Row::Text(String::new()));
+        rows.push(Row::Text("  2 l'api web — les titres".into()));
+        rows.push(Row::Dim(
+            "     une autorisation oauth dans le navigateur (client id ncspot, cinq scopes).".into(),
+        ));
     } else {
-        rule("autorisation incomplète");
+        rows.push(Row::Rule("autorisation incomplète".into()));
         if !status.librespot {
-            println!("il manque les identifiants du téléphone.");
-            println!(
+            rows.push(Row::Text("il manque les identifiants du téléphone.".into()));
+            rows.push(Row::Text(format!(
                 "sur spotify : « appareils disponibles », puis « {} ».",
                 crate::sound::DEVICE_NAME
-            );
+            )));
         }
         if !status.web {
-            println!("le jeton de l'api web a expiré — forkstify le redemandera d'elle-même.");
-            println!("le son n'est pas coupé ; seuls les titres ne se résolvent plus.");
+            rows.push(Row::Text(
+                "le jeton de l'api web a expiré — forkstify le redemandera d'elle-même.".into(),
+            ));
+            rows.push(Row::Dim(
+                "le son n'est pas coupé ; seuls les titres ne se résolvent plus.".into(),
+            ));
         }
     }
-
-    rule("en attendant");
-    println!(
-        "le catalogue est local : {} fiches, leurs vecteurs et l'appris se lisent\nhors connexion. cet écran n'est pas un cul-de-sac.",
+    rows.push(Row::Rule("en attendant".into()));
+    rows.push(Row::Dim(format!(
+        "le catalogue est local : {} fiches, leurs vecteurs et l'appris se lisent hors connexion.\ncet écran n'est pas un cul-de-sac.",
         catalog.cards.len()
-    );
-    println!("\n  · b  parcourir à sec — les branches s'affichent, rien ne sonne");
-    println!("       (décidé, pas encore câblé — pour l'instant : forkstify parcours <graine>)");
-    println!("  · /  chercher une fiche au catalogue seul");
-    println!("       (décidé, pas encore câblé)");
+    )));
+    rows.push(Row::Key {
+        key: "b".into(),
+        what: "parcourir à sec".into(),
+        note: "les branches s'affichent, rien ne sonne".into(),
+        wired: false,
+    });
+    rows.push(Row::Key {
+        key: "/".into(),
+        what: "chercher une fiche au catalogue seul".into(),
+        note: String::new(),
+        wired: false,
+    });
+    rows
 }
 
 /// Les portes de l'accueil, dans l'ordre que le confort décide.
@@ -231,51 +243,61 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
     }
 }
 
-fn show(catalog: &Catalog, learned: &Learned, tail: &Tail, comfort: Comfort, blocks: &[(String, Vec<Entry>)]) {
-    println!("\nforkstify");
-    println!("✓ librespot · ✓ api web");
-    println!(
-        "catalogue local — {} fiches · {} artistes classés · {} discographie(s) en cache",
-        catalog.cards.len(),
-        learned.seeded(),
-        tail.known()
-    );
-
+fn rows_of(
+    learned: &Learned,
+    blocks: &[(String, Vec<Entry>)],
+) -> (Vec<Row>, usize) {
+    let mut rows = Vec::new();
     if let Some(last) = recall() {
-        rule("reprendre");
-        println!("  r  {} — {}", last.name, last.title);
-        println!("     interrompu {}", last.at);
+        rows.push(Row::Rule("reprendre".into()));
+        rows.push(Row::Key {
+            key: "r".into(),
+            what: format!("{} — {}", last.name, last.title),
+            note: format!("interrompu {}", last.at),
+            wired: true,
+        });
     }
 
-    rule("chercher");
-    println!("  /  un artiste ou un morceau — catalogue et spotify");
-    println!("     un artiste démarre un segment sur lui ; un morceau se joue,");
-    println!("     puis branche depuis son artiste s'il a une fiche.");
+    rows.push(Row::Rule("chercher".into()));
+    rows.push(Row::Key {
+        key: "/".into(),
+        what: "un artiste ou un morceau".into(),
+        note: "catalogue et spotify".into(),
+        wired: true,
+    });
+    rows.push(Row::Dim(
+        "     un artiste démarre un segment sur lui ; un morceau se joue,\n     puis branche depuis son artiste s'il a une fiche.".into(),
+    ));
 
     let mut n = 0;
     for (title, block) in blocks {
-        rule(title);
+        rows.push(Row::Rule(title.clone()));
         if title == "délaissés" {
-            println!("     une familiarité qui fut haute et a décru — un rappel, pas une découverte.");
+            rows.push(Row::Dim(
+                "     une familiarité qui fut haute et a décru — un rappel, pas une découverte."
+                    .into(),
+            ));
         }
         for entry in block {
             n += 1;
-            println!("\n  {n}  {}", entry.label);
-            println!("     {}", entry.reason);
-            for track in &entry.preview {
-                println!("     ♪ {track}");
-            }
+            rows.push(Row::Entry {
+                n,
+                label: entry.label.clone(),
+                reason: entry.reason.clone(),
+                tracks: entry.preview.clone(),
+            });
         }
     }
+    let _ = learned;
 
-    rule("au hasard");
-    println!("  entrée  tirage pondéré par la zone de confort");
-    println!("          la porte qui ne demande pas de choisir");
-
-    println!(
-        "\n[1-{n} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]",
-    );
-    println!("  zone de confort : {} — {}", comfort.value(), crate::listen::comfort_word(comfort.value()));
+    rows.push(Row::Rule("au hasard".into()));
+    rows.push(Row::Key {
+        key: "entrée".into(),
+        what: "tirage pondéré par la zone de confort".into(),
+        note: "la porte qui ne demande pas de choisir".into(),
+        wired: true,
+    });
+    (rows, n)
 }
 
 /// L'accueil. Rend, lit une touche, et dit ce qu'il faut démarrer.
@@ -285,11 +307,27 @@ pub fn run(
     tail: &Tail,
     comfort: &mut Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
+    tui: &mut Tui,
 ) -> Option<Choice> {
     loop {
         let blocks = entries(catalog, learned, *comfort);
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
-        show(catalog, learned, tail, *comfort, &blocks);
+        let (rows, count) = rows_of(learned, &blocks);
+        let _ = tui.draw_home(&HomeView {
+            status: vec![("✓ librespot".into(), true), ("✓ api web".into(), true)],
+            census: format!(
+                "catalogue local — {} fiches · {} artistes classés · {} discographie(s) en cache",
+                catalog.cards.len(),
+                learned.seeded(),
+                tail.known()
+            ),
+            rows: &rows,
+            prompt: format!(
+                "[1-{count} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]"
+            ),
+            comfort: comfort.value(),
+            comfort_word: crate::listen::comfort_word(comfort.value()),
+        });
 
         let cmd = rx.blocking_recv()?;
         match cmd {
@@ -303,13 +341,13 @@ pub fn run(
                         }
                     });
                 }
-                println!("\n(pas d'entrée {n})");
+                let _ = n;
             }
             Cmd::Resume => match recall() {
                 Some(last) => {
                     return Some(Choice::Track { slug: last.slug, title: last.title })
                 }
-                None => println!("\n(aucun parcours à reprendre)"),
+                None => {}
             },
             // entrée veut dire « choisis pour moi » partout ailleurs : elle
             // garde ce sens ici, et « au hasard » ne coûte pas de touche neuve
@@ -325,20 +363,20 @@ pub fn run(
             }
             Cmd::Search(query) => match crate::resolve(catalog, query.trim()) {
                 Some(slug) => return Some(Choice::Artist(slug)),
-                None => println!("\n(rien pour « {} » au catalogue)", query.trim()),
+                None => {}
             },
             Cmd::Colon(text) => {
                 let mut words = text.split_whitespace();
                 match (words.next(), words.next()) {
                     (Some("comfort"), Some(v)) => match v.parse::<u8>() {
                         Ok(v) if v <= 5 => *comfort = Comfort::new(v),
-                        _ => println!("\n(confort attendu entre 0 et 5)"),
+                        _ => {}
                     },
-                    _ => println!("\n(ici : :comfort <0-5>)"),
+                    _ => {}
                 }
             }
             Cmd::Help(_) => {}
-            _ => println!("\n(pas ici — 1-9, r, /texte, entrée, q)"),
+            _ => {}
         }
     }
 }
