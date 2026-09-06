@@ -344,14 +344,23 @@ pub enum Row {
     Dim(String),
     /// Une porte d'entrée numérotée : la numérotation court à travers les
     /// blocs, si bien que choisir une graine est le geste qui choisit une
-    /// branche.
-    Entry { n: usize, label: String, reason: String, tracks: Vec<String> },
+    /// branche. `artist` n'est rempli que si la graine est un **morceau** —
+    /// le titre passe devant, l'artiste derrière, comme partout ailleurs.
+    Entry {
+        n: usize,
+        label: String,
+        artist: Option<String>,
+        reason: String,
+        tracks: Vec<(String, String)>,
+    },
     /// Une touche et ce qu'elle fait ; `wired` faux la montre estompée,
     /// jamais comme si elle marchait.
     Key { key: String, what: String, note: String, wired: bool },
 }
 
 pub struct HomeView<'a> {
+    /// Le nom à gauche, l'état des autorisations à droite, sur **une seule
+    /// ligne** (Joel, 06/09/2026).
     pub status: Vec<(String, bool)>,
     pub census: String,
     pub rows: &'a [Row],
@@ -370,29 +379,42 @@ impl Tui {
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
     let [head, body, prompt] = Layout::vertical([
-        Constraint::Length(3),
+        Constraint::Length(2),
         Constraint::Min(3),
         Constraint::Length(1),
     ])
     .areas(area);
 
-    let mut status: Vec<Span> = Vec::new();
+    // le mot-marque à gauche, l'état à droite, sur la même ligne : le blanc
+    // entre les deux est calculé, faute de justification en cellules
+    let status_width: usize = view
+        .status
+        .iter()
+        .map(|(text, _)| text.chars().count())
+        .sum::<usize>()
+        + view.status.len().saturating_sub(1) * 3;
+    let gap = (head.width as usize)
+        .saturating_sub("forkstify".len() + status_width)
+        .max(2);
+    let mut title = vec![
+        Span::styled(
+            "forkstify",
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" ".repeat(gap)),
+    ];
     for (i, (text, ok)) in view.status.iter().enumerate() {
         if i > 0 {
-            status.push(Span::styled(" · ", Style::default().fg(DIM)));
+            title.push(Span::styled(" · ", Style::default().fg(DIM)));
         }
-        status.push(Span::styled(
+        title.push(Span::styled(
             text.clone(),
             Style::default().fg(if *ok { PLAYING } else { Color::Red }),
         ));
     }
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(Span::styled(
-                "forkstify",
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-            )),
-            Line::from(status),
+            Line::from(title),
             Line::from(Span::styled(view.census.clone(), Style::default().fg(DIM))),
         ]),
         head,
@@ -401,12 +423,22 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let mut lines: Vec<Line> = Vec::new();
     for row in view.rows {
         match row {
+            // le liseré court jusqu'au bout de la mesure : c'est lui qui
+            // sépare les blocs, puisqu'il n'y a pas de cartes
             Row::Rule(title) => {
+                let width = (body.width as usize).min(66);
+                let filled = 3 + title.chars().count() + 1;
                 lines.push(Line::from(""));
                 lines.push(Line::from(vec![
-                    Span::styled("── ", Style::default().fg(DIM)),
-                    Span::styled(title.clone(), Style::default().fg(MUTED)),
-                    Span::styled(" ──", Style::default().fg(DIM)),
+                    Span::styled("── ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        title.clone(),
+                        Style::default().fg(MUTED).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!(" {}", "─".repeat(width.saturating_sub(filled))),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]));
             }
             Row::Text(text) => lines.push(Line::from(Span::styled(
@@ -416,8 +448,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
             Row::Dim(text) => {
                 lines.push(Line::from(Span::styled(text.clone(), Style::default().fg(DIM))))
             }
-            Row::Entry { n, label, reason, tracks } => {
-                lines.push(Line::from(vec![
+            Row::Entry { n, label, artist, reason, tracks } => {
+                let mut head = vec![
                     Span::styled(
                         format!("  {n}  "),
                         Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
@@ -426,20 +458,29 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
                         label.clone(),
                         Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                     ),
-                ]));
+                ];
+                // la graine est un morceau : le titre devant, l'artiste
+                // derrière, comme sur toutes les lignes de forkstify
+                if let Some(name) = artist {
+                    head.push(Span::styled(" — ", Style::default().fg(DIM)));
+                    head.push(Span::styled(name.clone(), Style::default().fg(CATALOG)));
+                }
+                lines.push(Line::from(head));
                 lines.push(Line::from(Span::styled(
                     format!("     {reason}"),
                     Style::default().fg(MUTED),
                 )));
-                for track in tracks {
+                for (title, name) in tracks {
                     lines.push(Line::from(vec![
                         Span::styled("     ♪ ", Style::default().fg(PLAYING)),
-                        Span::styled(track.clone(), Style::default().fg(MUTED)),
+                        Span::styled(title.clone(), Style::default().fg(Color::Reset)),
+                        Span::styled(" — ", Style::default().fg(DIM)),
+                        Span::styled(name.clone(), Style::default().fg(CATALOG)),
                     ]));
                 }
             }
             Row::Key { key, what, note, wired } => {
-                let fade = if *wired { Color::White } else { DIM };
+                let fade = if *wired { BRANCH } else { DIM };
                 let mut spans = vec![
                     Span::styled(
                         if *wired { "  " } else { "  · " }.to_string(),

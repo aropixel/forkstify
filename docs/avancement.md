@@ -306,6 +306,23 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'accueil rapproché de sa maquette (06/09/2026)
+
+Retouches graphiques demandées par Joel, toutes tirées de
+`Accueil.dc.html` :
+
+- **Le mot-marque et l'état sur une seule ligne** — `forkstify` à gauche,
+  `✓ librespot · ✓ api web` à droite. Faute de justification en cellules,
+  l'écart est calculé depuis la largeur de la zone.
+- **Les liserés courent jusqu'au bout de la mesure** (66 colonnes au plus).
+  Ce sont eux qui séparent les blocs, puisque le système interdit les cartes.
+- **Le titre devant, l'artiste derrière**, partout : sous une entrée
+  (`♪ Crystal Frontier — Calexico`), sur la graine qui est un morceau, et
+  sur la ligne « reprendre » — qui les avait encore dans l'autre sens.
+- **Les couleurs sont des rôles** : le numéro et les touches en magenta
+  (branche), l'artiste en bleu (catalogue, écrit par un humain), le `♪` en
+  vert, les raisons en gris, la ponctuation estompée.
+
 ## La file s'enchaîne : le parcours devient une playlist (06/09/2026)
 
 Joel, après avoir vécu la TUI : « j'aimerais que le choix d'une nouvelle

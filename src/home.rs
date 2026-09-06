@@ -79,8 +79,11 @@ impl Status {
 struct Entry {
     choice: Choice,
     label: String,
+    /// Rempli seulement quand la graine est un **morceau** : le titre passe
+    /// devant, l'artiste derrière.
+    artist: Option<String>,
     reason: String,
-    preview: Vec<String>,
+    preview: Vec<(String, String)>,
 }
 
 
@@ -165,8 +168,14 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
             Entry {
                 choice: Choice::Artist((*slug).clone()),
                 label: card.name.clone(),
+                artist: None,
                 reason: format!("familiarité {:.0} %", f * 100.0),
-                preview: card.tops.iter().take(2).cloned().collect(),
+                preview: card
+                    .tops
+                    .iter()
+                    .take(2)
+                    .map(|top| (top.clone(), card.name.clone()))
+                    .collect(),
             }
         })
         .collect();
@@ -182,7 +191,8 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
         if let Some(card) = catalog.cards.get(&slug) {
             habitues.push(Entry {
                 choice: Choice::Track { slug: slug.clone(), title: title.clone() },
-                label: format!("{title} — {}", card.name),
+                label: title.clone(),
+                artist: Some(card.name.clone()),
                 reason: format!(
                     "un morceau, pas un artiste : il se joue, puis les branches partent de {}",
                     card.name
@@ -206,8 +216,14 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                 Entry {
                     choice: Choice::Artist((*slug).clone()),
                     label: card.name.clone(),
+                    artist: None,
                     reason: "au catalogue, jamais écouté".to_string(),
-                    preview: card.tops.iter().take(1).cloned().collect(),
+                    preview: card
+                        .tops
+                        .iter()
+                        .take(1)
+                        .map(|top| (top.clone(), card.name.clone()))
+                        .collect(),
                 }
             })
             .collect();
@@ -220,8 +236,14 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                 Some(Entry {
                     choice: Choice::Artist(slug.clone()),
                     label: card.name.clone(),
+                    artist: None,
                     reason: format!("dernière écoute il y a {months} mois"),
-                    preview: card.tops.iter().take(1).cloned().collect(),
+                    preview: card
+                        .tops
+                        .iter()
+                        .take(1)
+                        .map(|top| (top.clone(), card.name.clone()))
+                        .collect(),
                 })
             })
             .take(2)
@@ -250,9 +272,10 @@ fn rows_of(
     let mut rows = Vec::new();
     if let Some(last) = recall() {
         rows.push(Row::Rule("reprendre".into()));
+        // le titre devant, l'artiste derrière — partout pareil
         rows.push(Row::Key {
             key: "r".into(),
-            what: format!("{} — {}", last.name, last.title),
+            what: format!("{} — {}", last.title, last.name),
             note: format!("interrompu {}", last.at),
             wired: true,
         });
@@ -283,6 +306,7 @@ fn rows_of(
             rows.push(Row::Entry {
                 n,
                 label: entry.label.clone(),
+                artist: entry.artist.clone(),
                 reason: entry.reason.clone(),
                 tracks: entry.preview.clone(),
             });
