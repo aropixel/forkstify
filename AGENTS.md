@@ -60,6 +60,10 @@ Le détail est dans `docs/decisions/`. En résumé :
   sans remise, confort = profondeur ([0012](docs/decisions/0012-rotation-des-morceaux.md)).
 - **Affinage au clavier : chaque touche est une mesure ou une édition**,
   `u` annule, tout est commande `:` ([0013](docs/decisions/0013-affinage-clavier-mesure-ou-edition.md)).
+- **Base large *et* génération à la volée** — le catalogue de référence vise
+  la largeur, et l'application génère une fiche quand on arrive chez un
+  artiste qui n'en a pas ; un utilisateur a un **fork** du dépôt, pas un
+  dépôt de différences ([0016](docs/decisions/0016-base-large-et-generation-a-la-volee.md)).
 - **Grammaire clavier : quatre namespaces** — `f` la branche, `e` encore,
   `t` le morceau, `a` l'artiste ; la cible se préfixe, le compte suit le
   namespace, la table fait foi dans `docs/keybindings.md`

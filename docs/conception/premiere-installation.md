@@ -110,9 +110,41 @@ utilisateur, la question ne se pose pas**. Mais elle décide de ce que
 signifie « catalogue de référence », et donc de ce qu'on met dans le premier
 dépôt public.
 
+## Tranché : (a) **et** (b) — décision [0016](../decisions/0016-base-large-et-generation-a-la-volee.md)
+
+Arbitrage de Joel, 06/09/2026. La base de référence vise la **largeur**, et
+l'application **génère une fiche à la volée** quand on arrive chez un artiste
+qui n'en a pas. Les deux se complètent : la largeur fait que l'installation
+marche tout de suite, la génération fait qu'elle ne reste jamais étrangère.
+(c) n'est pas écartée — 0004 permet déjà d'importer le catalogue de
+quelqu'un d'autre, aucune décision n'est nécessaire pour ça.
+
+### Un fork, pas un dépôt de différences
+
+Précision demandée par Joel : « chaque utilisateur a son repo de
+modifications ? ». **Non — il a un *fork*.**
+
+    kbyjoel/forkstify-catalog          la référence, l'amont
+        └── randomuser/forkstify-catalog   son fork : TOUT le catalogue, plus ses commits
+                └── ~/…/forkstify-catalog      son clone local, celui que l'application lit
+
+Son dépôt contient **tout le catalogue**, pas seulement ses changements.
+C'est ce qui permet les deux mouvements : `git pull` depuis l'amont pour
+recevoir les fiches des autres, et une **PR** vers l'amont pour proposer les
+siennes. Un dépôt qui ne contiendrait que les différences ne saurait faire ni
+l'un ni l'autre — et contredirait
+[0008](../decisions/0008-le-fork-est-la-surcouche.md), « il n'y a pas de
+surcouche à part ».
+
+`learned/` vit dans ce même fork, versionné pour être portable d'une machine
+à l'autre, mais **n'entre jamais dans une PR** (0014).
+
+Le chemin du catalogue actif est désormais un réglage, `[catalogue] path`,
+l'argument de ligne de commande le surchargeant.
+
 ## À trancher
 
-1. **(a), (b) ou (c)** pour la base de référence.
+1. ~~**(a), (b) ou (c)**~~ — tranché : (a) et (b), voir 0016.
 2. **Le scan de la bibliothèque doit-il entrer dans l'application** — ou
    rester un outillage lancé à part ? Il demande un scope OAuth de plus
    (`user-library-read` est déjà là ; `user-follow-read` et `user-top-read`

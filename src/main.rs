@@ -28,12 +28,19 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::path::PathBuf;
 
+/// Le catalogue actif : l'argument s'il y en a un, sinon le réglage, sinon
+/// l'emplacement par défaut. Un réglage plutôt qu'un chemin en dur, parce
+/// qu'on peut avoir importé plusieurs catalogues et basculer
+/// ([0004](docs/decisions/0004-deux-depots-catalogue-ciblable.md)).
 fn catalog_path(arg: Option<&String>) -> PathBuf {
-    match arg {
-        Some(path) => PathBuf::from(path),
-        None => PathBuf::from(std::env::var("HOME").unwrap_or_default())
-            .join("Work/forkstify-catalog"),
+    if let Some(path) = arg {
+        return PathBuf::from(path);
     }
+    let configured = config::Config::load().catalogue.path;
+    if !configured.trim().is_empty() {
+        return PathBuf::from(configured.trim());
+    }
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Work/forkstify-catalog")
 }
 
 /// The seed: an exact slug, otherwise a search through card names.

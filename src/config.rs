@@ -12,6 +12,23 @@ pub struct Config {
     pub playback: Playback,
     #[serde(default)]
     pub journey: Journey,
+    #[serde(default)]
+    pub catalogue: Catalogue,
+}
+
+#[derive(Deserialize)]
+pub struct Catalogue {
+    /// Le catalogue actif : un clone du dépôt de référence, ou de son fork
+    /// ([0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md) :
+    /// importer, c'est cloner). Vide = `~/Work/forkstify-catalog`.
+    #[serde(default)]
+    pub path: String,
+}
+
+impl Default for Catalogue {
+    fn default() -> Self {
+        Catalogue { path: String::new() }
+    }
 }
 
 #[derive(Deserialize)]
@@ -61,6 +78,12 @@ prefer_studio = true
 # 0 = exploration (on va vers ce qu'on ne connaît pas). Réglable en cours
 # d'écoute avec « c » ou « :comfort 4 ».
 comfort = 3
+
+[catalogue]
+# Le catalogue actif : un clone du dépôt de référence, ou du fork qu'on en a
+# fait. Vide = ~/Work/forkstify-catalog. L'argument de ligne de commande le
+# surcharge.
+# path = \"/home/moi/Work/forkstify-catalog\"
 ";
 
 fn path() -> PathBuf {
