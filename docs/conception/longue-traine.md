@@ -31,7 +31,7 @@ revient à Joel.
 Les fiches portent **`mbid` (214/214)** et **`spotify` (212/214)**.
 **Aucune ne porte d'identifiant Deezer.**
 
-Passer par Deezer — ce que fait `outillage/generer-fiches.py` avec
+Passer par Deezer — ce que fait `tools/generate-cards.py` avec
 `artist/{id}/top` — imposerait donc un `search/artist` par artiste, avec le
 risque d'homonymie que le catalogue a déjà payé une fois (« Experience »
 résolu à tort en The Jimi Hendrix Experience, corrigé le 02/09).

@@ -45,7 +45,7 @@ Le détail est dans `docs/decisions/`. En résumé :
   forkable ([0002](docs/decisions/0002-catalogue-partage-forkable.md)).
 - **Titres** : tops par défaut ([0003](docs/decisions/0003-titres-tops-et-portes.md)) ;
   portes retirées, liens typés en anglais avec proximité, champs anglais,
-  réglages dans `catalogue.toml` ([0010](docs/decisions/0010-format-revise-links-sans-portes.md)).
+  réglages dans `catalog.toml` ([0010](docs/decisions/0010-format-revise-links-sans-portes.md)).
 - **Deux dépôts**, application et catalogue ; importer = cloner, un seul
   catalogue actif, on bascule quand on veut ([0004](docs/decisions/0004-deux-depots-catalogue-ciblable.md)).
 - **Les fiches portent la version de leur format** ([0005](docs/decisions/0005-version-dans-les-fiches.md)).

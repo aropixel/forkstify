@@ -14,7 +14,7 @@
 use std::path::{Path, PathBuf};
 
 pub fn card_path(catalog_dir: &Path, slug: &str) -> PathBuf {
-    catalog_dir.join("fiches").join(format!("{slug}.toml"))
+    catalog_dir.join("cards").join(format!("{slug}.toml"))
 }
 
 /// Échapper une valeur pour une chaîne TOML de base.
@@ -298,7 +298,7 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
         .find(|reference| git(&["rev-parse", "--verify", "--quiet", reference]).is_ok())
         .ok_or("aucun amont connu — ce catalogue n'a pas de dépôt d'origine")?;
 
-    let stat = git(&["diff", "--numstat", base, "--", "fiches/"])?;
+    let stat = git(&["diff", "--numstat", base, "--", "cards/"])?;
     if stat.trim().is_empty() {
         return Ok(vec![format!("rien de plus que {base} — le catalogue est celui d'origine")]);
     }
@@ -315,7 +315,7 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
 
     // puis les lignes ajoutées elles-mêmes : c'est ce qu'on veut relire avant
     // de proposer quoi que ce soit en amont
-    let diff = git(&["diff", "-U0", base, "--", "fiches/"])?;
+    let diff = git(&["diff", "-U0", base, "--", "cards/"])?;
     let added: Vec<&str> = diff
         .lines()
         .filter(|line| line.starts_with('+') && !line.starts_with("+++"))

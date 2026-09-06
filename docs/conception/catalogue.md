@@ -17,7 +17,7 @@ proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
   une direction (tags), **critère additionnel jamais principal**
   ([0011](../decisions/0011-doors-critere-additionnel.md)).
 - **Champs en anglais, liens typés en une ligne, proximités par défaut dans
-  `catalogue.toml`** ([0010](../decisions/0010-format-revise-links-sans-portes.md)).
+  `catalog.toml`** ([0010](../decisions/0010-format-revise-links-sans-portes.md)).
 - **Le format est une interface publique** : stable, documenté, éditable à la
   main.
 - **Deux dépôts** : l'application d'un côté, le catalogue de l'autre.
@@ -40,7 +40,7 @@ Reverser une amélioration = une PR.
 Le format 1, tel qu'appliqué au premier lot :
 
 ```toml
-# fiches/the-cure.toml
+# cards/the-cure.toml
 format = 1
 generated = true          # disparaît à la relecture humaine
 name = "The Cure"
@@ -71,7 +71,7 @@ Post-punk puis pop sombre, Crawley, depuis 1977. ...
 """
 ```
 
-Et à la racine du catalogue, `catalogue.toml` porte l'identité et les
+Et à la racine du catalogue, `catalog.toml` porte l'identité et les
 réglages — dont la grille type → proximité, que chacun ajuste dans son fork.
 
 Sémantique du format, précisée à la relecture du premier lot :
@@ -88,10 +88,10 @@ Sémantique du format, précisée à la relecture du premier lot :
   Les croisements géographiques passent par les tags (`fr`, `uk`,
   `belgique`…), au bon grain.
 - **L'ordre des `links` n'a aucun sens.** La priorité est `proximity`
-  (défaut par type dans `catalogue.toml`, correctif local) — pas de
+  (défaut par type dans `catalog.toml`, correctif local) — pas de
   sémantique invisible, pas de fragilité au merge.
 - **Résolution de `proximity`, en cascade** : la valeur sur le lien s'il y
-  en a une ; sinon la grille `[proximity]` du `catalogue.toml` du catalogue
+  en a une ; sinon la grille `[proximity]` du `catalog.toml` du catalogue
   actif ; sinon les défauts embarqués dans l'application (identiques à la
   grille du catalogue de référence). Le cas normal est de ne rien écrire :
   le type suffit. Changer une valeur de la grille re-règle d'un coup tous
@@ -130,10 +130,10 @@ personne ne sait faire ça, et il ne faut pas le demander :
   dans ses métadonnées, le nom et la version du modèle qui les a produits.
   L'application recalcule localement le vecteur d'une fiche modifiée ;
   l'amont régénère tout à chaque changement de modèle. Prototypé le
-  02/09/2026 (`outillage/vectoriser.py` et `voisins.py`) : modèle
+  02/09/2026 (`tools/vectoriser.py` et `voisins.py`) : modèle
   `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, mean pooling,
   supporté par fastembed en Python comme en Rust), index dans
-  `vecteurs/vecteurs.jsonl` + `meta.toml`. Le texte composé cite les
+  `vectors/vectors.jsonl` + `meta.toml`. Le texte composé cite les
   voisins des liens **sortants et entrants** (la relation vaut dans les
   deux sens, seul `influence` se retourne en « a influencé »).
 - **Hors du dépôt** : caches de l'API Spotify (résolution titre → identifiant,
@@ -255,15 +255,15 @@ intéressé par tous ses commits ».
 
 **C'est un cas que le format sert déjà**, et sans rien inventer :
 [0010](../decisions/0010-format-revise-links-sans-portes.md) impose
-`fiches/` **plat, une fiche par artiste**. Reprendre « son jazz » n'est donc
+`cards/` **plat, une fiche par artiste**. Reprendre « son jazz » n'est donc
 pas reprendre des *commits* mais des **fichiers** — et git sait faire :
 
     git remote add untel git@github.com:untel/forkstify-catalog.git
     git fetch untel
     # voir ce qu'il a que je n'ai pas
-    git diff --stat HEAD untel/main -- fiches/
+    git diff --stat HEAD untel/main -- cards/
     # ne prendre que ce qu'on veut, par fichier
-    git checkout untel/main -- fiches/john-coltrane.toml fiches/alice-coltrane.toml
+    git checkout untel/main -- cards/john-coltrane.toml cards/alice-coltrane.toml
     git commit -m "importe le jazz d'untel"
 
 Un seul commit chez soi, choisi, qui dit ce qu'il fait. Aucun de ses commits
@@ -271,7 +271,7 @@ Un seul commit chez soi, choisi, qui dit ce qu'il fait. Aucun de ses commits
 
 Pour les trouver par famille plutôt qu'un par un, c'est le champ `tags` qui
 sert : lister les fiches de son dépôt dont les `tags` contiennent `jazz`,
-puis les passer à `git checkout`. Un script d'`outillage/` ferait ça en
+puis les passer à `git checkout`. Un script de `tools/` ferait ça en
 quelques lignes.
 
 **Deux propriétés du moteur rendent l'import partiel sûr**, et c'est
@@ -284,7 +284,7 @@ important puisqu'on prend un morceau d'un tout :
 - **Une fiche sans vecteur ne casse rien non plus** — elle est seulement
   invisible à la branche aventureuse, `vector_neighbors` ne travaillant que
   sur ce que `vecteurs.jsonl` contient. **Il faut donc régénérer les
-  vecteurs après un import** (`outillage/vectoriser.py`), sinon les fiches
+  vecteurs après un import** (`tools/vectoriser.py`), sinon les fiches
   reprises ne seront atteignables que par le graphe.
 
 Cette tolérance n'est pas un hasard : elle vient de « un fichier par
@@ -381,7 +381,7 @@ et la corrige au fil de l'écoute.
 > depuis `learned/` le 04/09/2026 — pas de terme français dans les chemins ni
 > le format). Les fichiers d'amorce encore nommés en français dans
 > `learned/` (`amis/`, `artistes-*.json`) et leurs clés seront traduits avec
-> les scripts d'`outillage/`.
+> les scripts de `tools/`.
 
 Orientation : l'*appris* se modifie seul en silence (c'est de la mesure) ;
 la *promotion* se propose par défaut et peut passer en automatique par
@@ -419,7 +419,7 @@ Un nouvel utilisateur ne doit rien avoir à écrire :
 1. **Au premier lancement, l'application propose de cloner le catalogue de
    référence** (déjà acté). Personne ne part de zéro.
 2. **Puis l'import personnel** (son Spotify ou son Deezer — les scripts
-   d'`outillage/` en sont le prototype) : les artistes déjà dans la base ne
+   de `tools/` en sont le prototype) : les artistes déjà dans la base ne
    coûtent rien (leurs signaux calibrent la zone de confort, dans
    `learned/`) ; les absents passent par le pipeline de génération.
 
@@ -495,6 +495,6 @@ premier lancement, générer en cours d'écoute (catalogue vivant).
   quel fournisseur, quelle clé, quel repli hors-ligne ?
 - **L'ensemencement** : combien d'artistes (mille ? cinq mille ?), quelle
   source de charts, et Last.fm nécessite une clé d'API — Deezer non.
-- **Prochain pas concret** : prototyper le générateur dans `outillage/` et
+- **Prochain pas concret** : prototyper le générateur dans `tools/` et
   le lancer sur les 61 fiches appelées par les links du lot 1 — construit
   le lot 2 et valide le démarrage à froid.

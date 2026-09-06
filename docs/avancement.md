@@ -14,8 +14,8 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   fichier par artiste, compteurs décrus (demi-vie 6 mois) (0014). Le
   vocabulaire sur disque (chemins, champs) est en anglais comme le code.
 - **Catalogue amorcé** (`~/Work/forkstify-catalog`, GitHub privé) :
-  `catalogue.toml` (grille type → proximité), **30 fiches** écrites
-  (`generated = true`, le haut du classement de Joel), **outillage/** —
+  `catalog.toml` (grille type → proximité), **30 fiches** écrites
+  (`generated = true`, le haut du classement de Joel), **tools/** —
   7 scripts Python d'amorçage (lecture bibliothèque/playlists Spotify via la
   session Omarchy-Spotify, récolte amis Spotify/Deezer, résolution MBID,
   classement), **learned/** — 741 artistes scorés (titres aimés, albums,
@@ -29,7 +29,7 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   `/artist/related` — vérifiés sans clé), trois chantiers de la base. Voir
   `docs/conception/catalogue.md`.
 - **Générateur de fiches prototypé** (01/09/2026,
-  `outillage/generer-fiches.py`) et **lot 2 généré : 58 fiches** — les
+  `tools/generate-cards.py`) et **lot 2 généré : 58 fiches** — les
   slugs appelés par les links du lot 1 (56 réels, pas 61) plus 2 membres de
   Destiny's Child appelés en cascade. Faits, dates, origine et relations
   typées MusicBrainz ; tops et similaires Deezer ; tags genres + pays +
@@ -45,14 +45,14 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   à son tour **100 slugs** (lot 4, non généré — la traîne du classement à
   score 1–4 est aussi laissée de côté : ces artistes entreront quand un
   link les appellera).
-- **Vecteurs prototypés** (02/09/2026) : `outillage/vectoriser.py`
+- **Vecteurs prototypés** (02/09/2026) : `tools/vectoriser.py`
   compose le texte de chaque fiche depuis sa structure (tags, dates,
   origine, liens sortants et entrants, description si présente) et
   calcule les vecteurs dans un conteneur — modèle
   `paraphrase-multilingual-MiniLM-L12-v2` (fastembed, 384 dimensions,
   mean pooling, dispo en Python et en Rust). Index dérivé commité :
-  `vecteurs/vecteurs.jsonl` (214 fiches) + `meta.toml`.
-  `outillage/voisins.py` (stdlib) = prototype de `forkstify check` :
+  `vectors/vectors.jsonl` (214 fiches) + `meta.toml`.
+  `tools/voisins.py` (stdlib) = prototype de `forkstify check` :
   voisins cohérents (The Cure → Joy Division/Siouxsie ; IAM → le rap
   français ; Nina Simone → Ella/Nat King Cole) ; les fiches maigres ont
   des voisins flous à scores bas, ce que `check` doit justement révéler.
@@ -172,7 +172,7 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   vides (cabadzi, le-motel, la-ruda-salska), doublons de versions chez
   J.P. Nataf, un top russe parasite chez Expérience.
 - Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
-  (`outillage/amis-*.py`).
+  (`tools/amis-*.py`).
 
 ## Grammaire clavier câblée (05/09/2026)
 
@@ -305,6 +305,33 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## Le catalogue parle anglais, et s'importe (06/09/2026)
+
+**Renommage.** `AGENTS.md` impose l'anglais pour « tout ce qui est interface
+publique du dépôt — chemins, sous-dossiers », et
+[0010](decisions/0010-format-revise-links-sans-portes.md) le redit du format.
+Les chemins étaient pourtant restés en français ; seuls `learned/` (0014) et
+les champs des fiches suivaient la règle. Corrigé : `fiches/` → **`cards/`**
+(le code appelle déjà ça une `Card`), `outillage/` → **`tools/`**,
+`vecteurs/` → **`vectors/`**, `catalogue.toml` → **`catalog.toml`**.
+Le vocabulaire français du projet ne bouge pas — on dit toujours « une
+fiche », c'est le chemin sur disque qui parle anglais.
+
+Les **décisions restent intactes** : elles mentionnent les anciens noms et
+sont immuables. Une note en tête de
+[`keybindings.md`](keybindings.md) dit d'y lire les nouveaux, comme 0014
+l'avait fait pour `usage/` → `learned/`.
+
+**`forkstify import <url>`.** Reprendre les fiches d'un autre catalogue :
+ajoute le remote, récupère, prend **les fiches qu'on n'a pas** — jamais
+celles qu'on a, ses corrections sur nos artistes relevant d'une PR où l'on
+discute — commite le tout en une fois, puis régénère les vecteurs.
+
+C'est une **sous-commande, pas un geste d'écoute** : la vectorisation
+demande un conteneur et plusieurs minutes. Si docker manque, la commande
+exacte s'affiche plutôt que d'échouer en silence — sans vecteurs à jour, les
+fiches reprises n'existeraient que pour le graphe.
 
 ## La première installation, question ouverte (06/09/2026)
 
@@ -610,7 +637,7 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 9. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
    touche par touche est faite, l'affichage reste celui d'un terminal qui
    déroule.
-10. **Traduire en anglais** les scripts d'`outillage/` écrits avant la règle
+10. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
 
 ## Corrections en attente (petites)

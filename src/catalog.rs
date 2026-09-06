@@ -72,9 +72,9 @@ struct VectorLine {
 impl Catalog {
     pub fn load(path: &Path) -> anyhow::Result<Catalog> {
         let mut cards = HashMap::new();
-        let dir = path.join("fiches");
+        let dir = path.join("cards");
         for entry in std::fs::read_dir(&dir)
-            .with_context(|| format!("pas de dossier fiches/ dans {}", path.display()))?
+            .with_context(|| format!("pas de dossier cards/ dans {}", path.display()))?
         {
             let file = entry?.path();
             if file.extension().is_some_and(|e| e == "toml") {
@@ -89,20 +89,20 @@ impl Catalog {
             .iter()
             .map(|(kind, value)| (kind.to_string(), *value))
             .collect();
-        if let Ok(text) = std::fs::read_to_string(path.join("catalogue.toml")) {
-            let settings: Settings = toml::from_str(&text).context("catalogue.toml illisible")?;
+        if let Ok(text) = std::fs::read_to_string(path.join("catalog.toml")) {
+            let settings: Settings = toml::from_str(&text).context("catalog.toml illisible")?;
             proximities.extend(settings.proximity);
         }
 
         let mut vectors = HashMap::new();
-        if let Ok(text) = std::fs::read_to_string(path.join("vecteurs/vecteurs.jsonl")) {
+        if let Ok(text) = std::fs::read_to_string(path.join("vectors/vectors.jsonl")) {
             for line in text.lines() {
                 let parsed: VectorLine =
-                    serde_json::from_str(line).context("vecteurs.jsonl illisible")?;
+                    serde_json::from_str(line).context("vectors.jsonl illisible")?;
                 vectors.insert(parsed.slug, parsed.v);
             }
         } else {
-            eprintln!("(pas de vecteurs/vecteurs.jsonl : navigation sur le seul graphe)");
+            eprintln!("(pas de vectors/vectors.jsonl : navigation sur le seul graphe)");
         }
 
         Ok(Catalog { cards, proximities, vectors })

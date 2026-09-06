@@ -12,6 +12,7 @@ mod config;
 mod edit;
 mod engine;
 mod home;
+mod import;
 mod keys;
 mod discography;
 mod learned;
@@ -312,10 +313,15 @@ fn main() -> anyhow::Result<()> {
         [] => return accueil(None),
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]");
+            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]");
             std::process::exit(2);
         }
     };
+
+    // l'import ne charge pas le catalogue : il le modifie
+    if command == "import" {
+        return import::run(&catalog_path(path), target).map_err(|e| anyhow::anyhow!(e));
+    }
 
     let catalog = Catalog::load(&catalog_path(path))?;
     let learned = learned::Learned::load(&catalog_path(path));

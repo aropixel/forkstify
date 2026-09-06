@@ -73,7 +73,7 @@ avant des semaines.
 ## Sur l'idée de lister le compte Spotify
 
 **Ne pas le faire, et c'est une bonne nouvelle.** `classement.json` *est*
-déjà la bibliothèque de Joel, récoltée par `outillage/` : titres aimés,
+déjà la bibliothèque de Joel, récoltée par `tools/` : titres aimés,
 albums aimés, playlists, artistes suivis, #fipway, road trip. C'est plus
 riche que ce que l'API rendrait, et c'est **local, instantané, hors ligne**.
 

@@ -24,6 +24,13 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 `b` ban, `m` mark, `t` top, `d` door, `e` edit, `L` link, `p` peek/pause,
 `r` reroll, `w` wander, `u` undo.
 
+> **Chemins renommés le 06/09/2026.** Le catalogue parle anglais sur disque,
+> comme `AGENTS.md` et [0010](decisions/0010-format-revise-links-sans-portes.md)
+> l'exigent : `fiches/` → `cards/`, `outillage/` → `tools/`, `vecteurs/` →
+> `vectors/`, `catalogue.toml` → `catalog.toml`. Les décisions antérieures
+> sont **immuables** et mentionnent les anciens noms : y lire les nouveaux.
+> Le vocabulaire français ne change pas — on dit toujours « une fiche ».
+
 ## Légende
 
 | Marque | Sens |
@@ -162,6 +169,10 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
 | `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
+
+Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
+écoute : `forkstify import <url>` reprend les fiches d'un autre catalogue —
+celles qu'on n'a pas, jamais celles qu'on a — puis régénère les vecteurs.
 
 ## Touches multimédia (MPRIS / D-Bus)
 

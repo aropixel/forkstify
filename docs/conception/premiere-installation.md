@@ -72,11 +72,11 @@ Le modèle tient ; c'est son **amorce** qui n'existe pas.
    utilisateur doit cloner à la main. `forkstify` devrait proposer d'importer
    le catalogue de référence au premier lancement — c'est 0004, jamais écrit.
 2. **Rien ne scanne le Spotify de l'utilisateur.** `classement.json` a été
-   produit par sept scripts Python d'`outillage/`, lancés à la main par Joel,
+   produit par sept scripts Python de `tools/`, lancés à la main par Joel,
    avec sa session. Pour quelqu'un d'autre, ce fichier n'existe pas : il
    n'aurait **aucune familiarité de départ**, donc un accueil sans habitués
    ni délaissés, et une zone de confort qui ne pencherait vers rien.
-3. **Rien ne génère de fiche à la volée.** `outillage/generer-fiches.py` sait
+3. **Rien ne génère de fiche à la volée.** `tools/generate-cards.py` sait
    le faire (MusicBrainz pour les faits, Deezer pour les tops et les
    similaires), mais c'est un script hors de l'application. Or
    [catalogue.md](catalogue.md) en fait un mécanisme central : « arrivée chez
