@@ -306,6 +306,25 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La première installation, question ouverte (06/09/2026)
+
+Joel : « que se passe-t-il lorsqu'un nouvel utilisateur installera forkstify
+pour la première fois ? » et surtout « comment conjuguer catalogue de base
+commun et modifications de l'utilisateur ? ».
+
+La seconde est **déjà tranchée**, mais éparpillée entre 0002, 0004, 0008 et
+0014 : on ne conjugue pas, on **superpose dans le même dépôt** et git fait le
+travail — la base vient de l'amont, le mien est mes commits par-dessus,
+l'appris vit dans `learned/` et n'est jamais reversé. Rassemblé dans
+[`premiere-installation.md`](conception/premiere-installation.md).
+
+Ce qui manque est l'**amorce** : rien ne clone le catalogue, rien ne scanne
+la bibliothèque de l'utilisateur, rien ne génère une fiche à la volée. Et un
+point dur qui n'était écrit nulle part : **la base actuelle n'est pas neutre,
+c'est l'univers de Joel** — 214 fiches nées de son classement. Un nouvel
+utilisateur au goût éloigné ne pourrait presque rien démarrer, puisqu'une
+graine sans fiche ne démarre pas.
+
 ## La collection entière, à droite de l'accueil (06/09/2026)
 
 Demande de Joel, d'après la colonne ajoutée à `Accueil.dc.html` : à gauche
