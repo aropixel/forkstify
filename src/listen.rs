@@ -839,6 +839,10 @@ impl Live<'_> {
                 None => self.auto_advance().await,
             },
             Cmd::Up => self.move_selection(-1),
+            // les deux bouts de l'axe : le début de la soirée, ou le bout de
+            // ce qui est décidé
+            Cmd::Top => self.selection = Some(0),
+            Cmd::Bottom => self.selection = Some(self.axis_len().saturating_sub(1)),
             Cmd::Down => self.move_selection(1),
             Cmd::Escape => {
                 self.selection = None;

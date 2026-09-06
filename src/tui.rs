@@ -722,7 +722,7 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
                 Style::default().fg(DIM),
             )),
             Line::from(Span::styled(
-                "↑↓ parcourir · entrée démarrer · s trier",
+                "↑↓ parcourir · gg G les bouts · entrée démarrer · s trier",
                 Style::default().fg(DIM),
             )),
         ]),

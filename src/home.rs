@@ -564,6 +564,9 @@ pub fn run(
                 let here = cursor.map_or(0, |i| i + 1);
                 cursor = Some(here.min(listing.len().saturating_sub(1)));
             }
+            // les deux bouts, comme dans vim
+            Cmd::Top => cursor = Some(0),
+            Cmd::Bottom => cursor = Some(listing.len().saturating_sub(1)),
             Cmd::Escape => cursor = None,
             Cmd::Sort => sort = sort.next(),
             Cmd::Help(_) => {}

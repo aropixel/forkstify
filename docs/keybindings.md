@@ -118,6 +118,7 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | `q` | **quit** | Quitter (affiche le parcours) | ✅ |
 | `r` | **resume** | Reprendre le dernier parcours — **accueil seulement** | ✅ |
 | `s` | **sort** | Changer l'ordre de la collection : familiarité → a-z → dernière écoute — **accueil seulement** | ✅ |
+| `gg` / `G` | | Les deux bouts d'une liste, comme dans vim — la collection à l'accueil, l'axe en écoute. `g` seul attend son second | ✅ |
 | `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |

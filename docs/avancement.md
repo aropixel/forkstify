@@ -317,6 +317,11 @@ des raisons et des morceaux, la droite une liste. Une seule constante à
 changer pour passer à moitié-moitié (`LEFT_SHARE`). Sous 60 colonnes la
 liste s'efface — mieux vaut une colonne lisible que deux illisibles.
 
+`gg` et `G` sautent aux deux bouts, comme dans vim — dans la collection à
+l'accueil, et dans l'axe en écoute, puisque c'est le même geste sur le même
+genre de liste. `g` seul n'est rien : il attend son second, et le test
+exhaustif de `keys.rs` vérifie que la grammaire reste sans préfixe.
+
 Elle réunit le catalogue **et** le classement — 780 noms, dont 214 avec
 fiche — avec pour chacun une jauge de familiarité, son nom, et depuis quand
 il n'a pas sonné (`auj.`, `hier`, `-3s`, `-7m`, `jamais`, en orange au-delà
