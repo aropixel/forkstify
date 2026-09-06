@@ -309,6 +309,9 @@ pub fn run(
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
     tui: &mut Tui,
 ) -> Option<Choice> {
+    // ce qui est en train d'être tapé : la seule chose qui bouge en bas
+    let mut typed = String::new();
+    let mut said = String::new();
     loop {
         let blocks = entries(catalog, learned, *comfort);
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
@@ -322,14 +325,39 @@ pub fn run(
                 tail.known()
             ),
             rows: &rows,
-            prompt: format!(
-                "[1-{count} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]"
-            ),
+            prompt: if !typed.is_empty() {
+                typed.clone()
+            } else if !said.is_empty() {
+                said.clone()
+            } else {
+                format!(
+                    "[1-{count} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]"
+                )
+            },
             comfort: comfort.value(),
             comfort_word: crate::listen::comfort_word(comfort.value()),
         });
 
         let cmd = rx.blocking_recv()?;
+        match &cmd {
+            Cmd::Pending(seq) => {
+                typed = seq.clone();
+                continue;
+            }
+            Cmd::Typing(line) => {
+                typed = line.clone().unwrap_or_default();
+                continue;
+            }
+            Cmd::Unknown(seq) => {
+                typed.clear();
+                said = format!("(inconnu : {seq})");
+                continue;
+            }
+            _ => {
+                typed.clear();
+                said.clear();
+            }
+        }
         match cmd {
             Cmd::Quit => return None,
             Cmd::Digit(n) => {
@@ -341,13 +369,13 @@ pub fn run(
                         }
                     });
                 }
-                let _ = n;
+                said = format!("(pas d'entrée {n})");
             }
             Cmd::Resume => match recall() {
                 Some(last) => {
                     return Some(Choice::Track { slug: last.slug, title: last.title })
                 }
-                None => {}
+                None => said = "(aucun parcours à reprendre)".into(),
             },
             // entrée veut dire « choisis pour moi » partout ailleurs : elle
             // garde ce sens ici, et « au hasard » ne coûte pas de touche neuve
@@ -382,8 +410,7 @@ pub fn run(
 }
 
 /// La boucle de découverte, montrée pendant que l'écran non connecté attend.
-pub fn ask_phone() -> Result<(), Box<dyn std::error::Error>> {
-    println!("\n⏸ en attente sur le réseau local (mdns) — aucun appareil ne s'est encore annoncé");
+pub fn ask_phone() -> Result<String, Box<dyn std::error::Error>> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     rt.block_on(crate::sound::discover())
 }

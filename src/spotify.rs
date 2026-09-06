@@ -74,15 +74,11 @@ impl WebApi {
         let token = match &cached {
             Some(refresh) => match client.refresh_token_async(refresh).await {
                 Ok(token) => token,
-                Err(e) => {
-                    println!("Autorisation Spotify expirée ({e}) — on la redemande.");
-                    client.get_access_token_async().await?
-                }
+                // rien ne s'imprime ici : la TUI tient l'écran et affiche
+                // l'étape en cours (« autorisation de l'api web… »)
+                Err(_) => client.get_access_token_async().await?,
             },
-            None => {
-                println!("Autorisation Spotify dans le navigateur (une fois)…");
-                client.get_access_token_async().await?
-            }
+            None => client.get_access_token_async().await?,
         };
 
         let resolved = std::fs::read_to_string(RESOLVE_CACHE)

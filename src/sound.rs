@@ -32,7 +32,7 @@ pub fn has_credentials() -> bool {
 /// credentials. This used to live in the `spike-connect` binary; it belongs
 /// in the application, because « brancher le téléphone » is part of the
 /// product, not a setup step run once by hand.
-pub async fn discover() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn discover() -> Result<String, Box<dyn std::error::Error>> {
     let config = SessionConfig::default();
     let cache = Cache::new(Some(CREDENTIALS_CACHE), None, None, None)?;
     let mut discovery = Discovery::builder(config.device_id.clone(), config.client_id.clone())
@@ -49,8 +49,7 @@ pub async fn discover() -> Result<(), Box<dyn std::error::Error>> {
     // opening the session is what writes the credentials to the cache
     let session = Session::new(config, Some(cache));
     session.connect(credentials, true).await?;
-    println!("✓ identifiants reçus ({})", session.username());
-    Ok(())
+    Ok(session.username())
 }
 
 pub struct Sound {

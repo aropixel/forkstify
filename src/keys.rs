@@ -12,7 +12,7 @@
 //!
 //! `/` and `:` leave raw mode for a line, which is where a query belongs.
 
-use std::io::{Read, Write};
+use std::io::Read;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// When a chosen branch or an encore should start.
@@ -67,6 +67,15 @@ pub enum Cmd {
     Quit,
     Search(String),
     Colon(String),
+    /// La séquence à moitié tapée, ou vide quand elle se referme. Le lecteur
+    /// **n'imprime plus rien** : l'écran appartient à la TUI, et un octet
+    /// écrit derrière son dos y laisse des restes qu'elle ne sait pas
+    /// effacer (relevé par Joel le 06/09/2026).
+    Pending(String),
+    /// Une ligne en cours de frappe (`/` ou `:`), préfixe compris.
+    Typing(Option<String>),
+    /// Une séquence qui ne veut rien dire.
+    Unknown(String),
 }
 
 pub enum Parse {
@@ -205,14 +214,14 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                         _ => None,
                     };
                     if let Some(cmd) = cmd {
-                        clear_pending(&mut pending);
+                        clear_pending(&mut pending, &tx);
                         if tx.send(cmd).is_err() {
                             return;
                         }
                         continue;
                     }
                 }
-                clear_pending(&mut pending);
+                clear_pending(&mut pending, &tx);
                 if tx.send(Cmd::Escape).is_err() {
                     return;
                 }
@@ -223,7 +232,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             // what can be typed, here or inside the pending namespace
             if key == ' ' {
                 let namespace = pending.chars().next();
-                clear_pending(&mut pending);
+                clear_pending(&mut pending, &tx);
                 if tx.send(Cmd::Help(namespace)).is_err() {
                     return;
                 }
@@ -232,10 +241,17 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
 
             // `/` and `:` open a line: a query is typed, not chorded
             if pending.is_empty() && (key == '/' || key == ':') {
-                if let Some(text) = read_line(&mut stdin, key) {
-                    let cmd = if key == '/' { Cmd::Search(text) } else { Cmd::Colon(text) };
-                    if tx.send(cmd).is_err() {
-                        return;
+                match read_line(&mut stdin, key, &tx) {
+                    Some(text) => {
+                        let cmd = if key == '/' { Cmd::Search(text) } else { Cmd::Colon(text) };
+                        if tx.send(Cmd::Typing(None)).is_err() || tx.send(cmd).is_err() {
+                            return;
+                        }
+                    }
+                    None => {
+                        if tx.send(Cmd::Typing(None)).is_err() {
+                            return;
+                        }
                     }
                 }
                 continue;
@@ -250,68 +266,59 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             pending.push(key);
             match parse(&pending) {
                 Parse::Done(cmd) => {
-                    clear_pending(&mut pending);
+                    let was_pending = pending.chars().count() > 1;
+                    pending.clear();
+                    if was_pending && tx.send(Cmd::Pending(String::new())).is_err() {
+                        return;
+                    }
                     if tx.send(cmd).is_err() {
                         return;
                     }
                 }
                 Parse::Pending => {
-                    // show what we are waiting on, the way vim shows a
-                    // half-typed command
-                    print!("{key}");
-                    std::io::stdout().flush().ok();
+                    // montrer ce qu'on attend, comme vim montre une commande
+                    // à moitié tapée — mais c'est la TUI qui l'affiche
+                    if tx.send(Cmd::Pending(pending.clone())).is_err() {
+                        return;
+                    }
                 }
                 Parse::Unknown => {
                     let shown = pending.clone();
-                    clear_pending(&mut pending);
-                    println!("\r\x1b[K(inconnu : {shown})");
-                    std::io::stdout().flush().ok();
+                    pending.clear();
+                    if tx.send(Cmd::Unknown(shown)).is_err() {
+                        return;
+                    }
                 }
             }
         }
     });
 }
 
-/// Erase the half-typed command from the line before printing anything else.
-/// Only when something was actually echoed: a one-key command never echoes,
-/// and erasing then would wipe the line that was just drawn.
-fn clear_pending(pending: &mut String) {
-    if pending.chars().count() > 1 {
-        print!("\r\x1b[K");
-        std::io::stdout().flush().ok();
+/// Oublier la séquence en cours, et le dire à l'écran.
+fn clear_pending(pending: &mut String, tx: &UnboundedSender<Cmd>) {
+    if !pending.is_empty() {
+        let _ = tx.send(Cmd::Pending(String::new()));
     }
     pending.clear();
 }
 
-/// Read a line in raw mode: echo, backspace, Enter to send, Esc to cancel.
-fn read_line(stdin: &mut std::io::Stdin, prefix: char) -> Option<String> {
+/// Lire une ligne : la frappe remonte à l'écran au lieu de s'écrire dessus.
+/// Entrée envoie, échap annule.
+fn read_line(stdin: &mut std::io::Stdin, prefix: char, tx: &UnboundedSender<Cmd>) -> Option<String> {
     let mut text = String::new();
-    print!("\n{prefix}");
-    std::io::stdout().flush().ok();
+    let _ = tx.send(Cmd::Typing(Some(prefix.to_string())));
     let mut byte = [0u8; 1];
     while stdin.read_exact(&mut byte).is_ok() {
         match byte[0] {
-            b'\r' | b'\n' => {
-                println!();
-                return Some(text);
-            }
-            0x1b => {
-                println!("\r\x1b[K(annulé)");
-                return None;
-            }
+            b'\r' | b'\n' => return Some(text),
+            0x1b => return None,
             0x7f | 0x08 => {
-                if text.pop().is_some() {
-                    print!("\x08 \x08");
-                    std::io::stdout().flush().ok();
-                }
+                text.pop();
             }
-            b if b.is_ascii_graphic() || b == b' ' => {
-                text.push(b as char);
-                print!("{}", b as char);
-                std::io::stdout().flush().ok();
-            }
+            b if b.is_ascii_graphic() || b == b' ' => text.push(b as char),
             _ => {}
         }
+        let _ = tx.send(Cmd::Typing(Some(format!("{prefix}{text}"))));
     }
     None
 }

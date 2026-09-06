@@ -68,29 +68,39 @@ async fn async_run(
         Choice::Track { slug, title } => (slug.clone(), Some(title.clone())),
     };
     let seed = seed.as_str();
-    println!(
-        "Appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache.",
+    // l'écran alterné appartient à la TUI : les étapes s'y dessinent, elles
+    // ne s'impriment pas
+    tui.clear();
+    let census = format!(
+        "appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache",
         learned.known(),
         learned.seeded(),
         tail.known()
     );
-    println!("Connexion à Spotify…");
+    let mut steps = vec![(census, true), ("connexion à spotify…".to_string(), false)];
+    let _ = tui.splash(&steps);
     let config = crate::config::Config::load();
     let sound = Sound::connect().await?;
+    steps[1] = ("le son : librespot connecté".to_string(), true);
+    steps.push(("autorisation de l'api web — le navigateur s'ouvre si besoin…".to_string(), false));
+    let _ = tui.splash(&steps);
     let web = WebApi::new(config.playback.prefer_studio).await?;
+    steps[2] = ("les titres : api web autorisée".to_string(), true);
+    let _ = tui.splash(&steps);
 
     // MPRIS: let the desktop's media keys (⏮ ⏭ ⏯) drive us
     let (ctrl_tx, mut ctrl_rx) = tokio::sync::mpsc::unbounded_channel::<Control>();
     let _mpris = match mediakeys::start(ctrl_tx).await {
         Ok(player) => {
-            println!("✓ Prêt. Le son sort de forkstify (touches multimédia actives via MPRIS).");
+            steps.push(("touches multimédia actives (mpris)".to_string(), true));
             Some(player)
         }
         Err(e) => {
-            println!("✓ Prêt (MPRIS indisponible : {e} — touches multimédia inactives).");
+            steps.push((format!("mpris indisponible ({e}) — touches multimédia inactives"), true));
             None
         }
     };
+    let _ = tui.splash(&steps);
 
     let mut live = Live {
         catalog,
@@ -112,6 +122,7 @@ async fn async_run(
         selection: None,
         comfort_before: None,
         overlay: None,
+        typed: String::new(),
         warm_requested: false,
         branches: Vec::new(),
         pending_branch: None,
@@ -236,6 +247,9 @@ struct Live<'a> {
     /// « c » ouvre le réglage du confort ; on garde la valeur d'avant pour
     /// qu'échap la rende.
     comfort_before: Option<Comfort>,
+    /// Ce qui est en train d'être tapé : une séquence à moitié faite, ou une
+    /// ligne après « / » ou « : ». C'est la seule chose qui bouge en bas.
+    typed: String,
     /// Un bloc posé sur l'écran — le menu du leader, « ? ». Il ne descend pas
     /// dans le journal : le bas de l'écran ne doit pas bouger.
     overlay: Option<(String, Vec<String>)>,
@@ -755,6 +769,23 @@ impl Live<'_> {
         if !matches!(cmd, Cmd::Up | Cmd::Down | Cmd::Auto) {
             self.overlay = None;
         }
+        // ce qui se tape ne fait que s'afficher : aucune action
+        match &cmd {
+            Cmd::Pending(seq) => {
+                self.typed = seq.clone();
+                return true;
+            }
+            Cmd::Typing(line) => {
+                self.typed = line.clone().unwrap_or_default();
+                return true;
+            }
+            Cmd::Unknown(seq) => {
+                self.typed.clear();
+                say!(self, "(inconnu : {seq})");
+                return true;
+            }
+            _ => self.typed.clear(),
+        }
         // while `/` results are on screen, a digit picks one of them rather
         // than a branch; anything else dismisses them
         if !self.pending.is_empty() {
@@ -822,6 +853,8 @@ impl Live<'_> {
             // deux touches de l'accueil, sans emploi une fois qu'on écoute
             Cmd::Resume => say!(self, "\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
             Cmd::Browse => say!(self, "\n(« b » sert à l'accueil : ici, le son est déjà là)"),
+            // déjà traités plus haut : ils ne font qu'afficher
+            Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
@@ -966,7 +999,9 @@ impl Live<'_> {
             .filter_map(|slug| self.catalog.cards.get(slug).map(|c| c.name.clone()))
             .collect();
         let seed = self.rounds[0].artists.first().cloned().unwrap_or_default();
-        let prompt = if self.pending.is_empty() {
+        let prompt = if !self.typed.is_empty() {
+            self.typed.clone()
+        } else if self.pending.is_empty() {
             format!(
                 "[1-{} branche · h/l · p · espace = les touches · q]",
                 self.branches.len().max(1)

@@ -459,3 +459,42 @@ fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[Str
         ));
     frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), rect);
 }
+
+impl Tui {
+    /// Un écran d'attente : ce que forkstify est en train de faire, pendant
+    /// qu'il le fait. Rien ne doit s'imprimer hors de la TUI — l'écran
+    /// alterné est à elle, et un `println!` y laisse des restes qu'elle ne
+    /// sait pas effacer.
+    pub fn splash(&mut self, steps: &[(String, bool)]) -> std::io::Result<()> {
+        self.terminal.draw(|frame| {
+            let area = frame.area();
+            let mut lines = vec![
+                Line::from(Span::styled(
+                    "forkstify",
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(""),
+            ];
+            for (text, done) in steps {
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        if *done { "  ✓ " } else { "  · " }.to_string(),
+                        Style::default().fg(if *done { PLAYING } else { DIM }),
+                    ),
+                    Span::styled(
+                        text.clone(),
+                        Style::default().fg(if *done { MUTED } else { DIM }),
+                    ),
+                ]));
+            }
+            frame.render_widget(Paragraph::new(lines), area);
+        })?;
+        Ok(())
+    }
+
+    /// Repartir d'un écran vide. À appeler quand on change de vue : ratatui
+    /// ne redessine que ce qu'il croit avoir changé.
+    pub fn clear(&mut self) {
+        let _ = self.terminal.clear();
+    }
+}

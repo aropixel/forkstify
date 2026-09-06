@@ -306,6 +306,31 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Plus rien ne s'imprime sous la TUI (06/09/2026)
+
+Joel, au test suivant : « quand j'appuie sur 2, le bas bouge toujours », avec
+des textes qui se chevauchent (« ▶ ♪ Vilaine — Odezenne forkstify (touches
+multimédia actives…) »).
+
+La cause était plus large que le démarrage. **Trois familles d'impressions
+écrivaient dans l'écran alterné à l'insu de ratatui**, qui ne redessine que
+ce qu'il croit avoir changé — d'où les restes :
+
+1. les quatre messages de démarrage d'une session (appris, connexion, MPRIS) ;
+2. les deux messages d'autorisation de `spotify.rs` ;
+3. et surtout **le lecteur de touches lui-même** : l'écho des séquences à
+   moitié tapées, la ligne éditée après `/` ou `:`, les effacements.
+
+Le lecteur ne dit plus rien à l'écran : il **remonte son état** —
+`Cmd::Pending` pour une séquence en cours, `Cmd::Typing` pour une ligne,
+`Cmd::Unknown` pour une séquence sans emploi — et c'est la TUI qui l'affiche,
+sur la ligne d'invite. Le bas de l'écran ne bouge donc plus que pour montrer
+**la commande en cours**, ce qui était la demande exacte.
+
+Le démarrage d'une session a désormais son écran d'attente, avec ses étapes
+cochées à mesure (`Tui::splash`), et `Tui::clear()` repart d'un écran vide à
+chaque changement de vue.
+
 ## Premiers retours d'usage sur la TUI (06/09/2026)
 
 Cinq retours de Joel après la première vraie prise en main, tous appliqués.

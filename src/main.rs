@@ -242,6 +242,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let mut last_path: Vec<String> = Vec::new();
 
     loop {
+        tui.clear();
         let status = home::Status::read();
         if !status.connected() {
             let rows = home::disconnected_rows(&status, &catalog);
@@ -258,7 +259,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 ],
                 census: String::new(),
                 rows: &rows,
-                prompt: "[en attente · q]".into(),
+                prompt: "[en attente sur le réseau local (mdns) · q]".into(),
                 comfort: comfort.value(),
                 comfort_word: listen::comfort_word(comfort.value()),
             });
