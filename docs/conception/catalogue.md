@@ -247,6 +247,50 @@ qui remplace 0008**, et il faudra y trancher : granularité de la copie,
 format du correctif, comportement quand l'amont change la fiche d'origine,
 et chemin de contribution.
 
+### Reprendre une partie du catalogue de quelqu'un d'autre
+
+Question de Joel (06/09/2026) : « si quelqu'un a un gros catalogue jazz, je
+serai intéressé pour le récupérer — pour autant, je ne serai peut-être pas
+intéressé par tous ses commits ».
+
+**C'est un cas que le format sert déjà**, et sans rien inventer :
+[0010](../decisions/0010-format-revise-links-sans-portes.md) impose
+`fiches/` **plat, une fiche par artiste**. Reprendre « son jazz » n'est donc
+pas reprendre des *commits* mais des **fichiers** — et git sait faire :
+
+    git remote add untel git@github.com:untel/forkstify-catalog.git
+    git fetch untel
+    # voir ce qu'il a que je n'ai pas
+    git diff --stat HEAD untel/main -- fiches/
+    # ne prendre que ce qu'on veut, par fichier
+    git checkout untel/main -- fiches/john-coltrane.toml fiches/alice-coltrane.toml
+    git commit -m "importe le jazz d'untel"
+
+Un seul commit chez soi, choisi, qui dit ce qu'il fait. Aucun de ses commits
+à lui n'entre — on prend l'**état** de ses fiches, pas son histoire.
+
+Pour les trouver par famille plutôt qu'un par un, c'est le champ `tags` qui
+sert : lister les fiches de son dépôt dont les `tags` contiennent `jazz`,
+puis les passer à `git checkout`. Un script d'`outillage/` ferait ça en
+quelques lignes.
+
+**Deux propriétés du moteur rendent l'import partiel sûr**, et c'est
+important puisqu'on prend un morceau d'un tout :
+
+- **Un lien pendant est ignoré, pas fatal.** `graph_neighbors` cherche la
+  cible d'un `link` avec `.get()` : un lien vers une fiche qu'on n'a pas
+  passe simplement son tour. On peut donc prendre dix fiches d'un ensemble
+  de cent sans rien casser.
+- **Une fiche sans vecteur ne casse rien non plus** — elle est seulement
+  invisible à la branche aventureuse, `vector_neighbors` ne travaillant que
+  sur ce que `vecteurs.jsonl` contient. **Il faut donc régénérer les
+  vecteurs après un import** (`outillage/vectoriser.py`), sinon les fiches
+  reprises ne seront atteignables que par le graphe.
+
+Cette tolérance n'est pas un hasard : elle vient de « un fichier par
+artiste » et du fait que le graphe et l'espace vectoriel sont deux chemins
+indépendants vers le même artiste.
+
 **Reste ouvert** : faut-il un lien **personnel**, qui ne parte jamais en PR ?
 Deux façons, aucune tranchée — un champ dans la ligne (`personal = true`),
 ou rien du tout, la relecture en amont faisant le tri. La seconde est plus

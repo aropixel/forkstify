@@ -1265,6 +1265,11 @@ impl Live<'_> {
                 _ => say!(self, "Confort attendu entre 0 (cocon) et 5 (exploration)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
+            // la surcouche personnelle se calcule, elle ne se stocke pas
+            (Some("mine"), _) => match crate::edit::mine(&self.catalog_dir) {
+                Ok(lines) => self.overlay = Some(("ce qui est à moi".into(), lines)),
+                Err(why) => say!(self, "(impossible de comparer à l'amont : {why})"),
+            },
             (Some("comfort"), None) => say!(self, 
                 "Zone de confort : {} — {}",
                 self.comfort.value(),
@@ -1366,6 +1371,7 @@ impl Live<'_> {
                 (":size <n>", "taille des branches", true),
                 (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),
+                (":mine", "ce que ce catalogue a de plus que l'amont", true),
                 ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
             ],

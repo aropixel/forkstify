@@ -159,6 +159,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
 | `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
+| `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
 | `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 

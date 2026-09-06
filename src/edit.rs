@@ -268,3 +268,66 @@ mod tests {
         assert_eq!(quoted("A \"Forest\""), "\"A \\\"Forest\\\"\"");
     }
 }
+
+/// `:mine` — ce que ce catalogue a de plus que l'amont.
+///
+/// La surcouche personnelle n'est pas stockée, elle se **calcule** : dans un
+/// fork ([0008]), ce qui est à soi ce sont ses commits, et `git diff` les
+/// rend ligne par ligne. C'est ce qui permet de garder une seule fiche par
+/// artiste — pas de copie à fusionner, pas de second format — tout en
+/// voyant sa propre couche.
+pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
+    let git = |args: &[&str]| -> Result<String, String> {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .map_err(|e| format!("git introuvable ({e})"))?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).to_string())
+        } else {
+            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+        }
+    };
+
+    // l'amont d'abord, l'origine à défaut : un fork a les deux, un clone
+    // simple n'a que la seconde
+    let base = ["upstream/main", "upstream/master", "origin/main", "origin/master"]
+        .into_iter()
+        .find(|reference| git(&["rev-parse", "--verify", "--quiet", reference]).is_ok())
+        .ok_or("aucun amont connu — ce catalogue n'a pas de dépôt d'origine")?;
+
+    let stat = git(&["diff", "--numstat", base, "--", "fiches/"])?;
+    if stat.trim().is_empty() {
+        return Ok(vec![format!("rien de plus que {base} — le catalogue est celui d'origine")]);
+    }
+
+    let mut lines = vec![format!("ce que ce catalogue a de plus que {base} :")];
+    for row in stat.lines() {
+        let mut cols = row.split('\t');
+        let (added, removed, path) = (cols.next(), cols.next(), cols.next());
+        if let (Some(added), Some(removed), Some(path)) = (added, removed, path) {
+            let name = path.rsplit('/').next().unwrap_or(path);
+            lines.push(format!("  {name}  +{added} −{removed}"));
+        }
+    }
+
+    // puis les lignes ajoutées elles-mêmes : c'est ce qu'on veut relire avant
+    // de proposer quoi que ce soit en amont
+    let diff = git(&["diff", "-U0", base, "--", "fiches/"])?;
+    let added: Vec<&str> = diff
+        .lines()
+        .filter(|line| line.starts_with('+') && !line.starts_with("+++"))
+        .collect();
+    if !added.is_empty() {
+        lines.push(String::new());
+        for line in added.iter().take(24) {
+            lines.push(format!(" {}", line[1..].trim()));
+        }
+        if added.len() > 24 {
+            lines.push(format!(" … et {} lignes de plus", added.len() - 24));
+        }
+    }
+    Ok(lines)
+}
