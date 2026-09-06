@@ -203,6 +203,50 @@ distinguer un fait vérifié d'un rapprochement d'un soir. Depuis le
 date** dans sa note — `note = "rapproché à l'écoute, 2026-09-06"` — ce que
 0010 demandait déjà en substance : « le type nomme et explique la branche ».
 
+### La surcouche par duplication : le besoin est juste, le mécanisme existe déjà
+
+Proposition de Joel (06/09/2026) : plutôt qu'un fork où tout se mélange,
+**dupliquer la fiche** — une fiche modifiée est copiée dans un espace
+personnel, on y met ses doors et ses links, et l'application **additionne les
+deux, la surcharge gagnant**. « On ne serait plus sur un fork pur, mais ce
+serait plus clean, non ? »
+
+Le besoin derrière est réel et mal servi aujourd'hui : **savoir ce qui est à
+soi**. Rien dans forkstify ne le montre.
+
+Mais la duplication le paierait cher :
+
+- **Elle fige la fiche au jour de la copie.** L'amont corrige un MBID,
+  ajoute un top, réécrit une description : la copie personnelle ne le voit
+  jamais. Il faudrait alors fusionner champ par champ — c'est-à-dire
+  réimplémenter git, en moins bien.
+- **Elle demande un second format.** Ou bien la copie est une fiche entière,
+  et modifier un lien fige tout le reste ; ou bien c'est un format de
+  correctif, à concevoir, documenter, versionner. Or
+  [0002](../decisions/0002-catalogue-partage-forkable.md) fait du format de
+  fiche une **interface publique** : il y en aurait deux.
+- **Elle éloigne le débat que Joel dit vouloir.** Proposer en amont
+  demanderait d'extraire la ligne de la surcouche pour la reporter dans la
+  fiche de base — de la friction exactement là où l'on veut de la fluidité.
+
+**Et surtout : la surcouche existe déjà, elle est simplement invisible.**
+Dans un fork, ce qui est à soi, ce sont **ses commits** — `git diff
+upstream/main` les rend, fiche par fiche et ligne par ligne. C'est une
+surcouche *calculée* plutôt que *stockée* : rien à fusionner, rien à figer,
+rien à versionner en double. Ce que la duplication apporterait de « clean »,
+git le donne déjà ; ce qui manque, c'est que forkstify le **montre**.
+
+**Proposition, à trancher** : garder
+[0008](../decisions/0008-le-fork-est-la-surcouche.md) et ajouter de quoi
+voir sa propre couche — une commande `:mine` qui liste ce qui diffère de
+l'amont, fiche par fiche, et d'où chaque ligne vient (la provenance étant
+désormais dans les notes). Coût : quelques lignes autour de `git diff`.
+
+Si la duplication reste préférée malgré tout, elle demande une **décision
+qui remplace 0008**, et il faudra y trancher : granularité de la copie,
+format du correctif, comportement quand l'amont change la fiche d'origine,
+et chemin de contribution.
+
 **Reste ouvert** : faut-il un lien **personnel**, qui ne parte jamais en PR ?
 Deux façons, aucune tranchée — un champ dans la ligne (`personal = true`),
 ou rien du tout, la relecture en amont faisant le tri. La seconde est plus
