@@ -306,6 +306,40 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La file s'enchaîne : le parcours devient une playlist (06/09/2026)
+
+Joel, après avoir vécu la TUI : « j'aimerais que le choix d'une nouvelle
+branche s'ajoute à ce qui a été décidé auparavant. Actuellement, cela le
+remplace. Ainsi on peut construire une playlist rapidement en quelques choix
+de branches. »
+
+C'est un changement de modèle, et il est plus juste : **choisir une branche
+l'ajoute à la file** au lieu de la remplacer, et les branches suivantes se
+proposent depuis le **bout** de la file, pas depuis ce qui sonne. C'est la
+« chaîne » des maquettes de file d'attente, obtenue sans mode séparé.
+
+Conséquences :
+
+- **Il n'y a plus de branche « en attente ».** Tout ce qui est décidé est
+  dans la file — `pending_branch` disparaît, et `next()` se réduit à
+  « avancer, sinon tirer ». `fn<n>` et `f!<n>` gardent leur sens : insérer
+  après le morceau en cours, ou en retirant le reste.
+- **Chaque branche s'ouvre par son nom dans la file** : le premier de ses
+  morceaux porte l'étiquette (`Stop::head`), les suivants un filet magenta.
+  On voit donc plusieurs branches empilées, chacune délimitée.
+- **Tout le passé reste à l'écran** — c'est la playlist en train de se
+  faire, pas un historique à oublier. L'axe défile pour suivre ce qui joue.
+- **`tx` retire de la file** le morceau sélectionné. Il reste proposable :
+  ce n'est pas un ban, c'est un « pas dans cette soirée ». Si c'était la tête
+  d'une branche, le suivant en reprend le nom.
+- **Plus de repli de ligne dans l'axe** : une liste se coupe, elle ne se
+  replie pas. C'était le défaut signalé — la colonne s'étant rétrécie avec le
+  volet des branches, les longs libellés passaient à la ligne.
+
+**Reste ouvert** : sauvegarder la playlist. Tout ce qu'il faut est là — le
+passé, la file, les noms de branches — mais où l'écrire et sous quel format
+n'est pas tranché (une playlist Spotify ? un fichier du catalogue ?).
+
 ## La branche retenue se déplie dans « à suivre » (06/09/2026)
 
 Joel : « quand je choisis une branche, le parcours s'affiche en dessous des

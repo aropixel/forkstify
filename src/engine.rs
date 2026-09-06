@@ -53,6 +53,10 @@ pub struct Stop {
     pub artist: String,
     pub title: String,
     pub source: Source,
+    /// Posé sur le **premier** morceau d'une branche ajoutée à la file : son
+    /// nom. C'est ce qui permet de voir, dans « à suivre », où une branche
+    /// commence — la file en enchaîne plusieurs (Joel, 06/09/2026).
+    pub head: Option<String>,
 }
 
 pub struct Branch {
@@ -459,7 +463,13 @@ pub fn encore(
         };
         // without replacement, as 0012 asks of a second sanding
         let (title, _, source) = pool.swap_remove(dist.sample(rng));
-        stops.push(Stop { slug: artist.to_string(), artist: card.name.clone(), title, source });
+        stops.push(Stop {
+            slug: artist.to_string(),
+            artist: card.name.clone(),
+            title,
+            source,
+            head: None,
+        });
     }
     stops
 }
@@ -490,7 +500,13 @@ fn walk(
         let last = artists.last().unwrap().clone();
         let card = &catalog.cards[&last];
         if let Some((title, source)) = fresh_track(card, &last, learned, tail, comfort, played, &towards, rng) {
-            stops.push(Stop { slug: last.clone(), artist: card.name.clone(), title, source });
+            stops.push(Stop {
+                slug: last.clone(),
+                artist: card.name.clone(),
+                title,
+                source,
+                head: None,
+            });
         }
         hops += 1;
         if stops.len() >= size || hops >= size * 3 {
@@ -589,7 +605,13 @@ fn stay(
         let Some(slug) = draw_weighted(&mut weighted, rng) else { break };
         let card = &catalog.cards[&slug];
         if let Some((title, source)) = fresh_track(card, slug.as_str(), learned, tail, comfort, played, &[], rng) {
-            stops.push(Stop { slug: slug.clone(), artist: card.name.clone(), title, source });
+            stops.push(Stop {
+                slug: slug.clone(),
+                artist: card.name.clone(),
+                title,
+                source,
+                head: None,
+            });
             artists.push(slug);
         }
     }

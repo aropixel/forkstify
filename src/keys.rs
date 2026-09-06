@@ -85,7 +85,7 @@ pub enum Parse {
     Unknown,
 }
 
-const TRACK_KEYS: [char; 7] = ['l', 's', 'b', 'm', 't', 'T', 'd'];
+const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
 const ARTIST_KEYS: [char; 5] = ['l', 's', 'b', 'e', 'L'];
 
 /// Match the pending buffer against the grammar of 0015.

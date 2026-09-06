@@ -35,7 +35,7 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 
 | Touche | Mot | Action | |
 |---|---|---|---|
-| `f<n>` | **fork** | Branche n, **après la branche en cours** | ✅ |
+| `f<n>` | **fork** | Branche n, **ajoutée à la suite de ce qui est déjà décidé** — on enchaîne les choix et la soirée se construit | ✅ |
 | `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé | ✅ |
 | `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré | ✅ |
 | `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
@@ -72,6 +72,7 @@ moteur retient.
 | `ts` | track **skip** | « Pas celui-là, pas maintenant » — note et passe | mesure | ✅ |
 | `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
+| `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
 | `tt` | track **top** | Promouvoir en top | édition | 📋 |
 | `tT` | track **untop** | Retirer des tops | édition | 📋 |
 | `td` | track **door** | En faire une door vers la dernière direction prise | édition | 📋 |

@@ -53,11 +53,7 @@ pub struct View<'a> {
     /// Il a donc sa place réservée à droite plutôt que d'être posé sur
     /// l'axe — sinon il masquerait en permanence le bas de la file.
     pub panel: bool,
-    /// La branche retenue mais pas encore commencée : son nom, quand elle
-    /// prendra la main, et ses morceaux. Ils se rangent dans « à suivre »
-    /// plutôt que de tenir sur une ligne (Joel, 06/09/2026).
-    pub pending: Option<(String, String)>,
-    pub pending_stops: &'a [Stop],
+
     pub notices: &'a [String],
     /// La ligne de l'axe sous la sélection — surlignée, mais pas jouée.
     pub selection: Option<usize>,
@@ -184,10 +180,19 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             lines.push(line);
         }
     }
+    // tout ce qui a été joué reste à l'écran : c'est la playlist en train de
+    // se faire, pas un historique à oublier (Joel, 06/09/2026)
     for stop in view.past {
+        if let Some(label) = &stop.head {
+            lines.push(Line::from(Span::styled(
+                format!(" → {label}"),
+                Style::default().fg(DIM),
+            )));
+        }
         push(stop_line(stop, "  ", true), index, view.selection, &mut lines);
         index += 1;
     }
+    let playing_line = lines.len();
     if let Some(stop) = view.current {
         let playing = Line::from(Span::styled(
             format!(
@@ -203,36 +208,40 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
     if !view.queue.is_empty() {
         lines.push(Line::from(Span::styled("à suivre :", Style::default().fg(MUTED))));
+        // la file enchaîne plusieurs branches : chacune s'ouvre par son nom,
+        // et un filet dit jusqu'où elle va
+        let mut in_branch = false;
         for stop in view.queue {
-            push(stop_line(stop, "   ", false), index, view.selection, &mut lines);
+            if let Some(label) = &stop.head {
+                in_branch = true;
+                lines.push(Line::from(vec![
+                    Span::styled(" → ", Style::default().fg(BRANCH)),
+                    Span::styled(
+                        label.clone(),
+                        Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
+                    ),
+                ]));
+            }
+            let mut line = stop_line(stop, if in_branch { " │ " } else { "   " }, false);
+            if in_branch {
+                line.spans[0] = Span::styled(" │ ", Style::default().fg(BRANCH));
+            }
+            push(line, index, view.selection, &mut lines);
             index += 1;
         }
     } else if view.current.is_some() {
         lines.push(Line::from(Span::styled(
-            "(dernier du segment)",
+            "(plus rien à suivre — 1-3 pour ajouter une branche)",
             Style::default().fg(DIM),
         )));
     }
-    // la branche retenue se déplie ici : ses morceaux sont « à suivre » eux
-    // aussi, un filet dit seulement qu'ils forment une branche
-    if let Some((label, when)) = &view.pending {
-        lines.push(Line::from(vec![
-            Span::styled(" → ", Style::default().fg(BRANCH)),
-            Span::styled(
-                label.clone(),
-                Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(format!("  {when}"), Style::default().fg(DIM)),
-        ]));
-        for stop in view.pending_stops {
-            let mut line = stop_line(stop, "   ", true);
-            // le filet remplace l'indentation : on voit d'un coup d'œil où la
-            // branche commence et jusqu'où elle va
-            line.spans[0] = Span::styled(" │ ", Style::default().fg(BRANCH));
-            lines.push(line);
-        }
-    }
-    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), axis);
+    // pas de retour à la ligne : une liste se coupe, elle ne se replie pas —
+    // et on suit ce qui joue plutôt que le début de la soirée
+    let height = axis.height as usize;
+    let offset = playing_line
+        .saturating_sub(height / 2)
+        .min(lines.len().saturating_sub(height));
+    frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
     // — la dernière chose dite, sur une ligne qui ne grandit pas
     let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());

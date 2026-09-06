@@ -124,7 +124,6 @@ async fn async_run(
         typed: String::new(),
         warm_requested: false,
         branches: Vec::new(),
-        pending_branch: None,
         pending: Vec::new(),
         size: 3,
     };
@@ -154,6 +153,7 @@ async fn async_run(
                 artist: catalog.cards[seed].name.clone(),
                 title,
                 source: crate::engine::Source::Top,
+                head: None,
             },
         );
     }
@@ -254,9 +254,6 @@ struct Live<'a> {
     /// loop does it on the next turn.
     warm_requested: bool,
     branches: Vec<crate::engine::Branch>,
-    // a chosen branch and *when* it should take over (0015): at the end of
-    // the branch, or right after the current track
-    pending_branch: Option<(crate::engine::Branch, When)>,
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
     size: usize,
@@ -313,8 +310,6 @@ impl Live<'_> {
         if stops.is_empty() {
             return;
         }
-        // a new segment supersedes any branch that was waiting to start
-        self.pending_branch = None;
         let tracks = stops.iter().map(|s| s.title.clone()).collect();
         if opening {
             self.rounds[0].tracks = tracks;
@@ -478,23 +473,13 @@ impl Live<'_> {
     /// Move on from the current track: a branch chosen during it starts now
     /// (this is where a deferred choice fires); otherwise the segment plays
     /// its next track, and when it runs out the music auto-advances.
+    /// Depuis que choisir une branche l'**ajoute** à la file, il n'y a plus
+    /// de branche « en attente » : tout ce qui est décidé est dans la file.
     async fn next(&mut self) {
-        // a branch asked for « now » takes over as soon as the track ends
-        if matches!(self.pending_branch, Some((_, When::Now)) | Some((_, When::NowForce))) {
-            let (branch, when) = self.pending_branch.take().unwrap();
-            self.start_branch(branch, when).await;
-            return;
-        }
         match self.advance().await {
-            Advance::Playing => self.render(),
-            Advance::Exhausted => {
-                // the branch ran out: one parked for its end takes over,
-                // otherwise we draw one
-                match self.pending_branch.take() {
-                    Some((branch, when)) => self.start_branch(branch, when).await,
-                    None => self.auto_advance().await,
-                }
-            }
+            Advance::Playing => {}
+            // rien devant et rien de préparé : on tire
+            Advance::Exhausted => self.auto_advance().await,
             Advance::Blocked(why) => self.blocked(&why),
         }
     }
@@ -542,11 +527,7 @@ impl Live<'_> {
     /// undecided last track (we don't guess the auto-pick — later, maybe).
     /// resolve() caches, so this is a no-op once warmed.
     async fn prefetch_next(&mut self) {
-        let next = self
-            .pending_branch
-            .as_ref()
-            .and_then(|(branch, _)| branch.stops.first())
-            .or_else(|| self.queue.front());
+        let next = self.queue.front();
         if let Some(stop) = next {
             let (title, artist) = (stop.title.clone(), stop.artist.clone());
             let _ = self.web.resolve(&title, &artist).await;
@@ -642,6 +623,7 @@ impl Live<'_> {
                     artist,
                     title,
                     source,
+                    head: None,
                 };
                 self.play_uri(round_artists, stop, &uri).await;
             }
@@ -729,31 +711,79 @@ impl Live<'_> {
         self.start_branch(branch, When::EndOfBranch).await;
     }
 
+    /// Choisir une branche **l'ajoute à ce qui est déjà décidé** au lieu de
+    /// le remplacer (Joel, 06/09/2026) : on enchaîne quelques choix et la
+    /// suite de la soirée est faite. Les branches suivantes se proposent
+    /// alors depuis le **bout** de la file, pas depuis ce qui sonne — c'est
+    /// la « chaîne » des maquettes.
     async fn choose(&mut self, n: usize, when: When) {
         if n == 0 || n > self.branches.len() {
-            say!(self, "Choix incompris.");
+            say!(self, "choix incompris");
             return;
         }
         let branch = self.branches.remove(n - 1);
-        // nothing playing: no reason to park it
         if self.current.is_none() {
             self.start_branch(branch, when).await;
             return;
         }
+        let mut stops = branch.stops;
+        if let Some(first) = stops.first_mut() {
+            // seul le premier morceau porte le nom : c'est lui qui ouvre la
+            // branche à l'écran
+            first.head = Some(branch.label.clone());
+        }
+        let count = stops.len();
+        self.rounds.push(Round {
+            artists: branch.artists,
+            tracks: stops.iter().map(|s| s.title.clone()).collect(),
+        });
         match when {
-            When::EndOfBranch => say!(self, 
-                "→ {} (à la fin de la branche — {} morceau(x) d'abord)",
-                branch.label,
-                self.queue.len()
-            ),
-            When::Now => say!(self, "→ {} (à la fin du morceau)", branch.label),
+            When::EndOfBranch => {
+                say!(self, "→ {} ({count} morceaux ajoutés à la suite)", branch.label);
+                self.queue.extend(stops);
+            }
+            When::Now => {
+                say!(self, "→ {} ({count} morceaux, après ce morceau)", branch.label);
+                for stop in stops.into_iter().rev() {
+                    self.queue.push_front(stop);
+                }
+            }
             When::NowForce => {
-                say!(self, "→ {} (à la fin du morceau, le reste retiré)", branch.label);
+                say!(self, "→ {} ({count} morceaux, le reste retiré)", branch.label);
                 self.queue.clear();
+                self.queue.extend(stops);
             }
         }
-        self.pending_branch = Some((branch, when));
-        self.render();
+        // les prochaines directions partent de là où la file s'arrête
+        self.recompute();
+    }
+
+    /// `x` — retirer de la file le morceau sous la sélection. Il reste
+    /// proposable : ce n'est pas un ban, c'est un « pas dans cette soirée ».
+    fn drop_selected(&mut self) {
+        let Some(index) = self.selection else {
+            say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
+            return;
+        };
+        let ahead = index as isize - self.past.len() as isize - 1;
+        if ahead < 0 || ahead as usize >= self.queue.len() {
+            say!(self, "(on ne retire que ce qui est à suivre)");
+            return;
+        }
+        let ahead = ahead as usize;
+        let Some(stop) = self.queue.remove(ahead) else { return };
+        // si c'était la tête d'une branche, la suivante en prend le nom
+        if let Some(label) = stop.head {
+            if let Some(next) = self.queue.get_mut(ahead) {
+                if next.head.is_none() {
+                    next.head = Some(label);
+                }
+            }
+        }
+        say!(self, "retiré de la file : {} — {}", stop.title, stop.artist);
+        if self.selection.map(|i| i >= self.axis_len()).unwrap_or(false) {
+            self.selection = Some(self.axis_len().saturating_sub(1));
+        }
     }
 
     /// One parsed command (0015). Returns false to quit.
@@ -809,6 +839,7 @@ impl Live<'_> {
                 self.selection = None;
                 self.overlay = None;
             }
+            Cmd::Track('x') => self.drop_selected(),
             Cmd::ComfortMode => {
                 self.comfort_before = Some(self.comfort);
                 say!(self, "zone de confort — ↑↓ pour régler, entrée valide, échap annule");
@@ -1019,18 +1050,6 @@ impl Live<'_> {
             queue: self.queue.as_slices().0,
             branches: &self.branches,
             panel: true,
-            pending: self.pending_branch.as_ref().map(|(branch, when)| {
-                let quand = match when {
-                    When::EndOfBranch => "(à la fin de la branche)",
-                    When::Now => "(à la fin du morceau)",
-                    When::NowForce => "(à la fin du morceau, le reste retiré)",
-                };
-                (branch.label.clone(), quand.to_string())
-            }),
-            pending_stops: self
-                .pending_branch
-                .as_ref()
-                .map_or(&[][..], |(branch, _)| branch.stops.as_slice()),
             notices: &notices,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
