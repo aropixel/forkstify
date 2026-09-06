@@ -118,7 +118,7 @@ couche que l'appris.
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |
 | `?` | **why** | Tags, familiarité, poids, liens, et la première branche d'ici | ✅ |
-| `Q` | **queue** | Entrer en mode file d'attente | 📋 |
+| `Q` | **queue** | ~~Mode file d'attente~~ — **largement caduc** depuis que la file s'enchaîne (06/09/2026) : préparer, voir, parcourir et retirer se font dans l'écran d'écoute. Restent quatre gestes à ajouter là où l'on est : retirer une branche, déplacer, intercaler, annuler | 📋 |
 
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
 (un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.

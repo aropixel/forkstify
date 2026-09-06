@@ -230,8 +230,36 @@ l'écoute en machine à commits, et le comportement **hors ligne**.
 
 ### 11. Mode file d'attente
 
-**Statut** : **non commencé.** La touche `Q` (*queue*) est réservée et
-répond « pas encore câblé ». **Le plus gros morceau de la liste.**
+**Statut** : **largement caduc** (constat de Joel, 06/09/2026) — et c'est
+la meilleure nouvelle de la journée.
+
+Le mode file d'attente devait exister parce que la file était *subie* : une
+branche en remplaçait une autre, on ne voyait qu'un pas devant soi, et il
+fallait une seconde vue pour préparer. Depuis que **choisir une branche
+l'ajoute à la file** (06/09), la file principale fait déjà l'essentiel de ce
+que le mode devait apporter :
+
+| Ce que le mode promettait | Où c'en est |
+|---|---|
+| préparer les branches à l'avance | **fait** — on enchaîne les choix, la file s'allonge |
+| voir toute la profondeur préparée | **fait** — tout est dans l'axe, branches nommées et filetées |
+| se déplacer dans la file | **fait** — ↑↓ déplacent une sélection |
+| retirer un morceau | **fait** — `tx`, sans bannir |
+| revenir à l'écoute | **sans objet** — on ne l'a jamais quittée |
+| retirer une branche entière (seule ou avec sa profondeur) | **reste** |
+| déplacer un morceau dans la file | **reste** |
+| intercaler un morceau choisi | **reste** — `/` en fait déjà une partie |
+| annuler un retrait (`u`) | **reste** — c'est le `u` global de 0013 |
+
+Il ne reste donc pas un **mode** à écrire, mais **quatre gestes** à ajouter
+là où l'on est déjà. La touche `Q` n'a plus d'objet évident ; la question
+« liste plate ou arbre » ne se pose plus non plus, puisque la chaîne est une
+liste et qu'elle suffit.
+
+**Ce qui reste vraiment de la maquette**, et qui n'a pas d'équivalent : le
+constat de la planche 3b — **une chaîne préparée a déjà consommé la zone de
+confort**, qui ne gouverne donc plus rien au-delà du premier maillon. C'est
+vrai de notre file aujourd'hui, et ce n'est dit nulle part à l'écran.
 
 Un mode à part entière : préparer les branches à l'avance, retirer des
 morceaux, retirer une branche entière (**seulement elle, ou toute la
@@ -259,6 +287,9 @@ Restent ouverts :
 1. **Retour n° 6** : « partir sur complètement autre chose » — sortir de
    l'univers courant (a), ou repartir d'une nouvelle graine (b) ? La touche
    `fw` attend la réponse.
+0. **Sauvegarder la playlist** — tout est là (le passé, la file, les noms de
+   branches), mais où l'écrire n'est pas tranché : une playlist Spotify, un
+   fichier du catalogue, un `.m3u` ? Cela mérite une décision.
 2. **`ts` (skip track) vs `l` (suivant)** : deux gestes pour passer un
    morceau, la différence — noter ou non dans `learned/` — étant invisible
    dans les doigts.
