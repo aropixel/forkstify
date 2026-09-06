@@ -9,6 +9,7 @@
 
 mod catalog;
 mod config;
+mod edit;
 mod engine;
 mod home;
 mod keys;
@@ -283,7 +284,8 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
         };
         // la session consomme l'appris et le rend enrichi : on le relit au
         // tour suivant, ce qui suffit à voir ses propres mesures
-        last_path = listen::run(&catalog, choice, learned, tail, comfort, &mut rx, &mut tui)?;
+        last_path =
+            listen::run(&catalog, choice, learned, tail, comfort, &mut rx, &mut tui, &dir)?;
     }
 
     // l'écran alterné rendu, on laisse le parcours derrière soi
@@ -333,6 +335,7 @@ fn main() -> anyhow::Result<()> {
                 engine::Comfort::new(config::Config::load().journey.comfort),
                 &mut rx,
                 &mut tui,
+                &catalog_path(path),
             )?;
             drop(tui);
             println!("\nParcours : {}", path.join(" → "));

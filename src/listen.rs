@@ -40,6 +40,7 @@ pub fn run(
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
     tui: &mut Tui,
+    catalog_dir: &std::path::Path,
 ) -> anyhow::Result<Vec<String>> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
@@ -50,7 +51,7 @@ pub fn run(
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui))
+        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui, catalog_dir))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
@@ -62,6 +63,7 @@ async fn async_run(
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
     tui: &mut Tui,
+    catalog_dir: &std::path::Path,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let (seed, opening_track) = match &choice {
         Choice::Artist(slug) => (slug.clone(), None),
@@ -104,6 +106,7 @@ async fn async_run(
 
     let mut live = Live {
         catalog,
+        catalog_dir: catalog_dir.to_path_buf(),
         learned,
         tail,
         sound,
@@ -216,6 +219,8 @@ async fn async_run(
 
 struct Live<'a> {
     catalog: &'a Catalog,
+    /// Où vivent les fiches : une édition les modifie et les commite (0013).
+    catalog_dir: std::path::PathBuf,
     learned: Learned,
     /// The long tail, harvested on demand (0012 §1, fourth source).
     tail: Tail,
@@ -1101,9 +1106,44 @@ impl Live<'_> {
                 Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
                 Err(e) => say!(self, "\n(récolte non écrite : {e})"),
             },
-            't' => self.not_yet("tt", "promouvoir en top (édition de fiche)"),
-            'T' => self.not_yet("tT", "retirer des tops (édition de fiche)"),
-            'd' => self.not_yet("td", "en faire une door (édition de fiche)"),
+            't' => {
+                let done = crate::edit::add_top(
+                    &self.catalog_dir,
+                    &stop.slug,
+                    &stop.artist,
+                    &stop.title,
+                );
+                self.report(done);
+            }
+            'T' => {
+                let done = crate::edit::remove_top(
+                    &self.catalog_dir,
+                    &stop.slug,
+                    &stop.artist,
+                    &stop.title,
+                );
+                self.report(done);
+            }
+            'd' => {
+                // 0011 : une door pointe vers des tags, la direction où l'on
+                // va — donc ceux de l'artiste suivant, sinon les siens
+                let towards: Vec<String> = self
+                    .queue
+                    .iter()
+                    .find(|next| next.slug != stop.slug)
+                    .and_then(|next| self.catalog.cards.get(&next.slug))
+                    .or_else(|| self.catalog.cards.get(&stop.slug))
+                    .map(|card| card.tags.iter().take(2).cloned().collect())
+                    .unwrap_or_default();
+                let done = crate::edit::add_door(
+                    &self.catalog_dir,
+                    &stop.slug,
+                    &stop.artist,
+                    &stop.title,
+                    &towards,
+                );
+                self.report(done);
+            }
             _ => {}
         }
     }
@@ -1134,8 +1174,41 @@ impl Live<'_> {
                 );
                 self.recompute();
             }
-            'e' => self.not_yet("ae", "ouvrir la fiche dans $EDITOR"),
-            'L' => self.not_yet("aL", "lier à un autre artiste"),
+            'e' => {
+                // $EDITOR demanderait de rendre l'entrée au terminal, or le
+                // lecteur de touches tient stdin en permanence — il lui
+                // volerait ses frappes. Ça attend une saisie interrogée
+                // plutôt qu'un fil bloqué.
+                let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
+                say!(self, "fiche : {} (l'ouvrir ici attend la refonte de la saisie)", path.display());
+            }
+            'L' => {
+                // lier à l'artiste d'où l'on vient : c'est le lien qu'on a
+                // sous les yeux au moment où l'on veut l'écrire
+                let from = self
+                    .rounds
+                    .iter()
+                    .rev()
+                    .flat_map(|round| round.artists.iter())
+                    .find(|slug| **slug != stop.slug)
+                    .cloned();
+                match from.and_then(|slug| {
+                    self.catalog.cards.get(&slug).map(|card| (slug.clone(), card.name.clone()))
+                }) {
+                    Some((to_slug, to_name)) => {
+                        let done = crate::edit::add_link(
+                            &self.catalog_dir,
+                            &stop.slug,
+                            &stop.artist,
+                            &to_slug,
+                            &to_name,
+                            "similar",
+                        );
+                        self.report(done);
+                    }
+                    None => say!(self, "(aucun artiste d'où venir — le lien attend un second)"),
+                }
+            }
             _ => {}
         }
     }
@@ -1209,6 +1282,24 @@ impl Live<'_> {
             title: stop.title.clone(),
             at: "à l'instant".to_string(),
         });
+    }
+
+    /// Dire ce qu'une édition a fait, et la commiter. Une édition qui ne
+    /// laisse pas de trace relisible n'en est pas une (0013).
+    fn report(&self, done: Result<crate::edit::Edit, String>) {
+        match done {
+            Ok(edit) => {
+                let summary = edit.summary.clone();
+                match crate::edit::commit(&self.catalog_dir, &edit) {
+                    Ok(()) => say!(self, "✓ {summary} — commité"),
+                    Err(why) => say!(self, "✓ {summary} — écrit, mais pas commité ({why})"),
+                }
+                // le catalogue en mémoire ne bouge pas : l'édition compte au
+                // prochain lancement, et il vaut mieux le dire
+                say!(self, "  (le moteur en tiendra compte au prochain lancement)");
+            }
+            Err(why) => say!(self, "(rien fait : {why})"),
+        }
     }
 
     /// A gesture the grammar accepts but the code does not serve yet. Saying
