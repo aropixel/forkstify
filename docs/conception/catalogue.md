@@ -173,6 +173,42 @@ fork, tous dans git :
    (`learned/`), versionné pour être portable, que l'application sait ne
    jamais inclure dans une PR.
 
+### Tout « le mien » n'est pas également partageable (06/09/2026)
+
+Question de Joel : « si je modifie les links d'artistes, cela ferait partie
+de la PR ? Ce serait problématique ? ». Oui pour la première, **pas
+forcément** pour la seconde — et la réponse tient dans la liste fermée des
+types de [0010](../decisions/0010-format-revise-links-sans-portes.md), qui
+se coupe en deux d'elle-même :
+
+| Type | Ce que c'est | En amont |
+|---|---|---|
+| `member` `collab` `family` | des **faits** — qui a joué où, avec qui | précieux pour tout le monde |
+| `scene` `influence` | une lecture критique, discutable mais argumentable | défendable, avec sa note |
+| `similar` | **un rapprochement de goût** | c'est celui qui tire la base vers une oreille |
+
+`aL` écrit `similar` : c'est honnête — on rapproche deux artistes parce
+qu'ils vont bien ensemble *pour soi* — mais c'est donc le type le moins
+partageable qui est le plus facile à produire.
+
+**Ce qui protège déjà** : une PR est une **proposition**, relue en amont.
+Rien n'est reversé automatiquement, et l'auteur choisit les commits qu'il
+propose. Le modèle git suffit à empêcher la dérive ; ce n'est pas une
+faille.
+
+**Ce qui manque vraiment**, c'est de quoi *trier*. Rien ne disait pourquoi
+une ligne existait, si bien que ni l'auteur ni le relecteur ne pouvaient
+distinguer un fait vérifié d'un rapprochement d'un soir. Depuis le
+06/09/2026, une ligne écrite pendant une écoute porte sa **provenance et sa
+date** dans sa note — `note = "rapproché à l'écoute, 2026-09-06"` — ce que
+0010 demandait déjà en substance : « le type nomme et explique la branche ».
+
+**Reste ouvert** : faut-il un lien **personnel**, qui ne parte jamais en PR ?
+Deux façons, aucune tranchée — un champ dans la ligne (`personal = true`),
+ou rien du tout, la relecture en amont faisant le tri. La seconde est plus
+sobre et conforme à « pas d'abstraction avant le deuxième usage » ; la
+première dit la chose plutôt que de compter sur la vigilance.
+
 Entre les deux derniers, la **promotion** : transformer un signal d'usage en
 connaissance. « Tu as choisi 6 fois la branche Cocteau Twins depuis The Cure,
 j'ajoute la connexion `voisinage` à la fiche ? » Une promotion = un commit

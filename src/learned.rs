@@ -361,6 +361,12 @@ fn today() -> i64 {
     secs / 86_400
 }
 
+/// La date du jour, en ISO. Une édition la porte dans sa note : c'est ce
+/// qui permet, plus tard, de savoir d'où vient une ligne d'une fiche.
+pub fn today_iso() -> String {
+    iso(today())
+}
+
 /// Days since the epoch → `YYYY-MM-DD`, and back. Hinnant's civil-date
 /// algorithm: no dependency for what is two dozen lines of arithmetic.
 fn iso(days: i64) -> String {

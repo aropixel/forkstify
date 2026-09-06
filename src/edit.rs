@@ -48,13 +48,21 @@ fn insert_into_array(text: &str, key: &str, line: &str) -> String {
     }
 }
 
+/// La note dit **d'où vient la ligne**, et depuis quand. 0010 veut qu'une
+/// note explique le lien ; une ligne écrite pendant une écoute ne peut pas
+/// prétendre à une explication savante, mais elle peut dire son origine —
+/// ce qui permet à qui relit, plus tard ou en amont, de la peser.
+fn provenance(what: &str) -> String {
+    quoted(&format!("{what} à l'écoute, {}", crate::learned::today_iso()))
+}
+
 fn door_line(title: &str, tags: &[String]) -> String {
     let list: Vec<String> = tags.iter().map(|tag| quoted(tag)).collect();
     format!(
         "  {{ track = {}, to = [{}], note = {} }},",
         quoted(title),
         list.join(", "),
-        quoted("posée à l'écoute")
+        provenance("posée")
     )
 }
 
@@ -63,7 +71,7 @@ fn link_line(to_slug: &str, kind: &str) -> String {
         "  {{ to = {}, type = {}, note = {} }},",
         quoted(to_slug),
         quoted(kind),
-        quoted("lié à l'écoute")
+        provenance("rapproché")
     )
 }
 
