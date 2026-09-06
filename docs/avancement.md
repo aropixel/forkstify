@@ -306,6 +306,21 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les branches sont toujours à l'écran (06/09/2026)
+
+Demande de Joel : « je voudrais que le panel des prochaines branches soit
+tout le temps affiché ». C'est la variante **1a** des maquettes — le volet
+permanent — avec le placement de 1b, en bas à droite.
+
+Une nuance a été ajoutée à la demande : **le volet a désormais sa place
+réservée** au lieu d'être posé sur l'axe. Un volet flottant en permanence
+masquerait le bas de la file pour toujours ; une colonne réservée ne cache
+rien. L'axe prend ce qui reste à gauche, le volet 54 colonnes à droite — et
+sous 48 colonnes de large, il s'efface plutôt que d'écraser l'axe.
+
+Conséquences : `fp` (*peek*) perd son emploi et le dit au lieu de ne rien
+faire ; un cul-de-sac s'affiche dans le volet au lieu de le laisser vide.
+
 ## Plus rien ne s'imprime sous la TUI (06/09/2026)
 
 Joel, au test suivant : « quand j'appuie sur 2, le bas bouge toujours », avec

@@ -38,7 +38,7 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 | `f<n>` | **fork** | Branche n, **après la branche en cours** | ✅ |
 | `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé | ✅ |
 | `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré | ✅ |
-| `fp` | fork **peek** | Prévoir les branches sans attendre le dernier morceau | ✅ |
+| `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
 | `fr` | fork **reroll** | Reproposer trois autres branches | ✅ |
 | `fu` | fork **undo** | Revenir à la branche précédente | ✅ |
 | `fw` | fork **wander** | Partir loin, hors de l'univers courant | 📋 |

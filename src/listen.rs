@@ -118,7 +118,6 @@ async fn async_run(
         comfort,
         notices: std::cell::RefCell::new(Vec::new()),
         tui,
-        force_panel: std::cell::Cell::new(false),
         selection: None,
         comfort_before: None,
         overlay: None,
@@ -238,8 +237,6 @@ struct Live<'a> {
     /// bloc (le leader, « ? ») s'affiche seul et en entier.
     notices: std::cell::RefCell<Vec<String>>,
     tui: &'a mut Tui,
-    /// « fp » a demandé le volet avant la fin du segment.
-    force_panel: std::cell::Cell<bool>,
     /// L'axe s'affiche verticalement : les flèches y déplacent une sélection,
     /// et rien ne change tant qu'on n'a pas validé (Joel, 06/09/2026).
     /// Index dans l'axe : passé, puis le courant, puis la file.
@@ -558,9 +555,10 @@ impl Live<'_> {
 
     /// See the branches on demand, wherever we are in the segment (`p`).
     /// A richer « preview then pick ahead » belongs to the future GUI.
-    /// `fp` — faire venir le volet sans attendre le dernier morceau (1b).
+    /// `fp` — le volet ne se cache plus, il est toujours à droite. La touche
+    /// reste pour le dire plutôt que de ne rien faire.
     fn preview(&self) {
-        self.force_panel.set(true);
+        say!(self, "les branches sont affichées en permanence, à droite");
     }
 
     /// `/` search: catalog artists first (branch-native), then Spotify tracks
@@ -761,7 +759,6 @@ impl Live<'_> {
     /// One parsed command (0015). Returns false to quit.
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
         self.notices.borrow_mut().clear();
-        self.force_panel.set(false);
         // le réglage du confort prend la main sur tout le reste
         if self.comfort_before.is_some() {
             return self.on_comfort_key(cmd);
@@ -1021,7 +1018,7 @@ impl Live<'_> {
             paused: self.paused,
             queue: self.queue.as_slices().0,
             branches: &self.branches,
-            panel: self.force_panel.get() || (self.queue.is_empty() && self.current.is_some()),
+            panel: true,
             pending: self.pending_branch.as_ref().map(|(b, _)| b.label.clone()),
             notices: &notices,
             selection: self.selection,

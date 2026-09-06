@@ -48,7 +48,10 @@ pub struct View<'a> {
     pub paused: bool,
     pub queue: &'a [Stop],
     pub branches: &'a [Branch],
-    /// 1b : le volet n'existe qu'au moment du choix.
+    /// Le volet des branches est **toujours là** (Joel, 06/09/2026) : on ne
+    /// veut pas attendre l'embranchement pour savoir où l'on peut aller.
+    /// Il a donc sa place réservée à droite plutôt que d'être posé sur
+    /// l'axe — sinon il masquerait en permanence le bas de la file.
     pub panel: bool,
     pub pending: Option<String>,
     pub notices: &'a [String],
@@ -112,15 +115,26 @@ fn stop_line(stop: &Stop, prefix: &str, muted: bool) -> Line<'static> {
 
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
-    // trois zones de hauteur fixe et un axe qui prend le reste : le bas ne
+    // trois zones de hauteur fixe et un corps qui prend le reste : le bas ne
     // bouge jamais, quoi que forkstify dise
-    let [head, axis, status, prompt] = Layout::vertical([
+    let [head, body, status, prompt] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(3),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
     .areas(area);
+
+    // l'axe à gauche, les branches à droite et en bas — leur place est
+    // réservée, elles ne recouvrent rien
+    let panel_width = 54.min(body.width / 2);
+    let (axis, panel_column) = if view.panel && panel_width >= 24 {
+        let [left, right] =
+            Layout::horizontal([Constraint::Min(24), Constraint::Length(panel_width)]).areas(body);
+        (left, Some(right))
+    } else {
+        (body, None)
+    };
 
     // — l'en-tête : où l'on en est, en une ligne et sa précision
     let mut path: Vec<Span> = Vec::new();
@@ -231,29 +245,37 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     ]);
     frame.render_widget(Paragraph::new(prompt_line), prompt);
 
-    // — ce qui se pose sur l'écran : un bloc demandé (le leader, « ? »)
-    // passe devant le volet des branches
+    // — les branches, dans leur colonne : toujours visibles
+    if let Some(column) = panel_column {
+        render_panel(frame, column, view);
+    }
+
+    // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
     if let Some((title, body)) = view.overlay {
         render_block(frame, area, title, body);
-    } else if view.panel && !view.branches.is_empty() {
-        render_panel(frame, area, view);
     }
 }
 
 /// Le volet des branches : il arrive, on choisit, il s'en va. Le seul endroit
 /// avec le menu du leader où forkstify trace autre chose qu'une règle.
-fn render_panel(frame: &mut ratatui::Frame, area: Rect, view: &View) {
-    let width = 52.min(area.width.saturating_sub(4));
-    let height = (view.branches.len() as u16 * 3 + 4).min(area.height.saturating_sub(2));
+fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
+    let wanted = (view.branches.len() as u16 * 3 + 4).max(5);
+    let height = wanted.min(column.height);
+    // en bas de sa colonne, comme sur la maquette
     let panel = Rect {
-        x: area.x + area.width.saturating_sub(width + 2),
-        y: area.y + area.height.saturating_sub(height + 2),
-        width,
+        x: column.x,
+        y: column.y + column.height.saturating_sub(height),
+        width: column.width,
         height,
     };
-    frame.render_widget(Clear, panel);
 
     let mut lines: Vec<Line> = Vec::new();
+    if view.branches.is_empty() {
+        lines.push(Line::from(Span::styled(
+            " cul-de-sac — « fu » pour revenir",
+            Style::default().fg(MUTED),
+        )));
+    }
     for (i, branch) in view.branches.iter().enumerate() {
         lines.push(Line::from(vec![
             Span::styled(
