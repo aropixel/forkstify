@@ -306,6 +306,24 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La branche retenue se déplie dans « à suivre » (06/09/2026)
+
+Joel : « quand je choisis une branche, le parcours s'affiche en dessous des
+chansons à suivre mais sur une ligne sans détail ». Elle tenait en effet sur
+un `→ label`, alors que ses morceaux sont **déjà tirés** au moment du choix
+— il n'y avait aucune raison de les cacher.
+
+Ils se rangent maintenant à la suite de la file, séparés d'elle par un
+**filet magenta** (`│`) qui remplace l'indentation : on voit d'un coup où la
+branche commence et jusqu'où elle va. Ils sont estompés, parce qu'ils n'ont
+pas encore sonné, et la ligne de tête dit **quand** la branche prendra la
+main — à la fin de la branche, à la fin du morceau, ou en retirant le reste.
+
+**Limite assumée** : la sélection (↑↓) s'arrête au bout de la file. Les
+morceaux de la branche s'affichent mais ne se choisissent pas encore — ils
+ne sont pas dans la file tant que la branche n'a pas pris la main, et
+prétendre le contraire ferait un surlignage qui ment.
+
 ## Les branches sont toujours à l'écran (06/09/2026)
 
 Demande de Joel : « je voudrais que le panel des prochaines branches soit

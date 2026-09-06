@@ -1019,7 +1019,18 @@ impl Live<'_> {
             queue: self.queue.as_slices().0,
             branches: &self.branches,
             panel: true,
-            pending: self.pending_branch.as_ref().map(|(b, _)| b.label.clone()),
+            pending: self.pending_branch.as_ref().map(|(branch, when)| {
+                let quand = match when {
+                    When::EndOfBranch => "(à la fin de la branche)",
+                    When::Now => "(à la fin du morceau)",
+                    When::NowForce => "(à la fin du morceau, le reste retiré)",
+                };
+                (branch.label.clone(), quand.to_string())
+            }),
+            pending_stops: self
+                .pending_branch
+                .as_ref()
+                .map_or(&[][..], |(branch, _)| branch.stops.as_slice()),
             notices: &notices,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),

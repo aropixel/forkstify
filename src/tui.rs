@@ -53,7 +53,11 @@ pub struct View<'a> {
     /// Il a donc sa place réservée à droite plutôt que d'être posé sur
     /// l'axe — sinon il masquerait en permanence le bas de la file.
     pub panel: bool,
-    pub pending: Option<String>,
+    /// La branche retenue mais pas encore commencée : son nom, quand elle
+    /// prendra la main, et ses morceaux. Ils se rangent dans « à suivre »
+    /// plutôt que de tenir sur une ligne (Joel, 06/09/2026).
+    pub pending: Option<(String, String)>,
+    pub pending_stops: &'a [Stop],
     pub notices: &'a [String],
     /// La ligne de l'axe sous la sélection — surlignée, mais pas jouée.
     pub selection: Option<usize>,
@@ -209,11 +213,24 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             Style::default().fg(DIM),
         )));
     }
-    if let Some(label) = &view.pending {
+    // la branche retenue se déplie ici : ses morceaux sont « à suivre » eux
+    // aussi, un filet dit seulement qu'ils forment une branche
+    if let Some((label, when)) = &view.pending {
         lines.push(Line::from(vec![
-            Span::styled("→ ", Style::default().fg(BRANCH)),
-            Span::styled(label.clone(), Style::default().fg(MUTED)),
+            Span::styled(" → ", Style::default().fg(BRANCH)),
+            Span::styled(
+                label.clone(),
+                Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(format!("  {when}"), Style::default().fg(DIM)),
         ]));
+        for stop in view.pending_stops {
+            let mut line = stop_line(stop, "   ", true);
+            // le filet remplace l'indentation : on voit d'un coup d'œil où la
+            // branche commence et jusqu'où elle va
+            line.spans[0] = Span::styled(" │ ", Style::default().fg(BRANCH));
+            lines.push(line);
+        }
     }
     frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), axis);
 
