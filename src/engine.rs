@@ -268,14 +268,15 @@ pub fn vector_neighbors(
     scores
 }
 
-/// The comfort dial (0001): **0 = cocon, 5 = exploration**.
+/// The comfort dial (0001): **5 = cocon, 0 = exploration**.
 ///
-/// **Read this before touching the polarity.** 0012 §4 says « confort haut :
-/// tirage serré sur les tops ; confort bas : la longue traîne pèse
-/// davantage ». That « confort haut » is the *feeling* of comfort — the
-/// cocon — which is value **0** here, not 5. `zone-de-confort.md` fixes the
-/// scale as « 0 = cocon, 5 = exploration ». Read the other way round, the
-/// whole dial inverts and nobody notices for weeks.
+/// **The scale was turned round on 06/09/2026**, at Joel's first real use:
+/// « si je veux le cocon, je devrais mettre le confort à 5 — le confort,
+/// c'est ce qu'on connaît bien ». He is right, and the repository was the
+/// odd one out: [0012](../decisions/0012-rotation-des-morceaux.md) §4 says
+/// « confort haut : tirage serré sur les tops », which now reads literally.
+/// Only `zone-de-confort.md` said the opposite, and a conception note gives
+/// way to use.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Comfort(u8);
 
@@ -288,9 +289,10 @@ impl Comfort {
         self.0
     }
 
-    /// 0.0 in the cocon, 1.0 wide open.
+    /// 0.0 in the cocon, 1.0 wide open. The dial counts the other way —
+    /// comfort *is* familiarity — so openness is its mirror.
     fn openness(self) -> f32 {
-        self.0 as f32 / 5.0
+        1.0 - self.0 as f32 / 5.0
     }
 
     /// How far the adventurous branch may leap. The floor drops as the dial
@@ -794,9 +796,10 @@ mod tests {
     /// est le piège de cette décision (voir la doc de `Comfort`).
     #[test]
     fn le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu() {
-        let cocon = Comfort::new(0);
-        let milieu = Comfort::new(2);
-        let ouvert = Comfort::new(5);
+        // 5 = cocon, 0 = exploration (retourné le 06/09/2026)
+        let cocon = Comfort::new(5);
+        let milieu = Comfort::new(3);
+        let ouvert = Comfort::new(0);
 
         // au cocon, un artiste familier passe devant un inconnu
         assert!(cocon.favours(1.0) > cocon.favours(0.0));
@@ -808,16 +811,17 @@ mod tests {
         // le plancher de l'aventureuse s'abaisse quand on ouvre
         assert!(cocon.floor() > milieu.floor());
         assert!(milieu.floor() > ouvert.floor());
-        // le confort 2 reproduit le réglage fixe d'avant le curseur
-        assert!((milieu.floor() - 0.72).abs() < 1e-6, "{}", milieu.floor());
-        assert!((milieu.trust() - 0.796).abs() < 1e-3, "{}", milieu.trust());
+        // le confort 3 reproduit le réglage fixe d'avant le curseur
+        let trois_ = Comfort::new(3);
+        assert!((trois_.floor() - 0.72).abs() < 1e-6, "{}", trois_.floor());
+        assert!((trois_.trust() - 0.796).abs() < 1e-3, "{}", trois_.trust());
 
-        // six valeurs entières : il n'y a pas de milieu exact. 2 penche
-        // encore vers le connu, 3 déjà vers l'inconnu — la bascule tombe
+        // six valeurs entières : il n'y a pas de milieu exact. 3 penche
+        // encore vers le connu, 2 déjà vers l'inconnu — la bascule tombe
         // entre les deux, et c'est une propriété, pas un défaut.
         assert!(milieu.favours(1.0) > milieu.favours(0.0));
-        let trois = Comfort::new(3);
-        assert!(trois.favours(0.0) > trois.favours(1.0));
+        let deux = Comfort::new(2);
+        assert!(deux.favours(0.0) > deux.favours(1.0));
         // et la valeur est bornée
         assert_eq!(Comfort::new(9).value(), 5);
     }
@@ -852,11 +856,12 @@ mod tests {
             ],
         );
 
-        let cocon = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(0), &HashSet::new(), &[]);
+        // 5 = cocon depuis le 06/09/2026
+        let cocon = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &[]);
         assert!(!cocon.iter().any(|(_, _, s)| *s == Source::Tail), "au cocon, pas de traîne");
         assert_eq!(cocon.len(), 2, "les deux tops, rien d'autre");
 
-        let ouvert = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &[]);
+        let ouvert = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(0), &HashSet::new(), &[]);
         let traine: Vec<&(String, f32, Source)> =
             ouvert.iter().filter(|(_, _, s)| *s == Source::Tail).collect();
         assert_eq!(traine.len(), 1, "une seule fois Killing an Arab : {ouvert:?}");

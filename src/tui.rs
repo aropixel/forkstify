@@ -52,6 +52,12 @@ pub struct View<'a> {
     pub panel: bool,
     pub pending: Option<String>,
     pub notices: &'a [String],
+    /// La ligne de l'axe sous la sélection — surlignée, mais pas jouée.
+    pub selection: Option<usize>,
+    /// Un bloc posé sur l'écran, qui ne descend pas dans le journal : le bas
+    /// de l'écran ne doit jamais bouger (Joel, 06/09/2026).
+    pub overlay: Option<(&'a str, &'a [String])>,
+    pub comfort_mode: bool,
     pub comfort: u8,
     pub comfort_word: &'a str,
     pub prompt: String,
@@ -86,7 +92,9 @@ impl Drop for Tui {
     }
 }
 
-fn stop_line<'a>(stop: &'a Stop, prefix: &'a str, muted: bool) -> Line<'a> {
+/// Toutes les parts sont clonées : la ligne ne tient à rien, ce qui permet de
+/// la surligner après coup sans traîner d'emprunt.
+fn stop_line(stop: &Stop, prefix: &str, muted: bool) -> Line<'static> {
     let title = if muted {
         Style::default().fg(MUTED)
     } else {
@@ -104,10 +112,12 @@ fn stop_line<'a>(stop: &'a Stop, prefix: &'a str, muted: bool) -> Line<'a> {
 
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
-    let [head, axis, notices, prompt] = Layout::vertical([
+    // trois zones de hauteur fixe et un axe qui prend le reste : le bas ne
+    // bouge jamais, quoi que forkstify dise
+    let [head, axis, status, prompt] = Layout::vertical([
         Constraint::Length(2),
-        Constraint::Min(4),
-        Constraint::Length((view.notices.len() as u16).min(6)),
+        Constraint::Min(3),
+        Constraint::Length(1),
         Constraint::Length(1),
     ])
     .areas(area);
@@ -140,30 +150,44 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     ];
     frame.render_widget(Paragraph::new(head_lines), head);
 
-    // — l'axe : ce qui a sonné, ce qui sonne, ce qui suit
+    // — l'axe : ce qui a sonné, ce qui sonne, ce qui suit. Il s'affiche
+    // verticalement, donc c'est verticalement qu'on s'y déplace.
     let mut lines: Vec<Line> = Vec::new();
-    let shown = view.past.len().saturating_sub(3);
-    for stop in &view.past[shown..] {
-        lines.push(stop_line(stop, "  ", true));
+    let mut index = 0usize;
+    // la sélection surligne, elle ne joue pas : c'est entrée qui joue
+    fn push(line: Line<'static>, i: usize, selection: Option<usize>, lines: &mut Vec<Line<'static>>) {
+        if selection == Some(i) {
+            let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+            lines.push(Line::from(Span::styled(
+                format!("{text} "),
+                Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )));
+        } else {
+            lines.push(line);
+        }
+    }
+    for stop in view.past {
+        push(stop_line(stop, "  ", true), index, view.selection, &mut lines);
+        index += 1;
     }
     if let Some(stop) = view.current {
-        // la sélection est une inversion, comme dans un terminal
-        lines.push(Line::from(vec![
-            Span::styled(
-                format!(
-                    " {} {} — {} ",
-                    if view.paused { "⏸" } else { "▶" },
-                    stop.title,
-                    stop.artist
-                ),
-                Style::default().fg(Color::Black).bg(PLAYING).add_modifier(Modifier::BOLD),
+        let playing = Line::from(Span::styled(
+            format!(
+                " {} {} — {} ",
+                if view.paused { "⏸" } else { "▶" },
+                stop.title,
+                stop.artist
             ),
-        ]));
+            Style::default().fg(Color::Black).bg(PLAYING).add_modifier(Modifier::BOLD),
+        ));
+        push(playing, index, view.selection, &mut lines);
+        index += 1;
     }
     if !view.queue.is_empty() {
         lines.push(Line::from(Span::styled("à suivre :", Style::default().fg(MUTED))));
         for stop in view.queue {
-            lines.push(stop_line(stop, "   ", false));
+            push(stop_line(stop, "   ", false), index, view.selection, &mut lines);
+            index += 1;
         }
     } else if view.current.is_some() {
         lines.push(Line::from(Span::styled(
@@ -179,16 +203,15 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
     frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), axis);
 
-    // — ce que forkstify vient de dire
-    let notice_lines: Vec<Line> = view
-        .notices
-        .iter()
-        .rev()
-        .take(notices.height as usize)
-        .rev()
-        .map(|text| Line::from(Span::styled(text.clone(), Style::default().fg(MUTED))))
-        .collect();
-    frame.render_widget(Paragraph::new(notice_lines), notices);
+    // — la dernière chose dite, sur une ligne qui ne grandit pas
+    let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
+    frame.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            last.cloned().unwrap_or_default(),
+            Style::default().fg(MUTED),
+        ))),
+        status,
+    );
 
     // — l'invite : toujours la dernière ligne
     let comfort_gauge: String = (0..5)
@@ -197,12 +220,22 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     let prompt_line = Line::from(vec![
         Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
         Span::raw("  "),
-        Span::styled(comfort_gauge, Style::default().fg(VECTOR)),
+        Span::styled(
+            comfort_gauge,
+            if view.comfort_mode {
+                Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(VECTOR)
+            },
+        ),
     ]);
     frame.render_widget(Paragraph::new(prompt_line), prompt);
 
-    // — le volet, posé dessus, et seulement à l'embranchement (1b)
-    if view.panel && !view.branches.is_empty() {
+    // — ce qui se pose sur l'écran : un bloc demandé (le leader, « ? »)
+    // passe devant le volet des branches
+    if let Some((title, body)) = view.overlay {
+        render_block(frame, area, title, body);
+    } else if view.panel && !view.branches.is_empty() {
         render_panel(frame, area, view);
     }
 }
@@ -398,4 +431,31 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         ])),
         prompt,
     );
+}
+
+/// Un bloc posé sur l'écran — le menu du leader, « ? ». Il remplace le
+/// journal qui s'allongeait vers le bas : ce qui est long se montre, ce qui
+/// est court se dit.
+fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String]) {
+    let width = 64.min(area.width.saturating_sub(4));
+    let height = (body.len() as u16 + 2).min(area.height.saturating_sub(2));
+    let rect = Rect {
+        x: area.x + 2,
+        y: area.y + area.height.saturating_sub(height + 2),
+        width,
+        height,
+    };
+    frame.render_widget(Clear, rect);
+    let lines: Vec<Line> = body
+        .iter()
+        .map(|text| Line::from(Span::styled(text.clone(), Style::default().fg(MUTED))))
+        .collect();
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(DIM))
+        .title(Span::styled(
+            format!(" {title} "),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ));
+    frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), rect);
 }

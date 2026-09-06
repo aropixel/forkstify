@@ -109,6 +109,9 @@ async fn async_run(
         notices: std::cell::RefCell::new(Vec::new()),
         tui,
         force_panel: std::cell::Cell::new(false),
+        selection: None,
+        comfort_before: None,
+        overlay: None,
         warm_requested: false,
         branches: Vec::new(),
         pending_branch: None,
@@ -226,6 +229,16 @@ struct Live<'a> {
     tui: &'a mut Tui,
     /// « fp » a demandé le volet avant la fin du segment.
     force_panel: std::cell::Cell<bool>,
+    /// L'axe s'affiche verticalement : les flèches y déplacent une sélection,
+    /// et rien ne change tant qu'on n'a pas validé (Joel, 06/09/2026).
+    /// Index dans l'axe : passé, puis le courant, puis la file.
+    selection: Option<usize>,
+    /// « c » ouvre le réglage du confort ; on garde la valeur d'avant pour
+    /// qu'échap la rende.
+    comfort_before: Option<Comfort>,
+    /// Un bloc posé sur l'écran — le menu du leader, « ? ». Il ne descend pas
+    /// dans le journal : le bas de l'écran ne doit pas bouger.
+    overlay: Option<(String, Vec<String>)>,
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
@@ -241,11 +254,11 @@ struct Live<'a> {
 /// What a comfort value means, so the number is never alone on screen.
 pub fn comfort_word(value: u8) -> &'static str {
     match value {
-        0 => "cocon",
-        1 => "prudent",
-        2 => "équilibré",
-        3 => "curieux",
-        4 => "aventureux",
+        5 => "cocon",
+        4 => "prudent",
+        3 => "équilibré",
+        2 => "curieux",
+        1 => "aventureux",
         _ => "exploration",
     }
 }
@@ -735,6 +748,13 @@ impl Live<'_> {
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
         self.notices.borrow_mut().clear();
         self.force_panel.set(false);
+        // le réglage du confort prend la main sur tout le reste
+        if self.comfort_before.is_some() {
+            return self.on_comfort_key(cmd);
+        }
+        if !matches!(cmd, Cmd::Up | Cmd::Down | Cmd::Auto) {
+            self.overlay = None;
+        }
         // while `/` results are on screen, a digit picks one of them rather
         // than a branch; anything else dismisses them
         if !self.pending.is_empty() {
@@ -749,7 +769,22 @@ impl Live<'_> {
 
         match cmd {
             Cmd::Quit => return false,
-            Cmd::Auto => self.auto_advance().await,
+            // entrée joue ce qui est sélectionné ; sans sélection, elle garde
+            // son sens de toujours — « choisis pour moi »
+            Cmd::Auto => match self.selection.take() {
+                Some(index) => self.play_at(index).await,
+                None => self.auto_advance().await,
+            },
+            Cmd::Up => self.move_selection(-1),
+            Cmd::Down => self.move_selection(1),
+            Cmd::Escape => {
+                self.selection = None;
+                self.overlay = None;
+            }
+            Cmd::ComfortMode => {
+                self.comfort_before = Some(self.comfort);
+                say!(self, "zone de confort — ↑↓ pour régler, entrée valide, échap annule");
+            }
 
             // --- f, the branch namespace ---
             Cmd::Digit(n) => self.choose(n, When::EndOfBranch).await,
@@ -802,31 +837,114 @@ impl Live<'_> {
     /// and what the listening has learned of them: familiarity (our own
     /// decayed plays, or the seed ranking before we ever played them) and
     /// the weight our own « plus / moins souvent » has set.
-    fn why(&self) {
-        let Some(stop) = self.current.as_ref() else {
-            say!(self, "\n(rien en cours)");
+    fn why(&mut self) {
+        let Some(stop) = self.current.clone() else {
+            say!(self, "(rien en cours)");
             return;
         };
-        say!(self, "\n┌─ {} — {}", stop.title, stop.artist);
+        let title = format!("{} — {}", stop.title, stop.artist);
         if stop.slug.is_empty() {
-            say!(self, "└─ hors catalogue : joué depuis Spotify, sans fiche");
+            self.overlay = Some((
+                title,
+                vec![" hors catalogue : joué depuis Spotify, sans fiche".into()],
+            ));
             return;
         }
         let card = &self.catalog.cards[&stop.slug];
+        let mut lines = Vec::new();
         if !card.tags.is_empty() {
-            say!(self, "│  tags : {}", card.tags.join(", "));
+            lines.push(format!(" tags : {}", card.tags.join(", ")));
         }
-        say!(self, 
-            "│  familiarité {:.0}% · poids {:.2} · {} lien(s), {} top(s)",
+        lines.push(format!(
+            " familiarité {:.0} % · poids {:.2} · {} lien(s), {} top(s)",
             self.learned.familiarity01(&stop.slug, &card.name) * 100.0,
             self.learned.weight(&stop.slug),
             card.links.len(),
             card.tops.len()
-        );
+        ));
         match self.branches.first() {
-            Some(branch) => say!(self, "└─ d'ici : {} ({})", branch.label, branch.reason),
-            None => say!(self, "└─"),
+            Some(branch) => lines.push(format!(" d'ici : {} ({})", branch.label, branch.reason)),
+            None => lines.push(" d'ici : rien de proposé pour l'instant".into()),
         }
+        self.overlay = Some((title, lines));
+    }
+
+    /// Le nombre de lignes de l'axe : le passé, le morceau en cours, la file.
+    fn axis_len(&self) -> usize {
+        self.past.len() + usize::from(self.current.is_some()) + self.queue.len()
+    }
+
+    /// Déplacer la sélection. Elle démarre sur le morceau en cours, parce que
+    /// c'est de là qu'on regarde.
+    fn move_selection(&mut self, step: isize) {
+        let len = self.axis_len();
+        if len == 0 {
+            return;
+        }
+        let here = self.selection.unwrap_or(self.past.len());
+        let next = (here as isize + step).clamp(0, len as isize - 1) as usize;
+        self.selection = Some(next);
+    }
+
+    /// Jouer la ligne sélectionnée. Ce qui la précédait dans la file passe au
+    /// passé : on saute *vers* un morceau, on ne le sort pas de l'ordre.
+    async fn play_at(&mut self, index: usize) {
+        let past_len = self.past.len();
+        if index == past_len && self.current.is_some() {
+            return;
+        }
+        let stop = if index < past_len {
+            self.past.remove(index)
+        } else {
+            let ahead = index - past_len - usize::from(self.current.is_some());
+            if ahead >= self.queue.len() {
+                return;
+            }
+            for _ in 0..ahead {
+                if let Some(skipped) = self.queue.pop_front() {
+                    self.past.push(skipped);
+                }
+            }
+            match self.queue.pop_front() {
+                Some(stop) => stop,
+                None => return,
+            }
+        };
+        if let Some(current) = self.current.take() {
+            self.past.push(current);
+        }
+        if let Load::Failed(stop, why) = self.load_stop(stop).await {
+            self.queue.push_front(stop);
+            self.blocked(&why);
+        }
+    }
+
+    /// Le mode « c » : les flèches bougent la jauge, entrée valide, échap rend
+    /// la valeur d'avant. Rien n'est appliqué tant qu'on n'a pas validé.
+    fn on_comfort_key(&mut self, cmd: Cmd) -> bool {
+        let value = self.comfort.value();
+        match cmd {
+            Cmd::Up | Cmd::Next => self.comfort = Comfort::new((value + 1).min(5)),
+            Cmd::Down | Cmd::Prev => self.comfort = Comfort::new(value.saturating_sub(1)),
+            Cmd::Auto => {
+                self.comfort_before = None;
+                self.recompute();
+                say!(self, "zone de confort : {} — {}", value, comfort_word(value));
+                return true;
+            }
+            Cmd::Escape => {
+                if let Some(before) = self.comfort_before.take() {
+                    self.comfort = before;
+                }
+                return true;
+            }
+            Cmd::Quit => return false,
+            _ => {}
+        }
+        let value = self.comfort.value();
+        say!(self, "zone de confort — {} — {}   ↑↓ régler · entrée valider · échap annuler",
+             value, comfort_word(value));
+        true
     }
 
     /// Une ligne de plus dans le journal de l'écran.
@@ -871,6 +989,9 @@ impl Live<'_> {
             panel: self.force_panel.get() || (self.queue.is_empty() && self.current.is_some()),
             pending: self.pending_branch.as_ref().map(|(b, _)| b.label.clone()),
             notices: &notices,
+            selection: self.selection,
+            overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
+            comfort_mode: self.comfort_before.is_some(),
             comfort: self.comfort.value(),
             comfort_word: comfort_word(self.comfort.value()),
             prompt,
@@ -1038,7 +1159,7 @@ impl Live<'_> {
     /// half-typed, only that namespace — which-key, in a terminal. Each
     /// line says whether the gesture is wired, so the menu never promises
     /// what the code does not do.
-    fn help(&self, namespace: Option<char>) {
+    fn help(&mut self, namespace: Option<char>) {
         let rows: &[(&str, &str, bool)] = match namespace {
             Some('f') => &[
                 ("f<n>", "branche n, en fin de branche", true),
@@ -1085,7 +1206,7 @@ impl Live<'_> {
                 ("?", "pourquoi ce morceau", true),
                 ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
-                (":comfort <n>", "zone de confort, 0 cocon → 5 exploration", true),
+                (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),
                 ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
@@ -1098,16 +1219,19 @@ impl Live<'_> {
             Some('a') => "a \u{2014} l'artiste",
             _ => "les touches",
         };
-        say!(self, "\n\u{250c}\u{2500} {title} \u{2500}");
-        for (keys, what, wired) in rows {
-            let mark = if *wired { " " } else { "\u{b7}" };
-            say!(self, "\u{2502} {mark} {keys:<8} {what}");
-        }
+        // un bloc se pose sur l'écran ; il ne descend pas dans le journal,
+        // dont le bas ne doit jamais bouger
+        let mut lines: Vec<String> = rows
+            .iter()
+            .map(|(keys, what, wired)| {
+                let mark = if *wired { " " } else { "\u{b7}" };
+                format!(" {mark} {keys:<10} {what}")
+            })
+            .collect();
         if rows.iter().any(|(_, _, wired)| !wired) {
-            say!(self, "\u{2514}\u{2500} \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}");
-        } else {
-            say!(self, "\u{2514}\u{2500}");
+            lines.push(" \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}".into());
         }
+        self.overlay = Some((title.to_string(), lines));
     }
 
     fn toggle_pause(&mut self) {

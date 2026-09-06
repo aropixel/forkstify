@@ -145,14 +145,16 @@ impl Learned {
     /// brought onto the same scale by its own maximum, since one is a count
     /// and the other a composite score.
     pub fn familiarity01(&self, slug: &str, name: &str) -> f32 {
-        match self.artists.get(slug) {
-            Some(artist) if artist.plays > 0.0 => {
-                let plays = decay(artist.plays, artist.last.as_deref(), self.today);
-                1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
-            }
-            _ => self.seed.get(&name.to_lowercase()).map_or(0.0, |s| s / self.seed_max),
-        }
-        .clamp(0.0, 1.0) as f32
+        let seeded = self.seed.get(&name.to_lowercase()).map_or(0.0, |s| s / self.seed_max);
+        let ours = self.artists.get(slug).map_or(0.0, |artist| {
+            let plays = decay(artist.plays, artist.last.as_deref(), self.today);
+            1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
+        });
+        // le plus fort des deux, jamais le dernier connu : une première
+        // écoute ne doit pas *remplacer* une bibliothèque entière. Sans ça,
+        // jouer une fois son artiste préféré le faisait tomber de 100 % à
+        // 13 % (relevé le 06/09/2026 sur l'accueil).
+        seeded.max(ours).clamp(0.0, 1.0) as f32
     }
 
     /// Artists we used to play and no longer do — the count stored at the

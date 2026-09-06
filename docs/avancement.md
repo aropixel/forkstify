@@ -306,6 +306,34 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Premiers retours d'usage sur la TUI (06/09/2026)
+
+Cinq retours de Joel après la première vraie prise en main, tous appliqués.
+
+- **L'échelle de confort est retournée** : **5 = cocon, 0 = exploration**.
+  « Le confort, c'est ce qu'on connaît bien. » Le dépôt était l'intrus :
+  [0012](decisions/0012-rotation-des-morceaux.md) §4 écrivait déjà « confort
+  haut : tirage serré sur les tops », ce qui se lit maintenant au pied de la
+  lettre. Seule `zone-de-confort.md` disait l'inverse, et une note de
+  conception cède devant l'usage. Défaut par défaut : 3.
+- **La jauge se règle au clavier** : `c` ouvre le réglage, ↑↓ bougent,
+  entrée valide, échap rend la valeur d'avant. Rien n'est appliqué avant la
+  validation.
+- **Le bas de l'écran ne bouge plus.** Le journal s'allongeait vers le bas et
+  devenait brouillon ; il tient désormais sur **une ligne fixe** (la dernière
+  chose dite), et ce qui est long — le menu du leader, `?` — se **pose sur
+  l'écran** en bloc au lieu de descendre.
+- **La navigation devient verticale et différée.** L'axe s'affiche
+  verticalement, donc ↑↓ y déplacent une **sélection** surlignée en jaune ;
+  **entrée** joue ce qui est sélectionné, échap annule. Sans sélection,
+  entrée garde son sens de toujours — tirer une branche. ←→ et `h`/`l`
+  restent le geste de transport immédiat, comme ⏮ ⏭.
+
+**Et un défaut trouvé en lisant l'écran** : une seule écoute réelle
+*remplaçait* le classement, si bien que jouer une fois son artiste préféré
+le faisait tomber de 100 % à 13 % de familiarité. Le classement et l'écoute
+se combinent désormais par le maximum — écouter ne peut qu'ajouter.
+
 ## La TUI, première version (06/09/2026)
 
 `ratatui` entre dans le projet (décision [0006](decisions/0006-rust.md), qui

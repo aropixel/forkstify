@@ -7,7 +7,12 @@ proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
 
 - Réglage de **0 à 5**, défini **à l'ouverture**.
 - Mesure la **familiarité** ([0001](../decisions/0001-confort-familiarite.md)) :
-  0 = cocon, 5 = exploration.
+  **5 = cocon, 0 = exploration** — *retourné le 06/09/2026*. La note disait
+  l'inverse ; au premier usage réel, Joel : « si je veux le cocon, je devrais
+  mettre le confort à 5 — le confort, c'est ce qu'on connaît bien ». Il a
+  raison, et le dépôt était l'intrus : [0012](../decisions/0012-rotation-des-morceaux.md) §4
+  écrit « confort haut : tirage serré sur les tops », ce qui se lit désormais
+  au pied de la lettre. Une note de conception cède devant l'usage.
 - Sert à **choisir seul** la branche à un embranchement quand l'utilisateur ne
   choisit pas activement. L'application ne bloque jamais.
 

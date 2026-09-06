@@ -16,19 +16,19 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct Journey {
-    /// Comfort zone (0001): 0 = cocon, 5 = exploration. Set at opening,
+    /// Comfort zone (0001): 5 = cocon, 0 = exploration. Set at opening,
     /// adjustable in the journey with `:comfort`.
-    #[serde(default = "two")]
+    #[serde(default = "three")]
     pub comfort: u8,
 }
 
-fn two() -> u8 {
-    2
+fn three() -> u8 {
+    3
 }
 
 impl Default for Journey {
     fn default() -> Self {
-        Journey { comfort: two() }
+        Journey { comfort: three() }
     }
 }
 
@@ -57,10 +57,10 @@ const TEMPLATE: &str = "\
 prefer_studio = true
 
 [journey]
-# Zone de confort, de 0 à 5 : 0 = cocon (on reste chez ce qu'on connaît),
-# 5 = exploration (on va vers ce qu'on ne connaît pas). Réglable en cours
-# d'écoute avec « :comfort 4 ».
-comfort = 2
+# Zone de confort, de 0 à 5 : 5 = cocon (on reste chez ce qu'on connaît),
+# 0 = exploration (on va vers ce qu'on ne connaît pas). Réglable en cours
+# d'écoute avec « c » ou « :comfort 4 ».
+comfort = 3
 ";
 
 fn path() -> PathBuf {

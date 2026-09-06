@@ -42,6 +42,15 @@ pub enum Cmd {
     Artist(char),
     Prev,
     Next,
+    /// L'axe s'affiche verticalement : les flèches verticales y déplacent une
+    /// **sélection**, elles ne jouent rien. C'est « entrée » qui joue
+    /// (Joel, 06/09/2026).
+    Up,
+    Down,
+    /// Échap — annule la sélection, ferme un volet, sort d'un mode.
+    Escape,
+    /// `c` — comfort : ouvre le réglage, les flèches le bougent, entrée valide.
+    ComfortMode,
     PlayPause,
     /// Space, the leader: show what is available. Carries the namespace
     /// that was half-typed, so `f` then space lists only the branch keys —
@@ -126,6 +135,7 @@ pub fn parse(buf: &str) -> Parse {
         ['p'] => Parse::Done(Cmd::PlayPause),
         ['r'] => Parse::Done(Cmd::Resume),
         ['b'] => Parse::Done(Cmd::Browse),
+        ['c'] => Parse::Done(Cmd::ComfortMode),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
@@ -190,6 +200,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     let cmd = match rest {
                         [b'[', b'C'] => Some(Cmd::Next),
                         [b'[', b'D'] => Some(Cmd::Prev),
+                        [b'[', b'A'] => Some(Cmd::Up),
+                        [b'[', b'B'] => Some(Cmd::Down),
                         _ => None,
                     };
                     if let Some(cmd) = cmd {
@@ -201,6 +213,9 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     }
                 }
                 clear_pending(&mut pending);
+                if tx.send(Cmd::Escape).is_err() {
+                    return;
+                }
                 continue;
             }
 
@@ -310,7 +325,7 @@ mod tests {
     #[test]
     fn grammar_is_prefix_free() {
         let alphabet: Vec<char> =
-            "0123456789fenatlsbmTdLpruwhqQ.?!\r".chars().collect();
+            "0123456789fenatlsbcmTdLpruwhqQ.?!\r".chars().collect();
         let mut complete: Vec<String> = Vec::new();
         // every sequence up to 3 keys
         let mut queue: Vec<String> = vec![String::new()];
@@ -376,6 +391,7 @@ mod tests {
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
         assert_eq!(parse("r").done(), Some(Cmd::Resume));
         assert_eq!(parse("b").done(), Some(Cmd::Browse));
+        assert_eq!(parse("c").done(), Some(Cmd::ComfortMode));
         assert_eq!(parse("l").done(), Some(Cmd::Next));
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));

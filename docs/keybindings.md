@@ -105,6 +105,10 @@ couche que l'appris.
 | `h` / `l` | | Morceau **précédent / suivant** — vim, axe horizontal | ✅ |
 | ← / → | | Idem, pour les doigts hors de la rangée d'accueil | ✅ |
 | `p` | **pause** | Pause / lecture | ✅ |
+| ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
+| entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
+| `c` | **comfort** | Régler la zone de confort : ↑↓ bougent, entrée valide, échap annule | ✅ |
+| échap | | Annuler la sélection, fermer un bloc | ✅ |
 | espace | | **Le leader** : les touches disponibles, ou celles du namespace en cours de frappe | ✅ |
 | `/texte` | | Chercher — catalogue + Spotify, un chiffre choisit | ✅ |
 | `q` | **quit** | Quitter (affiche le parcours) | ✅ |
@@ -147,7 +151,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | Commande | Action | |
 |---|---|---|
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
-| `:comfort <n>` | Zone de confort, **0 = cocon → 5 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
+| `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
