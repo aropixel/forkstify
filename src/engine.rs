@@ -54,9 +54,18 @@ pub struct Stop {
     pub title: String,
     pub source: Source,
     /// Posé sur le **premier** morceau d'une branche ajoutée à la file : son
-    /// nom. C'est ce qui permet de voir, dans « à suivre », où une branche
-    /// commence — la file en enchaîne plusieurs (Joel, 06/09/2026).
-    pub head: Option<String>,
+    /// nom et sa raison. C'est ce qui permet de voir, dans la liste de
+    /// lecture, où une branche commence et pourquoi — la file en enchaîne
+    /// plusieurs (Joel, 06/09/2026), et chaque maillon dit sa raison à
+    /// droite (maquette 3a, 07/09/2026).
+    pub head: Option<Head>,
+}
+
+/// What opens a link of the playlist: the branch's label and its reason.
+#[derive(Clone)]
+pub struct Head {
+    pub label: String,
+    pub reason: String,
 }
 
 pub struct Branch {

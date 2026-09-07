@@ -10,7 +10,7 @@
 //! Les couleurs sont des **rôles**, jamais des hex : forkstify emprunte la
 //! palette du terminal, si bien que changer de thème Omarchy le rethème.
 
-use crate::engine::{Branch, Source, Stop};
+use crate::engine::{Branch, Head, Source, Stop};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -124,6 +124,81 @@ fn stop_line(stop: &Stop, prefix: &str, muted: bool) -> Line<'static> {
     ])
 }
 
+/// Un maillon de la chaîne : une branche de la liste de lecture, telle
+/// qu'elle s'y lit — d'où elle part, comment elle s'appelle, pourquoi, et
+/// combien de morceaux elle apporte.
+struct Link {
+    start: usize,
+    label: String,
+    reason: String,
+    count: usize,
+}
+
+/// Découpe la liste de lecture en maillons : le premier est la graine, puis
+/// chaque morceau qui porte une tête en ouvre un nouveau.
+fn chain(view: &View) -> Vec<Link> {
+    let mut links: Vec<Link> = Vec::new();
+    let all = view.past.iter().chain(view.current).chain(view.queue.iter());
+    for (i, stop) in all.enumerate() {
+        match (&stop.head, links.is_empty()) {
+            (Some(Head { label, reason }), _) => links.push(Link {
+                start: i,
+                label: label.clone(),
+                reason: reason.clone(),
+                count: 1,
+            }),
+            (None, true) => links.push(Link {
+                start: i,
+                label: stop.artist.clone(),
+                reason: format!("graine : {}", view.seed),
+                count: 1,
+            }),
+            (None, false) => links.last_mut().unwrap().count += 1,
+        }
+    }
+    links
+}
+
+/// Coupe un texte à `max` caractères, avec une ellipse : une liste se coupe.
+fn fit(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let mut cut: String = text.chars().take(max.saturating_sub(1)).collect();
+    cut.push('…');
+    cut
+}
+
+/// La ligne d'un maillon (maquette 3a) : « n →  nom  raison … n morceaux ».
+/// Le numéro et la flèche en magenta, le nom en gras, la raison en gris —
+/// ou en cyan quand elle vient des vecteurs —, le compte à droite. Un
+/// maillon déjà joué s'estompe ; celui qui sonne porte « ▶ ».
+fn link_line(n: usize, link: &Link, width: usize, at: usize, current_at: Option<usize>) -> Line<'static> {
+    let played = current_at.map(|c| at + link.count <= c).unwrap_or(false);
+    let playing = current_at.map(|c| at <= c && c < at + link.count).unwrap_or(false);
+    let (glyph, glyph_tone) = if playing { ("▶", PLAYING) } else { ("→", BRANCH) };
+    let count = format!("{} morceau{}", link.count, if link.count > 1 { "x" } else { "" });
+    let prefix = format!("{n:>2} {glyph}  ");
+    let used = prefix.chars().count() + link.label.chars().count() + 2;
+    let room = width.saturating_sub(used + count.chars().count() + 2);
+    let reason = if room >= 8 { fit(&link.reason, room) } else { String::new() };
+    let pad = width
+        .saturating_sub(used + reason.chars().count() + count.chars().count())
+        .max(2);
+    let tone = |c: Color| if played { DIM } else { c };
+    let reason_tone = if link.reason.starts_with("proche du centre") { VECTOR } else { MUTED };
+    Line::from(vec![
+        Span::styled(prefix, Style::default().fg(tone(glyph_tone)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{}  ", link.label),
+            Style::default().fg(tone(Color::White)).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(reason, Style::default().fg(tone(reason_tone))),
+        Span::styled(" ".repeat(pad), Style::default()),
+        Span::styled(count, Style::default().fg(DIM)),
+    ])
+}
+
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
     // trois zones de hauteur fixe et un corps qui prend le reste : le bas ne
@@ -166,12 +241,21 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             },
         ));
     }
+    let links = chain(view);
+    let tracks = view.past.len() + usize::from(view.current.is_some()) + view.queue.len();
     let head_lines = vec![
         Line::from(path),
         Line::from(Span::styled(
             format!(
-                "graine : {} · segment {} · confort {} — {}",
-                view.seed, view.segment, view.comfort, view.comfort_word
+                "graine : {} · segment {} · confort {} — {} · {} maillon{} · {} morceau{}",
+                view.seed,
+                view.segment,
+                view.comfort,
+                view.comfort_word,
+                links.len(),
+                if links.len() > 1 { "s" } else { "" },
+                tracks,
+                if tracks > 1 { "x" } else { "" },
             ),
             Style::default().fg(DIM),
         )),
@@ -194,58 +278,60 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             lines.push(line);
         }
     }
-    // tout ce qui a été joué reste à l'écran : c'est la playlist en train de
-    // se faire, pas un historique à oublier (Joel, 06/09/2026)
-    for stop in view.past {
-        if let Some(label) = &stop.head {
-            lines.push(Line::from(Span::styled(
-                format!(" → {label}"),
-                Style::default().fg(DIM),
-            )));
+    // la liste de lecture se lit comme la **chaîne** de la maquette 3a
+    // (Joel, 07/09/2026) : un maillon par branche — son numéro, son nom, sa
+    // raison, ses morceaux derrière un filet — et l'horizon au bout. Tout ce
+    // qui a été joué reste à l'écran : c'est la playlist en train de se
+    // faire, pas un historique à oublier (Joel, 06/09/2026).
+    // une cellule de marge avant le filet de la colonne des branches
+    let width = axis.width.saturating_sub(1) as usize;
+    let mut playing_line = 0usize;
+    let past_len = view.past.len();
+    let current_at = view.current.map(|_| past_len);
+    let all: Vec<&Stop> = view
+        .past
+        .iter()
+        .chain(view.current)
+        .chain(view.queue.iter())
+        .collect();
+    for (stop_index, stop) in all.iter().enumerate() {
+        if let Some(link) = links.iter().find(|l| l.start == stop_index) {
+            let n = links.iter().position(|l| l.start == link.start).unwrap_or(0) + 1;
+            lines.push(link_line(n, link, width, stop_index, current_at));
         }
-        push(stop_line(stop, "  ", true), index, view.selection, &mut lines);
-        index += 1;
-    }
-    let playing_line = lines.len();
-    if let Some(stop) = view.current {
-        let playing = Line::from(Span::styled(
-            format!(
-                " {} {} — {} ",
-                if view.paused { "⏸" } else { "▶" },
-                stop.title,
-                stop.artist
-            ),
-            Style::default().fg(Color::Black).bg(PLAYING).add_modifier(Modifier::BOLD),
-        ));
-        push(playing, index, view.selection, &mut lines);
-        index += 1;
-    }
-    if !view.queue.is_empty() {
-        lines.push(Line::from(Span::styled("à suivre :", Style::default().fg(MUTED))));
-        // la file enchaîne plusieurs branches : chacune s'ouvre par son nom,
-        // et un filet dit jusqu'où elle va
-        let mut in_branch = false;
-        for stop in view.queue {
-            if let Some(label) = &stop.head {
-                in_branch = true;
-                lines.push(Line::from(vec![
-                    Span::styled(" → ", Style::default().fg(BRANCH)),
-                    Span::styled(
-                        label.clone(),
-                        Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
+        let rail = Span::styled(" │ ", Style::default().fg(DIM));
+        let line = if Some(stop_index) == current_at {
+            playing_line = lines.len();
+            Line::from(vec![
+                rail,
+                Span::styled(
+                    format!(
+                        "{} {} — {} ",
+                        if view.paused { "⏸" } else { "▶" },
+                        stop.title,
+                        stop.artist
                     ),
-                ]));
-            }
-            let mut line = stop_line(stop, if in_branch { " │ " } else { "   " }, false);
-            if in_branch {
-                line.spans[0] = Span::styled(" │ ", Style::default().fg(BRANCH));
-            }
-            push(line, index, view.selection, &mut lines);
-            index += 1;
-        }
-    } else if view.current.is_some() {
+                    Style::default().fg(Color::Black).bg(PLAYING).add_modifier(Modifier::BOLD),
+                ),
+            ])
+        } else {
+            let mut line = stop_line(stop, " │ ", stop_index < past_len);
+            line.spans[0] = rail;
+            line
+        };
+        push(line, index, view.selection, &mut lines);
+        index += 1;
+    }
+    if !all.is_empty() {
+        // l'horizon : rien de tiré au-delà, la suite est dans la colonne
         lines.push(Line::from(Span::styled(
-            "(plus rien à suivre — 1-3 pour ajouter une branche)",
+            fit(
+                &format!(
+                    "{:>2}    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche",
+                    links.len() + 1
+                ),
+                width,
+            ),
             Style::default().fg(DIM),
         )));
     }
@@ -877,17 +963,33 @@ mod tests {
         ]
     }
 
+    fn headed(mut stop: Stop, label: &str, reason: &str) -> Stop {
+        stop.head = Some(Head { label: label.to_string(), reason: reason.to_string() });
+        stop
+    }
+
     /// Screen rows as plain text, so assertions read like the screen.
     fn screen(width: u16, height: u16, branches: &[Branch]) -> Vec<String> {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
+        playlist(width, height, branches, &[], Some(&current), &[])
+    }
+
+    fn playlist(
+        width: u16,
+        height: u16,
+        branches: &[Branch],
+        past: &[Stop],
+        current: Option<&Stop>,
+        queue: &[Stop],
+    ) -> Vec<String> {
         let view = View {
             path: vec!["The Cure".to_string(), "Siouxsie and the Banshees".to_string()],
             seed: "the-cure",
             segment: 2,
-            past: &[],
-            current: Some(&current),
+            past,
+            current,
             paused: false,
-            queue: &[],
+            queue,
             branches,
             panel: true,
             notices: &[],
@@ -933,6 +1035,41 @@ mod tests {
         let text = screen(100, 30, &around).join("\n");
         assert_eq!(text.matches("rester dans l'univers du parcours").count(), 1, "{text}");
         assert!(text.contains("████░ \n") || text.contains("████░  "), "{text}");
+    }
+
+    #[test]
+    fn the_playlist_reads_as_a_chain_of_links() {
+        let past = [stop("A Forest", "The Cure"), stop("Push", "The Cure")];
+        let current = headed(
+            stop("Cities in Dust", "Siouxsie and the Banshees"),
+            "Siouxsie and the Banshees",
+            "liens familiaux — Robert Smith y a joué de la guitare en 1983 · tags communs : post-punk, uk",
+        );
+        let queue = [
+            stop("Israel", "Siouxsie and the Banshees"),
+            headed(stop("Right Now", "The Creatures"), "The Creatures", "membres en commun — Siouxsie Sioux et Budgie"),
+            headed(stop("Alison", "Slowdive"), "Slowdive", "proche du centre de la branche (0.74) · tags communs : uk"),
+        ];
+        let rows = playlist(100, 30, &branches(), &past, Some(&current), &queue);
+        let text = rows.join("\n");
+        // un maillon par branche, la graine en premier, l'horizon au bout
+        assert!(text.contains(" 1 →  The Cure  graine : the-cure"), "{text}");
+        assert!(text.contains(" 2 ▶  Siouxsie and the Banshees  liens famili"), "{text}");
+        assert!(text.contains(" 3 →  The Creatures  membres en comm"), "{text}");
+        assert!(text.contains(" 4 →  Slowdive  proche du centre"), "{text}");
+        assert!(text.contains(" 5    horizon  rien de tiré au-delà"), "{text}");
+        // le compte à droite, dans la colonne de l'axe (60 % de 100)
+        let axis = |needle: &str| -> String {
+            let row = rows.iter().find(|r| r.contains(needle)).unwrap();
+            row.chars().take(59).collect::<String>().trim_end().to_string()
+        };
+        assert!(axis("1 →  The Cure").ends_with("2 morceaux"), "{}", axis("1 →  The Cure"));
+        assert!(axis("4 →  Slowdive").ends_with("1 morceau"), "{}", axis("4 →  Slowdive"));
+        // les morceaux derrière le filet, celui qui sonne aussi
+        assert!(text.contains(" │ ♪ A Forest — The Cure"), "{text}");
+        assert!(text.contains(" │ ▶ Cities in Dust — Siouxsie and the Banshees"), "{text}");
+        assert!(text.contains(" │ ♪ Israel — Siouxsie and the Banshees"), "{text}");
+        assert!(text.contains("4 maillons · 6 morceaux"), "{text}");
     }
 
     #[test]

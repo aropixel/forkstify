@@ -735,7 +735,10 @@ impl Live<'_> {
         if let Some(first) = stops.first_mut() {
             // seul le premier morceau porte le nom : c'est lui qui ouvre la
             // branche à l'écran
-            first.head = Some(branch.label.clone());
+            first.head = Some(crate::engine::Head {
+                label: branch.label.clone(),
+                reason: branch.reason.clone(),
+            });
         }
         let count = stops.len();
         self.rounds.push(Round {
@@ -778,10 +781,10 @@ impl Live<'_> {
         let ahead = ahead as usize;
         let Some(stop) = self.queue.remove(ahead) else { return };
         // si c'était la tête d'une branche, la suivante en prend le nom
-        if let Some(label) = stop.head {
+        if let Some(head) = stop.head {
             if let Some(next) = self.queue.get_mut(ahead) {
                 if next.head.is_none() {
-                    next.head = Some(label);
+                    next.head = Some(head);
                 }
             }
         }

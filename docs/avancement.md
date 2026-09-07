@@ -306,6 +306,50 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La liste de lecture se lit comme une chaîne (07/09/2026)
+
+Joel, maquette `File d'attente.dc.html` : « est-ce qu'on peut présenter la
+liste de lecture un peu comme la maquette **3a** ? C'était une ancienne
+maquette du projet de file d'attente avorté, mais j'aime bien le graphisme
+et je veux le récupérer pour la liste de lecture. »
+
+3a dessinait « la chaîne » : **un maillon par ligne, la raison à droite**, un
+filet `│` entre les maillons, et l'horizon au bout. Le mode file d'attente
+est tombé le 06/09, mais son graphisme convient exactement à ce que l'axe
+est devenu — une playlist qui enchaîne des branches. L'axe se lit donc ainsi :
+
+    1 →  The Cure  graine : the-cure                       2 morceaux
+    │ ♪ A Forest — The Cure
+    │ ♪ Push — The Cure
+    2 ▶  Siouxsie and the Banshees  liens familiaux — Ro…  2 morceaux
+    │ ▶ Cities in Dust — Siouxsie and the Banshees
+    │ ♪ Israel — Siouxsie and the Banshees
+    3 →  The Creatures  membres en commun — Siouxsie Si…   1 morceau
+    │ ♪ Right Now — The Creatures
+    4    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche
+
+- **Un maillon par branche** : son numéro et `→` en magenta, son nom en
+  gras, sa raison en gris — en cyan quand elle vient des vecteurs — et le
+  compte de morceaux à droite. Le premier maillon est la graine. Le maillon
+  qui sonne porte `▶` ; ceux qui ont sonné s'estompent.
+- **Les morceaux restent**, derrière le filet, un par ligne : c'est là
+  qu'on sélectionne (↑↓, entrée, `tx`), rien ne change aux gestes. Le filet
+  est gris comme dans 3a, plus magenta.
+- **L'horizon** remplace « plus rien à suivre » : il dit que rien n'est tiré
+  au-delà, et que la suite est dans la colonne de droite.
+- L'en-tête compte les maillons et les morceaux, à la place du
+  « 5 maillons · 14 morceaux · ~52 min » de la maquette — sans les durées,
+  que le moteur n'a pas.
+
+Pour que chaque maillon dise sa raison, **la tête d'une branche la porte
+désormais** (`engine::Head { label, reason }` sur le premier morceau, à la
+place du seul nom). `tx` sur une tête la passe au morceau suivant, raison
+comprise.
+
+**Écarté** : les « branches écartées » comptées à droite dans 3a, et les
+gestes `g<n>`, `z`, `X` — ils appartenaient au mode file d'attente, qui n'est
+plus. Vérifié par un test de rendu ; pas encore tourné en session réelle.
+
 ## Les branches se déplient dans leur colonne (07/09/2026)
 
 Joel, maquette `Lecture.dc.html` (Claude Design) à l'appui : « passe plutôt
