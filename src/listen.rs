@@ -163,6 +163,7 @@ async fn async_run(
                 title,
                 source: crate::engine::Source::Top,
                 head: None,
+                encore: false,
             },
         );
     }
@@ -384,13 +385,13 @@ impl Live<'_> {
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
         let (_, current, _, _, played) = self.state();
-        // sanding is where depth is wanted: if the card cannot serve the
-        // whole request, go and get the tail first (0012 §1)
-        if self.catalog.cards[&current].tops.len() < count + played.len().min(3) {
-            self.harvest(&current).await;
-        }
+        // sanding is where depth is wanted: if the card's unplayed tops
+        // cannot serve the whole request, go and get the tail first (0012 §1)
+        let card = &self.catalog.cards[&current];
+        let unplayed = card.tops.iter().filter(|t| !played.contains(*t)).count();
+        let tail = if unplayed < count { self.harvest(&current).await.err() } else { None };
         let (_, current, _, _, played) = self.state();
-        let stops = crate::engine::encore(
+        let mut stops = crate::engine::encore(
             self.catalog,
             &current,
             &self.learned,
@@ -400,16 +401,26 @@ impl Live<'_> {
             count,
             &mut self.rng,
         );
+        for stop in &mut stops {
+            stop.encore = true;
+        }
+        // la liste montre ce qui a été ajouté (« ↻ ») : on ne parle que si
+        // la demande n'est pas servie, et on dit pourquoi
+        if stops.len() < count {
+            let name = &self.catalog.cards[&current].name;
+            let why = match tail {
+                Some(why) => why,
+                None if self.comfort.value() == 5 => "la traîne est fermée au cocon (:comfort)".to_string(),
+                None => "sa traîne est épuisée".to_string(),
+            };
+            match stops.len() {
+                0 => say!(self, "(plus rien de non joué chez {name} — {why})"),
+                n => say!(self, "({n} seulement chez {name} — {why})"),
+            }
+        }
         if stops.is_empty() {
-            say!(self, "(plus de tops non joués chez {})", self.catalog.cards[&current].name);
             return;
         }
-        let where_ = match when {
-            When::EndOfBranch => "en fin de branche",
-            When::Now => "tout de suite",
-            When::NowForce => "tout de suite, le reste retiré",
-        };
-        say!(self, "↻ encore {} ({} morceaux, {where_})", self.catalog.cards[&current].name, stops.len());
         self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
         if when == When::NowForce {
             self.queue.clear();
@@ -554,7 +565,6 @@ impl Live<'_> {
 
     /// Start a chosen branch (records it, plays its first track, shows it).
     async fn start_branch(&mut self, branch: crate::engine::Branch, when: When) {
-        say!(self, "\n→ {}", branch.label);
         self.start_segment(branch.artists, branch.stops, false, when == When::Now).await;
     }
 
@@ -669,6 +679,7 @@ impl Live<'_> {
                     title,
                     source,
                     head: None,
+                    encore: false,
                 };
                 self.play_uri(round_artists, stop, &uri).await;
             }
@@ -709,10 +720,8 @@ impl Live<'_> {
                 self.paused = !self.paused;
                 if self.paused {
                     self.sound.pause();
-                    say!(self, "\n⏸ pause");
                 } else {
                     self.sound.resume();
-                    say!(self, "\n▶ reprise");
                 }
             }
             Control::Stop => {
@@ -780,24 +789,22 @@ impl Live<'_> {
                 reason: branch.reason.clone(),
             });
         }
-        let count = stops.len();
+        // rien à dire : la branche apparaît dans la liste avec sa raison
+        // (Joel, 07/09/2026 — le pied ne grandit jamais)
         self.rounds.push(Round {
             artists: branch.artists,
             tracks: stops.iter().map(|s| s.title.clone()).collect(),
         });
         match when {
             When::EndOfBranch => {
-                say!(self, "→ {} ({count} morceaux ajoutés à la suite)", branch.label);
                 self.queue.extend(stops);
             }
             When::Now => {
-                say!(self, "→ {} ({count} morceaux, après ce morceau)", branch.label);
                 for stop in stops.into_iter().rev() {
                     self.queue.push_front(stop);
                 }
             }
             When::NowForce => {
-                say!(self, "→ {} ({count} morceaux, le reste retiré)", branch.label);
                 self.queue.clear();
                 self.queue.extend(stops);
             }
@@ -828,7 +835,6 @@ impl Live<'_> {
                 }
             }
         }
-        say!(self, "retiré de la file : {} — {}", stop.title, stop.artist);
         if self.selection.map(|i| i >= self.axis_len()).unwrap_or(false) {
             self.selection = Some(self.axis_len().saturating_sub(1));
         }
@@ -963,7 +969,10 @@ impl Live<'_> {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
-                    self.harvest(&current).await;
+                    match self.harvest(&current).await {
+                        Ok(count) => say!(self, "✓ discographie de {} — {count} titres en cache", self.catalog.cards[&current].name),
+                        Err(why) => say!(self, "⏹ {why}"),
+                    }
                 }
             }
         }
@@ -1390,23 +1399,24 @@ impl Live<'_> {
 
     /// Go and get an artist's discography, once. A partial harvest is kept:
     /// the tail is a reservoir, not an inventory.
-    async fn harvest(&mut self, slug: &str) {
+    /// Harvest the long tail of one artist, unless it is already known.
+    /// Says nothing: the caller decides what the listener needs to hear.
+    /// `Ok` carries how many tracks the tail holds.
+    async fn harvest(&mut self, slug: &str) -> Result<usize, String> {
         if self.tail.has(slug) {
-            return;
+            return Ok(self.tail.of(slug).len());
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
-            say!(self, "\n({} n'a pas d'identifiant Spotify dans sa fiche)", card.name);
-            return;
+            return Err(format!("{} n'a pas d'identifiant Spotify dans sa fiche", card.name));
         };
-        say!(self, "\n… discographie de {} ", card.name);
         match self.web.discography(&spotify_id).await {
             Ok(tracks) => {
                 let count = tracks.len();
                 self.tail.keep(slug, tracks);
-                say!(self, "→ {count} titres en cache");
+                Ok(count)
             }
-            Err(why) => say!(self, "→ échec ({why})"),
+            Err(why) => Err(format!("discographie injoignable ({why})")),
         }
     }
 
@@ -1578,10 +1588,8 @@ impl Live<'_> {
         self.paused = !self.paused;
         if self.paused {
             self.sound.pause();
-            say!(self, "\n\u{23f8} pause");
         } else {
             self.sound.resume();
-            say!(self, "\n\u{25b6} reprise");
         }
     }
 

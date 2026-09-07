@@ -306,6 +306,36 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le pied ne grandit jamais, le geste se voit dans la liste (07/09/2026)
+
+Joel, après un `e3` : « il ne m'a ajouté qu'un morceau ; je voudrais
+enlever la notification de l'action : le pied ne grandit jamais, et le geste
+est vérifiable — on voit ce qui a été ajouté par une icône spéciale devant
+le morceau, ↻ à la place de →. Une action sans effet visible dans la liste
+(un ban, une édition de fiche, une erreur de lecture) doit quand même
+apparaître ; il faut mettre en forme un peu plus cette notification. »
+
+- **Ce qui se voit ne se dit plus** : prendre une branche (elle apparaît
+  avec sa raison), un encore (ses morceaux portent **`↻`** en jaune à la
+  place de `→` — `Stop::encore`), retirer de la file, pause et reprise (le
+  glyphe du pied). Neuf `say!` tombent.
+- **Ce qui ne se voit pas s'affiche mieux** : la ligne « dernière chose
+  dite » est mise en forme par nature, au glyphe qui l'ouvre, comme le
+  composant Notice du design system — `✓` vert, `⏹` `⊘` rouge, `↻` `⚑`
+  jaune, `→` magenta, une parenthèse en gris, « pas encore câblé » en
+  italique estompé ; le détail après « — » ou entre parenthèses finales
+  s'estompe. Testé.
+- **L'encore qui n'ajoute qu'un morceau.** Deux causes possibles, toutes
+  deux traitées. La récolte de la traîne se décidait sur le nombre de tops
+  de la fiche moins un plafond global, pas sur les tops **non joués de cet
+  artiste** — corrigé. Et quand la traîne manquait (pas d'identifiant
+  Spotify, API injoignable, traîne fermée au cocon ou épuisée), l'encore
+  servait ce qu'il pouvait **sans le dire** — la ligne unique du pied étant
+  aussitôt écrasée par « ↻ encore… ». Désormais `harvest` rend son résultat
+  au lieu de parler, et l'encore ne parle **que** s'il ne sert pas la
+  demande : « (1 seulement chez X — sa traîne est épuisée) ». `:warm` dit
+  `✓ discographie de X — n titres en cache` ou `⏹ …`.
+
 ## L'aide à la saisie (07/09/2026)
 
 Joel : « je veux changer le fonctionnement de la fenêtre des raccourcis :

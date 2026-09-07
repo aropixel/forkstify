@@ -71,6 +71,10 @@ pub struct Stop {
     /// plusieurs (Joel, 06/09/2026), et chaque maillon dit sa raison à
     /// droite (maquette 3a, 07/09/2026).
     pub head: Option<Head>,
+    /// Added by an encore (`e<n>`): the list shows it with « ↻ » instead of
+    /// « → », which is how the gesture is verified — no notice needed
+    /// (Joel, 07/09/2026).
+    pub encore: bool,
 }
 
 /// What opens a link of the playlist: the branch's label and its reason.
@@ -490,6 +494,7 @@ pub fn encore(
             title,
             source,
             head: None,
+            encore: false,
         });
     }
     stops
@@ -527,6 +532,7 @@ fn walk(
                 title,
                 source,
                 head: None,
+                encore: false,
             });
         }
         hops += 1;
@@ -632,6 +638,7 @@ fn stay(
                 title,
                 source,
                 head: None,
+                encore: false,
             });
             artists.push(slug);
         }

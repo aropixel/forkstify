@@ -26,6 +26,8 @@ const PLAYING: Color = Color::Green;
 const CATALOG: Color = Color::Blue;
 const VECTOR: Color = Color::Cyan;
 const DOOR: Color = Color::LightRed;
+const EDIT: Color = Color::Yellow;
+const DANGER: Color = Color::Red;
 const MUTED: Color = Color::Gray;
 
 /// La part de largeur donnée à la colonne de gauche — les propositions à
@@ -122,6 +124,48 @@ impl Drop for Tui {
     }
 }
 
+/// La ligne d'une notification, mise en forme par sa nature — lue au
+/// glyphe qui l'ouvre, comme le composant Notice du design system : ✓ en
+/// vert, ⏹ et ⊘ en rouge, ↻ ⚑ en jaune (une édition), → en magenta, une
+/// parenthèse en gris, « pas encore câblé » en italique estompé. Ce qui
+/// suit un « — » ou une parenthèse finale est le détail, estompé.
+fn notice_line(text: &str) -> Line<'static> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Line::from("");
+    }
+    let not_wired = text.contains("pas encore c\u{e2}bl\u{e9}");
+    let first = text.chars().next().unwrap_or(' ');
+    let tone = match first {
+        '✓' | '♥' | '▶' => PLAYING,
+        '⏹' | '⊘' => DANGER,
+        '↻' | '⚑' => EDIT,
+        '→' => BRANCH,
+        '(' => MUTED,
+        _ if not_wired => DIM,
+        _ if text.starts_with("échec") || text.contains("introuvable") || text.contains("illisible") => DANGER,
+        _ => Color::White,
+    };
+    let style = if not_wired {
+        Style::default().fg(DIM).add_modifier(Modifier::ITALIC)
+    } else {
+        Style::default().fg(tone)
+    };
+    // le détail — après « — » ou dans une parenthèse finale — s'estompe
+    let split = if first == '(' {
+        None
+    } else {
+        text.find(" — ").or_else(|| text.rfind(" (").filter(|_| text.ends_with(')')))
+    };
+    match split {
+        Some(at) => Line::from(vec![
+            Span::styled(text[..at].to_string(), style),
+            Span::styled(text[at..].to_string(), Style::default().fg(DIM)),
+        ]),
+        None => Line::from(Span::styled(text.to_string(), style)),
+    }
+}
+
 /// « m:ss », comme un lecteur l'écrit.
 fn clock(ms: u32) -> String {
     let seconds = ms / 1000;
@@ -173,6 +217,12 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
                 format!("{} ", if paused { "⏸" } else { "▶" }),
                 Style::default().fg(PLAYING).add_modifier(Modifier::BOLD),
             ),
+        ],
+        // un encore se reconnaît à son « ↻ » : c'est ainsi que le geste se
+        // vérifie, sans notification (Joel, 07/09/2026)
+        Slot::Ahead { n } if stop.encore => vec![
+            Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
+            Span::styled("↻  ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
         ],
         Slot::Ahead { n } => vec![
             Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
@@ -493,15 +543,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     );
     frame.render_widget(Paragraph::new(next_line), next);
 
-    // — la dernière chose dite, sur une ligne qui ne grandit pas
+    // — la dernière chose dite, sur une ligne qui ne grandit pas : ce qui
+    // n'a pas d'effet visible dans la liste (un ban, une édition, une
+    // erreur), mis en forme par nature comme le composant Notice
     let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
-    frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(
-            last.cloned().unwrap_or_default(),
-            Style::default().fg(MUTED),
-        ))),
-        status,
-    );
+    frame.render_widget(Paragraph::new(notice_line(last.map(String::as_str).unwrap_or(""))), status);
 
     // — l'invite : toujours la dernière ligne, avec son curseur
     let prompt_line = Line::from(vec![
@@ -1082,6 +1128,7 @@ mod tests {
             title: title.to_string(),
             source: Source::Top,
             head: None,
+            encore: false,
         }
     }
 
@@ -1198,8 +1245,10 @@ mod tests {
             "Siouxsie and the Banshees",
             "liens familiaux — Robert Smith y a joué de la guitare en 1983",
         );
+        let mut israel = stop("Israel", "Siouxsie and the Banshees");
+        israel.encore = true;
         let queue = [
-            stop("Israel", "Siouxsie and the Banshees"),
+            israel,
             headed(stop("Right Now", "The Creatures"), "The Creatures", "membres en commun"),
             headed(stop("Alison", "Slowdive"), "Slowdive", "proche du centre de la branche (0.74)"),
         ];
@@ -1215,7 +1264,8 @@ mod tests {
         // ce qui sonne est le 1, ce qui vient compte à partir de lui
         assert!(text.contains(" 1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   liens familiaux"), "{text}");
         assert!(axis("Cities in Dust").ends_with("jamais joué"), "{}", axis("Cities in Dust"));
-        assert!(text.contains(" 2 →  ♪ Israel — Siouxsie and the Banshees"), "{text}");
+        // un encore porte « ↻ » à la place de la flèche
+        assert!(text.contains(" 2 ↻  ♪ Israel — Siouxsie and the Banshees"), "{text}");
         assert!(text.contains(" 3 →  ♪ Right Now — The Creatures  membres en commun"), "{text}");
         assert!(text.contains(" 4 →  ♪ Alison — Slowdive  proche du centre de la branche (0.74)"), "{text}");
         assert!(axis("Alison").ends_with("jamais joué"), "{}", axis("Alison"));
@@ -1243,6 +1293,23 @@ mod tests {
         let next = &rows[rows.len() - 3];
         assert!(next.starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{next}");
         assert!(next.trim_end().ends_with("→ embranchement dans 3 morceaux"), "{next}");
+    }
+
+    #[test]
+    fn a_notice_is_shaped_by_its_nature() {
+        let plain = |line: Line| -> String { line.spans.iter().map(|s| s.content.to_string()).collect() };
+        let done = notice_line("✓ A Forest promu top — commité");
+        assert_eq!(done.spans[0].style.fg, Some(PLAYING));
+        assert_eq!(done.spans[1].style.fg, Some(DIM));
+        assert_eq!(plain(done), "✓ A Forest promu top — commité");
+        let banned = notice_line("\n⊘ The Fall — plus jamais");
+        assert_eq!(banned.spans[0].style.fg, Some(DANGER));
+        let hint = notice_line("(plus de tops non joués chez The Cure)");
+        assert_eq!(hint.spans.len(), 1);
+        assert_eq!(hint.spans[0].style.fg, Some(MUTED));
+        let later = notice_line("« fw » — partir : décidé (0015), pas encore câblé.");
+        assert!(later.spans[0].style.add_modifier.contains(Modifier::ITALIC));
+        assert_eq!(plain(notice_line("")), "");
     }
 
     #[test]
