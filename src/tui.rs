@@ -1,6 +1,7 @@
-//! La TUI (décision [0006] : ratatui). Première version, variante **1b** des
-//! maquettes : une colonne pleine largeur pour l'axe de lecture, et un volet
-//! qui se pose dessus à l'embranchement puis s'en va.
+//! La TUI (décision [0006] : ratatui). Variante **1a** des maquettes
+//! (`Lecture.dc.html`, Joel le 07/09/2026) : deux volets permanents — l'axe
+//! de lecture à gauche, les branches à droite dans leur colonne, chacune
+//! dépliée avec ses morceaux pour qu'on choisisse en connaissance de cause.
 //!
 //! Elle n'emprunte à ratatui que le **dessin**. La saisie reste celle de
 //! `keys.rs` — termios brut, grammaire sans préfixe — parce qu'elle est
@@ -31,6 +32,13 @@ const MUTED: Color = Color::Gray;
 /// présente. Une seule valeur à changer.
 const LEFT_SHARE: u16 = 60;
 const DIM: Color = Color::DarkGray;
+
+/// La colonne des branches, en écoute : la maquette 1a lui donne 38
+/// caractères plus son filet. Elle rétrécit si l'axe n'a pas ses 48
+/// colonnes, et s'efface plutôt que de descendre sous `PANEL_MIN`.
+const PANEL_WIDTH: u16 = 40;
+const PANEL_MIN: u16 = 28;
+const AXIS_MIN: u16 = 48;
 
 fn role_of(source: Source) -> Color {
     match source {
@@ -130,12 +138,13 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     ])
     .areas(area);
 
-    // l'axe à gauche, les branches à droite et en bas — leur place est
-    // réservée, elles ne recouvrent rien
-    let panel_width = 54.min(body.width / 2);
-    let (axis, panel_column) = if view.panel && panel_width >= 24 {
+    // l'axe à gauche, les branches à droite sur toute la hauteur (1a) — leur
+    // place est réservée, elles ne recouvrent rien
+    let panel_width = PANEL_WIDTH.min(body.width.saturating_sub(AXIS_MIN));
+    let (axis, panel_column) = if view.panel && panel_width >= PANEL_MIN {
         let [left, right] =
-            Layout::horizontal([Constraint::Min(24), Constraint::Length(panel_width)]).areas(body);
+            Layout::horizontal([Constraint::Min(AXIS_MIN), Constraint::Length(panel_width)])
+                .areas(body);
         (left, Some(right))
     } else {
         (body, None)
@@ -287,30 +296,91 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
 }
 
-/// Le volet des branches : il arrive, on choisit, il s'en va. Le seul endroit
-/// avec le menu du leader où forkstify trace autre chose qu'une règle.
+/// Coupe un texte en lignes d'au plus `width` caractères, sur les espaces.
+/// Une raison se replie (c'est de la prose), un morceau se coupe (c'est une
+/// liste) : c'est pourquoi le volet ne confie pas le repli à ratatui.
+fn wrap_words(text: &str, width: usize) -> Vec<String> {
+    let width = width.max(8);
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let fits = line.chars().count() + 1 + word.chars().count() <= width;
+        if line.is_empty() {
+            line.push_str(word);
+        } else if fits {
+            line.push(' ');
+            line.push_str(word);
+        } else {
+            lines.push(std::mem::take(&mut line));
+            line.push_str(word);
+        }
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
+/// Ce que la jauge de proximité affiche sous une branche : le mot du lien
+/// pour le graphe, le cosinus pour l'espace vectoriel — deux natures, deux
+/// couleurs, comme partout ailleurs.
+fn proximity_of(branch: &Branch) -> (Color, String, Option<String>) {
+    let cells: String = (0..5)
+        .map(|i| if (i as f32) < branch.weight.round() { '█' } else { '░' })
+        .collect();
+    if branch.reason.starts_with("proche du centre") {
+        // la branche aventureuse : le moteur a mis le cosinus sur l'échelle 1–5
+        let cosine = branch.weight / 5.0;
+        (VECTOR, cells, Some(format!("{cosine:.2}")))
+    } else {
+        // le graphe : le lien typé est le premier mot de la raison
+        let kind = branch
+            .reason
+            .split(" — ")
+            .next()
+            .and_then(|head| head.split(" · ").next())
+            .unwrap_or("")
+            .to_string();
+        (CATALOG, cells, Some(kind))
+    }
+}
+
+/// La colonne des branches (1a) : toujours là, sur toute la hauteur, chaque
+/// branche dépliée avec ses morceaux — ils sont déjà tirés, autant les
+/// montrer pour qu'on choisisse en connaissance de cause (Joel, 07/09/2026).
+/// Un filet à gauche la sépare de l'axe ; c'est la seule règle qu'elle trace.
 fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
-    let wanted = (view.branches.len() as u16 * 3 + 4).max(5);
-    let height = wanted.min(column.height);
-    // en bas de sa colonne, comme sur la maquette
-    let panel = Rect {
-        x: column.x,
-        y: column.y + column.height.saturating_sub(height),
-        width: column.width,
-        height,
+    // le filet, puis une cellule de marge : le contenu commence à x + 2
+    let rule: Vec<Line> = (0..column.height)
+        .map(|_| Line::from(Span::styled("│", Style::default().fg(DIM))))
+        .collect();
+    frame.render_widget(Paragraph::new(rule), Rect { width: 1, ..column });
+    let inner = Rect {
+        x: column.x + 2,
+        y: column.y,
+        width: column.width.saturating_sub(2),
+        height: column.height,
     };
+    let width = inner.width as usize;
 
     let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(vec![
+        Span::styled("── ", Style::default().fg(BRANCH)),
+        Span::styled("branches", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled(format!(" {}", view.branches.len()), Style::default().fg(DIM)),
+    ]));
+    lines.push(Line::from(""));
     if view.branches.is_empty() {
         lines.push(Line::from(Span::styled(
-            " cul-de-sac — « fu » pour revenir",
+            "cul-de-sac — « fu » pour revenir",
             Style::default().fg(MUTED),
         )));
     }
     for (i, branch) in view.branches.iter().enumerate() {
+        // « 1  label » — 2 cellules d'indentation, comme le PoC l'imprime
         lines.push(Line::from(vec![
             Span::styled(
-                format!(" {}  ", i + 1),
+                format!("  {}  ", i + 1),
                 Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
@@ -318,27 +388,70 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]));
+        let (tone, cells, word) = proximity_of(branch);
+        // la raison, repliée à 5 cellules ; quand elle n'est que le mot du
+        // lien (« rester dans l'univers »), la jauge ne la redit pas
+        let bare = word.as_deref() == Some(branch.reason.as_str());
+        let word = if bare { None } else { word };
         if !branch.reason.is_empty() {
-            lines.push(Line::from(Span::styled(
-                format!("    {}", branch.reason),
-                Style::default().fg(MUTED),
-            )));
+            for piece in wrap_words(&branch.reason, width.saturating_sub(5)) {
+                lines.push(Line::from(Span::styled(
+                    format!("     {piece}"),
+                    Style::default().fg(MUTED),
+                )));
+            }
         }
+        // les morceaux, tels qu'ils sonneront : on choisit ce qu'on entendra
+        for stop in &branch.stops {
+            lines.push(Line::from(vec![
+                Span::styled("     ", Style::default()),
+                Span::styled(
+                    stop.source.mark().to_string(),
+                    Style::default().fg(role_of(stop.source)),
+                ),
+                Span::raw(" "),
+                Span::styled(stop.title.clone(), Style::default().fg(Color::White)),
+                Span::styled(" — ", Style::default().fg(DIM)),
+                Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
+            ]));
+        }
+        let mut gauge = vec![
+            Span::styled("     ", Style::default()),
+            Span::styled(cells, Style::default().fg(tone)),
+        ];
+        if let Some(word) = word {
+            gauge.push(Span::styled(format!(" {word}"), Style::default().fg(tone)));
+        }
+        lines.push(Line::from(gauge));
         lines.push(Line::from(""));
     }
-    lines.push(Line::from(Span::styled(
-        " 1-3 prendre · fn1 sans attendre · fr reproposer",
-        Style::default().fg(DIM),
-    )));
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(BRANCH))
-        .title(Span::styled(
-            " → où va-t-on ? ",
-            Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
-        ));
-    frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), panel);
+    // les touches, au pied de la colonne — deux lignes qui ne bougent pas
+    let hints = [
+        Line::from(vec![
+            Span::styled("1-3", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" prendre  ", Style::default().fg(MUTED)),
+            Span::styled("fr", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" reproposer", Style::default().fg(MUTED)),
+        ]),
+        Line::from(vec![
+            Span::styled("fn1", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" sans attendre la fin", Style::default().fg(DIM)),
+        ]),
+    ];
+    let hint_height = hints.len() as u16;
+    if inner.height > hint_height + 2 {
+        let body = Rect { height: inner.height - hint_height - 1, ..inner };
+        frame.render_widget(Paragraph::new(lines), body);
+        let foot = Rect {
+            y: inner.y + inner.height - hint_height,
+            height: hint_height,
+            ..inner
+        };
+        frame.render_widget(Paragraph::new(hints.to_vec()), foot);
+    } else {
+        frame.render_widget(Paragraph::new(lines), inner);
+    }
 }
 
 /// Une ligne de l'accueil. L'accueil décide **quoi** dire, la TUI **comment**
@@ -728,4 +841,105 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
         ]),
         foot,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+
+    fn stop(title: &str, artist: &str) -> Stop {
+        Stop {
+            slug: artist.to_lowercase().replace(' ', "-"),
+            artist: artist.to_string(),
+            title: title.to_string(),
+            source: Source::Top,
+            head: None,
+        }
+    }
+
+    fn branches() -> Vec<Branch> {
+        vec![
+            Branch {
+                label: "The Creatures".to_string(),
+                reason: "membres en commun — Siouxsie Sioux et Budgie · tags communs : post-punk, uk"
+                    .to_string(),
+                artists: vec!["the-creatures".to_string()],
+                stops: vec![stop("Right Now", "The Creatures"), stop("Miss the Girl", "The Creatures")],
+                weight: 5.0,
+            },
+            Branch {
+                label: "Chelsea Wolfe".to_string(),
+                reason: "proche du centre de la branche (0.78) · tags communs : uk".to_string(),
+                artists: vec!["chelsea-wolfe".to_string()],
+                stops: vec![stop("Carrion Flowers", "Chelsea Wolfe")],
+                weight: 0.78 * 5.0,
+            },
+        ]
+    }
+
+    /// Screen rows as plain text, so assertions read like the screen.
+    fn screen(width: u16, height: u16, branches: &[Branch]) -> Vec<String> {
+        let current = stop("Cities in Dust", "Siouxsie and the Banshees");
+        let view = View {
+            path: vec!["The Cure".to_string(), "Siouxsie and the Banshees".to_string()],
+            seed: "the-cure",
+            segment: 2,
+            past: &[],
+            current: Some(&current),
+            paused: false,
+            queue: &[],
+            branches,
+            panel: true,
+            notices: &[],
+            selection: None,
+            overlay: None,
+            comfort_mode: false,
+            comfort: 3,
+            comfort_word: "équilibré",
+            prompt: "[1-2 branche]".to_string(),
+        };
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| render(frame, &view)).unwrap();
+        let buffer = terminal.backend().buffer();
+        (0..height)
+            .map(|y| (0..width).map(|x| buffer[(x, y)].symbol()).collect::<String>())
+            .collect()
+    }
+
+    #[test]
+    fn the_column_unfolds_every_branch_with_its_tracks() {
+        let rows = screen(100, 30, &branches());
+        let text = rows.join("\n");
+        assert!(text.contains("── branches 2"), "{text}");
+        assert!(text.contains("1  The Creatures"), "{text}");
+        assert!(text.contains("♪ Right Now — The Creatures"), "{text}");
+        assert!(text.contains("♪ Miss the Girl — The Creatures"), "{text}");
+        assert!(text.contains("♪ Carrion Flowers — Chelsea Wolfe"), "{text}");
+        // the graph says its link, the vector space its cosine
+        assert!(text.contains("█████ membres en commun"), "{text}");
+        assert!(text.contains("████░ 0.78"), "{text}");
+        // the rule runs the whole body height, the hints sit at its foot
+        let body_rows = 2..(30 - 2);
+        assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
+        assert!(rows[27].contains("fn1 sans attendre la fin"), "{text}");
+        assert!(rows[26].contains("1-3 prendre"), "{text}");
+    }
+
+    #[test]
+    fn a_bare_reason_is_said_once_by_the_gauge() {
+        let mut around = branches();
+        around[0].reason = "rester dans l'univers du parcours".to_string();
+        around[0].weight = 4.0;
+        let text = screen(100, 30, &around).join("\n");
+        assert_eq!(text.matches("rester dans l'univers du parcours").count(), 1, "{text}");
+        assert!(text.contains("████░ \n") || text.contains("████░  "), "{text}");
+    }
+
+    #[test]
+    fn a_narrow_terminal_keeps_the_axis_and_drops_the_column() {
+        let text = screen(70, 30, &branches()).join("\n");
+        assert!(!text.contains("── branches"), "{text}");
+        assert!(text.contains("Cities in Dust"), "{text}");
+    }
 }

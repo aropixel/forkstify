@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **04/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **07/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -305,6 +305,43 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## Les branches se déplient dans leur colonne (07/09/2026)
+
+Joel, maquette `Lecture.dc.html` (Claude Design) à l'appui : « passe plutôt
+l'affichage des forks en colonne à droite comme sur la maquette **1a**. Par
+contre, je veux que les morceaux de chaque branche soient affichés pour
+pouvoir faire son choix en connaissance de cause. »
+
+Le volet du 06/09 avait la permanence de 1a mais le **placement de 1b** — un
+bloc encadré, posé en bas de sa colonne. Il devient la colonne elle-même :
+**toute la hauteur**, un filet `│` à gauche pour la séparer de l'axe (la
+seule règle qu'elle trace — le système interdit les cadres), `── branches 3`
+en tête, et les touches au pied (`1-3 prendre · fr reproposer`, `fn1 sans
+attendre la fin`), qui ne bougent pas.
+
+**Chaque branche est dépliée** comme le composant `Branch` du design system
+l'écrit : le numéro et le nom, la raison repliée à cinq cellules, puis **ses
+morceaux** — ils sont déjà tirés au moment de la proposition, il n'y avait
+aucune raison de les cacher — avec leur provenance (`♪` `♥` `↳` `·`), le
+titre devant, l'artiste derrière en bleu. Dessous, la **jauge de proximité**
+de la maquette : `█████ membres en commun` pour un lien du graphe (bleu,
+catalogue), `████░ 0.78` pour la branche aventureuse (cyan, vecteurs) — le
+poids que le moteur porte déjà sur l'échelle 1–5. « Rester dans l'univers du
+parcours » n'est dit qu'une fois, par la raison ; la jauge se tait.
+
+Largeur : 40 colonnes (38 de la maquette plus le filet et sa marge), l'axe
+garde 48 au moins ; sous 28 colonnes disponibles la colonne s'efface. Une
+liste se coupe, une raison se replie — le repli est fait à la main, ratatui
+n'y touche pas.
+
+**Écarté, faute de donnée** : la ligne « ↳ 1 door écartée par le confort »
+de la maquette. Le moteur ne compte pas ce qu'il écarte ; l'inventer serait
+mentir.
+
+**Vérifié par trois tests de rendu** (`TestBackend`, 100×30 et 70×30) — la
+colonne, ses morceaux, ses jauges, ses touches au pied ; et un terminal
+étroit qui garde l'axe. Pas encore tourné en session réelle.
 
 ## Le catalogue parle anglais, et s'importe (06/09/2026)
 

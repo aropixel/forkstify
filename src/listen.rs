@@ -1047,8 +1047,8 @@ impl Live<'_> {
         } else {
             format!("[1-{} pour jouer un résultat, autre touche = annuler]", self.pending.len())
         };
-        // 1b : le volet n'est là qu'au moment du choix — dernier morceau du
-        // segment, ou « fp » demandé
+        // 1a : la colonne des branches est toujours là, chaque branche
+        // dépliée avec ses morceaux (Joel, 07/09/2026)
         let notices = self.notices.borrow();
         let view = View {
             path,
