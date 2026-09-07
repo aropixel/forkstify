@@ -95,6 +95,7 @@ moteur retient.
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file | mesure | ✅ |
 | `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
 | `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
+| `ad` | artist **discography** | Ouvrir la modale de la discographie : tous les morceaux par album, ce que la fiche et l'appris en savent, `tt`/`tT` pour corriger les tops ([exploration-d-un-artiste.md](conception/exploration-d-un-artiste.md)) | édition | 📋 |
 
 Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
 souvent, `as` moins souvent, `ab` plus jamais.
@@ -171,6 +172,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
+| `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 
 Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
@@ -249,7 +251,8 @@ constant.
 
 Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`.
 Restent libres : `b`, `c`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`, `r`,
-`s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`. Le mode
+`s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`. Dans les
+namespaces, `d` a été pris chez `a` le 07/09/2026 (`ad`, discography). Le mode
 file d'attente peut s'installer sans rien déplacer.
 
 ## D'où vient cette grammaire

@@ -48,10 +48,17 @@ cooldown daté, l'arbre de la file).
 
 ## La forme proposée
 
-Un **écran modal**, comme le réglage du confort prend la main sur les
-touches (`comfort_before`) : il s'ouvre sur une commande, il prend le
-clavier, `échap` le rend. Il ne joue rien de lui-même — on revient à
-l'écoute exactement là où on l'a laissée, le son n'ayant jamais cessé.
+**Arbitrage de Joel, 07/09/2026 : la touche est `ad`, et c'est une
+modale.** Pas un écran qui remplace l'écoute — une **modale posée sur
+l'écran d'écoute**, qui prend le clavier tant qu'elle est ouverte et le
+rend à `échap`, comme le réglage du confort prend la main sur les touches
+(`comfort_before`). Ce qui joue reste visible derrière : on ne quitte pas
+l'écoute pour redresser une fiche, et le son n'a de toute façon jamais
+cessé.
+
+`ad` se lit **a**rtist **d**iscography ; `d` était libre dans le namespace
+`a`, et 0013 veut que toute touche soit le raccourci d'une commande — c'est
+`:discography`.
 
 ```
  Cat Power — 214 titres, 19 albums · 3 tops · confort 2
@@ -135,15 +142,10 @@ rien de neuf dans `edit.rs` hormis le titre propre.
    joue rien, et l'en-tête de l'écran nomme l'artiste ouvert : le doute est
    levé à l'écran plutôt que dans les doigts. C'est un ajustement de la
    table, pas une décision nouvelle.
-2. **Le nom.** `:explore` dit l'intention, mais « exploration » désigne déjà
-   le bas de la zone de confort (0001 : 5 = cocon, 0 = exploration) —
-   deux sens pour un mot dans un produit qui n'en veut qu'un.
-   *Recommandation : `:discography`* — le mot du code, de l'API et de la
-   note sur la traîne, libre de tout autre emploi ; et il ouvre une touche
-   évidente le jour où le geste devient fréquent, `ad` (**a**rtist
-   **d**iscography), `d` étant libre dans le namespace `a`. Si Joel
-   préfère `:explore`, alors une ligne dans `vision.md` pour dire lequel
-   des deux sens est lequel.
+2. ~~**Le nom.**~~ **Tranché le 07/09/2026** : `ad` / `:discography`.
+   `:explore` accrochait un mot déjà pris — « exploration » désigne le bas
+   de la zone de confort (0001 : 5 = cocon, 0 = exploration) — et le
+   produit ne veut qu'un sens par mot.
 3. **Un commit par geste, ou un à la fermeture ?** Huit tops corrigés d'un
    coup font huit commits « Cat Power — top : + … ».
    *Recommandation : un par geste pour la première version* — c'est le code
@@ -171,5 +173,5 @@ rien de neuf dans `edit.rs` hormis le titre propre.
 - **Ni proposer l'amont** : ce qui est corrigé ici part dans le fork, et
   `:mine` le montre déjà ([0008](../decisions/0008-le-fork-est-la-surcouche.md)).
 
-La table de `keybindings.md` n'est **pas** modifiée tant que les points
-ci-dessus ne sont pas tranchés : elle ne connaît que le câblé et le décidé.
+`ad` et `:discography` entrent dans `keybindings.md` marqués 📋 — décidés,
+pas encore câblés. Le reste de l'écran attend les points ci-dessus.
