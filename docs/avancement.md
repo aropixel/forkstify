@@ -306,49 +306,59 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
-## La liste de lecture se lit comme une chaîne (07/09/2026)
+## La liste de lecture sur la grille de la chaîne (07/09/2026)
 
 Joel, maquette `File d'attente.dc.html` : « est-ce qu'on peut présenter la
 liste de lecture un peu comme la maquette **3a** ? C'était une ancienne
 maquette du projet de file d'attente avorté, mais j'aime bien le graphisme
-et je veux le récupérer pour la liste de lecture. »
+et je veux le récupérer pour la liste de lecture. » Puis, sur un premier
+essai qui faisait un maillon par branche : « je voudrais reprendre l'idée de
+numérotation devant les morceaux en cours et à venir, et la séparation avec
+le tiret vertical. Si on peut trouver des petites stats ou infos
+intéressantes à mettre sur le côté en gris comme sur la maquette, ce serait
+pas mal. »
 
-3a dessinait « la chaîne » : **un maillon par ligne, la raison à droite**, un
-filet `│` entre les maillons, et l'horizon au bout. Le mode file d'attente
-est tombé le 06/09, mais son graphisme convient exactement à ce que l'axe
-est devenu — une playlist qui enchaîne des branches. L'axe se lit donc ainsi :
+3a dessinait « la chaîne » sur une grille à quatre colonnes : le numéro et
+la flèche, le nom, la raison en gris, une info à droite ; un filet `│` entre
+les lignes ; l'horizon au bout. Le mode file d'attente est tombé le 06/09,
+mais la grille convient à ce que l'axe est devenu. **Chaque morceau y est
+une ligne** :
 
-    1 →  The Cure  graine : the-cure                       2 morceaux
-    │ ♪ A Forest — The Cure
-    │ ♪ Push — The Cure
-    2 ▶  Siouxsie and the Banshees  liens familiaux — Ro…  2 morceaux
-    │ ▶ Cities in Dust — Siouxsie and the Banshees
-    │ ♪ Israel — Siouxsie and the Banshees
-    3 →  The Creatures  membres en commun — Siouxsie Si…   1 morceau
-    │ ♪ Right Now — The Creatures
-    4    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche
+          ♪ A Forest — The Cure  graine : the-cure          1 écoute · hier
+          ♪ Push — The Cure                                     jamais joué
+     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   liens…    3 écoutes · -2s
+     │
+     2 →  ♪ Israel — Siouxsie and the Banshees                  jamais joué
+     │
+     3 →  ♪ Right Now — The Creatures  membres en commun        jamais joué
+     │
+     4    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche
 
-- **Un maillon par branche** : son numéro et `→` en magenta, son nom en
-  gras, sa raison en gris — en cyan quand elle vient des vecteurs — et le
-  compte de morceaux à droite. Le premier maillon est la graine. Le maillon
-  qui sonne porte `▶` ; ceux qui ont sonné s'estompent.
-- **Les morceaux restent**, derrière le filet, un par ligne : c'est là
-  qu'on sélectionne (↑↓, entrée, `tx`), rien ne change aux gestes. Le filet
-  est gris comme dans 3a, plus magenta.
-- **L'horizon** remplace « plus rien à suivre » : il dit que rien n'est tiré
-  au-delà, et que la suite est dans la colonne de droite.
-- L'en-tête compte les maillons et les morceaux, à la place du
-  « 5 maillons · 14 morceaux · ~52 min » de la maquette — sans les durées,
-  que le moteur n'a pas.
+- **Ce qui sonne est le 1, ce qui vient compte à partir de lui** — `▶` (ou
+  `⏸`) en vert sur le courant, `→` en magenta sur la suite, un filet `│`
+  entre chaque. Ce qui a sonné n'est pas numéroté et s'estompe, compact :
+  la playlist reste entière à l'écran sans manger la place de la suite.
+- **La raison de la branche se lit en gris à côté du morceau qui l'ouvre**
+  (en cyan quand elle vient des vecteurs), la graine à côté du premier. La
+  tête d'une branche porte donc désormais sa raison avec son nom
+  (`engine::Head { label, reason }`) ; `tx` sur une tête les passe au
+  morceau suivant.
+- **À droite, ce que l'écoute sait du morceau** : `3 écoutes · -2s`,
+  `jamais joué`, `passé 2×`, `hors catalogue` — lus dans `learned/`
+  (`track_stats`, compteurs décrus à aujourd'hui), avec l'âge écrit comme
+  dans la collection de l'accueil. Ce sont les seules stats par morceau que
+  l'application possède : pas de durée (l'API ne nous la rend pas), pas de
+  branches écartées (le moteur ne les compte pas).
+- **L'horizon** remplace « plus rien à suivre ». L'en-tête dit
+  « n morceaux · k à venir ».
+- **Rien ne change aux gestes** : la sélection ↑↓, entrée et `tx` portent
+  sur les mêmes lignes qu'avant.
 
-Pour que chaque maillon dise sa raison, **la tête d'une branche la porte
-désormais** (`engine::Head { label, reason }` sur le premier morceau, à la
-place du seul nom). `tx` sur une tête la passe au morceau suivant, raison
-comprise.
-
-**Écarté** : les « branches écartées » comptées à droite dans 3a, et les
-gestes `g<n>`, `z`, `X` — ils appartenaient au mode file d'attente, qui n'est
-plus. Vérifié par un test de rendu ; pas encore tourné en session réelle.
+Les colonnes se serrent d'elles-mêmes : la raison prend ce qui reste entre
+le morceau et la note, et s'efface sous huit cellules. À 100 colonnes
+(59 pour l'axe), la note passe, la raison rarement ; à 160, tout se lit.
+Vérifié par un test de rendu à 160 colonnes ; pas encore tourné en session
+réelle.
 
 ## Les branches se déplient dans leur colonne (07/09/2026)
 

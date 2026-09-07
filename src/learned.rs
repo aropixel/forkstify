@@ -211,6 +211,16 @@ impl Learned {
         Some((self.today - from_iso(artist.last.as_deref()?)?).max(0))
     }
 
+    /// What the listening knows of one track: plays (decayed to today),
+    /// days since it last sounded, and how often it was skipped. `None`
+    /// when it never sounded here.
+    pub fn track_stats(&self, slug: &str, title: &str) -> Option<(f64, Option<i64>, u32)> {
+        let top = self.artists.get(slug)?.tops.get(title)?;
+        let plays = decay(top.plays, top.last.as_deref(), self.today);
+        let days = top.last.as_deref().and_then(from_iso).map(|d| (self.today - d).max(0));
+        Some((plays, days, top.skipped))
+    }
+
     pub fn track_banned(&self, slug: &str, title: &str) -> bool {
         self.artists
             .get(slug)

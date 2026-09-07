@@ -1052,6 +1052,13 @@ impl Live<'_> {
         };
         // 1a : la colonne des branches est toujours là, chaque branche
         // dépliée avec ses morceaux (Joel, 07/09/2026)
+        let notes: Vec<String> = self
+            .past
+            .iter()
+            .chain(self.current.iter())
+            .chain(self.queue.iter())
+            .map(|stop| self.note(stop))
+            .collect();
         let notices = self.notices.borrow();
         let view = View {
             path,
@@ -1064,6 +1071,7 @@ impl Live<'_> {
             branches: &self.branches,
             panel: true,
             notices: &notices,
+            notes: &notes,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
             comfort_mode: self.comfort_before.is_some(),
@@ -1072,6 +1080,32 @@ impl Live<'_> {
             prompt,
         };
         let _ = self.tui.draw(&view);
+    }
+
+    /// The grey note beside a track (maquette 3a, Joel 07/09/2026): what the
+    /// listening knows of it — how often it sounded and when, how often it
+    /// was skipped — or that it never did.
+    fn note(&self, stop: &crate::engine::Stop) -> String {
+        if stop.source == crate::engine::Source::Offmap {
+            return "hors catalogue".to_string();
+        }
+        let mut parts: Vec<String> = Vec::new();
+        match self.learned.track_stats(&stop.slug, &stop.title) {
+            Some((plays, days, skipped)) => {
+                let n = plays.round().max(1.0) as u64;
+                if plays >= 0.5 {
+                    parts.push(format!("{n} écoute{}", if n > 1 { "s" } else { "" }));
+                    parts.push(crate::home::age(days));
+                } else {
+                    parts.push("jamais joué".to_string());
+                }
+                if skipped > 0 {
+                    parts.push(format!("passé {skipped}×"));
+                }
+            }
+            None => parts.push("jamais joué".to_string()),
+        }
+        parts.join(" · ")
     }
 
     /// The track under the needle, or a word saying why there is none.

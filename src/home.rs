@@ -87,8 +87,9 @@ impl Sort {
     }
 }
 
-/// « il y a n jours » en deux caractères, comme une TUI le dit.
-fn age(days: Option<i64>) -> String {
+/// « il y a n jours » en deux caractères, comme une TUI le dit. Sert à la
+/// collection de l'accueil et aux notes de la liste de lecture.
+pub(crate) fn age(days: Option<i64>) -> String {
     match days {
         None => "jamais".into(),
         Some(0) => "auj.".into(),
