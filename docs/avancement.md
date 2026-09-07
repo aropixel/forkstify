@@ -330,10 +330,12 @@ catalogue), `████░ 0.78` pour la branche aventureuse (cyan, vecteurs) 
 poids que le moteur porte déjà sur l'échelle 1–5. « Rester dans l'univers du
 parcours » n'est dit qu'une fois, par la raison ; la jauge se tait.
 
-Largeur : 40 colonnes (38 de la maquette plus le filet et sa marge), l'axe
-garde 48 au moins ; sous 28 colonnes disponibles la colonne s'efface. Une
-liste se coupe, une raison se replie — le repli est fait à la main, ratatui
-n'y touche pas.
+Partage **60/40, le même que l'accueil** (Joel, 07/09/2026) — la constante
+`LEFT_SHARE` sert aux deux écrans, et sous 60 colonnes la droite s'efface
+sur les deux. La maquette donnait 38 colonnes fixes à la droite ; en
+proportion, un terminal de 100 colonnes lui en donne 40, un de 160 en donne
+64 et les morceaux longs ne se coupent plus. Une liste se coupe, une raison
+se replie — le repli est fait à la main, ratatui n'y touche pas.
 
 **Écarté, faute de donnée** : la ligne « ↳ 1 door écartée par le confort »
 de la maquette. Le moteur ne compte pas ce qu'il écarte ; l'inventer serait

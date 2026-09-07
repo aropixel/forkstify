@@ -27,18 +27,16 @@ const VECTOR: Color = Color::Cyan;
 const DOOR: Color = Color::LightRed;
 const MUTED: Color = Color::Gray;
 
-/// La part de largeur donnée aux propositions, à l'accueil. 60 laisse à la
-/// collection de quoi montrer un nom long sans couper ; 50 la rend plus
-/// présente. Une seule valeur à changer.
+/// La part de largeur donnée à la colonne de gauche — les propositions à
+/// l'accueil, l'axe en écoute : **même disposition sur les deux écrans**
+/// (Joel, 07/09/2026). 60 laisse à la droite de quoi montrer un nom long
+/// sans couper ; 50 la rend plus présente. Une seule valeur à changer.
 const LEFT_SHARE: u16 = 60;
 const DIM: Color = Color::DarkGray;
 
-/// La colonne des branches, en écoute : la maquette 1a lui donne 38
-/// caractères plus son filet. Elle rétrécit si l'axe n'a pas ses 48
-/// colonnes, et s'efface plutôt que de descendre sous `PANEL_MIN`.
-const PANEL_WIDTH: u16 = 40;
-const PANEL_MIN: u16 = 28;
-const AXIS_MIN: u16 = 48;
+/// Sous cette largeur, la colonne de droite s'efface : mieux vaut une
+/// colonne lisible que deux illisibles.
+const SPLIT_MIN: u16 = 60;
 
 fn role_of(source: Source) -> Color {
     match source {
@@ -138,13 +136,15 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     ])
     .areas(area);
 
-    // l'axe à gauche, les branches à droite sur toute la hauteur (1a) — leur
-    // place est réservée, elles ne recouvrent rien
-    let panel_width = PANEL_WIDTH.min(body.width.saturating_sub(AXIS_MIN));
-    let (axis, panel_column) = if view.panel && panel_width >= PANEL_MIN {
-        let [left, right] =
-            Layout::horizontal([Constraint::Min(AXIS_MIN), Constraint::Length(panel_width)])
-                .areas(body);
+    // l'axe à gauche, les branches à droite sur toute la hauteur (1a), en
+    // 60/40 comme l'accueil — leur place est réservée, elles ne recouvrent
+    // rien
+    let (axis, panel_column) = if view.panel && body.width >= SPLIT_MIN {
+        let [left, right] = Layout::horizontal([
+            Constraint::Percentage(LEFT_SHARE),
+            Constraint::Percentage(100 - LEFT_SHARE),
+        ])
+        .areas(body);
         (left, Some(right))
     } else {
         (body, None)
@@ -508,9 +508,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     // à gauche ce que forkstify propose, à droite ce qu'il possède. Le
     // partage est proportionnel (Joel, 06/09/2026) : la gauche porte des
     // raisons et des morceaux, la droite une liste — d'où 60/40 plutôt que
-    // moitié-moitié. Sous 60 colonnes, la liste s'efface : mieux vaut une
-    // colonne lisible que deux illisibles.
-    let (body, collection) = match (&view.collection, whole.width >= 60) {
+    // moitié-moitié. Sous `SPLIT_MIN`, la liste s'efface.
+    let (body, collection) = match (&view.collection, whole.width >= SPLIT_MIN) {
         (Some(_), true) => {
             let [left, right] = Layout::horizontal([
                 Constraint::Percentage(LEFT_SHARE),
@@ -938,7 +937,7 @@ mod tests {
 
     #[test]
     fn a_narrow_terminal_keeps_the_axis_and_drops_the_column() {
-        let text = screen(70, 30, &branches()).join("\n");
+        let text = screen(50, 30, &branches()).join("\n");
         assert!(!text.contains("── branches"), "{text}");
         assert!(text.contains("Cities in Dust"), "{text}");
     }
