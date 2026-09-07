@@ -325,19 +325,23 @@ mais la grille convient à ce que l'axe est devenu. **Chaque morceau y est
 une ligne** :
 
           ♪ A Forest — The Cure  graine : the-cure          1 écoute · hier
+     ╵
           ♪ Push — The Cure                                     jamais joué
+     ╵
      1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   liens…    3 écoutes · -2s
-     │
+     ╵
      2 →  ♪ Israel — Siouxsie and the Banshees                  jamais joué
-     │
+     ╵
      3 →  ♪ Right Now — The Creatures  membres en commun        jamais joué
-     │
+     ╵
      4    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche
 
 - **Ce qui sonne est le 1, ce qui vient compte à partir de lui** — `▶` (ou
-  `⏸`) en vert sur le courant, `→` en magenta sur la suite, un filet `│`
-  entre chaque. Ce qui a sonné n'est pas numéroté et s'estompe, compact :
-  la playlist reste entière à l'écran sans manger la place de la suite.
+  `⏸`) en vert sur le courant, `→` en magenta sur la suite. Ce qui a sonné
+  n'est pas numéroté et s'estompe.
+- **Un filet entre chaque morceau, anciens compris** — un demi-trait `╵`,
+  « un tout petit peu plus petit » que le `│` de la maquette (Joel,
+  07/09/2026).
 - **La raison de la branche se lit en gris à côté du morceau qui l'ouvre**
   (en cyan quand elle vient des vecteurs), la graine à côté du premier. La
   tête d'une branche porte donc désormais sa raison avec son nom

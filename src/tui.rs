@@ -119,6 +119,10 @@ fn fit(text: &str, max: usize) -> String {
     cut
 }
 
+/// Le filet entre deux morceaux de la liste : un demi-trait, « un tout
+/// petit peu plus petit » que le `│` de la maquette (Joel, 07/09/2026).
+const RAIL: &str = " ╵";
+
 /// Où en est un morceau de la liste de lecture.
 #[derive(Clone, Copy, PartialEq)]
 enum Slot {
@@ -303,8 +307,10 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             }
             _ => Slot::Played,
         };
-        if matches!(slot, Slot::Ahead { .. }) {
-            lines.push(Line::from(Span::styled(" │", Style::default().fg(DIM))));
+        // le filet entre deux morceaux, anciens compris (Joel, 07/09/2026) —
+        // un demi-trait, plus discret qu'un filet plein
+        if stop_index > 0 {
+            lines.push(Line::from(Span::styled(RAIL, Style::default().fg(DIM))));
         }
         if slot != Slot::Played {
             if matches!(slot, Slot::Playing { .. }) {
@@ -322,7 +328,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
     if !all.is_empty() {
         // l'horizon : rien de tiré au-delà, la suite est dans la colonne
-        lines.push(Line::from(Span::styled(" │", Style::default().fg(DIM))));
+        lines.push(Line::from(Span::styled(RAIL, Style::default().fg(DIM))));
         lines.push(Line::from(Span::styled(
             fit(
                 &format!(
@@ -1071,11 +1077,17 @@ mod tests {
         assert!(text.contains(" 4 →  ♪ Alison — Slowdive  proche du centre de la branche (0.74)"), "{text}");
         assert!(axis("Alison").ends_with("jamais joué"), "{}", axis("Alison"));
         assert!(text.contains(" 5    horizon  rien de tiré au-delà"), "{text}");
-        // un filet entre chaque morceau numéroté, et avant l'horizon
-        let numbered: Vec<usize> = rows.iter().enumerate().filter(|(_, r)| r.contains(" →  ") || r.contains("horizon")).map(|(i, _)| i).collect();
-        for i in numbered {
+        // un filet entre chaque morceau, anciens compris, et avant l'horizon
+        let separated: Vec<usize> = rows
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.contains(" →  ") || r.contains("horizon") || r.contains("♪ Push"))
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(separated.len(), 5, "{text}");
+        for i in separated {
             let above: String = rows[i - 1].chars().take(95).collect();
-            assert_eq!(above.trim_end(), " │", "{text}");
+            assert_eq!(above.trim_end(), " ╵", "{text}");
         }
         assert!(text.contains("6 morceaux · 3 à venir"), "{text}");
     }
