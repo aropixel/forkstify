@@ -87,6 +87,9 @@ pub struct View<'a> {
     pub comfort_mode: bool,
     pub comfort: u8,
     pub comfort_word: &'a str,
+    /// (position, durée) en millisecondes du morceau qui sonne — `None`
+    /// tant que librespot n'a rien dit.
+    pub progress: Option<(u32, u32)>,
     pub prompt: String,
 }
 
@@ -117,6 +120,12 @@ impl Drop for Tui {
         let _ = write!(out, "\x1b[?25h\x1b[?1049l");
         let _ = out.flush();
     }
+}
+
+/// « m:ss », comme un lecteur l'écrit.
+fn clock(ms: u32) -> String {
+    let seconds = ms / 1000;
+    format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
 /// Une ligne à deux bouts : la gauche, puis la droite au bord. Faute de
@@ -226,10 +235,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     // maquette 2b : une ligne d'en-tête, le bloc de la graine, le corps qui
     // prend le reste, puis un pied de trois lignes et l'invite — le bas ne
     // bouge jamais, quoi que forkstify dise
-    let [head, seed_block, body, now, next, status, prompt] = Layout::vertical([
+    let [head, seed_block, body, now, bar, next, status, prompt] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(4),
         Constraint::Min(3),
+        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -420,18 +430,44 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
                 Span::styled(format!("  ({} / {tracks})", view.past.len() + 1), Style::default().fg(DIM)),
             ],
-            vec![
-                Span::styled(
-                    format!("{} ", stop.source.mark()),
-                    Style::default().fg(role_of(stop.source)),
-                ),
-                Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)),
-            ],
+            {
+                let mut right = vec![
+                    Span::styled(
+                        format!("{} ", stop.source.mark()),
+                        Style::default().fg(role_of(stop.source)),
+                    ),
+                    Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)),
+                ];
+                // les temps, dès que librespot les a dits
+                if let Some((position, duration)) = view.progress {
+                    right.push(Span::styled(" │ ", Style::default().fg(DIM)));
+                    right.push(Span::styled(clock(position), Style::default().fg(MUTED)));
+                    if duration > 0 {
+                        right.push(Span::styled(
+                            format!(" / {} -{}", clock(duration), clock(duration.saturating_sub(position))),
+                            Style::default().fg(DIM),
+                        ));
+                    }
+                }
+                right
+            },
             full,
         ),
         None => Line::from(Span::styled("⏹ rien ne sonne", Style::default().fg(MUTED))),
     };
     frame.render_widget(Paragraph::new(now_line), now);
+    // la progression, pleine largeur, comme le module media de waybar
+    let bar_line = match view.progress {
+        Some((position, duration)) if duration > 0 => {
+            let filled = (position as u64 * full as u64 / duration as u64) as usize;
+            Line::from(vec![
+                Span::styled("█".repeat(filled.min(full)), Style::default().fg(VECTOR)),
+                Span::styled("░".repeat(full.saturating_sub(filled)), Style::default().fg(DIM)),
+            ])
+        }
+        _ => Line::from(Span::styled("░".repeat(full), Style::default().fg(DIM))),
+    };
+    frame.render_widget(Paragraph::new(bar_line), bar);
     let next_line = justified(
         match view.queue.first() {
             Some(stop) => vec![
@@ -1113,6 +1149,7 @@ mod tests {
             comfort_mode: false,
             comfort: 3,
             comfort_word: "équilibré",
+            progress: current.map(|_| (154_000, 227_000)),
             prompt: "[1-2 branche]".to_string(),
         };
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -1137,10 +1174,10 @@ mod tests {
         assert!(text.contains("████░ 0.78"), "{text}");
         // the rule runs the whole body height (below the head and the seed
         // block, above the four-line foot), the hints sit at its foot
-        let body_rows = 5..(30 - 4);
+        let body_rows = 5..(30 - 5);
         assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
-        assert!(rows[25].contains("fn1 sans attendre la fin"), "{text}");
-        assert!(rows[24].contains("1-3 prendre"), "{text}");
+        assert!(rows[24].contains("fn1 sans attendre la fin"), "{text}");
+        assert!(rows[23].contains("1-3 prendre"), "{text}");
     }
 
     #[test]
@@ -1196,9 +1233,13 @@ mod tests {
         assert!(rows[3].starts_with("The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s"), "{}", rows[3]);
         assert!(rows[4].starts_with("1 embranchement depuis — 2 artistes traversés"), "{}", rows[4]);
         // le pied : ce qui sonne et sa provenance, ce qui suit et l'embranchement
-        let now = &rows[rows.len() - 4];
+        let now = &rows[rows.len() - 5];
         assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
-        assert!(now.trim_end().ends_with("♪ top"), "{now}");
+        assert!(now.trim_end().ends_with("♪ top │ 2:34 / 3:47 -1:13"), "{now}");
+        // la barre : 154 s sur 227, soit 108 cellules pleines sur 160
+        let bar = &rows[rows.len() - 4];
+        assert_eq!(bar.chars().filter(|c| *c == '█').count(), 108, "{bar}");
+        assert_eq!(bar.chars().filter(|c| *c == '░').count(), 52, "{bar}");
         let next = &rows[rows.len() - 3];
         assert!(next.starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{next}");
         assert!(next.trim_end().ends_with("→ embranchement dans 3 morceaux"), "{next}");

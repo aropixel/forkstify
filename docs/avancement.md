@@ -329,7 +329,8 @@ suit, puis l'invite. L'écran tient désormais ainsi :
      2 →  ♪ Israel — Siouxsie and the Banshees                jamais joué │      membres en commun — …
                                                                           │      ♪ Right Now — The Creatures
      3    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche    │      █████ membres en commun
-    ▶ Cities in Dust — Siouxsie and the Banshees  (2 / 3)                                        ♪ top
+    ▶ Cities in Dust — Siouxsie and the Banshees  (2 / 3)                 ♪ top │ 2:34 / 3:47 -1:13
+    ████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
     à suivre  Israel — Siouxsie and the Banshees                  → embranchement dans 1 morceau
     (la dernière chose dite)
     [1-3 branche · h/l · p · espace = les touches · q] █
@@ -353,12 +354,20 @@ suit, puis l'invite. L'écran tient désormais ainsi :
   (`membres en commun`, `0.78`) qui passe en gris comme la raison : seules
   les cellules de la jauge disent encore la nature du lien.
 
-**Pas fait, faute de donnée** : la progression pleine largeur et les
-durées (`2:34 / 3:47 -1:13`) — `sound.rs` ne remonte ni position ni durée,
-et la TUI ne se redessine qu'aux événements, pas à l'horloge. C'est un
-chantier à part (événements `Playing { position_ms }` de librespot, un
-tic par seconde). « 1 door écartée par le confort » non plus : le moteur ne
-compte pas ce qu'il écarte.
+**La progression, finalement** (Joel : « on ne peut vraiment pas avoir une
+barre de progression ? »). Si : librespot dit la position à chaque
+démarrage, pause et saut (`Playing`, `Paused`, `Seeked`,
+`PositionCorrection`) et la durée à chaque changement de piste
+(`TrackChanged`). `Live::follow_needle` les suit — pour la requête en cours
+seulement, un morceau sauté parle encore — et **un tic par seconde**
+redessine tant que ça joue, la position étant extrapolée depuis le dernier
+échantillon. Le pied gagne `♪ top │ 2:34 / 3:47 -1:13` et une **barre
+pleine largeur** en cyan, comme le module media de waybar. Sans donnée
+encore (avant le premier `Playing`), la barre est vide et les temps
+absents.
+
+**Pas fait, faute de donnée** : « 1 door écartée par le confort » — le
+moteur ne compte pas ce qu'il écarte.
 
 ## La liste de lecture sur la grille de la chaîne (07/09/2026)
 

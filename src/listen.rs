@@ -26,6 +26,7 @@ use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
+use librespot_playback::player::PlayerEvent;
 use crate::{state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
@@ -129,8 +130,12 @@ async fn async_run(
         branches: Vec::new(),
         pending: Vec::new(),
         size: 3,
+        progress: None,
     };
     let mut events = live.sound.events();
+    // un tic par seconde fait avancer la barre de progression ; il ne
+    // redessine que si quelque chose sonne
+    let mut tick = tokio::time::interval(std::time::Duration::from_secs(1));
 
     // le lecteur de touches est celui de l'accueil : deux threads sur stdin
     // se voleraient les octets
@@ -167,22 +172,30 @@ async fn async_run(
     loop {
         tokio::select! {
             event = events.recv() => match event {
-                // remember which track is really current…
-                Some(ref ev) if request_started(ev).is_some() => {
-                    live.current_request_id = request_started(ev);
+                Some(ref ev) => {
+                    // remember which track is really current…
+                    if let Some(id) = request_started(ev) {
+                        live.current_request_id = Some(id);
+                    // …and only react to the end of THAT track, not stray
+                    // events from one we already skipped past
+                    } else if live.current_request_id.is_some()
+                        && track_over(ev) == live.current_request_id
+                    {
+                        live.progress = None;
+                        live.on_track_over(track_finished(ev)).await;
+                        live.prefetch_next().await;
+                        live.paint();
+                    } else if live.follow_needle(ev) {
+                        live.paint();
+                    }
                 }
-                // …and only react to the end of THAT track, not stray events
-                // from one we already skipped past
-                Some(ref ev) if track_over(ev) == live.current_request_id
-                    && live.current_request_id.is_some() =>
-                {
-                    live.on_track_over(track_finished(ev)).await;
-                    live.prefetch_next().await;
-                    live.paint();
-                }
-                Some(_) => {}
                 None => break,
             },
+            _ = tick.tick() => {
+                if live.progress.as_ref().is_some_and(|p| p.running) {
+                    live.paint();
+                }
+            }
             cmd = rx.recv() => match cmd {
                 Some(cmd) => {
                     if !live.on_cmd(cmd).await {
@@ -262,6 +275,28 @@ struct Live<'a> {
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
     size: usize,
+    /// Where the needle is in the current track, as librespot last said it
+    /// — extrapolated by the clock while it plays (maquette 2b).
+    progress: Option<Progress>,
+}
+
+/// The needle: a position sampled at an instant, a duration, and whether
+/// time is running. librespot only speaks at starts, pauses and seeks; the
+/// seconds in between are ours to count.
+struct Progress {
+    position_ms: u32,
+    duration_ms: u32,
+    sampled: std::time::Instant,
+    running: bool,
+}
+
+impl Progress {
+    fn now(&self) -> (u32, u32) {
+        let elapsed = if self.running { self.sampled.elapsed().as_millis() as u32 } else { 0 };
+        let position = self.position_ms.saturating_add(elapsed);
+        let position = if self.duration_ms > 0 { position.min(self.duration_ms) } else { position };
+        (position, self.duration_ms)
+    }
 }
 
 /// What a comfort value means, so the number is never alone on screen.
@@ -1100,9 +1135,56 @@ impl Live<'_> {
             comfort_mode: self.comfort_before.is_some(),
             comfort: self.comfort.value(),
             comfort_word: comfort_word(self.comfort.value()),
+            progress: self.progress.as_ref().map(Progress::now),
             prompt,
         };
         let _ = self.tui.draw(&view);
+    }
+
+    /// Keep the needle in step with what librespot says: position at every
+    /// start, pause and seek, duration at every track change. Returns true
+    /// when the screen should follow. Events of a request that is not the
+    /// current one are ignored — a skipped track may still speak.
+    fn follow_needle(&mut self, event: &PlayerEvent) -> bool {
+        use PlayerEvent::*;
+        let mine = |id: &u64| Some(*id) == self.current_request_id;
+        let sampled = std::time::Instant::now();
+        let duration_ms = self.progress.as_ref().map_or(0, |p| p.duration_ms);
+        match event {
+            Playing { play_request_id, position_ms, .. } if mine(play_request_id) => {
+                self.progress =
+                    Some(Progress { position_ms: *position_ms, duration_ms, sampled, running: true });
+                true
+            }
+            Paused { play_request_id, position_ms, .. } if mine(play_request_id) => {
+                self.progress =
+                    Some(Progress { position_ms: *position_ms, duration_ms, sampled, running: false });
+                true
+            }
+            Seeked { play_request_id, position_ms, .. }
+            | PositionCorrection { play_request_id, position_ms, .. }
+            | PositionChanged { play_request_id, position_ms, .. }
+                if mine(play_request_id) =>
+            {
+                if let Some(p) = self.progress.as_mut() {
+                    p.position_ms = *position_ms;
+                    p.sampled = sampled;
+                }
+                true
+            }
+            TrackChanged { audio_item } => {
+                let running = self.progress.as_ref().is_some_and(|p| p.running);
+                let position_ms = self.progress.as_ref().map_or(0, |p| p.now().0);
+                self.progress = Some(Progress {
+                    position_ms,
+                    duration_ms: audio_item.duration_ms,
+                    sampled,
+                    running,
+                });
+                true
+            }
+            _ => false,
+        }
     }
 
     /// The grey note beside a track (maquette 3a, Joel 07/09/2026): what the
