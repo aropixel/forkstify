@@ -105,6 +105,12 @@ async fn async_run(
     };
     let _ = tui.splash(&steps);
 
+    // 0017 : l'appris se commite tout seul — toutes les dix minutes s'il a
+    // bougé, à la sortie, et sur « :sync » ; le push se fait en fond
+    let (sync_tx, mut sync_rx) = tokio::sync::mpsc::unbounded_channel::<Result<String, String>>();
+    let mut autosave = tokio::time::interval(std::time::Duration::from_secs(600));
+    autosave.tick().await;
+
     let mut live = Live {
         catalog,
         catalog_dir: catalog_dir.to_path_buf(),
@@ -132,6 +138,7 @@ async fn async_run(
         size: 3,
         progress: None,
         help_open: false,
+        sync_tx,
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -198,6 +205,16 @@ async fn async_run(
                     live.paint();
                 }
             }
+            _ = autosave.tick() => live.autosave(),
+            report = sync_rx.recv() => {
+                if let Some(report) = report {
+                    match report {
+                        Ok(word) => say!(live, "✓ {word}"),
+                        Err(why) => say!(live, "⏹ {why}"),
+                    }
+                    live.paint();
+                }
+            }
             cmd = rx.recv() => match cmd {
                 Some(cmd) => {
                     if !live.on_cmd(cmd).await {
@@ -221,6 +238,14 @@ async fn async_run(
     }
 
     live.sound.stop();
+    // ce qui a été appris part avec la session (0017) — dit à l'écran le
+    // temps qu'on le lise
+    let report = match crate::sync::sync(&live.catalog_dir) {
+        Ok(word) => (format!("✓ {word}"), true),
+        Err(why) => (format!("⏹ appris non poussé — {why} (au prochain lancement)"), false),
+    };
+    let _ = live.tui.splash(&[report]);
+    std::thread::sleep(std::time::Duration::from_millis(900));
     let path: Vec<String> = live
         .rounds
         .iter()
@@ -283,6 +308,8 @@ struct Live<'a> {
     /// The key helper is open: it follows the pending sequence level by
     /// level, and the key that completes a command closes it.
     help_open: bool,
+    /// Where a background push reports (0017): the loop says the result.
+    sync_tx: tokio::sync::mpsc::UnboundedSender<Result<String, String>>,
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -1178,6 +1205,29 @@ impl Live<'_> {
         let _ = self.tui.draw(&view);
     }
 
+    /// Every ten minutes: commit what listening wrote, push in the
+    /// background. Nothing to say when nothing moved; a push that is
+    /// refused (the other machine pushed first) waits for the next pull.
+    fn autosave(&mut self) {
+        if !crate::sync::dirty(&self.catalog_dir) {
+            return;
+        }
+        match crate::sync::commit_learned(&self.catalog_dir) {
+            Ok(Some(subject)) => {
+                let dir = self.catalog_dir.clone();
+                let tx = self.sync_tx.clone();
+                std::thread::spawn(move || {
+                    let _ = tx.send(match crate::sync::push(&dir) {
+                        Ok(()) => Ok(format!("appris poussé — {subject}")),
+                        Err(why) => Err(format!("push refusé — {why} (au prochain pull)")),
+                    });
+                });
+            }
+            Ok(None) => {}
+            Err(why) => say!(self, "⏹ commit de l'appris — {why}"),
+        }
+    }
+
     /// Keep the needle in step with what librespot says: position at every
     /// start, pause and seek, duration at every track change. Returns true
     /// when the screen should follow. Events of a request that is not the
@@ -1446,6 +1496,10 @@ impl Live<'_> {
             },
             (Some("warm"), _) => self.warm_requested = true,
             // la surcouche personnelle se calcule, elle ne se stocke pas
+            (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
+                Ok(word) => say!(self, "✓ {word}"),
+                Err(why) => say!(self, "⏹ {why}"),
+            },
             (Some("mine"), _) => match crate::edit::mine(&self.catalog_dir) {
                 Ok(lines) => self.overlay = Some(("ce qui est à moi".into(), lines)),
                 Err(why) => say!(self, "(impossible de comparer à l'amont : {why})"),
@@ -1552,6 +1606,7 @@ impl Live<'_> {
                 (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),
                 (":mine", "ce que ce catalogue a de plus que l'amont", true),
+                (":sync", "commiter et pousser l'appris maintenant", true),
                 ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
                 ("q", "quitter", true),
             ],

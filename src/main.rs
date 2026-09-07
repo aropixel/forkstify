@@ -19,6 +19,7 @@ mod learned;
 mod listen;
 mod mediakeys;
 mod sound;
+mod sync;
 mod tui;
 mod spotify;
 
@@ -27,7 +28,7 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Le catalogue actif : l'argument s'il y en a un, sinon le réglage, sinon
 /// l'emplacement par défaut. Un réglage plutôt qu'un chemin en dur, parce
@@ -242,6 +243,10 @@ fn check(catalog: &Catalog, slug: &str) {
 /// sont locaux — et le réseau n'entre en jeu qu'au moment de jouer.
 fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let dir = catalog_path(path);
+    // 0017 : ce que l'autre machine a appris arrive avant qu'on lise quoi
+    // que ce soit — et ce qu'on a appris ici part d'abord
+    sync::ensure_merge_driver(&dir);
+    let synced = sync::pull(&dir);
     let catalog = Catalog::load(&dir)?;
     let _raw = keys::RawMode::enable();
     let mut tui = tui::Tui::enter()?;
@@ -264,6 +269,13 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                     (
                         if status.web { "✓ api web" } else { "⏹ aucun titre résolu" }.into(),
                         status.web,
+                    ),
+                    (
+                        match &synced {
+                            Ok(word) => format!("⇅ {word}"),
+                            Err(_) => "⇅ hors ligne".to_string(),
+                        },
+                        synced.is_ok(),
                     ),
                 ],
                 census: String::new(),
@@ -311,9 +323,19 @@ fn main() -> anyhow::Result<()> {
     // vouées à disparaître (Joel, 05/09/2026)
     let (command, target, path) = match args.as_slice() {
         [] => return accueil(None),
+        // git's merge driver for learned/ (0017): base, ours, theirs
+        [command, base, ours, theirs] if command == "merge-learned" => {
+            return match sync::merge_learned(Path::new(base), Path::new(ours), Path::new(theirs)) {
+                Ok(()) => Ok(()),
+                Err(why) => {
+                    eprintln!("merge-learned : {why}");
+                    std::process::exit(1);
+                }
+            };
+        }
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]");
+            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]\n        forkstify merge-learned <base> <ours> <theirs>   (pilote de fusion git)");
             std::process::exit(2);
         }
     };
@@ -338,6 +360,11 @@ fn main() -> anyhow::Result<()> {
             engine::Comfort::new(config::Config::load().journey.comfort),
         ),
         "ecouter" => {
+            sync::ensure_merge_driver(&catalog_path(path));
+            match sync::pull(&catalog_path(path)) {
+                Ok(word) => println!("⇅ {word}"),
+                Err(why) => println!("⇅ hors ligne — {why}"),
+            }
             let _raw = keys::RawMode::enable();
             let mut rx = home::reader();
             let mut tui = tui::Tui::enter()?;

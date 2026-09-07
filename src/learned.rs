@@ -10,7 +10,7 @@
 //! confirmation, and never enters a commit of the catalogue proper.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 /// Plays at which familiarity reaches half — beyond, it saturates.
@@ -54,13 +54,14 @@ pub struct Artist {
     pub weight: f32,
     #[serde(default, skip_serializing_if = "is_false")]
     pub blacklisted: bool,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub tops: HashMap<String, Top>,
+    /// Sorted on disk: a stable order keeps diffs honest between machines.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tops: BTreeMap<String, Top>,
 }
 
 impl Default for Artist {
     fn default() -> Self {
-        Artist { plays: 0.0, last: None, weight: 1.0, blacklisted: false, tops: HashMap::new() }
+        Artist { plays: 0.0, last: None, weight: 1.0, blacklisted: false, tops: BTreeMap::new() }
     }
 }
 
@@ -351,6 +352,98 @@ impl Learned {
     }
 }
 
+// --- merging what two machines learned (0017) --------------------------
+
+/// Three-way merge of one artist's file: what each side counted since the
+/// common ancestor adds up (decayed to today), a ban on either side holds,
+/// a weight follows the side that moved it, a top new on one side comes in
+/// as it is. A textual merge would be meaningless on decayed floats; this
+/// is what git calls through the `learned` merge driver.
+pub fn merge_artist(base: Option<&str>, ours: &str, theirs: &str) -> Result<String, String> {
+    merge_artist_at(base, ours, theirs, today())
+}
+
+fn merge_artist_at(base: Option<&str>, ours: &str, theirs: &str, today: i64) -> Result<String, String> {
+    let parse = |text: &str| toml::from_str::<Artist>(text).map_err(|e| e.to_string());
+    let base = match base {
+        Some(text) => parse(text)?,
+        None => Artist::default(),
+    };
+    let a = parse(ours)?;
+    let b = parse(theirs)?;
+
+    let (plays, last) = merge_count(
+        (base.plays, base.last.as_deref()),
+        (a.plays, a.last.as_deref()),
+        (b.plays, b.last.as_deref()),
+        today,
+    );
+    let weight = if (a.weight - base.weight).abs() > 1e-6 { a.weight } else { b.weight };
+    let blacklisted = merge_flag(base.blacklisted, a.blacklisted, b.blacklisted);
+
+    let mut keys: Vec<&String> = base.tops.keys().chain(a.tops.keys()).chain(b.tops.keys()).collect();
+    keys.sort();
+    keys.dedup();
+    let mut tops = BTreeMap::new();
+    for key in keys {
+        let bt = base.tops.get(key).cloned().unwrap_or_default();
+        // a side that never saw this top left it as the base had it
+        let at = a.tops.get(key).cloned().unwrap_or_else(|| bt.clone());
+        let tt = b.tops.get(key).cloned().unwrap_or_else(|| bt.clone());
+        let (plays, last) = merge_count(
+            (bt.plays, bt.last.as_deref()),
+            (at.plays, at.last.as_deref()),
+            (tt.plays, tt.last.as_deref()),
+            today,
+        );
+        tops.insert(
+            key.clone(),
+            Top {
+                plays,
+                last,
+                liked: merge_flag(bt.liked, at.liked, tt.liked),
+                skipped: (at.skipped + tt.skipped).saturating_sub(bt.skipped),
+                blacklisted: merge_flag(bt.blacklisted, at.blacklisted, tt.blacklisted),
+            },
+        );
+    }
+    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, tops }).map_err(|e| e.to_string())
+}
+
+/// A counter and its date: the side that did not move yields to the other;
+/// when both moved, what each added since the base adds up — all three
+/// decayed to today first, so the half-life is applied once.
+fn merge_count(
+    base: (f64, Option<&str>),
+    a: (f64, Option<&str>),
+    b: (f64, Option<&str>),
+    today: i64,
+) -> (f64, Option<String>) {
+    let same = |x: (f64, Option<&str>), y: (f64, Option<&str>)| (x.0 - y.0).abs() < 1e-9 && x.1 == y.1;
+    if same(a, base) {
+        return (b.0, b.1.map(str::to_string));
+    }
+    if same(b, base) {
+        return (a.0, a.1.map(str::to_string));
+    }
+    let plays = (decay(a.0, a.1, today) + decay(b.0, b.1, today) - decay(base.0, base.1, today)).max(0.0);
+    // ISO dates compare as strings; None sorts first
+    let last = a.1.max(b.1).map(str::to_string);
+    (plays, last)
+}
+
+/// A flag set on either side since the base holds: a ban or a like is a
+/// decision, and two machines cannot un-decide each other silently.
+fn merge_flag(base: bool, a: bool, b: bool) -> bool {
+    if a != base {
+        a
+    } else if b != base {
+        b
+    } else {
+        base
+    }
+}
+
 /// `plays` as it stands today, the half-life applied to the gap.
 fn decay(plays: f64, last: Option<&str>, today: i64) -> f64 {
     match last.and_then(from_iso) {
@@ -408,6 +501,59 @@ fn from_iso(text: &str) -> Option<i64> {
     let doy = (153 * mp + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     Some(era * 146_097 + doe - 719_468)
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+
+    const BASE: &str = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n";
+
+    #[test]
+    fn les_ecoutes_de_deux_machines_s_additionnent() {
+        let ours = "plays = 5.0\nlast = \"2026-09-07\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 2.0\nlast = \"2026-09-07\"\n\n[tops.Push]\nplays = 1.0\nlast = \"2026-09-07\"\n";
+        let theirs = "plays = 4.0\nlast = \"2026-09-07\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n\n[tops.Lullaby]\nplays = 1.0\nlast = \"2026-09-07\"\nliked = true\n";
+        let today = from_iso("2026-09-07").unwrap();
+        let merged = merge_artist_at(Some(BASE), ours, theirs, today).unwrap();
+        let artist: Artist = toml::from_str(&merged).unwrap();
+        // 5 + 4 − 3 (décru d'un jour) : chaque côté a compté deux écoutes
+        assert!((artist.plays - 6.0).abs() < 0.02, "{}", artist.plays);
+        assert_eq!(artist.last.as_deref(), Some("2026-09-07"));
+        // un côté n'a pas touché A Forest : l'autre l'emporte tel quel
+        assert_eq!(artist.tops["A Forest"].plays, 2.0);
+        // un top nouveau de chaque côté entre tel quel
+        assert_eq!(artist.tops["Push"].plays, 1.0);
+        assert_eq!(artist.tops["Lullaby"].plays, 1.0);
+        assert!(artist.tops["Lullaby"].liked);
+        // et le fichier sort trié, comme tous les autres
+        let a = merged.find("A Forest").unwrap();
+        let l = merged.find("Lullaby").unwrap();
+        let p = merged.find("Push").unwrap();
+        assert!(a < l && l < p, "{merged}");
+    }
+
+    #[test]
+    fn un_ban_d_un_cote_l_emporte_et_le_poids_suit_qui_a_bouge() {
+        let ours = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 0.7\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n";
+        let theirs = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 1.0\nblacklisted = true\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\nblacklisted = true\n";
+        let today = from_iso("2026-09-07").unwrap();
+        let artist: Artist =
+            toml::from_str(&merge_artist_at(Some(BASE), ours, theirs, today).unwrap()).unwrap();
+        assert!(artist.blacklisted);
+        assert!(artist.tops["A Forest"].blacklisted);
+        assert!((artist.weight - 0.7).abs() < 1e-6);
+        // rien n'a été écouté de plus : le compte ne bouge pas
+        assert_eq!(artist.plays, 3.0);
+    }
+
+    #[test]
+    fn sans_ancetre_les_deux_cotes_s_additionnent() {
+        let ours = "plays = 1.0\nlast = \"2026-09-07\"\nweight = 1.0\n";
+        let theirs = "plays = 2.0\nlast = \"2026-09-07\"\nweight = 1.0\n";
+        let today = from_iso("2026-09-07").unwrap();
+        let artist: Artist = toml::from_str(&merge_artist_at(None, ours, theirs, today).unwrap()).unwrap();
+        assert_eq!(artist.plays, 3.0);
+    }
 }
 
 #[cfg(test)]

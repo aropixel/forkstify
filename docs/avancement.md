@@ -306,6 +306,43 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'appris se synchronise tout seul (07/09/2026)
+
+Joel, en changeant de poste : « learned s'est enrichi, mais sans aucun
+commit ; je n'ai plus mes enregistrements. On met en place des commits
+automatiques et un pull automatique à l'ouverture ? Une meilleure
+solution ? » Puis : « je valide, mais je veux que le message soit en
+anglais. Comment identifier le nombre de commits des dépôts publics des
+différents utilisateurs ? »
+
+Décision [0017](decisions/0017-synchronisation-de-l-appris.md), câblée le
+jour même (`src/sync.rs`, `learned::merge_artist`, sous-commande
+`merge-learned`) :
+
+- **Pull au démarrage** (accueil et `ecouter`), après avoir commité ce qui a
+  été appris ici ; l'en-tête de l'accueil dit `⇅ à jour` / `⇅ appris
+  commité, catalogue mis à jour` / `⇅ hors ligne`. **Commit toutes les dix
+  minutes** si `learned/` a bougé, push en fond, résultat dans le pied.
+  **Commit et push à la sortie**, affiché une seconde. **`:sync`** à la
+  demande. Délais réseau courts : hors ligne, rien ne se suspend.
+- **Fusion par compteur** : le pilote git `merge=learned` appelle
+  `forkstify merge-learned`, qui additionne ce que chaque côté a compté
+  depuis l'ancêtre (décru au jour), garde le ban ou l'aimé posé d'un côté,
+  suit le poids qui a bougé, laisse entrer les tops nouveaux. Trois tests
+  unitaires, **et un scénario git réel** : deux clones, deux écoutes
+  concurrentes du même artiste, `pull --rebase` sans conflit, `plays`
+  passé de 3 à 6,01 (5 + 4 − 3 décru d'un jour).
+- **Les tops sont écrits triés** (`BTreeMap`) : l'ordre de hachage faisait
+  de chaque écriture un faux diff.
+- **Messages en anglais, trailer `Forkstify: <kind> <version>`** sur les
+  commits de l'appris, des éditions et des imports. Pour compter l'usage :
+  `gh api search/commits -f q='"Forkstify:"' --jq .total_count` (dépôts
+  publics, branche par défaut) et `forks_count` du dépôt de référence.
+
+**Reste à faire de la main de Joel** : lancer forkstify sur l'autre poste —
+il commitera son appris, rebasera sur ce que ce poste a poussé, et le
+pilote fusionnera. Ce poste a poussé le sien à l'occasion de ce commit.
+
 ## Le pied ne grandit jamais, le geste se voit dans la liste (07/09/2026)
 
 Joel, après un `e3` : « il ne m'a ajouté qu'un morceau ; je voudrais
@@ -847,9 +884,7 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 5. **Le mode file d'attente** (`Q`, retour n° 11). Le plus gros morceau :
    `rounds` est une **liste plate**, alors que « retirer toute la profondeur
    d'une branche » suppose un arbre manipulable.
-6. **La synchronisation git** (`:sync`/`:push`/`:pull`, retour n° 10) : à
-   concevoir — fusion des compteurs de `learned/` (une fusion textuelle n'a
-   pas de sens sur des flottants décrus), fréquence, comportement hors ligne.
+6. ~~**La synchronisation git**~~ — faite le 07/09/2026 (0017).
 7. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
    clarification de Joel : sortir du cluster, ou repartir d'une graine ?
 8. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un

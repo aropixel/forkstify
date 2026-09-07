@@ -69,12 +69,18 @@ Le détail est dans `docs/decisions/`. En résumé :
   namespace, la table fait foi dans `docs/keybindings.md`
   ([0015](docs/decisions/0015-grammaire-clavier-namespaces.md)).
 - **L'appris vit dans `learned/`** (un fichier par artiste, compteurs
-  décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)).
-- **Langue** : français pour la prose (doc, commits, interface) ; **anglais
-  pour tout ce qui est interface publique du dépôt — code (identifiants,
-  commentaires) et vocabulaire sur disque (chemins, sous-dossiers, champs
-  des formats)** (visée open source, Joel les 03–04/09/2026). Le format de
-  fiche est déjà en anglais ; `learned/` de même.
+  décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)),
+  **et se synchronise tout seul** : pull au démarrage, commit toutes les dix
+  minutes et à la sortie, push en fond, fusion **par compteur** via un
+  pilote git ; les commits de l'application sont en anglais et portent le
+  trailer `Forkstify: <kind> <version>`
+  ([0017](docs/decisions/0017-synchronisation-de-l-appris.md)).
+- **Langue** : français pour la prose (doc, commits humains, interface) ;
+  **anglais pour tout ce qui est interface publique du dépôt — code
+  (identifiants, commentaires), vocabulaire sur disque (chemins,
+  sous-dossiers, champs des formats) et messages des commits que
+  l'application produit** (visée open source, Joel les 03–04/09 et
+  07/09/2026). Le format de fiche est déjà en anglais ; `learned/` de même.
 
 ## Ce qui reste à trancher
 

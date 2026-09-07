@@ -194,7 +194,7 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
         }
     };
     run(&["add", &relative.to_string_lossy()])?;
-    run(&["commit", "-q", "-m", &edit.summary])
+    run(&["commit", "-q", "-m", &edit.summary, "-m", &crate::sync::trailer("edit")])
 }
 
 #[cfg(test)]

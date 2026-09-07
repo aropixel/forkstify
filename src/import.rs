@@ -95,7 +95,14 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     git(dir, &["add", "cards/"])?;
     git(
         dir,
-        &["commit", "-q", "-m", &format!("importe {} fiches de {remote}", missing.len())],
+        &[
+            "commit",
+            "-q",
+            "-m",
+            &format!("import: {} cards from {remote}", missing.len()),
+            "-m",
+            &crate::sync::trailer("import"),
+        ],
     )?;
     println!("\n✓ {} fiche(s) reprises, en un commit", missing.len());
 
