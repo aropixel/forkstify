@@ -427,7 +427,8 @@ impl Live<'_> {
         match self.web.resolve(&stop.title, &stop.artist).await {
             Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
-                    say!(self, "{heading}");
+                    // rien à dire : le pied de l'écran annonce déjà ce qui
+                    // sonne, le redire en faisait un doublon (Joel, 07/09/2026)
                     self.sound.play(track);
                     self.current = Some(stop);
                     Load::Playing
