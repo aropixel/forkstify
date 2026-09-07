@@ -34,6 +34,18 @@ pub enum Source {
 }
 
 impl Source {
+    /// The word behind the glyph — interface text, hence French.
+    pub fn word(self) -> &'static str {
+        match self {
+            Source::Top => "top",
+            Source::Liked => "aimé",
+            Source::Door => "door",
+            Source::Tail => "traîne",
+            Source::Outside => "hors tops",
+            Source::Offmap => "hors catalogue",
+        }
+    }
+
     /// One glyph, so a queue stays scannable.
     pub fn mark(self) -> char {
         match self {
@@ -750,6 +762,7 @@ mod tests {
 
     fn the_cure() -> Card {
         Card {
+            generated: false,
             name: "The Cure".into(),
             spotify: None,
             tags: vec!["post-punk".into(), "80s".into()],

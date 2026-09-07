@@ -306,6 +306,60 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'écran de lecture d'après la maquette 2b (07/09/2026)
+
+Joel, `Lecture.dc.html` enrichie de deux variantes d'en-tête et de pied :
+« retravaille l'écran de lecture d'après la maquette **2b**. Finalement on
+enlève le filet vertical. Concernant la colonne des branches, la
+présentation que nous avons me convient, ne la modifie pas. Passe juste les
+raisons en gris. »
+
+2b : « la graine en bloc — et une progression pleine largeur ». Le parcours
+d'artistes disparaît du haut (la liste jouée le dit déjà) ; à sa place, une
+ligne d'en-tête et le bloc de la graine ; en bas, ce qui sonne et ce qui
+suit, puis l'invite. L'écran tient désormais ainsi :
+
+    forkstify ecouter the-cure     segment 2 · 6 morceaux · 3 à venir · confort 3 ███░░ équilibré
+
+    ── graine ──────────────
+    The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s
+    1 embranchement depuis — 2 artistes traversés
+          ♪ A Forest — The Cure  graine : the-cure        1 écoute · hier │ ── branches 2
+     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees        jamais joué │   1  The Creatures
+     2 →  ♪ Israel — Siouxsie and the Banshees                jamais joué │      membres en commun — …
+                                                                          │      ♪ Right Now — The Creatures
+     3    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche    │      █████ membres en commun
+    ▶ Cities in Dust — Siouxsie and the Banshees  (2 / 3)                                        ♪ top
+    à suivre  Israel — Siouxsie and the Banshees                  → embranchement dans 1 morceau
+    (la dernière chose dite)
+    [1-3 branche · h/l · p · espace = les touches · q] █
+
+- **L'en-tête sur une ligne** : la commande à gauche, l'état à droite —
+  segment, morceaux, à venir, et la jauge de confort, qui quitte l'invite
+  (elle s'inverse là quand `c` la règle).
+- **La graine en bloc**, sous sa règle : le nom, `[catalogue]`, ce que dit
+  sa fiche (écrite ou générée, liens, tops — `Card` lit désormais
+  `generated`), sa dernière écoute d'après `learned/`, et le compte des
+  embranchements pris et des artistes traversés.
+- **La liste sans filet** : le demi-trait du matin tombe, les morceaux se
+  suivent ; le numéro passe en gris, seule la flèche garde sa couleur ; un
+  blanc avant l'horizon.
+- **Le pied** : ce qui sonne avec sa position dans la liste et sa
+  provenance en toutes lettres (`♪ top`, `♥ aimé`, `↳ door`, `· traîne`…
+  — `Source::word()`), puis ce qui suit et « embranchement dans n
+  morceaux ». La dernière chose dite garde sa ligne, l'invite reste la
+  dernière avec un curseur bloc.
+- **La colonne des branches ne change pas**, sauf le mot sous la jauge
+  (`membres en commun`, `0.78`) qui passe en gris comme la raison : seules
+  les cellules de la jauge disent encore la nature du lien.
+
+**Pas fait, faute de donnée** : la progression pleine largeur et les
+durées (`2:34 / 3:47 -1:13`) — `sound.rs` ne remonte ni position ni durée,
+et la TUI ne se redessine qu'aux événements, pas à l'horloge. C'est un
+chantier à part (événements `Playing { position_ms }` de librespot, un
+tic par seconde). « 1 door écartée par le confort » non plus : le moteur ne
+compte pas ce qu'il écarte.
+
 ## La liste de lecture sur la grille de la chaîne (07/09/2026)
 
 Joel, maquette `File d'attente.dc.html` : « est-ce qu'on peut présenter la
@@ -339,9 +393,8 @@ une ligne** :
 - **Ce qui sonne est le 1, ce qui vient compte à partir de lui** — `▶` (ou
   `⏸`) en vert sur le courant, `→` en magenta sur la suite. Ce qui a sonné
   n'est pas numéroté et s'estompe.
-- **Un filet entre chaque morceau, anciens compris** — un demi-trait `╵`,
-  « un tout petit peu plus petit » que le `│` de la maquette (Joel,
-  07/09/2026).
+- ~~Un filet entre chaque morceau~~ — essayé en `│` puis en demi-trait `╵`,
+  retiré le soir même avec la maquette 2b.
 - **La raison de la branche se lit en gris à côté du morceau qui l'ouvre**
   (en cyan quand elle vient des vecteurs), la graine à côté du premier. La
   tête d'une branche porte donc désormais sa raison avec son nom

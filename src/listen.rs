@@ -1059,10 +1059,33 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| self.note(stop))
             .collect();
+        // le bloc de la graine (maquette 2b) : d'elle tout descend
+        let seed_card = self.catalog.cards.get(&seed);
+        let seed_name = seed_card.map(|c| c.name.clone()).unwrap_or_else(|| seed.clone());
+        let seed_facts = seed_card
+            .map(|c| {
+                format!(
+                    "{} · {} lien{} · {} top{}",
+                    if c.generated { "fiche générée" } else { "fiche écrite" },
+                    c.links.len(),
+                    if c.links.len() > 1 { "s" } else { "" },
+                    c.tops.len(),
+                    if c.tops.len() > 1 { "s" } else { "" },
+                )
+            })
+            .unwrap_or_default();
+        let seed_last = match self.learned.days_since(&seed) {
+            Some(days) => format!("dernière écoute {}", crate::home::age(Some(days))),
+            None => "jamais écouté".to_string(),
+        };
         let notices = self.notices.borrow();
         let view = View {
             path,
             seed: &seed,
+            seed_name: &seed_name,
+            seed_facts: &seed_facts,
+            seed_last: &seed_last,
+            forks: self.rounds.len().saturating_sub(1),
             segment: self.rounds.len(),
             past: &self.past,
             current: self.current.as_ref(),

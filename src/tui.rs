@@ -1,7 +1,8 @@
-//! La TUI (décision [0006] : ratatui). Variante **1a** des maquettes
-//! (`Lecture.dc.html`, Joel le 07/09/2026) : deux volets permanents — l'axe
-//! de lecture à gauche, les branches à droite dans leur colonne, chacune
-//! dépliée avec ses morceaux pour qu'on choisisse en connaissance de cause.
+//! La TUI (décision [0006] : ratatui). Variantes **1a** puis **2b** des
+//! maquettes (`Lecture.dc.html`, Joel le 07/09/2026) : deux volets
+//! permanents — la liste de lecture à gauche, les branches à droite,
+//! chacune dépliée avec ses morceaux —, la graine en bloc au-dessus, et un
+//! pied qui dit ce qui sonne et ce qui suit.
 //!
 //! Elle n'emprunte à ratatui que le **dessin**. La saisie reste celle de
 //! `keys.rs` — termios brut, grammaire sans préfixe — parce qu'elle est
@@ -51,8 +52,17 @@ fn role_of(source: Source) -> Color {
 /// Tout ce que l'écran a besoin de savoir. La session le remplit, la TUI ne
 /// décide de rien : le moteur produit, l'affichage montre.
 pub struct View<'a> {
+    /// Les artistes traversés — comptés dans le bloc de la graine, plus
+    /// affichés en en-tête : la liste jouée le dit déjà (maquette 2b).
     pub path: Vec<String>,
     pub seed: &'a str,
+    pub seed_name: &'a str,
+    /// « fiche écrite · 41 liens · 12 tops »
+    pub seed_facts: &'a str,
+    /// « dernière écoute -3s », ou « jamais écouté »
+    pub seed_last: &'a str,
+    /// Les embranchements pris depuis la graine.
+    pub forks: usize,
     pub segment: usize,
     pub past: &'a [Stop],
     pub current: Option<&'a Stop>,
@@ -109,6 +119,17 @@ impl Drop for Tui {
     }
 }
 
+/// Une ligne à deux bouts : la gauche, puis la droite au bord. Faute de
+/// justification en cellules, l'écart est calculé depuis la largeur.
+fn justified(left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) -> Line<'static> {
+    let count = |spans: &[Span]| spans.iter().map(|s| s.content.chars().count()).sum::<usize>();
+    let gap = width.saturating_sub(count(&left) + count(&right)).max(2);
+    let mut spans = left;
+    spans.push(Span::raw(" ".repeat(gap)));
+    spans.extend(right);
+    Line::from(spans)
+}
+
 /// Coupe un texte à `max` caractères, avec une ellipse : une liste se coupe.
 fn fit(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
@@ -118,10 +139,6 @@ fn fit(text: &str, max: usize) -> String {
     cut.push('…');
     cut
 }
-
-/// Le filet entre deux morceaux de la liste : un demi-trait, « un tout
-/// petit peu plus petit » que le `│` de la maquette (Joel, 07/09/2026).
-const RAIL: &str = " ╵";
 
 /// Où en est un morceau de la liste de lecture.
 #[derive(Clone, Copy, PartialEq)]
@@ -138,16 +155,20 @@ enum Slot {
 /// porte « ▶ » ; ce qui vient est compté à partir de lui.
 fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
-    let prefix = match slot {
-        Slot::Played => Span::styled("      ".to_string(), Style::default()),
-        Slot::Playing { n, paused } => Span::styled(
-            format!("{n:>2} {} ", if paused { "⏸" } else { "▶" }),
-            Style::default().fg(PLAYING).add_modifier(Modifier::BOLD),
-        ),
-        Slot::Ahead { n } => Span::styled(
-            format!("{n:>2} →  "),
-            Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
-        ),
+    // le numéro en gris, la flèche seule en couleur (maquette 2b)
+    let prefix: Vec<Span> = match slot {
+        Slot::Played => vec![Span::raw("      ")],
+        Slot::Playing { n, paused } => vec![
+            Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
+            Span::styled(
+                format!("{} ", if paused { "⏸" } else { "▶" }),
+                Style::default().fg(PLAYING).add_modifier(Modifier::BOLD),
+            ),
+        ],
+        Slot::Ahead { n } => vec![
+            Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
+            Span::styled("→  ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        ],
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
     let body: Vec<Span> = match slot {
@@ -191,7 +212,7 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
     let pad = width
         .saturating_sub(used - 2 + middle.chars().count() + note.chars().count())
         .max(2);
-    let mut spans = vec![prefix];
+    let mut spans = prefix;
     spans.extend(body);
     spans.push(Span::styled("  ".to_string(), Style::default()));
     spans.push(Span::styled(middle, Style::default().fg(if played { DIM } else { middle_tone })));
@@ -202,15 +223,20 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
 
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
-    // trois zones de hauteur fixe et un corps qui prend le reste : le bas ne
+    // maquette 2b : une ligne d'en-tête, le bloc de la graine, le corps qui
+    // prend le reste, puis un pied de trois lignes et l'invite — le bas ne
     // bouge jamais, quoi que forkstify dise
-    let [head, body, status, prompt] = Layout::vertical([
-        Constraint::Length(2),
+    let [head, seed_block, body, now, next, status, prompt] = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(4),
         Constraint::Min(3),
+        Constraint::Length(1),
+        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
     .areas(area);
+    let full = area.width as usize;
 
     // l'axe à gauche, les branches à droite sur toute la hauteur (1a), en
     // 60/40 comme l'accueil — leur place est réservée, elles ne recouvrent
@@ -226,40 +252,73 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         (body, None)
     };
 
-    // — l'en-tête : où l'on en est, en une ligne et sa précision
-    let mut path: Vec<Span> = Vec::new();
-    for (i, name) in view.path.iter().enumerate() {
-        if i > 0 {
-            path.push(Span::styled(" → ", Style::default().fg(BRANCH)));
-        }
-        let last = i + 1 == view.path.len();
-        path.push(Span::styled(
-            name.clone(),
-            if last {
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(MUTED)
-            },
-        ));
-    }
+    // — l'en-tête, sur une ligne : la commande à gauche, l'état à droite
     let tracks = view.past.len() + usize::from(view.current.is_some()) + view.queue.len();
-    let head_lines = vec![
-        Line::from(path),
-        Line::from(Span::styled(
-            format!(
-                "graine : {} · segment {} · confort {} — {} · {} morceau{} · {} à venir",
-                view.seed,
-                view.segment,
-                view.comfort,
-                view.comfort_word,
-                tracks,
-                if tracks > 1 { "x" } else { "" },
-                view.queue.len(),
-            ),
-            Style::default().fg(DIM),
+    let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
+    let comfort_style = if view.comfort_mode {
+        Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(VECTOR)
+    };
+    frame.render_widget(
+        Paragraph::new(justified(
+            vec![
+                Span::styled("forkstify", Style::default().fg(MUTED).add_modifier(Modifier::BOLD)),
+                Span::styled(format!(" ecouter {}", view.seed), Style::default().fg(DIM)),
+            ],
+            vec![
+                Span::styled(
+                    format!(
+                        "segment {} · {} morceau{} · {} à venir · ",
+                        view.segment,
+                        tracks,
+                        if tracks > 1 { "x" } else { "" },
+                        view.queue.len()
+                    ),
+                    Style::default().fg(DIM),
+                ),
+                Span::styled(format!("confort {} {gauge} {}", view.comfort, view.comfort_word), comfort_style),
+            ],
+            full,
         )),
-    ];
-    frame.render_widget(Paragraph::new(head_lines), head);
+        head,
+    );
+
+    // — la graine, en bloc : c'est d'elle que tout descend
+    let forks = match view.forks {
+        0 => "aucun embranchement encore".to_string(),
+        1 => "1 embranchement depuis".to_string(),
+        n => format!("{n} embranchements depuis"),
+    };
+    let traversed = view.path.len();
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("── ", Style::default().fg(DIM)),
+                Span::styled("graine", Style::default().fg(MUTED)),
+                Span::styled(" ──────────────", Style::default().fg(DIM)),
+            ]),
+            Line::from(vec![
+                Span::styled(
+                    view.seed_name.to_string(),
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("  [catalogue]  ", Style::default().fg(CATALOG)),
+                Span::styled(view.seed_facts.to_string(), Style::default().fg(MUTED)),
+                Span::styled(format!("  {}", view.seed_last), Style::default().fg(DIM)),
+            ]),
+            Line::from(Span::styled(
+                format!(
+                    "{forks} — {traversed} artiste{} traversé{}",
+                    if traversed > 1 { "s" } else { "" },
+                    if traversed > 1 { "s" } else { "" }
+                ),
+                Style::default().fg(DIM),
+            )),
+        ]),
+        seed_block,
+    );
 
     // — l'axe : ce qui a sonné, ce qui sonne, ce qui suit. Il s'affiche
     // verticalement, donc c'est verticalement qu'on s'y déplace.
@@ -307,11 +366,6 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             }
             _ => Slot::Played,
         };
-        // le filet entre deux morceaux, anciens compris (Joel, 07/09/2026) —
-        // un demi-trait, plus discret qu'un filet plein
-        if stop_index > 0 {
-            lines.push(Line::from(Span::styled(RAIL, Style::default().fg(DIM))));
-        }
         if slot != Slot::Played {
             if matches!(slot, Slot::Playing { .. }) {
                 playing_line = lines.len();
@@ -328,7 +382,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
     if !all.is_empty() {
         // l'horizon : rien de tiré au-delà, la suite est dans la colonne
-        lines.push(Line::from(Span::styled(RAIL, Style::default().fg(DIM))));
+        lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             fit(
                 &format!(
@@ -348,6 +402,61 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         .min(lines.len().saturating_sub(height));
     frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
+    // — le pied (maquette 2b) : ce qui sonne et sa provenance, puis ce qui
+    // suit et à combien de morceaux se trouve l'embranchement — ce que la
+    // liste ne dit plus quand elle a défilé
+    let now_line = match view.current {
+        Some(stop) => justified(
+            vec![
+                Span::styled(
+                    format!("{} ", if view.paused { "⏸" } else { "▶" }),
+                    Style::default().fg(PLAYING),
+                ),
+                Span::styled(
+                    stop.title.clone(),
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(" — ", Style::default().fg(DIM)),
+                Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
+                Span::styled(format!("  ({} / {tracks})", view.past.len() + 1), Style::default().fg(DIM)),
+            ],
+            vec![
+                Span::styled(
+                    format!("{} ", stop.source.mark()),
+                    Style::default().fg(role_of(stop.source)),
+                ),
+                Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)),
+            ],
+            full,
+        ),
+        None => Line::from(Span::styled("⏹ rien ne sonne", Style::default().fg(MUTED))),
+    };
+    frame.render_widget(Paragraph::new(now_line), now);
+    let next_line = justified(
+        match view.queue.first() {
+            Some(stop) => vec![
+                Span::styled("à suivre  ", Style::default().fg(DIM)),
+                Span::styled(stop.title.clone(), Style::default().fg(MUTED)),
+                Span::styled(" — ", Style::default().fg(DIM)),
+                Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
+            ],
+            None => vec![Span::styled("à suivre  (rien de tiré)", Style::default().fg(DIM))],
+        },
+        vec![
+            Span::styled("→ ", Style::default().fg(BRANCH)),
+            Span::styled(
+                match view.queue.len() {
+                    0 => "embranchement à la fin du morceau".to_string(),
+                    1 => "embranchement dans 1 morceau".to_string(),
+                    n => format!("embranchement dans {n} morceaux"),
+                },
+                Style::default().fg(MUTED),
+            ),
+        ],
+        full,
+    );
+    frame.render_widget(Paragraph::new(next_line), next);
+
     // — la dernière chose dite, sur une ligne qui ne grandit pas
     let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
     frame.render_widget(
@@ -358,21 +467,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         status,
     );
 
-    // — l'invite : toujours la dernière ligne
-    let comfort_gauge: String = (0..5)
-        .map(|i| if i < view.comfort { '█' } else { '░' })
-        .collect();
+    // — l'invite : toujours la dernière ligne, avec son curseur
     let prompt_line = Line::from(vec![
         Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
-        Span::raw("  "),
-        Span::styled(
-            comfort_gauge,
-            if view.comfort_mode {
-                Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(VECTOR)
-            },
-        ),
+        Span::raw(" "),
+        Span::styled(" ", Style::default().bg(VECTOR)),
     ]);
     frame.render_widget(Paragraph::new(prompt_line), prompt);
 
@@ -510,8 +609,10 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             Span::styled("     ", Style::default()),
             Span::styled(cells, Style::default().fg(tone)),
         ];
+        // la raison est grise, son mot sous la jauge aussi (Joel, 07/09/2026) :
+        // seules les cellules disent la nature du lien
         if let Some(word) = word {
-            gauge.push(Span::styled(format!(" {word}"), Style::default().fg(tone)));
+            gauge.push(Span::styled(format!(" {word}"), Style::default().fg(MUTED)));
         }
         lines.push(Line::from(gauge));
         lines.push(Line::from(""));
@@ -994,6 +1095,10 @@ mod tests {
         let view = View {
             path: vec!["The Cure".to_string(), "Siouxsie and the Banshees".to_string()],
             seed: "the-cure",
+            seed_name: "The Cure",
+            seed_facts: "fiche écrite · 41 liens · 12 tops",
+            seed_last: "dernière écoute -3s",
+            forks: 1,
             segment: 2,
             past,
             current,
@@ -1030,11 +1135,12 @@ mod tests {
         // the graph says its link, the vector space its cosine
         assert!(text.contains("█████ membres en commun"), "{text}");
         assert!(text.contains("████░ 0.78"), "{text}");
-        // the rule runs the whole body height, the hints sit at its foot
-        let body_rows = 2..(30 - 2);
+        // the rule runs the whole body height (below the head and the seed
+        // block, above the four-line foot), the hints sit at its foot
+        let body_rows = 5..(30 - 4);
         assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
-        assert!(rows[27].contains("fn1 sans attendre la fin"), "{text}");
-        assert!(rows[26].contains("1-3 prendre"), "{text}");
+        assert!(rows[25].contains("fn1 sans attendre la fin"), "{text}");
+        assert!(rows[24].contains("1-3 prendre"), "{text}");
     }
 
     #[test]
@@ -1077,19 +1183,25 @@ mod tests {
         assert!(text.contains(" 4 →  ♪ Alison — Slowdive  proche du centre de la branche (0.74)"), "{text}");
         assert!(axis("Alison").ends_with("jamais joué"), "{}", axis("Alison"));
         assert!(text.contains(" 5    horizon  rien de tiré au-delà"), "{text}");
-        // un filet entre chaque morceau, anciens compris, et avant l'horizon
-        let separated: Vec<usize> = rows
-            .iter()
-            .enumerate()
-            .filter(|(_, r)| r.contains(" →  ") || r.contains("horizon") || r.contains("♪ Push"))
-            .map(|(i, _)| i)
-            .collect();
-        assert_eq!(separated.len(), 5, "{text}");
-        for i in separated {
-            let above: String = rows[i - 1].chars().take(95).collect();
-            assert_eq!(above.trim_end(), " ╵", "{text}");
-        }
-        assert!(text.contains("6 morceaux · 3 à venir"), "{text}");
+        // plus de filet (Joel, 07/09/2026) : les morceaux se suivent, seul
+        // l'horizon prend un blanc
+        assert!(!text.contains('╵') && !text.contains(" │ ♪"), "{text}");
+        let horizon = rows.iter().position(|r| r.contains("horizon")).unwrap();
+        assert!(rows[horizon - 1].chars().take(95).all(|c| c == ' '), "{text}");
+        assert!(rows[horizon - 2].contains("Alison"), "{text}");
+        // l'en-tête et le bloc de la graine (2b)
+        assert!(rows[0].starts_with("forkstify ecouter the-cure"), "{}", rows[0]);
+        assert!(rows[0].trim_end().ends_with("segment 2 · 6 morceaux · 3 à venir · confort 3 ███░░ équilibré"), "{}", rows[0]);
+        assert!(rows[2].starts_with("── graine ─"), "{}", rows[2]);
+        assert!(rows[3].starts_with("The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s"), "{}", rows[3]);
+        assert!(rows[4].starts_with("1 embranchement depuis — 2 artistes traversés"), "{}", rows[4]);
+        // le pied : ce qui sonne et sa provenance, ce qui suit et l'embranchement
+        let now = &rows[rows.len() - 4];
+        assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
+        assert!(now.trim_end().ends_with("♪ top"), "{now}");
+        let next = &rows[rows.len() - 3];
+        assert!(next.starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{next}");
+        assert!(next.trim_end().ends_with("→ embranchement dans 3 morceaux"), "{next}");
     }
 
     #[test]
