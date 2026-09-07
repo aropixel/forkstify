@@ -894,6 +894,14 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    déroule.
 10. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
+11. **Explorer la discographie d'un artiste** (retour n° 12, 07/09/2026) :
+    un écran plein qui liste les morceaux par album, avec ce que la fiche
+    et l'appris en savent, et où `tt`/`tT` corrigent les tops en une passe.
+    **Conçu, non tranché** — quatre points attendent Joel dans
+    [`conception/exploration-d-un-artiste.md`](conception/exploration-d-un-artiste.md).
+    Sa place dans cette liste est à l'arbitrage : presque tout le matériel
+    existe déjà (la traîne en cache, les éditions, les glyphes), ce qui en
+    fait la plus petite des étapes qui restent.
 
 ## Corrections en attente (petites)
 

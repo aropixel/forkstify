@@ -274,6 +274,26 @@ une **liste plate**. C'est le point structurant à regarder en premier.
 Lié à la « vraie prévisualisation + choix à l'avance » déjà notée comme
 appartenant à l'interface (04/09/2026).
 
+### 12. Explorer la discographie d'un artiste
+
+**Statut** : **conçu, non tranché** (Joel, 07/09/2026) — note dédiée :
+[`exploration-d-un-artiste.md`](exploration-d-un-artiste.md).
+
+Joel, après une graine « Cat Power » : « je n'aime quasiment que des
+morceaux de l'album *What Would the Community Think* ; j'aurais aimé une
+commande (`:explore` ?) pour avoir la liste visuelle des morceaux classés
+par albums, et pouvoir faire des `tt` sur ceux que j'aime et `tT` sur les
+tops que je veux enlever. »
+
+Le manque n'est pas l'édition — `tt`/`tT` écrivent et commitent depuis le
+06/09 — mais le fait de ne pouvoir les exercer que sur **le morceau qui
+sonne** : redresser un artiste demanderait de le poncer en entier. La
+discographie est déjà en cache (`:warm`), les glyphes et l'appris aussi :
+ce qui manque est un **écran**. Quatre points attendent l'arbitrage — la
+cible (le morceau en cours ou la sélection, question qui vaut pour tout le
+namespace `t`/`a`), le nom de la commande, la granularité des commits, et
+ce que fait entrée.
+
 ## À trancher — récapitulatif
 
 Les cinq points du matin ont tous été tranchés le 05/09 (voir
@@ -294,6 +314,9 @@ Restent ouverts :
    morceau, la différence — noter ou non dans `learned/` — étant invisible
    dans les doigts.
 3. **`aL` ou `ac`** pour lier deux artistes.
+4. **Les quatre points de l'exploration d'un artiste** (retour n° 12) :
+   cible, nom de la commande, granularité des commits, rôle d'entrée. Voir
+   [`exploration-d-un-artiste.md`](exploration-d-un-artiste.md).
 
 ## Ce qui n'a pas été vérifié
 
