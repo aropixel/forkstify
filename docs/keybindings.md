@@ -171,7 +171,6 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
-| `:sync` `:push` `:pull` | Synchroniser usage et fiches entre machines | 📋 |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 
 Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
