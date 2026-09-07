@@ -306,6 +306,37 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'aide à la saisie (07/09/2026)
+
+Joel : « je veux changer le fonctionnement de la fenêtre des raccourcis :
+on l'ouvre avec espace et on la ferme avec échap ; si je l'ouvre et que
+j'appuie sur e, cela affiche la fenêtre des raccourcis de e, je dois pouvoir
+revenir en arrière ; si j'appuie ensuite sur 3, cela déclenche l'action
+voulue — ce n'est plus une simple fenêtre de raccourcis, mais une aide à la
+saisie. »
+
+C'est which-key pour de vrai. Le leader ne **vidait** plus rien : il
+effaçait la séquence en cours pour montrer un menu, et il fallait tout
+retaper. Désormais :
+
+- **espace** ouvre l'aide sur le niveau en cours (tout, ou le namespace à
+  moitié tapé) **et laisse la séquence en cours** ; espace au niveau
+  d'entrée la referme, **échap** la ferme de partout.
+- **Chaque touche tapée dans l'aide passe par la grammaire** : `e` fait
+  descendre l'aide au niveau de e (la session suit `Cmd::Pending`), `3`
+  complète `e3` — la commande part et l'aide se ferme.
+- **⌫ remonte d'un niveau** : le lecteur de touches efface la dernière
+  touche de la séquence et le dit ; hors de l'aide, c'est simplement
+  effacer.
+
+Le pied de chaque niveau le rappelle : « une touche = l'action · ⌫ retour ·
+échap fermer ». Les entrées du niveau d'entrée disent « tape f pour ses
+touches » au lieu de « espace pour le détail ».
+
+Côté code, `Live::help_open` est le seul état ajouté ; un bloc posé sur
+l'écran tombait au geste suivant, l'aide fait exception tant que la séquence
+n'a pas abouti. Non vérifié en session réelle.
+
 ## L'écran de lecture d'après la maquette 2b (07/09/2026)
 
 Joel, `Lecture.dc.html` enrichie de deux variantes d'en-tête et de pied :

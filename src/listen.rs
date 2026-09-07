@@ -131,6 +131,7 @@ async fn async_run(
         pending: Vec::new(),
         size: 3,
         progress: None,
+        help_open: false,
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -278,6 +279,9 @@ struct Live<'a> {
     /// Where the needle is in the current track, as librespot last said it
     /// — extrapolated by the clock while it plays (maquette 2b).
     progress: Option<Progress>,
+    /// The key helper is open: it follows the pending sequence level by
+    /// level, and the key that completes a command closes it.
+    help_open: bool,
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -837,13 +841,26 @@ impl Live<'_> {
         if self.comfort_before.is_some() {
             return self.on_comfort_key(cmd);
         }
-        if !matches!(cmd, Cmd::Up | Cmd::Down | Cmd::Auto) {
+        // un bloc posé sur l'écran tombe au geste suivant — sauf l'aide à la
+        // saisie, qui suit la séquence en cours jusqu'à ce qu'elle aboutisse
+        let keeps_overlay = match &cmd {
+            Cmd::Pending(_) | Cmd::Help(_) => true,
+            Cmd::Up | Cmd::Down | Cmd::Auto => !self.help_open,
+            _ => false,
+        };
+        if !keeps_overlay {
             self.overlay = None;
+            self.help_open = false;
         }
         // ce qui se tape ne fait que s'afficher : aucune action
         match &cmd {
             Cmd::Pending(seq) => {
                 self.typed = seq.clone();
+                if self.help_open {
+                    // l'aide suit la frappe : « e » ouvre le niveau de e,
+                    // ⌫ remonte (Joel, 07/09/2026)
+                    self.help(seq.chars().next());
+                }
                 return true;
             }
             Cmd::Typing(line) => {
@@ -914,7 +931,17 @@ impl Live<'_> {
                 self.render();
             }
             Cmd::PlayPause => self.toggle_pause(),
-            Cmd::Help(namespace) => self.help(namespace),
+            Cmd::Help(namespace) => {
+                // espace ouvre l'aide, et la referme au niveau d'entrée ;
+                // échap la ferme de partout
+                if self.help_open && namespace.is_none() {
+                    self.overlay = None;
+                    self.help_open = false;
+                } else {
+                    self.help_open = true;
+                    self.help(namespace);
+                }
+            }
 
             Cmd::Search(query) => self.search(query.trim()).await,
 
@@ -1499,10 +1526,10 @@ impl Live<'_> {
             ],
             _ => &[
                 ("1-9", "prendre une branche", true),
-                ("f\u{2026}", "la branche \u{2014} espace pour le d\u{e9}tail", true),
-                ("e\u{2026}", "encore \u{2014} espace pour le d\u{e9}tail", true),
-                ("t\u{2026}", "le morceau \u{2014} espace pour le d\u{e9}tail", true),
-                ("a\u{2026}", "l'artiste \u{2014} espace pour le d\u{e9}tail", true),
+                ("f", "la branche \u{2014} tape f pour ses touches", true),
+                ("e", "encore \u{2014} tape e pour ses touches", true),
+                ("t", "le morceau \u{2014} tape t pour ses touches", true),
+                ("a", "l'artiste \u{2014} tape a pour ses touches", true),
                 ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
                 ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
                 ("p", "pause / lecture", true),
@@ -1538,6 +1565,12 @@ impl Live<'_> {
         if rows.iter().any(|(_, _, wired)| !wired) {
             lines.push(" \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}".into());
         }
+        // c'est une aide à la saisie : la touche tapée ici fait l'action
+        lines.push(String::new());
+        lines.push(match namespace {
+            Some(_) => " une touche = l'action \u{b7} \u{232b} retour \u{b7} \u{e9}chap fermer".into(),
+            None => " une touche = l'action \u{b7} \u{e9}chap fermer".into(),
+        });
         self.overlay = Some((title.to_string(), lines));
     }
 

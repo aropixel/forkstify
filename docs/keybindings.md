@@ -15,9 +15,11 @@ seul juge de la table elle-même, qui s'ajuste sans rouvrir la décision.
 > le reste du clavier ne sert qu'à naviguer et à piloter la session.
 
 Le premier caractère dit *sur quoi* on agit, le second *ce qu'on fait*.
-**Espace est le leader** : hors grammaire, il montre ce qu'on peut taper —
-tout, ou seulement le namespace en cours de frappe, comme which-key dans
-LazyVim.
+**Espace est le leader** : hors grammaire, il ouvre l'**aide à la saisie**
+— tout ce qu'on peut taper, ou seulement le namespace en cours de frappe,
+comme which-key dans LazyVim. Ce n'est pas une affiche : la séquence reste
+en cours, et la touche tapée dans l'aide fait l'action (`espace`, `e`, `3`
+= `e3`). `⌫` remonte d'un niveau, `échap` ferme (Joel, 07/09/2026).
 
 Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 `f` fork, `e` encore, `t` track, `a` artist, puis `l` like, `s` skip,
@@ -119,8 +121,9 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
 | entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
 | `c` | **comfort** | Régler la zone de confort : ↑↓ bougent, entrée valide, échap annule | ✅ |
-| échap | | Annuler la sélection, fermer un bloc | ✅ |
-| espace | | **Le leader** : les touches disponibles, ou celles du namespace en cours de frappe | ✅ |
+| échap | | Annuler la sélection, fermer un bloc — l'aide comprise | ✅ |
+| espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme | ✅ |
+| ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
 | `/texte` | | Chercher — catalogue + Spotify, un chiffre choisit | ✅ |
 | `q` | **quit** | Quitter (affiche le parcours) | ✅ |
 | `r` | **resume** | Reprendre le dernier parcours — **accueil seulement** | ✅ |

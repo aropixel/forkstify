@@ -58,9 +58,11 @@ pub enum Cmd {
     Top,
     Bottom,
     PlayPause,
-    /// Space, the leader: show what is available. Carries the namespace
-    /// that was half-typed, so `f` then space lists only the branch keys —
-    /// which-key, in a terminal.
+    /// Space, the leader: open the key helper. Carries the namespace that
+    /// was half-typed, so `f` then space lists only the branch keys — and
+    /// the sequence stays pending, so the next key completes it. Which-key,
+    /// in a terminal: the helper is an input aid, not a poster (Joel,
+    /// 07/09/2026). Escape closes it, backspace steps back one key.
     Help(Option<char>),
     Undo,
     Repeat,
@@ -238,12 +240,23 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                 continue;
             }
 
-            // space is the leader, not a key of the grammar: it reports
-            // what can be typed, here or inside the pending namespace
+            // space is the leader, not a key of the grammar: it opens the
+            // helper on what can be typed, here or inside the pending
+            // namespace — and leaves the sequence pending, so the next key
+            // completes it from inside the helper
             if key == ' ' {
                 let namespace = pending.chars().next();
-                clear_pending(&mut pending, &tx);
                 if tx.send(Cmd::Help(namespace)).is_err() {
+                    return;
+                }
+                continue;
+            }
+
+            // backspace steps back one key of the sequence — inside the
+            // helper, that is going up one level
+            if byte[0] == 0x7f || byte[0] == 0x08 {
+                pending.pop();
+                if tx.send(Cmd::Pending(pending.clone())).is_err() {
                     return;
                 }
                 continue;
