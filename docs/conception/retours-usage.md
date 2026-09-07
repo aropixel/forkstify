@@ -276,7 +276,8 @@ appartenant à l'interface (04/09/2026).
 
 ### 12. Explorer la discographie d'un artiste
 
-**Statut** : **conçu, non tranché** (Joel, 07/09/2026) — note dédiée :
+**Statut** : **fait** le 07/09/2026 — `ad` ouvre la modale (forme 1a de la
+maquette), note dédiée :
 [`exploration-d-un-artiste.md`](exploration-d-un-artiste.md).
 
 Joel, après une graine « Cat Power » : « je n'aime quasiment que des
@@ -314,9 +315,9 @@ Restent ouverts :
    morceau, la différence — noter ou non dans `learned/` — étant invisible
    dans les doigts.
 3. **`aL` ou `ac`** pour lier deux artistes.
-4. **Les quatre points de l'exploration d'un artiste** (retour n° 12) :
-   cible, nom de la commande, granularité des commits, rôle d'entrée. Voir
-   [`exploration-d-un-artiste.md`](exploration-d-un-artiste.md).
+4. **La cible de `t`/`a`** (retour n° 12) : `ad` suit la sélection, le
+   reste du namespace suit le morceau en cours. Deux règles sur un même
+   axe — à unifier ou à assumer, cela se jugera à l'usage.
 
 ## Ce qui n'a pas été vérifié
 

@@ -245,6 +245,10 @@ impl WebApi {
             let Some(albums) = body["albums"].as_array() else { break };
             for album in albums {
                 let album_name = album["name"].as_str().unwrap_or("").to_string();
+                // la date et le rang font l'ordre de la discographie ; le
+                // type sépare les albums des singles
+                let released = album["release_date"].as_str().unwrap_or("").to_string();
+                let single = album["album_type"].as_str() != Some("album");
                 let Some(items) = album["tracks"]["items"].as_array() else { continue };
                 for track in items {
                     let (Some(title), Some(uri)) =
@@ -256,6 +260,10 @@ impl WebApi {
                         title: title.to_string(),
                         uri: uri.to_string(),
                         album: album_name.clone(),
+                        released: released.clone(),
+                        number: track["track_number"].as_u64().unwrap_or(0) as u32,
+                        duration_ms: track["duration_ms"].as_u64().unwrap_or(0) as u32,
+                        single,
                     });
                 }
             }

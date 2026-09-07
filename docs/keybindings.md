@@ -95,7 +95,7 @@ moteur retient.
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file | mesure | ✅ |
 | `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
 | `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
-| `ad` | artist **discography** | Ouvrir la modale de la discographie : tous les morceaux par album, ce que la fiche et l'appris en savent, `tt`/`tT` pour corriger les tops ([exploration-d-un-artiste.md](conception/exploration-d-un-artiste.md)) | édition | 📋 |
+| `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `tt`/`tT` pour corriger les tops. Elle a sa propre table, ci-dessous | édition | ✅ |
 
 Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
 souvent, `as` moins souvent, `ab` plus jamais.
@@ -172,12 +172,53 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
-| `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | 📋 |
+| `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | ✅ |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
 
 Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
 écoute : `forkstify import <url>` reprend les fiches d'un autre catalogue —
 celles qu'on n'a pas, jamais celles qu'on a — puis régénère les vecteurs.
+
+## La modale de la discographie (`ad`)
+
+**Un mode à part, avec sa propre table** — la première, et le patron des
+suivantes (`keys::parse_modal`). Elle est **sans préfixe** comme la
+grammaire de l'écoute, et elle emprunte à vim ce que celle-ci laissait
+libre : l'axe y est vertical, donc `j`/`k` descendent et montent, et
+`h`/`l` plient et déplient. Câblée le 07/09/2026, d'après la maquette
+**1a** de `Discographie.dc.html`.
+
+Ce qui joue continue de jouer : la modale se pose sur l'écran d'écoute,
+elle ne le remplace pas. `ad` vise l'artiste de la ligne **surlignée** s'il
+y en a une, celui du morceau en cours sinon — et l'en-tête nomme l'artiste
+ouvert, pour que le doute se lève à l'écran.
+
+| Touche | Action | |
+|---|---|---|
+| `j` / `k`, ↑ / ↓ | Descendre, monter — l'album sous le curseur s'ouvre seul | ✅ |
+| `h` / `l` | Tout plier (douze lignes), rouvrir l'album du curseur | ✅ |
+| `gg` / `G` | Les deux bouts de la liste | ✅ |
+| `tt` / `tT` | Promouvoir / retirer des tops **la ligne** — mis **en attente** | ✅ |
+| `A` | **Album** : promouvoir les quatre titres les plus écoutés de l'album, hors tops | ✅ |
+| `tl` / `tb` | Aimer / bannir la ligne — ce sont des **mesures**, écrites tout de suite | ✅ |
+| `e` | Mettre le morceau **à la file**, sans fermer | ✅ |
+| `s` | L'ordre : chronologique ⇄ mes écoutes d'abord | ✅ |
+| `v` | La **vue** : tout → ♪ tops → ♥ aimés → ⊘ bannis | ✅ |
+| `/texte` | Filtrer sur un titre ou un album | ✅ |
+| `u` | Défaire la dernière édition en attente — gratuit, rien n'est écrit | ✅ |
+| ⏎ | **Écrire la fournée** : une écriture, **un seul commit** | ✅ |
+| échap | Fermer. Avec des éditions en attente, le premier échap prévient | ✅ |
+
+**Pourquoi une fournée et un seul commit** : on corrige cinq tops d'une
+même pensée, et cinq commits ne se relisent pas. Ce n'est pas contradictoire
+avec [0017](decisions/0017-synchronisation-de-l-appris.md), qui commite
+**l'appris** toutes les dix minutes et à la sortie : l'appris est mesuré et
+silencieux, une édition est écrite et lisible. Les `tl`/`tb` de la modale
+suivent la règle de 0017, ses `tt`/`tT` celle de 0013.
+
+L'écran montre aussi les **tops que la discographie ne rend pas** — coquille,
+live, titre de compilation — en fin de liste : `tT` y fonctionne, et c'est
+là qu'une fiche générée se relit.
 
 ## Touches multimédia (MPRIS / D-Bus)
 
@@ -249,7 +290,8 @@ constant.
 
 ## Lettres libres
 
-Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`.
+Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`
+— hors modale, où `j`, `k`, `s`, `v`, `e` et `A` servent (table ci-dessus).
 Restent libres : `b`, `c`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`, `r`,
 `s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`. Dans les
 namespaces, `d` a été pris chez `a` le 07/09/2026 (`ad`, discography). Le mode

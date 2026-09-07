@@ -343,6 +343,47 @@ jour même (`src/sync.rs`, `learned::merge_artist`, sous-commande
 il commitera son appris, rebasera sur ce que ce poste a poussé, et le
 pilote fusionnera. Ce poste a poussé le sien à l'occasion de ce commit.
 
+## La discographie s'ouvre en modale (07/09/2026)
+
+Joel, après une graine Cat Power : « je n'aime quasiment que des morceaux
+de l'album *What Would the Community Think* ; j'aurais aimé une commande
+pour avoir la liste visuelle des morceaux classés par albums, et pouvoir
+faire des `tt` sur ceux que j'aime et `tT` sur les tops que je veux
+enlever. » Puis, sur la maquette : « partons sur `ad` et une modale », forme
+**1a** de `Discographie.dc.html`.
+
+Conçu dans
+[`conception/exploration-d-un-artiste.md`](conception/exploration-d-un-artiste.md),
+câblé le jour même :
+
+- **`ad` (ou `:discography`) pose une modale sur l'écoute** — elle ne la
+  remplace pas, le son ne cesse pas, l'en-tête et le pied restent. Elle vise
+  l'artiste de la ligne **surlignée**, celui du morceau en cours à défaut.
+- **Les albums sont pliés** : cent quatre-vingt-sept titres deviennent douze
+  lignes, celui du curseur s'ouvre seul, avec sa part des écoutes en jauge.
+  L'en-tête répond à la question qu'on vient poser — « 2 albums portent
+  79 % des 118 écoutes — 6 albums jamais ouverts ».
+- **La modale a sa propre table** (`keys::parse_modal`, la première du
+  produit) : `j`/`k` descendent, `h`/`l` plient et déplient, `tt`/`tT`
+  corrigent les tops, `A` promeut les quatre titres les plus écoutés de
+  l'album, `tl`/`tb` mesurent, `e` met à la file, `s` change l'ordre, `v` la
+  vue (tout, ♪, ♥, ⊘), `/` filtre, `u` défait, ⏎ écrit, échap ferme.
+- **Une fournée, un commit** (`edit::set_tops`) : les éditions s'accumulent
+  en bas avec le sujet du commit à venir, et partent en une écriture. Le
+  premier échap prévient s'il en reste. Cela ne contredit pas 0017, qui
+  porte sur l'appris : mesures et éditions n'ont jamais eu la même règle.
+- **Les tops que la discographie ne rend pas** tombent en fin de liste
+  (« tops hors discographie ») et restent retirables : c'est là qu'une
+  fiche générée se relit.
+- **Le cache de la traîne** gagne la date, le rang, la durée et le type
+  (album/single) ; une récolte d'avant est refaite en silence — le cache est
+  régénérable et hors dépôt.
+
+Dix tests de plus (dédoublonnage des rééditions, appariement des tops par
+titre normalisé, gestes contraires qui s'annulent, curseur qui survit au
+pliage, et un rendu complet de la modale). **Non vérifié en session
+réelle.**
+
 ## Le pied ne grandit jamais, le geste se voit dans la liste (07/09/2026)
 
 Joel, après un `e3` : « il ne m'a ajouté qu'un morceau ; je voudrais
@@ -894,14 +935,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    déroule.
 10. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
-11. **Explorer la discographie d'un artiste** (retour n° 12, 07/09/2026) :
-    un écran plein qui liste les morceaux par album, avec ce que la fiche
-    et l'appris en savent, et où `tt`/`tT` corrigent les tops en une passe.
-    **Conçu, non tranché** — quatre points attendent Joel dans
-    [`conception/exploration-d-un-artiste.md`](conception/exploration-d-un-artiste.md).
-    Sa place dans cette liste est à l'arbitrage : presque tout le matériel
-    existe déjà (la traîne en cache, les éditions, les glyphes), ce qui en
-    fait la plus petite des étapes qui restent.
+11. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
+    (`ad`, modale 1a). Reste ouvert : **unifier la cible de `t`/`a`** —
+    `ad` suit la sélection, le reste du namespace suit le morceau en cours.
 
 ## Corrections en attente (petites)
 

@@ -80,6 +80,10 @@ fn link_line(to_slug: &str, kind: &str) -> String {
 /// deux : ce que l'utilisateur lit est ce que git retiendra.
 pub struct Edit {
     pub summary: String,
+    /// Le détail, quand une édition en porte plusieurs : le corps du commit
+    /// dit ce que le sujet compte. Une fournée de tops en a un, un geste
+    /// isolé n'en a pas besoin.
+    pub body: Option<String>,
     pub path: PathBuf,
 }
 
@@ -102,7 +106,7 @@ pub fn add_top(dir: &Path, slug: &str, name: &str, title: &str) -> Result<Edit, 
     }
     let updated = insert_into_array(&text, "tops", &format!("  {},", quoted(title)));
     write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — top : + {title}"), path })
+    Ok(Edit { summary: format!("{name} — top : + {title}"), body: None, path })
 }
 
 /// `tT` — retirer un morceau des tops.
@@ -118,7 +122,7 @@ pub fn remove_top(dir: &Path, slug: &str, name: &str, title: &str) -> Result<Edi
         return Err(format!("« {title} » n'est pas dans les tops"));
     }
     write(&path, &(kept.join("\n") + "\n"))?;
-    Ok(Edit { summary: format!("{name} — top : − {title}"), path })
+    Ok(Edit { summary: format!("{name} — top : − {title}"), body: None, path })
 }
 
 /// `td` — faire d'un morceau une **door** vers une direction ([0011] : `to`
@@ -144,6 +148,7 @@ pub fn add_door(
     write(&path, &updated)?;
     Ok(Edit {
         summary: format!("{name} — door : {title} → {}", tags.join(", ")),
+        body: None,
         path,
     })
 }
@@ -169,7 +174,72 @@ pub fn add_link(
     }
     let updated = insert_into_array(&text, "links", &link_line(to_slug, kind));
     write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — lien : → {to_name} ({kind})"), path })
+    Ok(Edit { summary: format!("{name} — lien : → {to_name} ({kind})"), body: None, path })
+}
+
+/// La **fournée** de l'écran de la discographie (maquette 1a, 07/09/2026) :
+/// on y corrige cinq tops d'affilée, et cinq commits pour une seule pensée
+/// ne se relisent pas. Une lecture, une écriture, un commit — et le message
+/// dit le compte, le corps dit les titres.
+///
+/// Les retraits passent avant les ajouts : promouvoir puis retirer le même
+/// titre dans la même fournée doit le laisser dehors, pas dedans.
+pub fn set_tops(
+    dir: &Path,
+    slug: &str,
+    name: &str,
+    adds: &[String],
+    removes: &[String],
+) -> Result<Edit, String> {
+    if adds.is_empty() && removes.is_empty() {
+        return Err("rien à écrire".into());
+    }
+    let path = card_path(dir, slug);
+    let mut text = read(&path)?;
+
+    let mut removed = Vec::new();
+    for title in removes {
+        let needle = quoted(title);
+        let kept: Vec<&str> = text
+            .lines()
+            .filter(|line| {
+                !(line.trim_start().starts_with(&needle) && line.trim_end().ends_with(','))
+            })
+            .collect();
+        if kept.len() != text.lines().count() {
+            text = kept.join("\n") + "\n";
+            removed.push(title.clone());
+        }
+    }
+
+    let mut added = Vec::new();
+    for title in adds {
+        if let Some((from, to)) = array_span(&text, "tops") {
+            if text[from..to].contains(&quoted(title)) {
+                continue;
+            }
+        }
+        text = insert_into_array(&text, "tops", &format!("  {},", quoted(title)));
+        added.push(title.clone());
+    }
+
+    if added.is_empty() && removed.is_empty() {
+        return Err("les tops de la fiche disaient déjà cela".into());
+    }
+    write(&path, &text)?;
+
+    let mut lines = Vec::new();
+    for title in &added {
+        lines.push(format!("+ {title}"));
+    }
+    for title in &removed {
+        lines.push(format!("− {title}"));
+    }
+    Ok(Edit {
+        summary: format!("{name} — tops : +{} −{}", added.len(), removed.len()),
+        body: Some(lines.join("\n")),
+        path,
+    })
 }
 
 /// Le commit. Une édition qui ne laisse pas de trace relisible n'en est pas
@@ -194,7 +264,15 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
         }
     };
     run(&["add", &relative.to_string_lossy()])?;
-    run(&["commit", "-q", "-m", &edit.summary, "-m", &crate::sync::trailer("edit")])
+    let mut args = vec!["commit".to_string(), "-q".to_string(), "-m".to_string(), edit.summary.clone()];
+    if let Some(body) = &edit.body {
+        args.push("-m".to_string());
+        args.push(body.clone());
+    }
+    args.push("-m".to_string());
+    args.push(crate::sync::trailer("edit"));
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    run(&args)
 }
 
 #[cfg(test)]

@@ -11,8 +11,10 @@ Note ouverte le **07/09/2026**, sur un retour de Joel (retour n° 12 de
 > les morceaux que j'aime et `tT` sur les morceaux tops existants que je
 > veux enlever. »
 
-**Rien n'est décidé ici.** La note propose une forme, dit ce qu'elle coûte,
-et liste ce qui attend l'arbitrage de Joel.
+**Câblée le 07/09/2026**, forme **1a** de la maquette
+`Discographie.dc.html` (arbitrage de Joel). Ce qui suit garde le
+raisonnement ; ce qui a été tranché est marqué comme tel, et la table des
+touches vit dans [`keybindings.md`](../keybindings.md).
 
 ## Ce que le retour dit vraiment
 
@@ -46,7 +48,7 @@ morceau, pas seulement son titre : c'est là qu'une fiche se relit.
 petite — et ce qui plaide pour la faire avant les chantiers lourds (le
 cooldown daté, l'arbre de la file).
 
-## La forme proposée
+## La forme retenue
 
 **Arbitrage de Joel, 07/09/2026 : la touche est `ad`, et c'est une
 modale.** Pas un écran qui remplace l'écoute — une **modale posée sur
@@ -103,9 +105,9 @@ cessé.
 (0011), et cet écran n'a pas de « suivant ». Le geste garde son sens en
 écoute, où il en a un.
 
-## Ce qu'il faut ajouter au code
+## Ce que le code a gagné
 
-1. **Quatre champs à `TailTrack`** : `album_id`, `release_date`,
+1. **Quatre champs à `TailTrack`** (faits) : `album_id`, `release_date`,
    `track_number`, `group` (album/single). Sans la date, pas d'ordre
    chronologique ; sans le numéro, pas d'ordre dans l'album. Le cache est
    **régénérable et hors dépôt** — une entrée sans date se relit avec
@@ -131,39 +133,50 @@ Soit, en volume : `discography.rs` et `spotify.rs` retouchés, un état de
 plus dans `Live`, un `render_explore` calqué sur `render_collection`, et
 rien de neuf dans `edit.rs` hormis le titre propre.
 
-## À trancher
+## Tranché le 07/09/2026, et câblé
 
-1. **La cible : ce qui joue, ou ce qui est surligné ?** C'est la question de
-   Joel, et elle dépasse cet écran. Aujourd'hui **tout le namespace `t`/`a`
-   agit sur le morceau en cours** (`under_needle`), sauf `tx` qui agit sur
-   la sélection — deux règles pour un même axe.
-   *Recommandation : la sélection l'emporte, le morceau en cours à défaut*,
-   pour `t`, `a` et `:explore` ensemble. La sélection est visible, elle ne
-   joue rien, et l'en-tête de l'écran nomme l'artiste ouvert : le doute est
-   levé à l'écran plutôt que dans les doigts. C'est un ajustement de la
-   table, pas une décision nouvelle.
-2. ~~**Le nom.**~~ **Tranché le 07/09/2026** : `ad` / `:discography`.
-   `:explore` accrochait un mot déjà pris — « exploration » désigne le bas
-   de la zone de confort (0001 : 5 = cocon, 0 = exploration) — et le
-   produit ne veut qu'un sens par mot.
-3. **Un commit par geste, ou un à la fermeture ?** Huit tops corrigés d'un
-   coup font huit commits « Cat Power — top : + … ».
-   *Recommandation : un par geste pour la première version* — c'est le code
-   existant, et chaque édition reste annulable seule le jour où `u` arrive.
-   Un commit récapitulatif à la fermeture si l'historique devient illisible.
-4. **Entrée : jouer, mettre à la file, ou rien ?** Une édition ne compte
-   pour le moteur qu'au **prochain lancement** (`edit.rs`) : promouvoir un
-   morceau ne le fait pas sonner ce soir.
-   *Recommandation : entrée l'ajoute à la file, en fin de branche* — la
-   même sémantique que `f<n>`, et la réponse naturelle à « je viens de
-   découvrir que je veux l'entendre ».
-5. **Le repli des albums.** Sans repli, un artiste prolifique fait un écran
-   qui défile longtemps. *Recommandation : pas de repli en v1*, `/` filtre
-   et `gg`/`G` sautent ; on jugera sur Cat Power.
-6. **Ce que la récolte ignore** : `include_groups=album,single` laisse
-   dehors les compilations et les participations. Un morceau qui n'existe
-   que sur une compilation n'apparaîtra pas — à confirmer que ça ne gêne
-   pas avant de payer les appels supplémentaires.
+1. **La cible.** `ad` vise l'artiste de la ligne **surlignée** s'il y en a
+   une, celui du morceau en cours sinon — et l'en-tête de la modale nomme
+   l'artiste ouvert. **Le reste du namespace `t`/`a` n'a pas bougé** : il
+   agit toujours sur le morceau en cours (`under_needle`), sauf `tx`. Deux
+   règles cohabitent donc encore sur l'axe ; les unifier reste à trancher,
+   et ne se jugera qu'à l'usage.
+2. **Le nom et la forme.** `ad` / `:discography`, et une **modale** posée
+   sur l'écran d'écoute — pas un écran qui le remplace. La lecture n'a
+   jamais cessé, et on la voit derrière.
+3. **Un commit pour la fournée.** Les `tt`/`tT` s'accumulent en bas de la
+   modale et partent à ⏎ en **une écriture, un commit**
+   (`edit::set_tops`) : cinq commits pour une seule pensée ne se relisent
+   pas. `u` défait la dernière tant que rien n'est écrit, et le premier
+   échap prévient s'il en reste.
+
+   *Question de Joel, ce jour : « pour les commits, il me semblait qu'on
+   avait dit à la fermeture, et toutes les dix minutes ».* C'est
+   [0017](../decisions/0017-synchronisation-de-l-appris.md), et elle porte
+   sur **l'appris** — mesuré, silencieux, jamais relu ligne à ligne. Les
+   **éditions** relèvent de 0013 : écrites et commitées au geste, parce
+   qu'elles laissent une trace lisible et annulable. La fournée ne change
+   pas cette règle, elle en groupe les gestes d'un même écran.
+4. **Entrée écrit** — et c'est `e` qui met à la file, sans fermer. Une
+   édition ne compte pour le moteur qu'au prochain lancement : `e` est la
+   réponse à « je veux l'entendre maintenant ».
+5. **Les quatre ajouts retenus** (Joel) : `s` bascule l'ordre
+   (chronologique ⇄ mes écoutes d'abord), `v` cycle la vue (tout, ♪ tops,
+   ♥ aimés, ⊘ bannis), `A` promeut les quatre titres les plus écoutés de
+   l'album, `e` met à la file.
+
+## Ce qui reste ouvert
+
+- **Unifier la cible de `t`/`a`** (point 1 ci-dessus).
+- **Le repli des albums** ne se juge qu'à l'usage : pas de pliage par album
+  mémorisé, `h` plie tout et `l` rouvre celui du curseur.
+- **Les compilations et les participations** restent hors récolte
+  (`include_groups=album,single`) : un titre qui n'existe que sur une
+  compilation n'apparaît pas — sauf s'il est un top de la fiche, auquel cas
+  il tombe dans « tops hors discographie ».
+- **Le cache de la traîne** a gagné quatre champs (date, rang, durée,
+  single). Une récolte d'avant est **refaite en silence** à l'ouverture :
+  le cache est régénérable et hors dépôt, il n'y a rien à migrer.
 
 ## Ce que ça ne fait pas
 
@@ -173,5 +186,9 @@ rien de neuf dans `edit.rs` hormis le titre propre.
 - **Ni proposer l'amont** : ce qui est corrigé ici part dans le fork, et
   `:mine` le montre déjà ([0008](../decisions/0008-le-fork-est-la-surcouche.md)).
 
-`ad` et `:discography` entrent dans `keybindings.md` marqués 📋 — décidés,
-pas encore câblés. Le reste de l'écran attend les points ci-dessus.
+`ad`, `:discography` et la table de la modale sont dans
+[`keybindings.md`](../keybindings.md), marqués ✅. Ce que le code a coûté :
+quatre champs de plus dans le cache de la traîne, `edit::set_tops` (la
+fournée), `explore.rs` (l'état, dix tests), une table de touches modale
+dans `keys.rs`, et `render_explore` dans `tui.rs`. **Non vérifié en session
+réelle** — comme tout ce qui a été livré ces deux jours.

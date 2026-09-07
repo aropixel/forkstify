@@ -18,11 +18,33 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct TailTrack {
     pub title: String,
     pub uri: String,
     pub album: String,
+    /// The album's release date as Spotify gives it — « 1998 » or
+    /// « 1998-09-22 ». Without it there is no chronological order, which is
+    /// how one remembers an artist (maquette 1a, 07/09/2026).
+    #[serde(default)]
+    pub released: String,
+    /// Rank inside its album. Ordering a folded album by anything else
+    /// would make it unrecognisable.
+    #[serde(default)]
+    pub number: u32,
+    #[serde(default)]
+    pub duration_ms: u32,
+    /// A single or an EP rather than an album: shown after the albums, so a
+    /// discography does not turn into a list of one-track records.
+    #[serde(default)]
+    pub single: bool,
+}
+
+impl TailTrack {
+    /// The year, when the date says one.
+    pub fn year(&self) -> Option<u16> {
+        self.released.get(..4).and_then(|y| y.parse().ok())
+    }
 }
 
 /// Every discography harvested so far, keyed by slug. Loaded once at
@@ -69,6 +91,20 @@ impl Tail {
         self.artists.contains_key(slug)
     }
 
+    /// A harvest made before the dates were kept: it can still feed the
+    /// reservoir, but not the discography screen, which needs the year and
+    /// the track number. The cache is regenerable and outside the repo, so
+    /// the answer to an old one is simply to harvest again.
+    pub fn dated(&self, slug: &str) -> bool {
+        self.of(slug).iter().any(|track| !track.released.is_empty())
+    }
+
+    /// Forget one artist's harvest, so the next one goes back to Spotify.
+    pub fn forget(&mut self, slug: &str) {
+        self.artists.remove(slug);
+        let _ = std::fs::remove_file(self.root.join(format!("{slug}.json")));
+    }
+
     pub fn of(&self, slug: &str) -> &[TailTrack] {
         self.artists.get(slug).map_or(&[], |v| v.as_slice())
     }
@@ -106,9 +142,30 @@ pub fn normalize(title: &str) -> String {
     cut.chars().filter(|c| c.is_alphanumeric()).collect()
 }
 
+/// Le titre **lisible** d'un morceau : celui qu'on écrit dans une fiche
+/// quand on le promeut en top. `normalize` sert à comparer et rend un
+/// mot-clé ; celui-ci coupe le même bruit de version mais garde la casse,
+/// les espaces et la ponctuation du titre — une fiche est lue par un
+/// humain ([0002] : le format est une interface publique).
+pub fn clean_title(title: &str) -> String {
+    let cut = title
+        .find(" - ")
+        .or_else(|| title.find(" ("))
+        .map_or(title, |i| &title[..i]);
+    cut.trim().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn le_titre_ecrit_dans_la_fiche_reste_lisible() {
+        assert_eq!(clean_title("Metal Heart - 2015 Remaster"), "Metal Heart");
+        assert_eq!(clean_title("Colors and the Kids (Live)"), "Colors and the Kids");
+        assert_eq!(clean_title("(I Can't Get No) Satisfaction"), "(I Can't Get No) Satisfaction");
+        assert_eq!(clean_title("Cross Bones Style"), "Cross Bones Style");
+    }
 
     #[test]
     fn les_variantes_d_un_meme_titre_se_confondent() {

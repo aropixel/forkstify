@@ -11,6 +11,7 @@ mod catalog;
 mod config;
 mod edit;
 mod engine;
+mod explore;
 mod home;
 mod import;
 mod keys;

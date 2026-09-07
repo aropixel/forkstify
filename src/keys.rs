@@ -13,6 +13,7 @@
 //! `/` and `:` leave raw mode for a line, which is where a query belongs.
 
 use std::io::Read;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
 
 /// When a chosen branch or an encore should start.
@@ -84,6 +85,32 @@ pub enum Cmd {
     Typing(Option<String>),
     /// Une séquence qui ne veut rien dire.
     Unknown(String),
+
+    // — les touches d'une modale, qui a sa propre table —
+    /// `e` — mettre à la file le morceau sous le curseur, sans fermer :
+    /// une édition ne sonne qu'au prochain lancement, la file, elle, sonne
+    /// ce soir.
+    Enqueue,
+    /// `v` — la vue : cycler le filtre de provenance.
+    Filter,
+    /// `A` — promouvoir l'album entier, au grain du problème.
+    AlbumTop,
+}
+
+/// Une modale prend le clavier et lui donne **sa** table — `keybindings.md`
+/// le prévoit depuis le début (« un mode à part, avec sa propre table »).
+/// Le lecteur de touches vit dans un fil et ne connaît pas l'état de
+/// l'écran : c'est donc un atomique, posé à l'ouverture et rendu à la
+/// fermeture. La séquence en cours est oubliée au changement, sans quoi un
+/// `t` tapé d'un côté se compléterait de l'autre.
+static MODAL: AtomicBool = AtomicBool::new(false);
+
+pub fn set_modal(on: bool) {
+    MODAL.store(on, Ordering::Relaxed);
+}
+
+fn modal() -> bool {
+    MODAL.load(Ordering::Relaxed)
 }
 
 pub enum Parse {
@@ -94,7 +121,10 @@ pub enum Parse {
 }
 
 const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
-const ARTIST_KEYS: [char; 5] = ['l', 's', 'b', 'e', 'L'];
+const ARTIST_KEYS: [char; 6] = ['l', 's', 'b', 'e', 'L', 'd'];
+/// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
+/// une ligne de liste : les deux éditions et les deux mesures.
+const MODAL_TRACK_KEYS: [char; 4] = ['t', 'T', 'l', 'b'];
 
 /// Match the pending buffer against the grammar of 0015.
 pub fn parse(buf: &str) -> Parse {
@@ -168,6 +198,37 @@ pub fn parse(buf: &str) -> Parse {
     }
 }
 
+/// La table de la modale de la discographie (maquette 1a). Elle est
+/// **sans préfixe** comme l'autre, et elle emprunte à vim ce que la
+/// grammaire de l'écoute laisse libre : `j`/`k` descendent et montent,
+/// `h`/`l` plient et déplient — un axe vertical, cette fois.
+pub fn parse_modal(buf: &str) -> Parse {
+    let c: Vec<char> = buf.chars().collect();
+    match c.as_slice() {
+        [] => Parse::Pending,
+
+        ['j'] => Parse::Done(Cmd::Down),
+        ['k'] => Parse::Done(Cmd::Up),
+        ['h'] => Parse::Done(Cmd::Prev),
+        ['l'] => Parse::Done(Cmd::Next),
+        ['g'] => Parse::Pending,
+        ['g', 'g'] => Parse::Done(Cmd::Top),
+        ['G'] => Parse::Done(Cmd::Bottom),
+
+        ['t'] => Parse::Pending,
+        ['t', k] if MODAL_TRACK_KEYS.contains(k) => Parse::Done(Cmd::Track(*k)),
+
+        ['e'] => Parse::Done(Cmd::Enqueue),
+        ['s'] => Parse::Done(Cmd::Sort),
+        ['v'] => Parse::Done(Cmd::Filter),
+        ['A'] => Parse::Done(Cmd::AlbumTop),
+        ['u'] => Parse::Done(Cmd::Undo),
+        ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
+
+        _ => Parse::Unknown,
+    }
+}
+
 /// Put the terminal in raw mode and put it back when dropped — including on
 /// a panic, which is why this is a guard and not a pair of calls.
 pub struct RawMode(libc::termios);
@@ -210,9 +271,17 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
         let mut stdin = std::io::stdin();
         let mut byte = [0u8; 1];
         let mut pending = String::new();
+        let mut was_modal = modal();
 
         while stdin.read_exact(&mut byte).is_ok() {
             let key = byte[0] as char;
+
+            // l'écran a changé de table sous nos pieds : la séquence en
+            // cours appartenait à l'autre
+            if modal() != was_modal {
+                was_modal = !was_modal;
+                clear_pending(&mut pending, &tx);
+            }
 
             // arrows arrive as ESC [ C / ESC [ D
             if byte[0] == 0x1b {
@@ -287,7 +356,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             }
 
             pending.push(key);
-            match parse(&pending) {
+            let outcome = if was_modal { parse_modal(&pending) } else { parse(&pending) };
+            match outcome {
                 Parse::Done(cmd) => {
                     let was_pending = pending.chars().count() > 1;
                     pending.clear();

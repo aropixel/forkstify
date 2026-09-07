@@ -138,6 +138,8 @@ async fn async_run(
         size: 3,
         progress: None,
         help_open: false,
+        explore: None,
+        explore_requested: false,
         sync_tx,
     };
     let mut events = live.sound.events();
@@ -257,6 +259,11 @@ async fn async_run(
     Ok(path)
 }
 
+/// `A` — combien de titres d'un album on promeut d'un coup. Quatre : un
+/// album qui porte les écoutes en a rarement plus qui comptent, et au-delà
+/// on ne relit plus ce qu'on vient de faire.
+const ALBUM_TOPS: usize = 4;
+
 struct Live<'a> {
     catalog: &'a Catalog,
     /// Où vivent les fiches : une édition les modifie et les commite (0013).
@@ -308,6 +315,13 @@ struct Live<'a> {
     /// The key helper is open: it follows the pending sequence level by
     /// level, and the key that completes a command closes it.
     help_open: bool,
+    /// `ad` — la discographie de l'artiste, posée sur l'écoute. Elle prend
+    /// le clavier tant qu'elle est ouverte : c'est une modale, pas un
+    /// écran (arbitrage de Joel, 07/09/2026, maquette 1a).
+    explore: Option<crate::explore::Explore>,
+    /// L'ouverture peut demander une récolte, et le clavier n'est pas async :
+    /// la boucle s'en charge au tour suivant, comme pour `:warm`.
+    explore_requested: bool,
     /// Where a background push reports (0017): the loop says the result.
     sync_tx: tokio::sync::mpsc::UnboundedSender<Result<String, String>>,
 }
@@ -874,6 +888,10 @@ impl Live<'_> {
         if self.comfort_before.is_some() {
             return self.on_comfort_key(cmd);
         }
+        // la modale de la discographie aussi : elle a sa table (keys.rs)
+        if self.explore.is_some() {
+            return self.on_explore_key(cmd);
+        }
         // un bloc posé sur l'écran tombe au geste suivant — sauf l'aide à la
         // saisie, qui suit la séquence en cours jusqu'à ce qu'elle aboutisse
         let keeps_overlay = match &cmd {
@@ -992,6 +1010,10 @@ impl Live<'_> {
             // déjà traités plus haut : ils ne font qu'afficher
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
             Cmd::Sort => say!(self, "(« s » trie la collection, à l'accueil)"),
+            // les touches d'une modale : hors d'elle, elles n'ont pas d'objet
+            Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop => {
+                say!(self, "(« ad » ouvre la discographie : ces touches y servent)")
+            }
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
@@ -1002,6 +1024,11 @@ impl Live<'_> {
                     }
                 }
             }
+        }
+        // `ad` et `:discography` demandent la traîne avant d'ouvrir : le
+        // clavier n'est pas async, la boucle l'est
+        if std::mem::take(&mut self.explore_requested) {
+            self.open_explore().await;
         }
         true
     }
@@ -1133,6 +1160,12 @@ impl Live<'_> {
     /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
     /// décide de rien.
     fn paint(&mut self) {
+        // la modale dit « ▶ sonne » sur la bonne ligne, même quand le
+        // morceau change pendant qu'elle est ouverte
+        let playing = self.current.as_ref().map(|stop| stop.title.clone());
+        if let Some(screen) = self.explore.as_mut() {
+            screen.now_playing(playing.as_deref());
+        }
         let path: Vec<String> = state_of(&self.rounds)
             .2
             .iter()
@@ -1200,6 +1233,7 @@ impl Live<'_> {
             comfort: self.comfort.value(),
             comfort_word: comfort_word(self.comfort.value()),
             progress: self.progress.as_ref().map(Progress::now),
+            explore: self.explore.as_ref(),
             prompt,
         };
         let _ = self.tui.draw(&view);
@@ -1385,6 +1419,13 @@ impl Live<'_> {
     /// `a` — the artist under the needle. The three verbs are one scale:
     /// more often, less often, never again.
     fn on_artist_key(&mut self, key: char) {
+        // `ad` vise ce qui est **surligné**, sinon ce qui sonne : la
+        // sélection se voit et ne joue rien, et la modale nomme l'artiste
+        // qu'elle ouvre — le doute est levé à l'écran, pas dans les doigts
+        if key == 'd' {
+            self.explore_requested = true;
+            return;
+        }
         let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
@@ -1470,6 +1511,213 @@ impl Live<'_> {
         }
     }
 
+    // --- la modale de la discographie (`ad`) --------------------------------
+
+    /// Ce qu'un geste vise : la ligne **surlignée** s'il y en a une, le
+    /// morceau en cours sinon. La sélection ne joue rien, elle se voit ;
+    /// c'est donc elle qui commande quand elle existe.
+    fn target(&self) -> Option<crate::engine::Stop> {
+        if let Some(index) = self.selection {
+            let stop =
+                self.past.iter().chain(self.current.iter()).chain(self.queue.iter()).nth(index);
+            if let Some(stop) = stop {
+                return Some(stop.clone());
+            }
+        }
+        self.current.clone()
+    }
+
+    /// Ouvrir la discographie. La traîne est déjà en cache le plus souvent
+    /// (`:warm`, un encore) ; sinon on la récolte ici, ce qui est le seul
+    /// moment async de toute la modale.
+    async fn open_explore(&mut self) {
+        let Some(stop) = self.target() else {
+            say!(self, "(rien en cours)");
+            return;
+        };
+        if stop.slug.is_empty() {
+            say!(self, "({} — hors catalogue, pas de fiche à corriger)", stop.artist);
+            return;
+        }
+        // une récolte d'avant les dates ne sait pas faire un album : le
+        // cache est régénérable et hors dépôt, on le refait plutôt que de
+        // l'afficher de travers
+        if self.tail.has(&stop.slug) && !self.tail.dated(&stop.slug) {
+            self.tail.forget(&stop.slug);
+        }
+        if !self.tail.has(&stop.slug) {
+            if let Err(why) = self.harvest(&stop.slug).await {
+                say!(self, "⏹ {why}");
+            }
+        }
+        let playing = self.current.as_ref().map(|s| s.title.clone());
+        let screen = crate::explore::Explore::open(
+            &stop.slug,
+            &self.catalog.cards[&stop.slug],
+            self.tail.of(&stop.slug),
+            &self.learned,
+            playing.as_deref(),
+        );
+        if screen.albums.is_empty() {
+            say!(self, "(rien à montrer chez {} — ni discographie ni tops)", stop.artist);
+            return;
+        }
+        crate::keys::set_modal(true);
+        self.explore = Some(screen);
+    }
+
+    /// Les touches de la modale (`keys::parse_modal`). Elle ne rend jamais
+    /// `false` : on ne quitte pas forkstify depuis une liste de morceaux.
+    fn on_explore_key(&mut self, cmd: Cmd) -> bool {
+        // le garde-fou de la fermeture ne vaut que pour l'échap qui suit
+        if !matches!(cmd, Cmd::Escape) {
+            if let Some(screen) = self.explore.as_mut() {
+                screen.confirm_close = false;
+            }
+        }
+        match cmd {
+            Cmd::Track('l') => self.explore_measure(true),
+            Cmd::Track('b') => self.explore_measure(false),
+            Cmd::Enqueue => self.explore_enqueue(),
+            Cmd::Auto => self.explore_write(),
+            Cmd::Escape => self.close_explore(),
+            Cmd::Typing(line) => self.typed = line.unwrap_or_default(),
+            Cmd::Pending(seq) => self.typed = seq,
+            other => {
+                let Some(screen) = self.explore.as_mut() else { return true };
+                // ce qui se voit ne se dit pas : seul un geste sans effet
+                // visible laisse une ligne
+                screen.notice.clear();
+                match other {
+                    Cmd::Up => screen.move_by(-1),
+                    Cmd::Down => screen.move_by(1),
+                    Cmd::Top => screen.go_top(),
+                    Cmd::Bottom => screen.go_bottom(),
+                    Cmd::Prev => screen.fold(),
+                    Cmd::Next => screen.unfold(),
+                    Cmd::Sort => screen.toggle_sort(),
+                    Cmd::Filter => screen.cycle_filter(),
+                    Cmd::AlbumTop => screen.top_album(ALBUM_TOPS),
+                    Cmd::Undo => screen.undo(),
+                    Cmd::Search(query) => screen.search(&query),
+                    Cmd::Track('t') => screen.top(),
+                    Cmd::Track('T') => screen.untop(),
+                    Cmd::Unknown(seq) => screen.notice = format!("({seq} ne fait rien ici)"),
+                    _ => {}
+                }
+            }
+        }
+        true
+    }
+
+    /// `tl` / `tb` dans la modale : ce sont des **mesures**, elles écrivent
+    /// dans `learned/` tout de suite et sans rien demander (0013) — 0017 les
+    /// commitera avec le reste. Rien à voir avec la fournée des tops.
+    fn explore_measure(&mut self, like: bool) {
+        let Some(mut screen) = self.explore.take() else { return };
+        let Some(title) = screen.track().map(|track| track.title.clone()) else {
+            screen.notice = "(place-toi sur un morceau)".into();
+            self.explore = Some(screen);
+            return;
+        };
+        if like {
+            self.learned.like_track(&screen.slug, &title);
+            screen.notice = format!("♥ {title} — aimé");
+        } else {
+            self.learned.ban_track(&screen.slug, &title);
+            self.queue.retain(|stop| stop.title != title);
+            screen.notice = format!("⊘ {title} — plus jamais");
+        }
+        screen.refresh(&self.learned);
+        self.explore = Some(screen);
+    }
+
+    /// `e` — mettre le morceau à la file sans fermer. Une édition ne compte
+    /// pour le moteur qu'au prochain lancement ; la file, elle, sonne ce
+    /// soir, et c'est par là qu'on repart de la discographie.
+    fn explore_enqueue(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        let Some((title, source)) = screen.track().map(|track| {
+            (
+                track.title.clone(),
+                if track.is_top() {
+                    crate::engine::Source::Top
+                } else if track.liked {
+                    crate::engine::Source::Liked
+                } else {
+                    crate::engine::Source::Tail
+                },
+            )
+        }) else {
+            screen.notice = "(place-toi sur un morceau)".into();
+            self.explore = Some(screen);
+            return;
+        };
+        self.queue.push_back(crate::engine::Stop {
+            slug: screen.slug.clone(),
+            artist: screen.name.clone(),
+            title: title.clone(),
+            source,
+            head: None,
+            // le glyphe ↻ de l'encore : c'est le même geste, la liste le dit
+            encore: true,
+        });
+        screen.notice = format!("↻ {title} — à la file ({} à venir)", self.queue.len());
+        self.explore = Some(screen);
+    }
+
+    /// ⏎ — écrire la fournée : **une lecture, une écriture, un commit**.
+    /// C'est la raison d'être de l'état en attente (maquette 1a) : on
+    /// corrige cinq tops d'une même pensée, elle ne fait qu'un commit.
+    fn explore_write(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        if screen.pending.is_empty() {
+            screen.notice = "(rien à écrire — une mesure, elle, est déjà prise)".into();
+            self.explore = Some(screen);
+            return;
+        }
+        let done = crate::edit::set_tops(
+            &self.catalog_dir,
+            &screen.slug,
+            &screen.name,
+            &screen.adds(),
+            &screen.removes(),
+        );
+        match done {
+            Ok(edit) => {
+                let summary = edit.summary.clone();
+                screen.notice = match crate::edit::commit(&self.catalog_dir, &edit) {
+                    Ok(()) => format!("✓ {summary} — commité (au moteur au prochain lancement)"),
+                    Err(why) => format!("✓ {summary} — écrit, mais pas commité ({why})"),
+                };
+                screen.written();
+            }
+            Err(why) => screen.notice = format!("(rien fait : {why})"),
+        }
+        self.explore = Some(screen);
+    }
+
+    /// échap — fermer. Avec des éditions en attente, le premier échap
+    /// prévient : elles ne sont pas écrites, et rien à l'écran ne le dirait
+    /// une fois la modale fermée.
+    fn close_explore(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        if !screen.pending.is_empty() && !screen.confirm_close {
+            screen.confirm_close = true;
+            screen.notice = format!(
+                "⚑ {} édition(s) non écrite(s) — ⏎ pour écrire, échap encore pour les jeter",
+                screen.pending.len()
+            );
+            self.explore = Some(screen);
+            return;
+        }
+        crate::keys::set_modal(false);
+        if !screen.pending.is_empty() {
+            say!(self, "(discographie fermée — {} édition(s) jetée(s))", screen.pending.len());
+        }
+        self.tui.clear();
+    }
+
     /// `:` commands — 0013 makes every key the shortcut of one. Only
     /// `:size` is served so far: it replaces the old `b<n>`, which the
     /// move to raw mode dropped on the way.
@@ -1495,6 +1743,9 @@ impl Live<'_> {
                 _ => say!(self, "Confort attendu entre 0 (cocon) et 5 (exploration)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
+            // `ad` en toutes lettres (0013 : toute touche est le raccourci
+            // d'une commande)
+            (Some("discography"), _) => self.explore_requested = true,
             // la surcouche personnelle se calcule, elle ne se stocke pas
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
@@ -1577,16 +1828,17 @@ impl Live<'_> {
                 ("ts", "skip \u{2014} pas celui-l\u{e0}, pas maintenant", true),
                 ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
                 ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
-                ("tt", "top \u{2014} promouvoir en top", false),
-                ("tT", "untop \u{2014} retirer des tops", false),
-                ("td", "door \u{2014} en faire une door", false),
+                ("tt", "top \u{2014} promouvoir en top", true),
+                ("tT", "untop \u{2014} retirer des tops", true),
+                ("td", "door \u{2014} en faire une door", true),
             ],
             Some('a') => &[
                 ("al", "like \u{2014} cet artiste, plus souvent", true),
                 ("as", "skip \u{2014} cet artiste, moins souvent", true),
                 ("ab", "ban \u{2014} plus jamais cet artiste", true),
+                ("ad", "discography \u{2014} sa discographie, par album", true),
                 ("ae", "edit \u{2014} ouvrir la fiche", false),
-                ("aL", "link \u{2014} lier \u{e0} un autre artiste", false),
+                ("aL", "link \u{2014} lier \u{e0} un autre artiste", true),
             ],
             _ => &[
                 ("1-9", "prendre une branche", true),
@@ -1605,6 +1857,7 @@ impl Live<'_> {
                 (":size <n>", "taille des branches", true),
                 (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),
+                (":discography", "sa discographie par album — raccourci « ad »", true),
                 (":mine", "ce que ce catalogue a de plus que l'amont", true),
                 (":sync", "commiter et pousser l'appris maintenant", true),
                 ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),

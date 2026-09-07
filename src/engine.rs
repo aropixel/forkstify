@@ -891,18 +891,21 @@ mod tests {
                     title: "Killing an Arab".into(),
                     uri: "spotify:track:x".into(),
                     album: "Three Imaginary Boys".into(),
+                    ..Default::default()
                 },
                 // la même chanson, remasterisée : elle ne doit pas compter deux fois
                 crate::discography::TailTrack {
                     title: "Killing an Arab - 2004 Remaster".into(),
                     uri: "spotify:track:y".into(),
                     album: "Boys Don't Cry".into(),
+                    ..Default::default()
                 },
                 // et un titre déjà dans les tops n'entre pas dans la traîne
                 crate::discography::TailTrack {
                     title: "A Forest (Remastered)".into(),
                     uri: "spotify:track:z".into(),
                     album: "Seventeen Seconds".into(),
+                    ..Default::default()
                 },
             ],
         );

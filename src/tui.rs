@@ -92,6 +92,10 @@ pub struct View<'a> {
     /// (position, durée) en millisecondes du morceau qui sonne — `None`
     /// tant que librespot n'a rien dit.
     pub progress: Option<(u32, u32)>,
+    /// La modale de la discographie (`ad`), posée sur l'écoute : elle prend
+    /// le corps de l'écran, l'en-tête et le pied restent — « la lecture n'a
+    /// pas cessé » (maquette 1a).
+    pub explore: Option<&'a crate::explore::Explore>,
     pub prompt: String,
 }
 
@@ -560,6 +564,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     // — les branches, dans leur colonne : toujours visibles
     if let Some(column) = panel_column {
         render_panel(frame, column, view);
+    }
+
+    // — la discographie prend le corps de l'écran, jamais le pied
+    if let Some(screen) = view.explore {
+        render_explore(frame, body, screen);
     }
 
     // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
@@ -1197,6 +1206,7 @@ mod tests {
             comfort: 3,
             comfort_word: "équilibré",
             progress: current.map(|_| (154_000, 227_000)),
+            explore: None,
             prompt: "[1-2 branche]".to_string(),
         };
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -1205,6 +1215,62 @@ mod tests {
         (0..height)
             .map(|y| (0..width).map(|x| buffer[(x, y)].symbol()).collect::<String>())
             .collect()
+    }
+
+    /// La modale de la discographie : les albums pliés, celui du curseur
+    /// ouvert, et la fournée qui attend son commit (maquette 1a).
+    #[test]
+    fn la_discographie_plie_les_albums_et_dit_ce_qui_attend() {
+        let card: crate::catalog::Card = toml::from_str(
+            "format = 1\nname = \"Cat Power\"\nmbid = \"x\"\ntops = [\"Cross Bones Style\"]\n",
+        )
+        .expect("fiche");
+        let track = |title: &str, album: &str, year: &str, number: u32| {
+            crate::discography::TailTrack {
+                title: title.into(),
+                uri: format!("spotify:track:{title}"),
+                album: album.into(),
+                released: year.into(),
+                number,
+                duration_ms: 218_000,
+                single: false,
+            }
+        };
+        let tail = vec![
+            track("Cross Bones Style", "Moon Pix", "1998", 1),
+            track("Metal Heart", "Moon Pix", "1998", 2),
+            track("Sea Of Love", "The Covers Record", "2000", 1),
+        ];
+        let mut screen = crate::explore::Explore::open(
+            "cat-power",
+            &card,
+            &tail,
+            &crate::learned::Learned::blank(),
+            Some("Metal Heart"),
+        );
+        // premier album ouvert, curseur sur son deuxième morceau
+        screen.move_by(2);
+        screen.top();
+        assert_eq!(screen.pending.len(), 1);
+
+        let (width, height) = (100u16, 18u16);
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| render_explore(frame, frame.area(), &screen)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let lines: Vec<String> = (0..height)
+            .map(|y| (0..width).map(|x| buffer[(x, y)].symbol()).collect::<String>())
+            .collect();
+
+        assert!(lines[0].contains("discographie") && lines[0].contains("Cat Power"));
+        // les deux albums tiennent, et seul celui du curseur est déplié
+        assert!(lines.iter().any(|l| l.contains("▾") && l.contains("Moon Pix")));
+        assert!(lines.iter().any(|l| l.contains("▸") && l.contains("The Covers Record")));
+        assert!(lines.iter().any(|l| l.contains("Metal Heart") && l.contains("▶ sonne")));
+        // ce qui attend se voit, et le commit s'annonce avant d'appuyer
+        assert!(lines.iter().any(|l| l.contains("en attente") && l.contains("1 édition")));
+        // le sujet du commit se lit avant d'appuyer
+        assert!(lines.iter().any(|l| l.contains("cards/cat-power.toml") && l.contains("+1 −0")));
+        assert!(lines.iter().any(|l| l.contains("⏎ écrire")));
     }
 
     #[test]
@@ -1318,4 +1384,347 @@ mod tests {
         assert!(!text.contains("── branches"), "{text}");
         assert!(text.contains("Cities in Dust"), "{text}");
     }
+}
+
+// --- la modale de la discographie (`ad`, maquette 1a) -----------------------
+
+/// Le filet léger : c'est la seule boîte que forkstify dessine (le menu du
+/// leader, « ? »), et une modale en est le troisième cas. Une ligne d'en-tête
+/// se ferme par un trait qui court jusqu'au bord.
+fn ruled(mut spans: Vec<Span<'static>>, width: usize) -> Line<'static> {
+    let used: usize = spans.iter().map(|span| span.content.chars().count()).sum();
+    if width > used + 1 {
+        spans.push(Span::styled(
+            format!(" {}", "─".repeat(width - used - 1)),
+            Style::default().fg(DIM),
+        ));
+    }
+    Line::from(spans)
+}
+
+fn plural(n: usize) -> &'static str {
+    if n > 1 {
+        "s"
+    } else {
+        ""
+    }
+}
+
+fn bar(share: f64, width: usize) -> String {
+    let full = (share * width as f64).round().clamp(0.0, width as f64) as usize;
+    format!("{}{}", "█".repeat(full), "░".repeat(width - full))
+}
+
+fn clock_ms(ms: u32) -> String {
+    if ms == 0 {
+        return String::new();
+    }
+    let seconds = ms / 1000;
+    format!("{}:{:02}", seconds / 60, seconds % 60)
+}
+
+/// « 14 écoutes », « — » quand il n'a jamais sonné.
+fn plays_of(plays: f64) -> String {
+    if plays < 0.5 {
+        "—".to_string()
+    } else {
+        format!("{plays:.0} écoute{}", if plays >= 1.5 { "s" } else { "" })
+    }
+}
+
+fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explore::Explore) {
+    use crate::explore::Row;
+    frame.render_widget(Clear, area);
+    let width = area.width as usize;
+    let summary = screen.summary();
+    let cursor = Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD);
+    let rule = |text: &str| Span::styled(text.to_string(), Style::default().fg(DIM));
+
+    // — l'en-tête : ce que la fiche et l'appris disent de l'artiste
+    let mut head = vec![
+        ruled(
+            vec![
+                rule("┌─ "),
+                Span::styled(
+                    "discographie ",
+                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                ),
+                rule("── "),
+                Span::styled(
+                    format!("{} ", screen.name),
+                    Style::default().fg(CATALOG).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!(
+                        "{} · {} albums · {} titres",
+                        if screen.generated { "fiche générée" } else { "fiche écrite" },
+                        summary.albums,
+                        summary.titles
+                    ),
+                    Style::default().fg(DIM),
+                ),
+            ],
+            width,
+        ),
+        Line::from(vec![
+            rule("│ "),
+            Span::styled("le réservoir en tire  ", Style::default().fg(MUTED)),
+            Span::styled(
+                format!("♪ {} top{}", summary.tops, plural(summary.tops)),
+                Style::default().fg(PLAYING),
+            ),
+            Span::styled(" · ", Style::default().fg(DIM)),
+            Span::styled(
+                format!("♥ {} aimé{}", summary.liked, plural(summary.liked)),
+                Style::default().fg(PLAYING),
+            ),
+            Span::styled(" · ", Style::default().fg(DIM)),
+            Span::styled(
+                format!("⊘ {} banni{}", summary.banned, plural(summary.banned)),
+                Style::default().fg(DANGER),
+            ),
+            Span::styled(" · ", Style::default().fg(DIM)),
+            Span::styled(format!("· {} en traîne", summary.tail), Style::default().fg(VECTOR)),
+        ]),
+    ];
+    // la question qu'on vient poser : quel album porte les écoutes
+    head.push(Line::from(vec![
+        rule("│ "),
+        Span::styled("tes écoutes  ", Style::default().fg(MUTED)),
+        Span::styled(
+            if summary.plays < 0.5 {
+                "aucune écoute enregistrée chez lui".to_string()
+            } else {
+                format!(
+                    "{} album{} porte{} {} % des {:.0} écoutes",
+                    summary.carrying,
+                    if summary.carrying > 1 { "s" } else { "" },
+                    if summary.carrying > 1 { "nt" } else { "" },
+                    summary.carrying_pct,
+                    summary.plays
+                )
+            },
+            Style::default().fg(Color::White),
+        ),
+        Span::styled(
+            format!(" — {} album(s) jamais ouvert(s)", summary.never),
+            Style::default().fg(DIM),
+        ),
+    ]));
+    head.push(Line::from(vec![
+        rule("│ "),
+        Span::styled(
+            format!("ordre : {} · filtre : {}", screen.sort_word(), screen.filter.word()),
+            Style::default().fg(DIM),
+        ),
+        Span::styled(
+            if screen.query.is_empty() {
+                String::new()
+            } else {
+                format!(" · « {} »", screen.query)
+            },
+            Style::default().fg(MUTED),
+        ),
+    ]));
+
+    // — le pied : ce qui attend d'être écrit, puis les touches
+    let mut foot: Vec<Line> = Vec::new();
+    if !screen.pending.is_empty() {
+        foot.push(ruled(
+            vec![
+                rule("│ "),
+                Span::styled("── en attente ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!(
+                        "{} édition{} · une fiche · un commit",
+                        screen.pending.len(),
+                        plural(screen.pending.len())
+                    ),
+                    Style::default().fg(DIM),
+                ),
+            ],
+            width,
+        ));
+        for edit in screen.pending.iter().take(4) {
+            foot.push(Line::from(vec![
+                rule("│ "),
+                Span::styled(
+                    format!("{} ", if edit.add { "♪+" } else { "♪−" }),
+                    Style::default().fg(EDIT).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{:<32}", fit(&edit.title, 32)),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(
+                    if edit.add { "promouvoir en top  " } else { "retirer du top     " }.to_string(),
+                    Style::default().fg(MUTED),
+                ),
+                Span::styled(format!("({})", edit.why), Style::default().fg(DIM)),
+            ]));
+        }
+        if screen.pending.len() > 4 {
+            foot.push(Line::from(vec![
+                rule("│ "),
+                rule(&format!("↓ {} de plus", screen.pending.len() - 4)),
+            ]));
+        }
+        // ce que l'utilisateur lit est ce que git retiendra (edit.rs)
+        foot.push(Line::from(vec![
+            rule("│ "),
+            Span::styled(format!("cards/{}.toml ", screen.slug), Style::default().fg(CATALOG)),
+            Span::styled(format!("— « {} »", screen.commit_line()), Style::default().fg(DIM)),
+        ]));
+    }
+    if !screen.notice.is_empty() {
+        let mut line = notice_line(&screen.notice).spans;
+        line.insert(0, rule("│ "));
+        foot.push(Line::from(line));
+    }
+    foot.push(Line::from(vec![
+        rule("│ "),
+        Span::styled("tt ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+        Span::styled("top  ", Style::default().fg(MUTED)),
+        Span::styled("tT ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+        Span::styled("hors top  ", Style::default().fg(MUTED)),
+        Span::styled("A ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+        Span::styled("l'album  ", Style::default().fg(MUTED)),
+        Span::styled("tl ", Style::default().fg(PLAYING)),
+        Span::styled("aimer  ", Style::default().fg(MUTED)),
+        Span::styled("tb ", Style::default().fg(DANGER)),
+        Span::styled("bannir  ", Style::default().fg(MUTED)),
+        Span::styled("e ", Style::default().fg(BRANCH)),
+        Span::styled("à la file  ", Style::default().fg(MUTED)),
+        Span::styled("s v / ", Style::default().fg(VECTOR)),
+        Span::styled("ordre, vue, filtre", Style::default().fg(MUTED)),
+    ]));
+    foot.push(ruled(
+        vec![
+            rule("└─ "),
+            Span::styled(
+                if screen.pending.is_empty() {
+                    "échap ferme".to_string()
+                } else {
+                    format!("⏎ écrire ({} en attente, 1 commit)", screen.pending.len())
+                },
+                Style::default().fg(MUTED),
+            ),
+            Span::styled(
+                " · u annule la dernière · échap ferme sans écrire".to_string(),
+                Style::default().fg(DIM),
+            ),
+        ],
+        width,
+    ));
+
+    // — le corps : les albums pliés, celui du curseur ouvert
+    let rows = screen.rows();
+    let room = (area.height as usize).saturating_sub(head.len() + foot.len()).max(1);
+    let here = rows.iter().position(|row| screen.at(*row)).unwrap_or(0);
+    // la fenêtre suit le curseur sans le coller au bord
+    let start = here.saturating_sub(room / 2).min(rows.len().saturating_sub(room));
+    let mut lines = head;
+    for row in rows.iter().skip(start).take(room) {
+        let selected = screen.at(*row);
+        lines.push(match *row {
+            Row::Album(index) => {
+                let album = &screen.albums[index];
+                let share = if summary.plays > 0.0 { album.plays() / summary.plays } else { 0.0 };
+                let marks = if album.orphan {
+                    "à relire".to_string()
+                } else {
+                    let mut said = Vec::new();
+                    if album.tops() > 0 {
+                        said.push(format!("♪ {}", album.tops()));
+                    }
+                    if album.liked() > 0 {
+                        said.push(format!("♥ {}", album.liked()));
+                    }
+                    if album.banned() > 0 {
+                        said.push(format!("⊘ {}", album.banned()));
+                    }
+                    said.join(" · ")
+                };
+                // ▾ dit ce qui est ouvert, pas ce qui est surligné : le
+                // curseur peut être descendu dans les morceaux de l'album
+                let open = screen.cursor.album == index && !screen.folded;
+                let text = format!(
+                    "{} {:<5}{:<34}{:>3}  {:<16}{:>6}  {}",
+                    if open { "▾" } else { "▸" },
+                    album.year.map(|y| y.to_string()).unwrap_or_default(),
+                    fit(&album.title, 33),
+                    album.tracks.len(),
+                    fit(&marks, 16),
+                    if album.plays() < 0.5 { "—".into() } else { format!("{:.0}", album.plays()) },
+                    bar(share, 10),
+                );
+                if selected {
+                    Line::from(vec![rule("│ "), Span::styled(text, cursor)])
+                } else {
+                    Line::from(vec![rule("│ "), Span::styled(text, Style::default().fg(MUTED))])
+                }
+            }
+            Row::Track(album, track) => {
+                let track = &screen.albums[album].tracks[track];
+                let glyph = if track.banned {
+                    ('⊘', DANGER)
+                } else if track.is_top() {
+                    ('♪', PLAYING)
+                } else if track.liked {
+                    ('♥', PLAYING)
+                } else {
+                    ('·', VECTOR)
+                };
+                let state = if screen.is_playing(track) {
+                    "▶ sonne".to_string()
+                } else if track.banned {
+                    "banni".to_string()
+                } else if track.liked {
+                    "♥ aimé".to_string()
+                } else {
+                    String::new()
+                };
+                let last = match track.days {
+                    Some(0) => "aujourd'hui".to_string(),
+                    Some(days) => crate::home::age(Some(days)),
+                    None => "jamais".to_string(),
+                };
+                let before = format!(
+                    "   {:>3} ",
+                    if track.number > 0 { track.number.to_string() } else { String::new() }
+                );
+                let after = format!(
+                    " {:<32}{:<6}{:<10}{:>11}  {}",
+                    fit(&track.title, 31),
+                    clock_ms(track.duration_ms),
+                    state,
+                    plays_of(track.plays),
+                    last,
+                );
+                // la couleur dit la nature, jamais l'importance : le glyphe
+                // seul la porte, le reste de la ligne est du texte
+                let (text_style, glyph_style) = if selected {
+                    (cursor, cursor)
+                } else {
+                    (
+                        Style::default().fg(if track.banned { DIM } else { MUTED }),
+                        Style::default().fg(glyph.1),
+                    )
+                };
+                Line::from(vec![
+                    rule("│ "),
+                    Span::styled(before, text_style),
+                    Span::styled(glyph.0.to_string(), glyph_style),
+                    Span::styled(after, text_style),
+                ])
+            }
+        });
+    }
+    // le filet descend jusqu'au pied : le bas de l'écran ne bouge pas d'un
+    // album à l'autre
+    while lines.len() + foot.len() < area.height as usize {
+        lines.push(Line::from(rule("│")));
+    }
+    lines.extend(foot);
+    frame.render_widget(Paragraph::new(lines), area);
 }

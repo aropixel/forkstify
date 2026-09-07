@@ -222,6 +222,27 @@ impl Learned {
         Some((plays, days, top.skipped))
     }
 
+    /// Ce que l'écoute sait de **chaque** morceau d'un artiste : titre tel
+    /// qu'il a été joué, écoutes décrues au jour, jours depuis la dernière,
+    /// aimé, banni. L'écran de la discographie apparie ensuite par titre
+    /// normalisé — Spotify et les fiches ne les écrivent pas toujours pareil.
+    pub fn track_table(&self, slug: &str) -> Vec<(String, f64, Option<i64>, bool, bool)> {
+        let Some(artist) = self.artists.get(slug) else { return Vec::new() };
+        artist
+            .tops
+            .iter()
+            .map(|(title, top)| {
+                (
+                    title.clone(),
+                    decay(top.plays, top.last.as_deref(), self.today),
+                    top.last.as_deref().and_then(from_iso).map(|d| (self.today - d).max(0)),
+                    top.liked,
+                    top.blacklisted,
+                )
+            })
+            .collect()
+    }
+
     pub fn track_banned(&self, slug: &str, title: &str) -> bool {
         self.artists
             .get(slug)
