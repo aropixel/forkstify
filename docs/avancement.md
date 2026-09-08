@@ -160,8 +160,11 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
   tête, `j` réessaie. **Et « entrée/auto » tire désormais parmi les branches
   affichées** — `auto_advance` recalculait trois nouvelles branches et jouait
   donc ce que Joel n'avait pas vu (arbitrage Joel, 05/09/2026).
-- **Dépôts** : `kbyjoel/forkstify` et `kbyjoel/forkstify-catalog`, privés,
-  branche `main`. Plan de reprise chorizo à jour.
+- **Dépôts** (déplacés le 08/09/2026) : `aropixel/forkstify` et
+  `aropixel/forkstify-catalog`, la référence, privés, branche `main` ;
+  `kbyjoel/forkstify-catalog` est le **fork** de Joel, celui que
+  l'application lit (`origin`), l'amont en `upstream`. Plan de reprise
+  chorizo à jour.
 
 ## En attente de Joel
 
@@ -305,6 +308,26 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## Le catalogue devient un fork, la référence part chez aropixel (08/09/2026)
+
+Joel : « pour régler le problème du catalogue qui n'est pas un fork parce que
+je suis le concepteur, je voudrais déplacer forkstify et forkstify-catalog
+dans mon GitHub aropixel. Comme ça, je le publierai en tant qu'aropixel, ce
+qui me permet de faire un fork avec mon compte kbyjoel. »
+
+Fait par l'API GitHub : les deux dépôts sont **transférés** à l'organisation
+`aropixel` (ils restent privés), et `aropixel/forkstify-catalog` est **forké**
+en `kbyjoel/forkstify-catalog`, qui reprend le nom libéré. En local,
+`~/Work/forkstify` pointe sur `aropixel/forkstify` ; `~/Work/forkstify-catalog`
+pointe sur le fork en `origin` — c'est lui que le pull du démarrage tire et
+que l'appris rejoint — et sur la référence en `upstream`, que `:mine` compare
+déjà en premier. Joel est enfin un utilisateur comme les autres (0016) : ses
+éditions vivent sur son fork, et remontent à la référence par une PR.
+
+Les deux commits Cat Power sont restés sur la référence ; à reporter sur le
+fork ou à y laisser, au choix de Joel. Le plan de reprise de chorizo clone
+désormais les bons dépôts.
 
 ## Le cooldown daté (08/09/2026)
 

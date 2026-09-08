@@ -124,8 +124,8 @@ quelqu'un d'autre, aucune décision n'est nécessaire pour ça.
 Précision demandée par Joel : « chaque utilisateur a son repo de
 modifications ? ». **Non — il a un *fork*.**
 
-    kbyjoel/forkstify-catalog          la référence, l'amont
-        └── randomuser/forkstify-catalog   son fork : TOUT le catalogue, plus ses commits
+    aropixel/forkstify-catalog         la référence, l'amont
+        └── kbyjoel/forkstify-catalog      son fork : TOUT le catalogue, plus ses commits
                 └── ~/…/forkstify-catalog      son clone local, celui que l'application lit
 
 Son dépôt contient **tout le catalogue**, pas seulement ses changements.
@@ -141,6 +141,10 @@ surcouche à part ».
 
 Le chemin du catalogue actif est désormais un réglage, `[catalogue] path`,
 l'argument de ligne de commande le surchargeant.
+
+Depuis le 08/09/2026, c'est exactement la situation de Joel : la référence
+est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
+`kbyjoel`, avec l'amont en `upstream`.
 
 ## À trancher
 
@@ -178,7 +182,7 @@ gh api search/commits -f q='"Forkstify:"' --paginate \
   --jq '.items[].repository.full_name' | sort | uniq -c | sort -rn
 
 # et le nombre de forks du dépôt de référence, qui compte les utilisateurs
-gh api repos/kbyjoel/forkstify-catalog --jq .forks_count
+gh api repos/aropixel/forkstify-catalog --jq .forks_count
 ```
 
 Limites : seules les **branches par défaut** des dépôts **publics** sont
