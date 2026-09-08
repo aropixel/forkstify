@@ -130,8 +130,9 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
 | `/texte` | | Chercher — catalogue + Spotify, un chiffre choisit | ✅ |
-| `q` | **quit** | Quitter (affiche le parcours) | ✅ |
-| `r` | **resume** | Reprendre le dernier parcours — **accueil seulement** | ✅ |
+| `q` | **quit** | En écoute : **revenir à l'accueil**, l'écoute continue en dessous avec son pied de lecture. À l'accueil : quitter (affiche le parcours) — Joel, 08/09/2026 | ✅ |
+| `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon reprendre le dernier parcours. Échap sans curseur fait de même | ✅ |
+| `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |
 | `s` | **sort** | Changer l'ordre de la collection : familiarité → a-z → dernière écoute — **accueil seulement** | ✅ |
 | `gg` / `G` | | Les deux bouts d'une liste, comme dans vim — la collection à l'accueil, l'axe en écoute. `g` seul attend son second | ✅ |
 | `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |

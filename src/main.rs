@@ -252,11 +252,9 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let _raw = keys::RawMode::enable();
     let mut tui = tui::Tui::enter()?;
     let mut rx = home::reader();
-    let mut comfort =
-        engine::Comfort::new(config::Config::load().journey.comfort);
-    let mut last_path: Vec<String> = Vec::new();
+    let comfort = engine::Comfort::new(config::Config::load().journey.comfort);
 
-    loop {
+    let last_path: Vec<String> = loop {
         tui.clear();
         let status = home::Status::read();
         if !status.connected() {
@@ -285,6 +283,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 comfort: comfort.value(),
                 comfort_word: listen::comfort_word(comfort.value()),
                 collection: None,
+                bar: None,
             });
             if !status.librespot {
                 // l'application s'annonce elle-même : brancher le téléphone
@@ -297,18 +296,24 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
             // le jeton web se redemande tout seul à l'ouverture de la session
         }
 
+        // connecté : l'accueil est désormais un écran de la session, qui
+        // tient le son, l'API et l'appris jusqu'à ce qu'on quitte pour de
+        // bon (Joel, 08/09/2026)
         let learned = learned::Learned::load(&dir);
         let tail = discography::Tail::load();
-        let Some(choice) =
-            home::run(&catalog, &learned, &tail, &mut comfort, &mut rx, &mut tui)
-        else {
-            break;
-        };
-        // la session consomme l'appris et le rend enrichi : on le relit au
-        // tour suivant, ce qui suffit à voir ses propres mesures
-        last_path =
-            listen::run(&catalog, choice, learned, tail, comfort, &mut rx, &mut tui, &dir)?;
-    }
+        let status = vec![
+            ("✓ librespot".to_string(), true),
+            ("✓ api web".to_string(), true),
+            (
+                match &synced {
+                    Ok(word) => format!("⇅ {word}"),
+                    Err(_) => "⇅ hors ligne".to_string(),
+                },
+                synced.is_ok(),
+            ),
+        ];
+        break listen::run(&catalog, None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
+    };
 
     // l'écran alterné rendu, on laisse le parcours derrière soi
     drop(tui);
@@ -371,13 +376,14 @@ fn main() -> anyhow::Result<()> {
             let mut tui = tui::Tui::enter()?;
             let path = listen::run(
                 &catalog,
-                home::Choice::Artist(slug),
+                Some(home::Choice::Artist(slug)),
                 learned,
                 discography::Tail::load(),
                 engine::Comfort::new(config::Config::load().journey.comfort),
                 &mut rx,
                 &mut tui,
                 &catalog_path(path),
+                vec![("✓ librespot".to_string(), true), ("✓ api web".to_string(), true)],
             )?;
             drop(tui);
             println!("\nParcours : {}", path.join(" → "));

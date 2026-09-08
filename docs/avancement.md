@@ -309,6 +309,36 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'accueil devient un écran de la session (08/09/2026)
+
+Joel : « les deux écrans accueil et lecture sont indépendants : quand je
+quitte l'écran lecture, ma session s'arrête et elle est perdue. Je voudrais
+lancer une session, revenir à l'accueil, conserver l'écoute et la barre en
+bas, et revenir sur mon écran de session sans jamais perdre ma session. »
+
+Avant, `main.rs` bouclait : l'accueil rendait un choix, la session naissait
+(son, API, MPRIS), vivait, mourait, et l'accueil revenait. Désormais **la
+session est l'application**, et l'accueil l'un de ses deux écrans
+(`Screen::Home` / `Screen::Session`) :
+
+- **`q` en écoute rend l'accueil**, l'écoute continue en dessous : le son,
+  la file, les branches, l'appris, tout reste. **`r`** (ou échap sans
+  curseur) **ramène à l'écran de session**. `q` à l'accueil quitte pour de
+  bon, avec le commit et le push de 0017.
+- **Le pied de lecture s'affiche sous l'accueil** — ce qui sonne, sa barre,
+  ce qui suit, la dernière chose dite — sur les quatre lignes au-dessus de
+  l'invite (`tui::Bar`, le même pied qu'en session, `render_bar`). `p` y
+  tient la pause ; les touches multimédia marchent partout.
+- **Choisir une graine à l'accueil pendant qu'une session joue démarre un
+  nouveau parcours** qui remplace l'ancien (`Live::start_journey`) — sans
+  reconnecter quoi que ce soit, donc sans l'écran d'attente.
+- `home::run` devient `home::Home` (un état : ce qui est tapé, le tri, le
+  curseur) avec `draw` et `on_cmd` → `Outcome::{Stay, Start, Back, Quit}` ;
+  la boucle unique de `listen.rs` route les touches selon l'écran. Le son
+  et l'API web ne se connectent qu'une fois par lancement.
+
+Un test de rendu de l'accueil avec le pied. Non vérifié en session réelle.
+
 ## L'écran d'abord, Spotify derrière (08/09/2026)
 
 Joel : « au lancement d'une session d'écoute, ou à l'ouverture et à la

@@ -21,7 +21,7 @@ macro_rules! say {
 }
 use crate::engine::Comfort;
 use crate::discography::Tail;
-use crate::home::{Choice, LastSession};
+use crate::home::{Choice, Home, LastSession, Outcome};
 use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
@@ -35,15 +35,17 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashSet, VecDeque};
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     catalog: &Catalog,
-    choice: Choice,
+    choice: Option<Choice>,
     learned: Learned,
     tail: Tail,
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
+    status: Vec<(String, bool)>,
 ) -> anyhow::Result<Vec<String>> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
@@ -54,25 +56,22 @@ pub fn run(
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui, catalog_dir))
+        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui, catalog_dir, status))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn async_run(
     catalog: &Catalog,
-    choice: Choice,
+    choice: Option<Choice>,
     learned: Learned,
     tail: Tail,
     comfort: Comfort,
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
+    status: Vec<(String, bool)>,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let (seed, opening_track) = match &choice {
-        Choice::Artist(slug) => (slug.clone(), None),
-        Choice::Track { slug, title } => (slug.clone(), Some(title.clone())),
-    };
-    let seed = seed.as_str();
     // l'écran alterné appartient à la TUI : les étapes s'y dessinent, elles
     // ne s'impriment pas
     tui.clear();
@@ -122,7 +121,7 @@ async fn async_run(
         sound,
         web: Arc::new(Mutex::new(web)),
         rng: thread_rng(),
-        rounds: vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }],
+        rounds: Vec::new(),
         past: Vec::new(),
         current: None,
         queue: VecDeque::new(),
@@ -147,6 +146,9 @@ async fn async_run(
         jobs_tx,
         loading: false,
         harvesting: HashSet::new(),
+        screen: Screen::Home,
+        home: Home::default(),
+        status,
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -156,33 +158,12 @@ async fn async_run(
     // le lecteur de touches est celui de l'accueil : deux threads sur stdin
     // se voleraient les octets
 
-    // opening: the chosen track first if the seed was one, then the seed's
-    // own tops (arbitrage du 05/09 : la graine peut être les deux)
-    let mut opening = crate::engine::encore(
-        catalog,
-        seed,
-        &live.learned,
-        &live.tail,
-        live.comfort,
-        &Default::default(),
-        live.size,
-        &mut live.rng,
-    );
-    if let Some(title) = opening_track {
-        opening.retain(|stop| stop.title != title);
-        opening.insert(
-            0,
-            crate::engine::Stop {
-                slug: seed.to_string(),
-                artist: catalog.cards[seed].name.clone(),
-                title,
-                source: crate::engine::Source::Top,
-                head: None,
-                encore: false,
-            },
-        );
+    // une graine donnée démarre tout de suite ; sinon l'accueil, la session
+    // en dessous prête à jouer (Joel, 08/09/2026)
+    match choice {
+        Some(choice) => live.start_journey(choice).await,
+        None => live.tui.clear(),
     }
-    live.start_segment(vec![seed.to_string()], opening, true, false).await;
     live.prefetch_next().await;
     live.paint();
 
@@ -265,7 +246,7 @@ async fn async_run(
         .rounds
         .iter()
         .flat_map(|round| round.artists.iter())
-        .map(|slug| catalog.cards[slug].name.clone())
+        .filter_map(|slug| catalog.cards.get(slug).map(|c| c.name.clone()))
         .collect();
     // l'écran alterné appartient à l'application entière : le parcours
     // remonte à l'accueil au lieu de s'imprimer sur un écran qui disparaît
@@ -349,6 +330,19 @@ struct Live<'a> {
     /// Discographies being harvested right now, so a second `ad` or `e<n>`
     /// does not launch the same job twice.
     harvesting: HashSet<String>,
+    /// Which screen is up: the home or the session. The session lives on
+    /// under the home — the sound, the queue, the branches (Joel,
+    /// 08/09/2026).
+    screen: Screen,
+    home: Home,
+    /// Les autorisations et la synchronisation, pour l'en-tête de l'accueil.
+    status: Vec<(String, bool)>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Screen {
+    Home,
+    Session,
 }
 
 /// What a background job brings back.
@@ -514,6 +508,80 @@ impl Live<'_> {
             }
         }
         self.render();
+    }
+
+    /// Start a journey from a seed — from the home, or at launch. It
+    /// replaces the one that was playing: sound, list, branches, all of it.
+    async fn start_journey(&mut self, choice: Choice) {
+        let (seed, opening_track) = match choice {
+            Choice::Artist(slug) => (slug, None),
+            Choice::Track { slug, title } => (slug, Some(title)),
+        };
+        if self.current.is_some() {
+            self.sound.stop();
+        }
+        self.current = None;
+        self.loading = false;
+        self.progress = None;
+        self.past.clear();
+        self.queue.clear();
+        self.branches.clear();
+        self.selection = None;
+        self.overlay = None;
+        self.help_open = false;
+        self.explore = None;
+        self.notices.borrow_mut().clear();
+        self.rounds = vec![Round { artists: vec![seed.clone()], tracks: Vec::new() }];
+        // opening: the chosen track first if the seed was one, then the
+        // seed's own tops (arbitrage du 05/09 : la graine peut être les deux)
+        let mut opening = crate::engine::encore(
+            self.catalog,
+            &seed,
+            &self.learned,
+            &self.tail,
+            self.comfort,
+            &Default::default(),
+            self.size,
+            &mut self.rng,
+        );
+        if let Some(title) = opening_track {
+            opening.retain(|stop| stop.title != title);
+            opening.insert(
+                0,
+                crate::engine::Stop {
+                    slug: seed.clone(),
+                    artist: self.catalog.cards[&seed].name.clone(),
+                    title,
+                    source: crate::engine::Source::Top,
+                    head: None,
+                    encore: false,
+                },
+            );
+        }
+        self.screen = Screen::Session;
+        self.tui.clear();
+        self.start_segment(vec![seed], opening, true, false).await;
+    }
+
+    /// Une touche à l'accueil : le son continue en dessous, `p` le tient,
+    /// le reste est la grammaire de l'accueil.
+    async fn on_home_cmd(&mut self, cmd: Cmd) -> bool {
+        if matches!(cmd, Cmd::PlayPause) {
+            self.toggle_pause();
+            return true;
+        }
+        let live = !self.rounds.is_empty();
+        let outcome = self.home.on_cmd(cmd, self.catalog, &self.learned, &mut self.comfort, live);
+        match outcome {
+            Outcome::Stay => {}
+            Outcome::Back => {
+                self.screen = Screen::Session;
+                self.tui.clear();
+            }
+            Outcome::Start(choice) => self.start_journey(choice).await,
+            Outcome::Quit => return false,
+        }
+        true
     }
 
     /// Load a stop as the current track. If the cache knows its address it
@@ -1008,6 +1076,9 @@ impl Live<'_> {
 
     /// One parsed command (0015). Returns false to quit.
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
+        if self.screen == Screen::Home {
+            return self.on_home_cmd(cmd).await;
+        }
         self.notices.borrow_mut().clear();
         // le réglage du confort prend la main sur tout le reste
         if self.comfort_before.is_some() {
@@ -1063,7 +1134,13 @@ impl Live<'_> {
         }
 
         match cmd {
-            Cmd::Quit => return false,
+            // « q » ne quitte plus : il rend l'accueil, l'écoute continue en
+            // dessous et « r » y ramène (Joel, 08/09/2026)
+            Cmd::Quit => {
+                self.remember();
+                self.screen = Screen::Home;
+                self.tui.clear();
+            }
             // entrée joue ce qui est sélectionné ; sans sélection, elle garde
             // son sens de toujours — « choisis pour moi »
             Cmd::Auto => match self.selection.take() {
@@ -1287,6 +1364,39 @@ impl Live<'_> {
     /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
     /// décide de rien.
     fn paint(&mut self) {
+        if self.screen == Screen::Home {
+            let live = !self.rounds.is_empty();
+            // le pied se construit champ par champ : l'écran a besoin de
+            // `tui` en exclusif pendant que le reste est lu
+            let tracks = self.past.len() + usize::from(self.current.is_some()) + self.queue.len();
+            let notices = self.notices.borrow();
+            let bar = live.then(|| crate::tui::Bar {
+                current: self.current.as_ref(),
+                paused: self.paused,
+                loading: self.loading,
+                progress: self.progress.as_ref().map(Progress::now),
+                position: (self.past.len() + 1, tracks),
+                next: self.queue.front(),
+                ahead: self.queue.len(),
+                notice: notices
+                    .iter()
+                    .rev()
+                    .find(|line| !line.trim().is_empty())
+                    .cloned()
+                    .unwrap_or_default(),
+            });
+            self.home.draw(
+                self.catalog,
+                &self.learned,
+                &self.tail,
+                self.comfort,
+                &self.status,
+                bar,
+                live,
+                self.tui,
+            );
+            return;
+        }
         // la modale dit « ▶ sonne » sur la bonne ligne, même quand le
         // morceau change pendant qu'elle est ouverte
         let playing = self.current.as_ref().map(|stop| stop.title.clone());

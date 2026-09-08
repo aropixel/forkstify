@@ -102,6 +102,21 @@ pub struct View<'a> {
     pub prompt: String,
 }
 
+/// Le pied de lecture : ce qui sonne, sa progression, ce qui suit, la
+/// dernière chose dite. Le même sous la session et sous l'accueil (Joel,
+/// 08/09/2026) — l'écoute continue quand on change d'écran.
+pub struct Bar<'a> {
+    pub current: Option<&'a Stop>,
+    pub paused: bool,
+    pub loading: bool,
+    pub progress: Option<(u32, u32)>,
+    /// (rang du courant, total) dans la liste de lecture
+    pub position: (usize, usize),
+    pub next: Option<&'a Stop>,
+    pub ahead: usize,
+    pub notice: String,
+}
+
 pub struct Tui {
     terminal: Terminal<CrosstermBackend<Stdout>>,
 }
@@ -469,9 +484,54 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         .min(lines.len().saturating_sub(height));
     frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
-    // — le pied (maquette 2b) : ce qui sonne et sa provenance, puis ce qui
-    // suit et à combien de morceaux se trouve l'embranchement — ce que la
-    // liste ne dit plus quand elle a défilé
+    // — le pied (maquette 2b), partagé avec l'accueil
+    let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
+    render_bar(
+        frame,
+        [now, bar, next, status],
+        &Bar {
+            current: view.current,
+            paused: view.paused,
+            loading: view.loading,
+            progress: view.progress,
+            position: (view.past.len() + 1, tracks),
+            next: view.queue.first(),
+            ahead: view.queue.len(),
+            notice: last.cloned().unwrap_or_default(),
+        },
+    );
+
+    // — l'invite : toujours la dernière ligne, avec son curseur
+    let prompt_line = Line::from(vec![
+        Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
+        Span::raw(" "),
+        Span::styled(" ", Style::default().bg(VECTOR)),
+    ]);
+    frame.render_widget(Paragraph::new(prompt_line), prompt);
+
+    // — les branches, dans leur colonne : toujours visibles
+    if let Some(column) = panel_column {
+        render_panel(frame, column, view);
+    }
+
+    // — la discographie prend le corps de l'écran, jamais le pied
+    if let Some(screen) = view.explore {
+        render_explore(frame, body, screen);
+    }
+
+    // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
+    if let Some((title, body)) = view.overlay {
+        render_block(frame, area, title, body);
+    }
+}
+
+/// Le pied de lecture (maquette 2b) : ce qui sonne et sa provenance, sa
+/// progression, puis ce qui suit et à combien de morceaux se trouve
+/// l'embranchement — ce que la liste ne dit plus quand elle a défilé —, et
+/// la dernière chose dite.
+fn render_bar(frame: &mut ratatui::Frame, [now, bar, next, status]: [Rect; 4], view: &Bar) {
+    let full = now.width as usize;
+    let (rank, tracks) = view.position;
     let now_line = match view.current {
         Some(stop) => justified(
             vec![
@@ -485,7 +545,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
                 ),
                 Span::styled(" — ", Style::default().fg(DIM)),
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
-                Span::styled(format!("  ({} / {tracks})", view.past.len() + 1), Style::default().fg(DIM)),
+                Span::styled(format!("  ({rank} / {tracks})"), Style::default().fg(DIM)),
                 Span::styled(
                     if view.loading { " · chargement…" } else { "" }.to_string(),
                     Style::default().fg(VECTOR),
@@ -530,7 +590,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     };
     frame.render_widget(Paragraph::new(bar_line), bar);
     let next_line = justified(
-        match view.queue.first() {
+        match view.next {
             Some(stop) => vec![
                 Span::styled("à suivre  ", Style::default().fg(DIM)),
                 Span::styled(stop.title.clone(), Style::default().fg(MUTED)),
@@ -542,7 +602,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         vec![
             Span::styled("→ ", Style::default().fg(BRANCH)),
             Span::styled(
-                match view.queue.len() {
+                match view.ahead {
                     0 => "embranchement à la fin du morceau".to_string(),
                     1 => "embranchement dans 1 morceau".to_string(),
                     n => format!("embranchement dans {n} morceaux"),
@@ -557,31 +617,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     // — la dernière chose dite, sur une ligne qui ne grandit pas : ce qui
     // n'a pas d'effet visible dans la liste (un ban, une édition, une
     // erreur), mis en forme par nature comme le composant Notice
-    let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
-    frame.render_widget(Paragraph::new(notice_line(last.map(String::as_str).unwrap_or(""))), status);
-
-    // — l'invite : toujours la dernière ligne, avec son curseur
-    let prompt_line = Line::from(vec![
-        Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
-        Span::raw(" "),
-        Span::styled(" ", Style::default().bg(VECTOR)),
-    ]);
-    frame.render_widget(Paragraph::new(prompt_line), prompt);
-
-    // — les branches, dans leur colonne : toujours visibles
-    if let Some(column) = panel_column {
-        render_panel(frame, column, view);
-    }
-
-    // — la discographie prend le corps de l'écran, jamais le pied
-    if let Some(screen) = view.explore {
-        render_explore(frame, body, screen);
-    }
-
-    // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
-    if let Some((title, body)) = view.overlay {
-        render_block(frame, area, title, body);
-    }
+    frame.render_widget(Paragraph::new(notice_line(&view.notice)), status);
 }
 
 /// Coupe un texte en lignes d'au plus `width` caractères, sur les espaces.
@@ -777,6 +813,8 @@ pub struct HomeView<'a> {
     pub comfort_word: &'a str,
     /// La colonne de droite. Elle ne propose rien, elle liste.
     pub collection: Option<Collection<'a>>,
+    /// Le pied de lecture, quand une session joue sous l'accueil.
+    pub bar: Option<Bar<'a>>,
 }
 
 impl Tui {
@@ -788,12 +826,25 @@ impl Tui {
 
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
-    let [head, whole, prompt] = Layout::vertical([
+    // le pied de lecture prend ses quatre lignes quand une session joue
+    let foot = if view.bar.is_some() { 4 } else { 0 };
+    let [head, whole, foot_area, prompt] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(3),
+        Constraint::Length(foot),
         Constraint::Length(1),
     ])
     .areas(area);
+    if let Some(bar) = &view.bar {
+        let [now, progress, next, status] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
+        .areas(foot_area);
+        render_bar(frame, [now, progress, next, status], bar);
+    }
 
     // à gauche ce que forkstify propose, à droite ce qu'il possède. Le
     // partage est proportionnel (Joel, 06/09/2026) : la gauche porte des
@@ -1384,6 +1435,45 @@ mod tests {
         let later = notice_line("« fw » — partir : décidé (0015), pas encore câblé.");
         assert!(later.spans[0].style.add_modifier.contains(Modifier::ITALIC));
         assert_eq!(plain(notice_line("")), "");
+    }
+
+    /// L'accueil garde le pied de lecture quand une session joue en dessous
+    /// (Joel, 08/09/2026) : ce qui sonne, sa barre, ce qui suit, sur les
+    /// quatre lignes au-dessus de l'invite.
+    #[test]
+    fn the_home_keeps_the_playback_foot() {
+        let current = stop("Cities in Dust", "Siouxsie and the Banshees");
+        let next = stop("Israel", "Siouxsie and the Banshees");
+        let view = HomeView {
+            status: vec![("✓ librespot".to_string(), true)],
+            census: "catalogue local".to_string(),
+            rows: &[],
+            prompt: "[1-3 pour démarrer · r retour à l'écoute · q quitter]".to_string(),
+            comfort: 3,
+            comfort_word: "équilibré",
+            collection: None,
+            bar: Some(Bar {
+                current: Some(&current),
+                paused: false,
+                loading: false,
+                progress: Some((60_000, 240_000)),
+                position: (2, 5),
+                next: Some(&next),
+                ahead: 3,
+                notice: "✓ appris poussé".to_string(),
+            }),
+        };
+        let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
+        terminal.draw(|frame| render_home(frame, &view)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let rows: Vec<String> =
+            (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
+        assert!(rows[15].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5)"), "{}", rows[15]);
+        assert_eq!(rows[16].chars().filter(|c| *c == '█').count(), 25, "{}", rows[16]);
+        assert!(rows[17].starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{}", rows[17]);
+        assert!(rows[17].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[17]);
+        assert!(rows[18].starts_with("✓ appris poussé"), "{}", rows[18]);
+        assert!(rows[19].starts_with("[1-3 pour démarrer · r retour à l'écoute"), "{}", rows[19]);
     }
 
     #[test]

@@ -425,31 +425,58 @@ fn rows_of(
 }
 
 /// L'accueil. Rend, lit une touche, et dit ce qu'il faut démarrer.
-pub fn run(
-    catalog: &Catalog,
-    learned: &Learned,
-    tail: &Tail,
-    comfort: &mut Comfort,
-    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Cmd>,
-    tui: &mut Tui,
-) -> Option<Choice> {
-    // ce qui est en train d'être tapé : la seule chose qui bouge en bas
-    let mut typed = String::new();
-    let mut said = String::new();
-    let mut sort = Sort::Familiarity;
-    // le curseur de la collection : tant qu'il n'existe pas, entrée garde son
-    // sens de toujours — « choisis pour moi »
-    let mut cursor: Option<usize> = None;
-    loop {
-        let listing = collection(catalog, learned, sort);
-        // le Vec doit vivre aussi longtemps que la vue qui l'emprunte
+/// Ce que l'accueil répond à une touche.
+pub enum Outcome {
+    Stay,
+    /// Démarrer un parcours — il remplace celui qui joue, s'il y en a un.
+    Start(Choice),
+    /// Revenir à l'écran de la session en cours, sans rien changer.
+    Back,
+    Quit,
+}
+
+/// L'accueil est un **écran de la session**, pas une boucle à part (Joel,
+/// 08/09/2026) : on y revient de l'écoute par `q`, l'écoute continue en
+/// dessous, et `r` ou échap ramènent à l'écran de session. Cet état est ce
+/// qui bouge à l'accueil entre deux touches.
+pub struct Home {
+    /// ce qui est en train d'être tapé : la seule chose qui bouge en bas
+    typed: String,
+    said: String,
+    sort: Sort,
+    /// le curseur de la collection : tant qu'il n'existe pas, entrée garde
+    /// son sens de toujours — « choisis pour moi »
+    cursor: Option<usize>,
+}
+
+impl Default for Home {
+    fn default() -> Self {
+        Home { typed: String::new(), said: String::new(), sort: Sort::Familiarity, cursor: None }
+    }
+}
+
+impl Home {
+    /// Dessine l'accueil. `bar` est le pied de lecture, quand une session
+    /// joue en dessous ; `live` dit s'il y a une session où retourner.
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw(
+        &self,
+        catalog: &Catalog,
+        learned: &Learned,
+        tail: &Tail,
+        comfort: Comfort,
+        status: &[(String, bool)],
+        bar: Option<crate::tui::Bar<'_>>,
+        live: bool,
+        tui: &mut Tui,
+    ) {
+        let listing = collection(catalog, learned, self.sort);
         let shelf: Vec<CollectionRow> = listing.iter().map(|(_, row)| row.clone()).collect();
         let carded = listing.iter().filter(|(slug, _)| slug.is_some()).count();
-        let blocks = entries(catalog, learned, *comfort);
-        let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
+        let blocks = entries(catalog, learned, comfort);
         let (rows, count) = rows_of(learned, &blocks);
         let _ = tui.draw_home(&HomeView {
-            status: vec![("✓ librespot".into(), true), ("✓ api web".into(), true)],
+            status: status.to_vec(),
             census: format!(
                 "catalogue local — {} fiches · {} artistes classés · {} discographie(s) en cache",
                 catalog.cards.len(),
@@ -457,10 +484,14 @@ pub fn run(
                 tail.known()
             ),
             rows: &rows,
-            prompt: if !typed.is_empty() {
-                typed.clone()
-            } else if !said.is_empty() {
-                said.clone()
+            prompt: if !self.typed.is_empty() {
+                self.typed.clone()
+            } else if !self.said.is_empty() {
+                self.said.clone()
+            } else if live {
+                format!(
+                    "[1-{count} pour démarrer · r retour à l'écoute · /texte · entrée au hasard · :comfort · q quitter]"
+                )
             } else {
                 format!(
                     "[1-{count} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]"
@@ -472,106 +503,134 @@ pub fn run(
                 rows: &shelf,
                 total: listing.len(),
                 carded,
-                cursor,
-                sort: sort.label(),
+                cursor: self.cursor,
+                sort: self.sort.label(),
             }),
+            bar,
         });
+    }
 
-        let cmd = rx.blocking_recv()?;
+    /// Une touche à l'accueil. Les listes se recalculent à chaque touche :
+    /// elles sont petites, et c'est ce qui garantit qu'on choisit dans ce
+    /// qui est affiché.
+    pub fn on_cmd(
+        &mut self,
+        cmd: Cmd,
+        catalog: &Catalog,
+        learned: &Learned,
+        comfort: &mut Comfort,
+        live: bool,
+    ) -> Outcome {
         match &cmd {
             Cmd::Pending(seq) => {
-                typed = seq.clone();
-                continue;
+                self.typed = seq.clone();
+                return Outcome::Stay;
             }
             Cmd::Typing(line) => {
-                typed = line.clone().unwrap_or_default();
-                continue;
+                self.typed = line.clone().unwrap_or_default();
+                return Outcome::Stay;
             }
             Cmd::Unknown(seq) => {
-                typed.clear();
-                said = format!("(inconnu : {seq})");
-                continue;
+                self.typed.clear();
+                self.said = format!("(inconnu : {seq})");
+                return Outcome::Stay;
             }
             _ => {
-                typed.clear();
-                said.clear();
+                self.typed.clear();
+                self.said.clear();
             }
         }
+        let listing = collection(catalog, learned, self.sort);
+        let blocks = entries(catalog, learned, *comfort);
+        let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
+        let pick = |entry: &Entry| match &entry.choice {
+            Choice::Artist(slug) => Choice::Artist(slug.clone()),
+            Choice::Track { slug, title } => Choice::Track { slug: slug.clone(), title: title.clone() },
+        };
         match cmd {
-            Cmd::Quit => return None,
-            Cmd::Digit(n) => {
-                if let Some(entry) = flat.get(n - 1) {
-                    return Some(match &entry.choice {
-                        Choice::Artist(slug) => Choice::Artist(slug.clone()),
-                        Choice::Track { slug, title } => {
-                            Choice::Track { slug: slug.clone(), title: title.clone() }
-                        }
-                    });
+            Cmd::Quit => Outcome::Quit,
+            Cmd::Digit(n) => match flat.get(n - 1) {
+                Some(entry) => Outcome::Start(pick(entry)),
+                None => {
+                    self.said = format!("(pas d'entrée {n})");
+                    Outcome::Stay
                 }
-                said = format!("(pas d'entrée {n})");
-            }
-            Cmd::Resume => match recall() {
-                Some(last) => {
-                    return Some(Choice::Track { slug: last.slug, title: last.title })
-                }
-                None => said = "(aucun parcours à reprendre)".into(),
             },
-            // entrée veut dire « choisis pour moi » partout ailleurs : elle
-            // garde ce sens ici, et « au hasard » ne coûte pas de touche neuve
+            // « r » ramène à l'écoute en cours ; sans écoute, il reprend la
+            // dernière session
+            Cmd::Resume if live => Outcome::Back,
+            Cmd::Resume => match recall() {
+                Some(last) => Outcome::Start(Choice::Track { slug: last.slug, title: last.title }),
+                None => {
+                    self.said = "(aucun parcours à reprendre)".into();
+                    Outcome::Stay
+                }
+            },
             // le curseur de la collection prend le pas : entrée démarre ce
             // qui est sous lui, sinon elle garde son sens de toujours
-            Cmd::Auto if cursor.is_some() => {
-                let index = cursor.unwrap();
+            Cmd::Auto if self.cursor.is_some() => {
+                let index = self.cursor.unwrap();
                 match listing.get(index) {
-                    Some((Some(slug), _)) => return Some(Choice::Artist(slug.clone())),
+                    Some((Some(slug), _)) => Outcome::Start(Choice::Artist(slug.clone())),
                     Some((None, row)) => {
-                        said = format!(
+                        self.said = format!(
                             "{} n'a pas de fiche : rien d'où brancher (le catalogue grandit avec l'usage)",
                             row.name
-                        )
+                        );
+                        Outcome::Stay
                     }
-                    None => {}
+                    None => Outcome::Stay,
                 }
             }
-            Cmd::Auto => {
-                if let Some(entry) = flat.first() {
-                    return Some(match &entry.choice {
-                        Choice::Artist(slug) => Choice::Artist(slug.clone()),
-                        Choice::Track { slug, title } => {
-                            Choice::Track { slug: slug.clone(), title: title.clone() }
-                        }
-                    });
-                }
-            }
+            Cmd::Auto => match flat.first() {
+                Some(entry) => Outcome::Start(pick(entry)),
+                None => Outcome::Stay,
+            },
             Cmd::Search(query) => match crate::resolve(catalog, query.trim()) {
-                Some(slug) => return Some(Choice::Artist(slug)),
-                None => {}
+                Some(slug) => Outcome::Start(Choice::Artist(slug)),
+                None => Outcome::Stay,
             },
             Cmd::Colon(text) => {
                 let mut words = text.split_whitespace();
-                match (words.next(), words.next()) {
-                    (Some("comfort"), Some(v)) => match v.parse::<u8>() {
-                        Ok(v) if v <= 5 => *comfort = Comfort::new(v),
-                        _ => {}
-                    },
-                    _ => {}
+                if let (Some("comfort"), Some(v)) = (words.next(), words.next()) {
+                    if let Ok(v) = v.parse::<u8>() {
+                        if v <= 5 {
+                            *comfort = Comfort::new(v);
+                        }
+                    }
                 }
+                Outcome::Stay
             }
             Cmd::Up => {
-                let here = cursor.unwrap_or(0);
-                cursor = Some(here.saturating_sub(1));
+                let here = self.cursor.unwrap_or(0);
+                self.cursor = Some(here.saturating_sub(1));
+                Outcome::Stay
             }
             Cmd::Down => {
-                let here = cursor.map_or(0, |i| i + 1);
-                cursor = Some(here.min(listing.len().saturating_sub(1)));
+                let here = self.cursor.map_or(0, |i| i + 1);
+                self.cursor = Some(here.min(listing.len().saturating_sub(1)));
+                Outcome::Stay
             }
             // les deux bouts, comme dans vim
-            Cmd::Top => cursor = Some(0),
-            Cmd::Bottom => cursor = Some(listing.len().saturating_sub(1)),
-            Cmd::Escape => cursor = None,
-            Cmd::Sort => sort = sort.next(),
-            Cmd::Help(_) => {}
-            _ => {}
+            Cmd::Top => {
+                self.cursor = Some(0);
+                Outcome::Stay
+            }
+            Cmd::Bottom => {
+                self.cursor = Some(listing.len().saturating_sub(1));
+                Outcome::Stay
+            }
+            // échap rend le curseur ; sans curseur, il rend l'écran de session
+            Cmd::Escape if self.cursor.is_some() => {
+                self.cursor = None;
+                Outcome::Stay
+            }
+            Cmd::Escape if live => Outcome::Back,
+            Cmd::Sort => {
+                self.sort = self.sort.next();
+                Outcome::Stay
+            }
+            _ => Outcome::Stay,
         }
     }
 }
