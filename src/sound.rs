@@ -94,6 +94,12 @@ impl Sound {
         self.player.stop();
     }
 
+    /// Back to the start of the track — librespot then says `Seeked`, and
+    /// the progress follows.
+    pub fn restart(&self) {
+        self.player.seek(0);
+    }
+
     pub fn events(&self) -> PlayerEventChannel {
         self.player.get_player_event_channel()
     }

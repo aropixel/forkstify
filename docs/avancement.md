@@ -309,6 +309,16 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## « Précédent » recommence d'abord (08/09/2026)
+
+Joel : « quand je fais flèche pour morceau précédent et qu'un morceau est en
+cours, je veux que cela recommence le morceau au début ; on appuie une
+deuxième fois pour revenir au morceau d'avant. » Comme tout lecteur : passé
+trois secondes (`RESTART_AFTER_MS`), ← et ⏮ remettent l'aiguille à zéro
+(`Sound::restart`, un `seek(0)` de librespot — la progression suit son
+`Seeked`) ; dans les trois premières secondes, ou en pressant deux fois, on
+remonte au morceau d'avant comme avant.
+
 ## L'accueil devient un écran de la session (08/09/2026)
 
 Joel : « les deux écrans accueil et lecture sont indépendants : quand je

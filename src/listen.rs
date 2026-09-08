@@ -253,6 +253,10 @@ async fn async_run(
     Ok(path)
 }
 
+/// Passé ce point du morceau, « précédent » le recommence au lieu de
+/// remonter — trois secondes, comme les lecteurs ont appris à le faire.
+const RESTART_AFTER_MS: u32 = 3_000;
+
 /// `A` — combien de titres d'un album on promeut d'un coup. Quatre : un
 /// album qui porte les écoutes en a rarement plus qui comptent, et au-delà
 /// on ne relit plus ce qu'on vient de faire.
@@ -729,6 +733,14 @@ impl Live<'_> {
     /// Step back to the previous track, like a player's « précédent ». The
     /// current track goes back to the front of the queue so `j` returns to it.
     async fn back(&mut self) {
+        // comme tout lecteur : « précédent » recommence d'abord le morceau
+        // en cours, et ne remonte au précédent qu'une seconde fois — ou
+        // quand on est encore à son début (Joel, 08/09/2026)
+        let position = self.progress.as_ref().map_or(0, |p| p.now().0);
+        if self.current.is_some() && !self.loading && position > RESTART_AFTER_MS {
+            self.sound.restart();
+            return;
+        }
         let interrupted = self.current.take();
         loop {
             match self.past.pop() {

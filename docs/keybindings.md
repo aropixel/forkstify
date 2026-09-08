@@ -121,6 +121,7 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | Touche | Mot | Action | |
 |---|---|---|---|
 | `h` / `l` | | Morceau **précédent / suivant** — vim, axe horizontal | ✅ |
+| ← / `h` sur un morceau en cours | | **Recommence** le morceau ; une seconde fois — ou dans ses trois premières secondes — revient au précédent (Joel, 08/09/2026) | ✅ |
 | ← / → | | Idem, pour les doigts hors de la rangée d'accueil | ✅ |
 | `p` | **pause** | Pause / lecture | ✅ |
 | ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
