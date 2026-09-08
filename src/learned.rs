@@ -19,6 +19,12 @@ const PLAYS_REFERENCE: f64 = 5.0;
 /// Six months, in days (0014).
 const HALF_LIFE: f64 = 182.5;
 
+/// The cooldown (0012 §2): a track played today keeps this share of its
+/// weight, and gets it back with a one-week half-life — a week later 55 %,
+/// two weeks 78 %, a month 94 %. Both are « à régler au fil du PoC ».
+const COOLDOWN_FLOOR: f32 = 0.1;
+const COOLDOWN_HALF_LIFE: f32 = 7.0;
+
 /// « moins souvent » multiplies the weight by this, down to the floor.
 const LESS_OFTEN: f32 = 0.7;
 const WEIGHT_FLOOR: f32 = 0.1;
@@ -220,6 +226,17 @@ impl Learned {
         let plays = decay(top.plays, top.last.as_deref(), self.today);
         let days = top.last.as_deref().and_then(from_iso).map(|d| (self.today - d).max(0));
         Some((plays, days, top.skipped))
+    }
+
+    /// The cooldown of one track (0012 §2): 1.0 when it never sounded here,
+    /// `COOLDOWN_FLOOR` the day it did, and back up with a one-week
+    /// half-life. The reservoir multiplies its weight by this.
+    pub fn freshness(&self, slug: &str, title: &str) -> f32 {
+        let Some(days) = self.track_stats(slug, title).and_then(|(_, days, _)| days) else {
+            return 1.0;
+        };
+        let recovered = 1.0 - 0.5f32.powf(days as f32 / COOLDOWN_HALF_LIFE);
+        COOLDOWN_FLOOR + (1.0 - COOLDOWN_FLOOR) * recovered
     }
 
     /// Ce que l'écoute sait de **chaque** morceau d'un artiste : titre tel
@@ -534,6 +551,23 @@ fn from_iso(text: &str) -> Option<i64> {
 #[cfg(test)]
 mod taste_tests {
     use super::*;
+
+    /// 0012 §2 : joué aujourd'hui, un morceau ne garde qu'un dixième de son
+    /// poids ; jamais joué, il le garde entier ; une semaine plus tard, il en
+    /// a retrouvé plus de la moitié.
+    #[test]
+    fn le_cooldown_penalise_le_recent_et_s_efface_avec_le_temps() {
+        let mut learned = Learned::blank();
+        assert_eq!(learned.freshness("the-cure", "A Forest"), 1.0);
+        learned.played("the-cure", "A Forest");
+        assert!((learned.freshness("the-cure", "A Forest") - COOLDOWN_FLOOR).abs() < 1e-6);
+        // une semaine plus tard
+        learned.today += 7;
+        let week = learned.freshness("the-cure", "A Forest");
+        assert!((week - 0.55).abs() < 0.01, "{week}");
+        learned.today += 23;
+        assert!(learned.freshness("the-cure", "A Forest") > 0.9);
+    }
 
     /// 0018 : aimer et passer sont les deux gestes du goût, et l'un défait
     /// l'autre.

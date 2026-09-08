@@ -306,6 +306,22 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le cooldown daté (08/09/2026)
+
+Joel : « applique le cooldown daté de 0012 alors ». §2 disait : chaque
+lecture est datée, un morceau joué récemment est pénalisé, la pénalité
+décroît avec le temps. Les dates étaient là depuis 0014 (`last` par top),
+le réservoir ne les lisait pas.
+
+`Learned::freshness` : **un dixième de son poids le jour où il a sonné**,
+retrouvé avec une **demi-vie d'une semaine** — 55 % à sept jours, 78 % à
+quinze, 94 % à un mois ; entier s'il n'a jamais sonné ici. Le réservoir
+multiplie par ce facteur, après les « moins souvent ». Un aimé écouté hier
+(6,8 × 0,13 ≈ 0,9) pèse donc comme un top jamais joué, et reprend sa place
+au fil de la semaine. Deux constantes (`COOLDOWN_FLOOR`,
+`COOLDOWN_HALF_LIFE`), « à régler au fil du PoC » comme 0012 le prévoyait.
+Deux tests.
+
 ## Un seul geste pour le goût (08/09/2026)
 
 Joel, après une journée d'écoute : « j'avais du mal à savoir s'il valait
@@ -959,10 +975,8 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    demandent la couche qui écrit et commite le catalogue, qui n'existe pas.
    C'est le dernier tiers de [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)
    et le retour n° 8 de Joel.
-3. **Le cooldown daté** ([0012](decisions/0012-rotation-des-morceaux.md) §2) :
-   `learned/` date chaque écoute par morceau, le réservoir ne s'en sert pas
-   encore. Un morceau joué hier devrait reculer, la pénalité décroissant
-   avec le temps. Les données sont là, la formule reste à régler.
+3. ~~**Le cooldown daté**~~ — fait le 08/09/2026 (un dixième le jour même,
+   demi-vie d'une semaine).
 4. **`u` — annuler le dernier geste** ([0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)).
    Sans lui, un `tb` de travers ne se reprend qu'à la main dans le TOML.
    Il devient nécessaire dès que les éditions arrivent (revert d'un commit).

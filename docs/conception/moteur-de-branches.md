@@ -86,7 +86,9 @@ explicable en une phrase (actés le 01/09/2026,
    la direction de la branche recoupe leurs tags. La quatrième — la longue
    traîne — attend le cache d'API. Chaque morceau affiché porte sa
    provenance (`♪ ♥ ↳ + ~`).
-2. **La fraîcheur (cooldown).** Chaque lecture est datée dans `learned/` ;
+2. **La fraîcheur (cooldown)** — câblé le 08/09/2026 : un dixième du poids
+   le jour où le morceau a sonné, retrouvé avec une demi-vie d'une semaine
+   (`Learned::freshness`). Chaque lecture est datée dans `learned/` ;
    un morceau joué récemment est pénalisé, la pénalité décroît avec le
    temps. « Déjà joué mardi, je le laisse reposer. »
 3. **Sans remise dans le parcours.** Jamais deux fois le même morceau dans

@@ -449,6 +449,8 @@ fn reservoir(
     for entry in &mut pool {
         // a track often skipped falls back in the draw, it is not banned
         entry.1 /= 1.0 + learned.skipped(slug, &entry.0) as f32;
+        // and one that sounded lately steps back too, for a while (0012 §2)
+        entry.1 *= learned.freshness(slug, &entry.0);
     }
     pool
 }
@@ -876,6 +878,22 @@ mod tests {
         assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
         // deux sauts : le poids est divisé par trois, sans jamais s'annuler
         assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
+    }
+
+    /// 0012 §2 : un morceau joué hier recule, même aimé — c'est le cooldown,
+    /// et il ne l'exclut pas.
+    #[test]
+    fn un_joue_recemment_recule() {
+        let card = the_cure();
+        let mut learned = Learned::blank();
+        learned.like_track("the-cure", "A Forest");
+        learned.played("the-cure", "A Forest");
+        let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(3), &HashSet::new(), &[]);
+        let forest = weight_of(&pool, "A Forest");
+        let liked = liked_weight(Comfort::new(3));
+        assert!(forest < liked / 5.0, "joué aujourd'hui : {forest} contre {liked} à neuf");
+        assert!(forest > 0.0, "reculé, pas exclu");
+        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP, "jamais joué : intact");
     }
 
     /// 0001 : le confort *est* la familiarité — et la polarité de l'échelle
