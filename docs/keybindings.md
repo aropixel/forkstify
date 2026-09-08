@@ -126,11 +126,13 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | `p` | **pause** | Pause / lecture | ✅ |
 | ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
 | entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
-| `c` | **comfort** | Régler la zone de confort : ↑↓ bougent, entrée valide, échap annule | ✅ |
+| `c<n>` | **comfort** | La zone de confort d'un coup, 5 cocon → 0 exploration — à l'accueil aussi (Joel, 08/09/2026) | ✅ |
+| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule | ✅ |
 | échap | | Annuler la sélection, fermer un bloc — l'aide comprise | ✅ |
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
-| `/texte` | | Chercher — catalogue + Spotify, un chiffre choisit | ✅ |
+| `/texte` | | **Filtrer** une liste — la collection à l'accueil, la discographie ; échap efface (Joel, 08/09/2026) | ✅ |
+| `:search <texte>` | | **Chercher** — catalogue + Spotify en écoute, un chiffre choisit ; catalogue seul à l'accueil, l'artiste trouvé démarre | ✅ |
 | `q` | **quit** | En écoute : **revenir à l'accueil**, l'écoute continue en dessous avec son pied de lecture. À l'accueil : quitter (affiche le parcours) — Joel, 08/09/2026 | ✅ |
 | `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon reprendre le dernier parcours. Échap sans curseur fait de même | ✅ |
 | `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |
@@ -140,7 +142,6 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |
 | `?` | **why** | Tags, familiarité, poids, liens, et la première branche d'ici | ✅ |
-| `Q` | **queue** | ~~Mode file d'attente~~ — **largement caduc** depuis que la file s'enchaîne (06/09/2026) : préparer, voir, parcourir et retirer se font dans l'écran d'écoute. Restent quatre gestes à ajouter là où l'on est : retirer une branche, déplacer, intercaler, annuler | 📋 |
 
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
 (un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.
@@ -295,10 +296,11 @@ constant.
 
 ## Lettres libres
 
-Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `u`, `q`, `Q`
+Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `u`, `q`
 — hors modale, où `j`, `k`, `s`, `v`, `e` et `A` servent (table ci-dessus).
-Restent libres : `b`, `c`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`, `r`,
-`s`, `v`, `w`, `x`, `y`, `z`, et toutes les majuscules hors `Q`. Dans les
+`Q` est parti le 08/09/2026 avec le mode file d'attente. Restent libres :
+`b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`, `r`, `s`, `v`, `w`, `x`, `y`,
+`z`, et toutes les majuscules. Dans les
 namespaces, `d` a été pris chez `a` le 07/09/2026 (`ad`, discography). Le mode
 file d'attente peut s'installer sans rien déplacer.
 

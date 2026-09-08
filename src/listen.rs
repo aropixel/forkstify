@@ -135,6 +135,7 @@ async fn async_run(
         overlay: None,
         typed: String::new(),
         warm_requested: false,
+        search_requested: None,
         branches: Vec::new(),
         pending: Vec::new(),
         size: 3,
@@ -306,6 +307,8 @@ struct Live<'a> {
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
+    /// `:search <texte>` asked for a search; same reason, same turn.
+    search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
     // results of the last `/` search, awaiting a numeric pick
     pending: Vec<Hit>,
@@ -1181,6 +1184,8 @@ impl Live<'_> {
                 self.comfort_before = Some(self.comfort);
                 say!(self, "zone de confort — ↑↓ pour régler, entrée valide, échap annule");
             }
+            // c<n> : la zone de confort d'un coup (Joel, 08/09/2026)
+            Cmd::Comfort(n) => self.colon(&format!("comfort {n}")),
 
             // --- f, the branch namespace ---
             Cmd::Digit(n) => self.choose(n, When::EndOfBranch).await,
@@ -1215,7 +1220,9 @@ impl Live<'_> {
                 }
             }
 
-            Cmd::Search(query) => self.search(query.trim()).await,
+            // « / » filtre une liste — la collection, la discographie ; ici
+            // il n'y en a pas, et chercher se dit « :search » (Joel, 08/09/2026)
+            Cmd::Search(query) => say!(self, "(« / » filtre une liste — pour chercher : :search {query})"),
 
             // --- decided (0015), not wired yet ---
             Cmd::Track(k) => self.on_track_key(k).await,
@@ -1224,7 +1231,6 @@ impl Live<'_> {
             Cmd::Undo => self.not_yet("u", "annuler le dernier geste"),
             Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
             Cmd::Why => self.why(),
-            Cmd::Queue => self.not_yet("Q", "mode file d'attente"),
             // deux touches de l'accueil, sans emploi une fois qu'on écoute
             Cmd::Resume => say!(self, "\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
             Cmd::Browse => say!(self, "\n(« b » sert à l'accueil : ici, le son est déjà là)"),
@@ -1237,6 +1243,9 @@ impl Live<'_> {
             }
             Cmd::Colon(text) => {
                 self.colon(&text);
+                if let Some(query) = self.search_requested.take() {
+                    self.search(query.trim()).await;
+                }
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
                     let name = self.catalog.cards[&current].name.clone();
@@ -2052,6 +2061,10 @@ impl Live<'_> {
             // d'une commande)
             (Some("discography"), _) => self.explore_requested = true,
             // la surcouche personnelle se calcule, elle ne se stocke pas
+            (Some("search"), Some(_)) => {
+                self.search_requested = Some(text.trim().trim_start_matches("search").trim().to_string());
+            }
+            (Some("search"), None) => say!(self, "(:search <texte> — catalogue et Spotify)"),
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
@@ -2153,11 +2166,13 @@ impl Live<'_> {
                 ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
                 ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
                 ("p", "pause / lecture", true),
-                ("/texte", "chercher", true),
+                ("/texte", "filtrer une liste \u{2014} la collection, la discographie", true),
+                (":search <texte>", "chercher \u{2014} catalogue et Spotify, un chiffre choisit", true),
+                ("c<n>", "zone de confort, 5 cocon \u{2192} 0 exploration", true),
+                ("cc", "r\u{e9}gler le confort aux fl\u{e8}ches", true),
                 ("u", "annuler le dernier geste", false),
                 (".", "r\u{e9}p\u{e9}ter le dernier geste", false),
                 ("?", "pourquoi ce morceau", true),
-                ("Q", "mode file d'attente", false),
                 (":size <n>", "taille des branches", true),
                 (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),

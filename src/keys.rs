@@ -50,8 +50,10 @@ pub enum Cmd {
     Down,
     /// Échap — annule la sélection, ferme un volet, sort d'un mode.
     Escape,
-    /// `c` — comfort : ouvre le réglage, les flèches le bougent, entrée valide.
+    /// `cc` — comfort : ouvre le réglage, les flèches le bougent, entrée valide.
     ComfortMode,
+    /// `c<n>` — la zone de confort, d'un coup (Joel, 08/09/2026).
+    Comfort(u8),
     /// `s` — sort : change l'ordre de la collection, à l'accueil.
     Sort,
     /// `gg` et `G` — les deux bouts d'une liste, comme dans vim. `g` seul
@@ -72,7 +74,6 @@ pub enum Cmd {
     /// `b` — browse: parcourir à sec, sans son (écrans non connectés).
     Browse,
     Why,
-    Queue,
     Quit,
     Search(String),
     Colon(String),
@@ -186,7 +187,11 @@ pub fn parse(buf: &str) -> Parse {
         ['p'] => Parse::Done(Cmd::PlayPause),
         ['r'] => Parse::Done(Cmd::Resume),
         ['b'] => Parse::Done(Cmd::Browse),
-        ['c'] => Parse::Done(Cmd::ComfortMode),
+        // c est un namespace depuis le 08/09/2026 : c<n> règle, cc ouvre la
+        // jauge — c seul ne peut plus être complet sans casser la grammaire
+        ['c'] => Parse::Pending,
+        ['c', 'c'] => Parse::Done(Cmd::ComfortMode),
+        ['c', d] if ('0'..='5').contains(d) => Parse::Done(Cmd::Comfort(*d as u8 - b'0')),
         ['s'] => Parse::Done(Cmd::Sort),
         ['g'] => Parse::Pending,
         ['g', 'g'] => Parse::Done(Cmd::Top),
@@ -194,7 +199,6 @@ pub fn parse(buf: &str) -> Parse {
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
-        ['Q'] => Parse::Done(Cmd::Queue),
         ['q'] => Parse::Done(Cmd::Quit),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 
@@ -495,7 +499,11 @@ mod tests {
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
         assert_eq!(parse("r").done(), Some(Cmd::Resume));
         assert_eq!(parse("b").done(), Some(Cmd::Browse));
-        assert_eq!(parse("c").done(), Some(Cmd::ComfortMode));
+        assert!(matches!(parse("c"), Parse::Pending));
+        assert_eq!(parse("cc").done(), Some(Cmd::ComfortMode));
+        assert_eq!(parse("c3").done(), Some(Cmd::Comfort(3)));
+        assert_eq!(parse("c0").done(), Some(Cmd::Comfort(0)));
+        assert!(matches!(parse("c7"), Parse::Unknown));
         assert_eq!(parse("s").done(), Some(Cmd::Sort));
         assert_eq!(parse("gg").done(), Some(Cmd::Top));
         assert_eq!(parse("G").done(), Some(Cmd::Bottom));

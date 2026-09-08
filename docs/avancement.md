@@ -309,6 +309,30 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Quatre retouches du clavier (08/09/2026)
+
+Joel : retirer le mode file d'attente de l'aide ; « je ne vois plus le
+raccourci pour intercaler un morceau, c'est moi ? » ; un raccourci `c<n>`
+pour le confort ; `/` devient filtrer, la recherche devient `:search`.
+
+- **`Q` disparaît** — de l'aide, de la grammaire, de la table. Le mode file
+  d'attente est tombé le 06/09, la file s'enchaîne dans l'écran d'écoute.
+- **Intercaler** : ce n'est pas lui. Ce qui existe : `e<n>` / `en<n>`
+  (encore, même artiste, en fin de branche ou tout de suite), `fn<n>` (une
+  branche après ce morceau), et `e` dans la discographie (à la file, à la
+  fin). **Intercaler un morceau précis à un endroit précis n'existe pas** —
+  c'était le `i` du mode file d'attente, jamais câblé. À concevoir avec
+  `:search` : un résultat pourrait s'intercaler après le morceau en cours
+  plutôt que jouer tout de suite.
+- **`c` devient un namespace** : `c<n>` règle le confort d'un coup (0 à 5,
+  à l'accueil aussi), `cc` ouvre la jauge aux flèches. `c` seul ne pouvait
+  plus être complet sans casser la grammaire sans préfixe.
+- **`/texte` filtre, `:search <texte>` cherche.** À l'accueil, `/` filtre la
+  collection (échap efface, ↑↓ entrée démarrent) ; dans la discographie il
+  filtrait déjà ; en écoute, il n'y a pas de liste à filtrer et il le dit.
+  `:search` fait ce que `/` faisait : catalogue + Spotify en écoute, un
+  chiffre choisit ; catalogue seul à l'accueil, l'artiste trouvé démarre.
+
 ## Plus de `tt` dans la modale, et des toasts (08/09/2026)
 
 Joel : « les raccourcis tt et tT sont toujours présents dans la modale de

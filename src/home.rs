@@ -104,7 +104,12 @@ pub(crate) fn age(days: Option<i64>) -> String {
 /// La collection entière : le catalogue **et** le classement, réunis. Un
 /// artiste sans fiche y figure, mais il ne peut pas servir de graine — les
 /// branches viennent de la fiche, et le dire vaut mieux que le cacher.
-fn collection(catalog: &Catalog, learned: &Learned, sort: Sort) -> Vec<(Option<String>, CollectionRow)> {
+fn collection(
+    catalog: &Catalog,
+    learned: &Learned,
+    sort: Sort,
+    filter: &str,
+) -> Vec<(Option<String>, CollectionRow)> {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut rows: Vec<(Option<String>, CollectionRow)> = Vec::new();
 
@@ -156,6 +161,10 @@ fn collection(catalog: &Catalog, learned: &Learned, sort: Sort) -> Vec<(Option<S
             }
             .then_with(|| a.1.name.cmp(&b.1.name))
         }),
+    }
+        if !filter.is_empty() {
+        let needle = filter.to_lowercase();
+        rows.retain(|(_, row)| row.name.to_lowercase().contains(&needle));
     }
     rows
 }
@@ -447,11 +456,19 @@ pub struct Home {
     /// le curseur de la collection : tant qu'il n'existe pas, entrée garde
     /// son sens de toujours — « choisis pour moi »
     cursor: Option<usize>,
+    /// `/texte` filtre la collection (Joel, 08/09/2026) ; échap l'efface.
+    filter: String,
 }
 
 impl Default for Home {
     fn default() -> Self {
-        Home { typed: String::new(), said: String::new(), sort: Sort::Familiarity, cursor: None }
+        Home {
+            typed: String::new(),
+            said: String::new(),
+            sort: Sort::Familiarity,
+            cursor: None,
+            filter: String::new(),
+        }
     }
 }
 
@@ -470,7 +487,7 @@ impl Home {
         live: bool,
         tui: &mut Tui,
     ) {
-        let listing = collection(catalog, learned, self.sort);
+        let listing = collection(catalog, learned, self.sort, &self.filter);
         let shelf: Vec<CollectionRow> = listing.iter().map(|(_, row)| row.clone()).collect();
         let carded = listing.iter().filter(|(slug, _)| slug.is_some()).count();
         let blocks = entries(catalog, learned, comfort);
@@ -488,13 +505,19 @@ impl Home {
                 self.typed.clone()
             } else if !self.said.is_empty() {
                 self.said.clone()
+            } else if !self.filter.is_empty() {
+                format!(
+                    "[filtre « {} » — {} artiste(s) · ↑↓ entrée · échap efface · :search <texte> cherche]",
+                    self.filter,
+                    listing.len()
+                )
             } else if live {
                 format!(
-                    "[1-{count} pour démarrer · r retour à l'écoute · /texte · entrée au hasard · :comfort · q quitter]"
+                    "[1-{count} pour démarrer · r retour à l'écoute · /filtre · :search · entrée au hasard · c<n> · q quitter]"
                 )
             } else {
                 format!(
-                    "[1-{count} pour démarrer · r reprendre · /texte · entrée au hasard · :comfort · q]"
+                    "[1-{count} pour démarrer · r reprendre · /filtre · :search · entrée au hasard · c<n> · q]"
                 )
             },
             comfort: comfort.value(),
@@ -540,7 +563,7 @@ impl Home {
                 self.said.clear();
             }
         }
-        let listing = collection(catalog, learned, self.sort);
+        let listing = collection(catalog, learned, self.sort, &self.filter);
         let blocks = entries(catalog, learned, *comfort);
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
         let pick = |entry: &Entry| match &entry.choice {
@@ -586,20 +609,40 @@ impl Home {
                 Some(entry) => Outcome::Start(pick(entry)),
                 None => Outcome::Stay,
             },
-            Cmd::Search(query) => match crate::resolve(catalog, query.trim()) {
-                Some(slug) => Outcome::Start(Choice::Artist(slug)),
-                None => Outcome::Stay,
-            },
+            // « / » filtre la collection ; chercher, c'est « :search »
+            Cmd::Search(query) => {
+                self.filter = query.trim().to_string();
+                self.cursor = if self.filter.is_empty() { None } else { Some(0) };
+                Outcome::Stay
+            }
+            Cmd::Comfort(n) => {
+                *comfort = Comfort::new(n);
+                self.said = format!("confort {n} — {}", crate::listen::comfort_word(n));
+                Outcome::Stay
+            }
             Cmd::Colon(text) => {
                 let mut words = text.split_whitespace();
-                if let (Some("comfort"), Some(v)) = (words.next(), words.next()) {
-                    if let Ok(v) = v.parse::<u8>() {
-                        if v <= 5 {
-                            *comfort = Comfort::new(v);
+                match (words.next(), words.next()) {
+                    (Some("comfort"), Some(v)) => {
+                        if let Ok(v) = v.parse::<u8>() {
+                            if v <= 5 {
+                                *comfort = Comfort::new(v);
+                            }
+                        }
+                        Outcome::Stay
+                    }
+                    (Some("search"), Some(_)) => {
+                        let query = text.trim().trim_start_matches("search").trim();
+                        match crate::resolve(catalog, query) {
+                            Some(slug) => Outcome::Start(Choice::Artist(slug)),
+                            None => {
+                                self.said = format!("(rien pour « {query} » dans le catalogue)");
+                                Outcome::Stay
+                            }
                         }
                     }
+                    _ => Outcome::Stay,
                 }
-                Outcome::Stay
             }
             Cmd::Up => {
                 let here = self.cursor.unwrap_or(0);
@@ -620,7 +663,13 @@ impl Home {
                 self.cursor = Some(listing.len().saturating_sub(1));
                 Outcome::Stay
             }
-            // échap rend le curseur ; sans curseur, il rend l'écran de session
+            // échap efface le filtre, puis rend le curseur ; sans l'un ni
+            // l'autre, il rend l'écran de session
+            Cmd::Escape if !self.filter.is_empty() => {
+                self.filter.clear();
+                self.cursor = None;
+                Outcome::Stay
+            }
             Cmd::Escape if self.cursor.is_some() => {
                 self.cursor = None;
                 Outcome::Stay
