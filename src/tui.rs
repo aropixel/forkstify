@@ -69,6 +69,9 @@ pub struct View<'a> {
     pub past: &'a [Stop],
     pub current: Option<&'a Stop>,
     pub paused: bool,
+    /// Le morceau courant est affiché mais pas encore résolu : Spotify
+    /// cherche son adresse derrière l'écran.
+    pub loading: bool,
     pub queue: &'a [Stop],
     pub branches: &'a [Branch],
     /// Le volet des branches est **toujours là** (Joel, 06/09/2026) : on ne
@@ -483,6 +486,10 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
                 Span::styled(" — ", Style::default().fg(DIM)),
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
                 Span::styled(format!("  ({} / {tracks})", view.past.len() + 1), Style::default().fg(DIM)),
+                Span::styled(
+                    if view.loading { " · chargement…" } else { "" }.to_string(),
+                    Style::default().fg(VECTOR),
+                ),
             ],
             {
                 let mut right = vec![
@@ -1195,6 +1202,7 @@ mod tests {
             past,
             current,
             paused: false,
+            loading: false,
             queue,
             branches,
             panel: true,
@@ -1456,10 +1464,11 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                 ),
                 Span::styled(
                     format!(
-                        "{} · {} albums · {} titres",
+                        "{} · {} albums · {} titres{}",
                         if screen.generated { "fiche générée" } else { "fiche écrite" },
                         summary.albums,
-                        summary.titles
+                        summary.titles,
+                        if screen.loading { " · chargement…" } else { "" }
                     ),
                     Style::default().fg(DIM),
                 ),

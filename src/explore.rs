@@ -171,6 +171,9 @@ pub struct Explore {
     /// Échap une première fois avec des éditions en attente ne ferme pas :
     /// il prévient. C'est le garde-fou que 1a se doit d'avoir.
     pub confirm_close: bool,
+    /// La discographie arrive : l'écran s'est ouvert sur les tops, le reste
+    /// se charge derrière (Joel, 08/09/2026).
+    pub loading: bool,
 }
 
 impl Explore {
@@ -198,9 +201,21 @@ impl Explore {
             pending: Vec::new(),
             notice: String::new(),
             confirm_close: false,
+            loading: false,
         };
         screen.build();
         screen
+    }
+
+    /// La discographie est arrivée : on reconstruit sur la nouvelle matière
+    /// sans perdre ce que l'utilisateur a déjà fait ici (tri, filtre,
+    /// éditions en attente, curseur — borné par `build`).
+    pub fn reload(&mut self, tail: &[TailTrack], learned: &Learned) {
+        self.raw = tail.to_vec();
+        self.stats = learned.track_table(&self.slug);
+        self.loading = false;
+        self.notice = format!("✓ discographie chargée — {} titres", tail.len());
+        self.build();
     }
 
     /// Reconstruire les albums depuis la matière première. Appelé à

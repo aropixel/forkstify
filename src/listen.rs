@@ -26,6 +26,8 @@ use crate::learned::Learned;
 use crate::mediakeys::{self, Control};
 use crate::sound::{request_started, track_finished, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use librespot_playback::player::PlayerEvent;
 use crate::{state_of, Round};
 use librespot_core::SpotifyUri;
@@ -108,6 +110,7 @@ async fn async_run(
     // 0017 : l'appris se commite tout seul — toutes les dix minutes s'il a
     // bougé, à la sortie, et sur « :sync » ; le push se fait en fond
     let (sync_tx, mut sync_rx) = tokio::sync::mpsc::unbounded_channel::<Result<String, String>>();
+    let (jobs_tx, mut jobs_rx) = tokio::sync::mpsc::unbounded_channel::<Job>();
     let mut autosave = tokio::time::interval(std::time::Duration::from_secs(600));
     autosave.tick().await;
 
@@ -117,7 +120,7 @@ async fn async_run(
         learned,
         tail,
         sound,
-        web,
+        web: Arc::new(Mutex::new(web)),
         rng: thread_rng(),
         rounds: vec![Round { artists: vec![seed.to_string()], tracks: Vec::new() }],
         past: Vec::new(),
@@ -141,6 +144,9 @@ async fn async_run(
         explore: None,
         explore_requested: false,
         sync_tx,
+        jobs_tx,
+        loading: false,
+        harvesting: HashSet::new(),
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -204,6 +210,13 @@ async fn async_run(
             },
             _ = tick.tick() => {
                 if live.progress.as_ref().is_some_and(|p| p.running) {
+                    live.paint();
+                }
+            }
+            job = jobs_rx.recv() => {
+                if let Some(job) = job {
+                    live.on_job(job).await;
+                    live.prefetch_next().await;
                     live.paint();
                 }
             }
@@ -272,7 +285,9 @@ struct Live<'a> {
     /// The long tail, harvested on demand (0012 §1, fourth source).
     tail: Tail,
     sound: Sound,
-    web: WebApi,
+    /// L'API web, partagée avec les tâches de fond : un verrou sérialise
+    /// les appels, ce qui est aussi ce que le quota de Spotify demande.
+    web: Arc<Mutex<WebApi>>,
     rng: ThreadRng,
     rounds: Vec<Round>,
     // playback as a linear timeline: what was played, what plays now, what
@@ -324,6 +339,22 @@ struct Live<'a> {
     explore_requested: bool,
     /// Where a background push reports (0017): the loop says the result.
     sync_tx: tokio::sync::mpsc::UnboundedSender<Result<String, String>>,
+    /// Where the network jobs report: a title resolved, a discography
+    /// harvested. The screen shows first, the loop finishes the gesture
+    /// when the answer comes (Joel, 08/09/2026).
+    jobs_tx: tokio::sync::mpsc::UnboundedSender<Job>,
+    /// The current track is on screen but its address is still being
+    /// looked up — nothing sounds yet.
+    loading: bool,
+    /// Discographies being harvested right now, so a second `ad` or `e<n>`
+    /// does not launch the same job twice.
+    harvesting: HashSet<String>,
+}
+
+/// What a background job brings back.
+enum Job {
+    Resolved { title: String, artist: String, result: Resolved },
+    Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -430,7 +461,15 @@ impl Live<'_> {
         // cannot serve the whole request, go and get the tail first (0012 §1)
         let card = &self.catalog.cards[&current];
         let unplayed = card.tops.iter().filter(|t| !played.contains(*t)).count();
-        let tail = if unplayed < count { self.harvest(&current).await.err() } else { None };
+        let tail = if unplayed < count {
+            match self.harvest(&current) {
+                Ok(true) => None,
+                Ok(false) => Some("sa traîne arrive — refais e<n> dans un instant".to_string()),
+                Err(why) => Some(why),
+            }
+        } else {
+            None
+        };
         let (_, current, _, _, played) = self.state();
         let mut stops = crate::engine::encore(
             self.catalog,
@@ -477,16 +516,21 @@ impl Live<'_> {
         self.render();
     }
 
-    /// Resolve a stop and load it as the current track.
+    /// Load a stop as the current track. If the cache knows its address it
+    /// plays now; otherwise it is **shown now and looked up behind** — the
+    /// screen never waits for Spotify (Joel, 08/09/2026). The answer comes
+    /// back through `Job::Resolved`.
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
         let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
-        match self.web.resolve(&stop.title, &stop.artist).await {
-            Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
+        let known = self.web.try_lock().ok().and_then(|web| web.cached(&stop.title, &stop.artist));
+        match known {
+            Some(Resolved::Track(uri)) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
                     // rien à dire : le pied de l'écran annonce déjà ce qui
                     // sonne, le redire en faisait un doublon (Joel, 07/09/2026)
                     self.sound.play(track);
                     self.current = Some(stop);
+                    self.loading = false;
                     Load::Playing
                 }
                 Err(_) => {
@@ -494,13 +538,87 @@ impl Live<'_> {
                     Load::Missing
                 }
             },
-            Resolved::Absent => {
+            Some(Resolved::Absent) => {
                 say!(self, "{heading} — introuvable sur Spotify, on saute");
                 Load::Missing
             }
-            Resolved::Failed(why) => {
-                say!(self, "{heading} — échec : {why}");
-                Load::Failed(stop, why)
+            Some(Resolved::Failed(why)) => Load::Failed(stop, why),
+            None => {
+                self.spawn_resolve(&stop.title, &stop.artist);
+                self.current = Some(stop);
+                self.loading = true;
+                Load::Playing
+            }
+        }
+    }
+
+    /// Ask Spotify for a track's address, off the loop. The cache inside
+    /// `WebApi` remembers the answer; the loop hears of it as a job.
+    fn spawn_resolve(&self, title: &str, artist: &str) {
+        let web = self.web.clone();
+        let tx = self.jobs_tx.clone();
+        let (title, artist) = (title.to_string(), artist.to_string());
+        tokio::task::spawn_local(async move {
+            let result = web.lock().await.resolve(&title, &artist).await;
+            let _ = tx.send(Job::Resolved { title, artist, result });
+        });
+    }
+
+    /// A job came back: finish the gesture it was part of.
+    async fn on_job(&mut self, job: Job) {
+        match job {
+            Job::Resolved { title, artist, result } => {
+                let is_current = self.loading
+                    && self.current.as_ref().is_some_and(|s| s.title == title && s.artist == artist);
+                if !is_current {
+                    // a prefetch, or a track we already skipped: the cache
+                    // is warm, that was the point
+                    return;
+                }
+                self.loading = false;
+                let heading = format!("▶ {title} — {artist}");
+                match result {
+                    Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
+                        Ok(track) => self.sound.play(track),
+                        Err(_) => {
+                            say!(self, "{heading} — uri illisible, on saute");
+                            self.current = None;
+                            self.next().await;
+                        }
+                    },
+                    Resolved::Absent => {
+                        say!(self, "{heading} — introuvable sur Spotify, on saute");
+                        self.current = None;
+                        self.next().await;
+                    }
+                    Resolved::Failed(why) => {
+                        if let Some(stop) = self.current.take() {
+                            self.queue.push_front(stop);
+                        }
+                        self.blocked(&why);
+                    }
+                }
+            }
+            Job::Harvested { slug, result } => {
+                self.harvesting.remove(&slug);
+                let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
+                match result {
+                    Ok(tracks) => {
+                        let count = tracks.len();
+                        self.tail.keep(&slug, tracks);
+                        match self.explore.as_mut().filter(|s| s.slug == slug) {
+                            Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
+                            None => say!(self, "✓ discographie de {name} — {count} titres en cache"),
+                        }
+                    }
+                    Err(why) => match self.explore.as_mut().filter(|s| s.slug == slug) {
+                        Some(screen) => {
+                            screen.loading = false;
+                            screen.notice = format!("⏹ discographie — {why}");
+                        }
+                        None => say!(self, "⏹ discographie de {name} — {why}"),
+                    },
+                }
             }
         }
     }
@@ -519,8 +637,12 @@ impl Live<'_> {
     /// the async futures sized).
     async fn advance(&mut self) -> Advance {
         if let Some(current) = self.current.take() {
-            self.past.push(current);
+            // un morceau qui n'a jamais sonné n'entre pas dans le passé
+            if !self.loading {
+                self.past.push(current);
+            }
         }
+        self.loading = false;
         while let Some(stop) = self.queue.pop_front() {
             match self.load_stop(stop).await {
                 Load::Playing => return Advance::Playing,
@@ -623,10 +745,12 @@ impl Live<'_> {
     /// undecided last track (we don't guess the auto-pick — later, maybe).
     /// resolve() caches, so this is a no-op once warmed.
     async fn prefetch_next(&mut self) {
-        let next = self.queue.front();
-        if let Some(stop) = next {
-            let (title, artist) = (stop.title.clone(), stop.artist.clone());
-            let _ = self.web.resolve(&title, &artist).await;
+        let Some(stop) = self.queue.front() else { return };
+        let (title, artist) = (stop.title.clone(), stop.artist.clone());
+        // déjà connu, ou verrou pris par un appel en cours : rien à lancer
+        let known = self.web.try_lock().map(|web| web.cached(&title, &artist).is_some()).unwrap_or(true);
+        if !known {
+            self.spawn_resolve(&title, &artist);
         }
     }
 
@@ -647,7 +771,8 @@ impl Live<'_> {
             .into_iter()
             .map(Hit::Artist)
             .collect();
-        match self.web.search_tracks(query, 5).await {
+        let found = self.web.lock().await.search_tracks(query, 5).await;
+        match found {
             Ok(tracks) => {
                 for (title, artist, uri) in tracks {
                     let slug = self.catalog.search_names(&artist, 1).into_iter().next();
@@ -1018,8 +1143,10 @@ impl Live<'_> {
                 self.colon(&text);
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
-                    match self.harvest(&current).await {
-                        Ok(count) => say!(self, "✓ discographie de {} — {count} titres en cache", self.catalog.cards[&current].name),
+                    let name = self.catalog.cards[&current].name.clone();
+                    match self.harvest(&current) {
+                        Ok(true) => say!(self, "✓ discographie de {name} — {} titres déjà en cache", self.tail.of(&current).len()),
+                        Ok(false) => say!(self, "… discographie de {name} en cours de récolte"),
                         Err(why) => say!(self, "⏹ {why}"),
                     }
                 }
@@ -1222,6 +1349,7 @@ impl Live<'_> {
             past: &self.past,
             current: self.current.as_ref(),
             paused: self.paused,
+            loading: self.loading,
             queue: self.queue.as_slices().0,
             branches: &self.branches,
             panel: true,
@@ -1478,22 +1606,34 @@ impl Live<'_> {
     /// Harvest the long tail of one artist, unless it is already known.
     /// Says nothing: the caller decides what the listener needs to hear.
     /// `Ok` carries how many tracks the tail holds.
-    async fn harvest(&mut self, slug: &str) -> Result<usize, String> {
+    /// `Ok(true)` when the tail is already there, `Ok(false)` when the
+    /// harvest was launched behind (it reports as `Job::Harvested`),
+    /// `Err` when it cannot be launched at all.
+    fn harvest(&mut self, slug: &str) -> Result<bool, String> {
         if self.tail.has(slug) {
-            return Ok(self.tail.of(slug).len());
+            return Ok(true);
+        }
+        if self.harvesting.contains(slug) {
+            return Ok(false);
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
             return Err(format!("{} n'a pas d'identifiant Spotify dans sa fiche", card.name));
         };
-        match self.web.discography(&spotify_id).await {
-            Ok(tracks) => {
-                let count = tracks.len();
-                self.tail.keep(slug, tracks);
-                Ok(count)
-            }
-            Err(why) => Err(format!("discographie injoignable ({why})")),
-        }
+        self.harvesting.insert(slug.to_string());
+        let web = self.web.clone();
+        let tx = self.jobs_tx.clone();
+        let slug = slug.to_string();
+        tokio::task::spawn_local(async move {
+            let result = web
+                .lock()
+                .await
+                .discography(&spotify_id)
+                .await
+                .map_err(|why| format!("injoignable ({why})"));
+            let _ = tx.send(Job::Harvested { slug, result });
+        });
+        Ok(false)
     }
 
     // --- la modale de la discographie (`ad`) --------------------------------
@@ -1530,22 +1670,30 @@ impl Live<'_> {
         if self.tail.has(&stop.slug) && !self.tail.dated(&stop.slug) {
             self.tail.forget(&stop.slug);
         }
-        if !self.tail.has(&stop.slug) {
-            if let Err(why) = self.harvest(&stop.slug).await {
+        // l'écran s'ouvre sur ce qu'on a — les tops, l'appris — et la
+        // discographie arrive derrière, en le disant (Joel, 08/09/2026)
+        let loading = match self.harvest(&stop.slug) {
+            Ok(known) => !known,
+            Err(why) => {
                 say!(self, "⏹ {why}");
+                false
             }
-        }
+        };
         let playing = self.current.as_ref().map(|s| s.title.clone());
-        let screen = crate::explore::Explore::open(
+        let mut screen = crate::explore::Explore::open(
             &stop.slug,
             &self.catalog.cards[&stop.slug],
             self.tail.of(&stop.slug),
             &self.learned,
             playing.as_deref(),
         );
-        if screen.albums.is_empty() {
+        if screen.albums.is_empty() && !loading {
             say!(self, "(rien à montrer chez {} — ni discographie ni tops)", stop.artist);
             return;
+        }
+        if loading {
+            screen.loading = true;
+            screen.notice = "… discographie en cours de chargement — les tops d'abord".to_string();
         }
         crate::keys::set_modal(true);
         self.explore = Some(screen);

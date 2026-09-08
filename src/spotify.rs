@@ -125,6 +125,16 @@ impl WebApi {
         }
     }
 
+    /// What the cache already knows of « title » by « artist », without
+    /// touching the network: the screen shows first, the lookup runs behind.
+    pub fn cached(&self, title: &str, artist: &str) -> Option<Resolved> {
+        let key = format!("{artist}\u{1}{title}");
+        self.resolved.get(&key).map(|hit| match hit {
+            Some(uri) => Resolved::Track(uri.clone()),
+            None => Resolved::Absent,
+        })
+    }
+
     /// Resolve "title" by "artist" to a spotify:track: uri (cached).
     pub async fn resolve(&mut self, title: &str, artist: &str) -> Resolved {
         let key = format!("{artist}\u{1}{title}");

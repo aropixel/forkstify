@@ -309,6 +309,48 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'écran d'abord, Spotify derrière (08/09/2026)
+
+Joel : « au lancement d'une session d'écoute, ou à l'ouverture et à la
+fermeture de la modale de discographie, il y a souvent de gros temps de
+latence. J'aimerais mieux gérer cela : via du cache quand c'est possible, et
+en affichant d'abord puis en chargeant après, en indiquant qu'un chargement
+est en cours. »
+
+**La cause** : chaque appel à l'API Spotify — la résolution d'un titre en
+adresse `spotify:track:`, la discographie d'un artiste — était **attendu
+dans la boucle de commandes**, qui ne redessine qu'une fois le geste fini.
+Le repli sur un 429 (quota compte/IP, fréquent juste après la rafale d'une
+discographie) dort jusqu'à soixante secondes dans cette même attente : c'est
+le gel à la fermeture de la modale, quand `prefetch_next` résolvait le
+morceau suivant. Le cache existait déjà (résolutions dans
+`target/resolve-cache.json`, discographies dans `~/.cache/forkstify/`), il
+n'évitait que la seconde fois.
+
+**Ce qui change** : l'API web est partagée derrière un verrou
+(`Arc<Mutex<WebApi>>`) et les appels partent en **tâches de fond**
+(`spawn_local`), qui rendent leur résultat à la boucle par un canal
+(`Job::Resolved`, `Job::Harvested`), comme le push de 0017.
+
+- **Jouer un morceau** : si le cache connaît son adresse, il sonne tout de
+  suite ; sinon il **s'affiche tout de suite** avec « · chargement… » dans
+  le pied, et sonne quand la réponse arrive. Un morceau sauté pendant
+  l'attente n'entre pas dans le passé ; un introuvable passe au suivant ;
+  une panne le remet en tête de file, comme avant. Le préchargement du
+  suivant ne bloque plus rien.
+- **La discographie** s'ouvre à l'instant sur ce qu'on a — les tops et
+  l'appris — avec « … discographie en cours de chargement » et le mot
+  « chargement… » dans son titre ; les albums arrivent derrière et l'écran
+  se reconstruit sans perdre tri, filtre ni éditions en attente
+  (`Explore::reload`). Une récolte ne se lance jamais deux fois.
+- **`e<n>` et `:warm`** lancent la récolte derrière et le disent : « sa
+  traîne arrive — refais e<n> dans un instant ».
+
+**Reste attendu dans la boucle** : la recherche `/texte`, dont on attend le
+résultat par nature, et la connexion au démarrage (librespot, jeton), que
+l'écran d'attente montre étape par étape. Non vérifié en session réelle :
+c'est à toi de dire si les gels ont disparu.
+
 ## Le catalogue devient un fork, la référence part chez aropixel (08/09/2026)
 
 Joel : « pour régler le problème du catalogue qui n'est pas un fork parce que
