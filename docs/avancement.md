@@ -309,6 +309,20 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Échap passe du premier coup (08/09/2026)
+
+Joel : « quand je veux fermer avec échap, je dois souvent appuyer plusieurs
+fois. » Le lecteur de touches, après un `ESC`, lisait **deux octets de
+plus** pour reconnaître une flèche (`ESC [ A`), en bloquant — or la touche
+échap seule n'en envoie qu'un : il fallait deux frappes de plus pour qu'elle
+passe. Corrigé : après un `ESC`, le lecteur **interroge le descripteur**
+(`poll`, vingt millisecondes) — une séquence arrive d'un bloc, un échap
+seul n'a pas de suite. Le lecteur lit désormais l'entrée **sans tampon**
+(`libc::read`), parce que le tampon de `std::io::stdin` aurait caché la
+suite d'une séquence au `poll`. Même chose en mode texte et dans les lignes
+`/` et `:`, où une flèche ne retombe plus dans la grammaire. `ESC O A`
+(mode application) est reconnu aussi.
+
 ## Plus de ligne de statut : tout en toast (08/09/2026)
 
 Joel : « je ne veux plus aucune notification en dessous de à suivre, elles

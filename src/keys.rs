@@ -12,7 +12,6 @@
 //!
 //! `/` and `:` leave raw mode for a line, which is where a query belongs.
 
-use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -290,20 +289,56 @@ impl Drop for RawMode {
     }
 }
 
+/// One byte from the terminal, straight from the descriptor: std's stdin
+/// buffers, and a buffered « ESC [ A » would hide its tail from `poll` —
+/// the escape would then look alone, and « [ » « A » would be typed.
+fn raw_byte() -> Option<u8> {
+    let mut byte = 0u8;
+    let got = unsafe { libc::read(libc::STDIN_FILENO, &mut byte as *mut u8 as *mut libc::c_void, 1) };
+    (got == 1).then_some(byte)
+}
+
+/// Is there input waiting, within `ms` milliseconds?
+fn input_pending(ms: i32) -> bool {
+    let mut fd = libc::pollfd { fd: libc::STDIN_FILENO, events: libc::POLLIN, revents: 0 };
+    unsafe { libc::poll(&mut fd, 1, ms) > 0 }
+}
+
+/// After an ESC: the tail of an escape sequence (« [ A » for ↑, or « O A »
+/// in application mode) if it is already there, `None` for the Escape key
+/// alone. The reader used to wait for two more bytes whatever happened, so
+/// a lone escape needed two more keystrokes to pass — « je dois souvent
+/// appuyer plusieurs fois » (Joel, 08/09/2026). A terminal delivers a
+/// sequence in one go; twenty milliseconds is plenty to tell them apart.
+fn escape_sequence() -> Option<[u8; 2]> {
+    if !input_pending(20) {
+        return None;
+    }
+    let first = raw_byte()?;
+    if first != b'[' && first != b'O' {
+        // alt+key, or two escapes in a row: an escape, and the byte is spent
+        return None;
+    }
+    if !input_pending(20) {
+        return None;
+    }
+    let second = raw_byte()?;
+    Some([first, second])
+}
+
 /// Read keys on a blocking thread and send commands. Owns the pending
 /// buffer and the line mode, so the async side only ever sees a `Cmd`.
 pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
     std::thread::spawn(move || {
-        let mut stdin = std::io::stdin();
-        let mut byte = [0u8; 1];
         let mut pending = String::new();
         let mut was_modal = modal();
         // la ligne du mode texte : elle vit ici, l'écran n'en voit que l'état
         let mut line = String::new();
         let mut was_text = text();
 
-        while stdin.read_exact(&mut byte).is_ok() {
-            let key = byte[0] as char;
+        while let Some(b) = raw_byte() {
+            let byte = [b];
+            let key = b as char;
 
             if text() != was_text {
                 was_text = !was_text;
@@ -312,18 +347,12 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             }
             if was_text {
                 let cmd = match byte[0] {
-                    0x1b => {
-                        let mut rest = [0u8; 2];
-                        match stdin.read_exact(&mut rest) {
-                            Ok(()) => match rest {
-                                [b'[', b'A'] => Some(Cmd::Up),
-                                [b'[', b'B'] => Some(Cmd::Down),
-                                [b'[', b'C'] | [b'[', b'D'] => None,
-                                _ => Some(Cmd::Escape),
-                            },
-                            Err(_) => Some(Cmd::Escape),
-                        }
-                    }
+                    0x1b => match escape_sequence() {
+                        Some([_, b'A']) => Some(Cmd::Up),
+                        Some([_, b'B']) => Some(Cmd::Down),
+                        Some([_, b'C']) | Some([_, b'D']) => None,
+                        _ => Some(Cmd::Escape),
+                    },
                     b'\r' | b'\n' => Some(Cmd::Auto),
                     b'\t' => Some(Cmd::Filter),
                     0x7f | 0x08 => {
@@ -351,15 +380,14 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                 clear_pending(&mut pending, &tx);
             }
 
-            // arrows arrive as ESC [ C / ESC [ D
+            // arrows arrive as ESC [ C / ESC [ D — and a lone ESC is escape
             if byte[0] == 0x1b {
-                let mut rest = [0u8; 2];
-                if stdin.read_exact(&mut rest).is_ok() {
+                if let Some(rest) = escape_sequence() {
                     let cmd = match rest {
-                        [b'[', b'C'] => Some(Cmd::Next),
-                        [b'[', b'D'] => Some(Cmd::Prev),
-                        [b'[', b'A'] => Some(Cmd::Up),
-                        [b'[', b'B'] => Some(Cmd::Down),
+                        [_, b'C'] => Some(Cmd::Next),
+                        [_, b'D'] => Some(Cmd::Prev),
+                        [_, b'A'] => Some(Cmd::Up),
+                        [_, b'B'] => Some(Cmd::Down),
                         _ => None,
                     };
                     if let Some(cmd) = cmd {
@@ -401,7 +429,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
 
             // `/` and `:` open a line: a query is typed, not chorded
             if pending.is_empty() && (key == '/' || key == ':') {
-                match read_line(&mut stdin, key, &tx) {
+                match read_line(key, &tx) {
                     Some(text) => {
                         let cmd = if key == '/' { Cmd::Search(text) } else { Cmd::Colon(text) };
                         if tx.send(Cmd::Typing(None)).is_err() || tx.send(cmd).is_err() {
@@ -465,14 +493,20 @@ fn clear_pending(pending: &mut String, tx: &UnboundedSender<Cmd>) {
 
 /// Lire une ligne : la frappe remonte à l'écran au lieu de s'écrire dessus.
 /// Entrée envoie, échap annule.
-fn read_line(stdin: &mut std::io::Stdin, prefix: char, tx: &UnboundedSender<Cmd>) -> Option<String> {
+fn read_line(prefix: char, tx: &UnboundedSender<Cmd>) -> Option<String> {
     let mut text = String::new();
     let _ = tx.send(Cmd::Typing(Some(prefix.to_string())));
-    let mut byte = [0u8; 1];
-    while stdin.read_exact(&mut byte).is_ok() {
-        match byte[0] {
+    while let Some(b) = raw_byte() {
+        match b {
             b'\r' | b'\n' => return Some(text),
-            0x1b => return None,
+            // une flèche dans une ligne ne fait rien, mais ses octets ne
+            // doivent pas retomber dans la grammaire
+            0x1b => {
+                if escape_sequence().is_none() {
+                    return None;
+                }
+                continue;
+            }
             0x7f | 0x08 => {
                 text.pop();
             }
