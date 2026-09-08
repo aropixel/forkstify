@@ -105,6 +105,18 @@ pub enum Cmd {
 /// fermeture. La séquence en cours est oubliée au changement, sans quoi un
 /// `t` tapé d'un côté se compléterait de l'autre.
 static MODAL: AtomicBool = AtomicBool::new(false);
+/// Text mode (Joel, 08/09/2026): the search modal owns the keyboard — every
+/// printable key is typed, arrows move, enter takes, escape closes, tab
+/// toggles the scope. No grammar, or « cros » would fire c, r, o, s.
+static TEXT: AtomicBool = AtomicBool::new(false);
+
+pub fn set_text(on: bool) {
+    TEXT.store(on, Ordering::Relaxed);
+}
+
+fn text() -> bool {
+    TEXT.load(Ordering::Relaxed)
+}
 
 pub fn set_modal(on: bool) {
     MODAL.store(on, Ordering::Relaxed);
@@ -123,7 +135,7 @@ pub enum Parse {
 
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
-const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
+const TRACK_KEYS: [char; 9] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
 /// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
 /// une ligne de liste : les deux éditions et les deux mesures.
@@ -280,9 +292,51 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
         let mut byte = [0u8; 1];
         let mut pending = String::new();
         let mut was_modal = modal();
+        // la ligne du mode texte : elle vit ici, l'écran n'en voit que l'état
+        let mut line = String::new();
+        let mut was_text = text();
 
         while stdin.read_exact(&mut byte).is_ok() {
             let key = byte[0] as char;
+
+            if text() != was_text {
+                was_text = !was_text;
+                line.clear();
+                clear_pending(&mut pending, &tx);
+            }
+            if was_text {
+                let cmd = match byte[0] {
+                    0x1b => {
+                        let mut rest = [0u8; 2];
+                        match stdin.read_exact(&mut rest) {
+                            Ok(()) => match rest {
+                                [b'[', b'A'] => Some(Cmd::Up),
+                                [b'[', b'B'] => Some(Cmd::Down),
+                                [b'[', b'C'] | [b'[', b'D'] => None,
+                                _ => Some(Cmd::Escape),
+                            },
+                            Err(_) => Some(Cmd::Escape),
+                        }
+                    }
+                    b'\r' | b'\n' => Some(Cmd::Auto),
+                    b'\t' => Some(Cmd::Filter),
+                    0x7f | 0x08 => {
+                        line.pop();
+                        Some(Cmd::Typing(Some(line.clone())))
+                    }
+                    b if b.is_ascii_graphic() || b == b' ' || b >= 0x80 => {
+                        line.push(b as char);
+                        Some(Cmd::Typing(Some(line.clone())))
+                    }
+                    _ => None,
+                };
+                if let Some(cmd) = cmd {
+                    if tx.send(cmd).is_err() {
+                        return;
+                    }
+                }
+                continue;
+            }
 
             // l'écran a changé de table sous nos pieds : la séquence en
             // cours appartenait à l'autre
@@ -496,6 +550,7 @@ mod tests {
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
         assert_eq!(parse("ag").done(), Some(Cmd::Artist('g')));
+        assert_eq!(parse("ti").done(), Some(Cmd::Track('i')));
         assert_eq!(parse("h").done(), Some(Cmd::Prev));
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
         assert_eq!(parse("r").done(), Some(Cmd::Resume));

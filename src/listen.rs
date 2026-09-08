@@ -137,7 +137,7 @@ async fn async_run(
         warm_requested: false,
         search_requested: None,
         branches: Vec::new(),
-        pending: Vec::new(),
+        finder: None,
         size: 3,
         progress: None,
         help_open: false,
@@ -310,8 +310,8 @@ struct Live<'a> {
     /// `:search <texte>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
-    // results of the last `/` search, awaiting a numeric pick
-    pending: Vec<Hit>,
+    /// The search modal, when open.
+    finder: Option<Finder>,
     size: usize,
     /// Where the needle is in the current track, as librespot last said it
     /// — extrapolated by the clock while it plays (maquette 2b).
@@ -362,6 +362,7 @@ enum Screen {
 /// What a background job brings back.
 enum Job {
     Resolved { title: String, artist: String, result: Resolved },
+    Searched { query: String, result: Result<Vec<(String, String, String)>, String> },
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
 }
 
@@ -398,9 +399,56 @@ pub fn comfort_word(value: u8) -> &'static str {
 
 /// A `/` search result: a catalog artist to branch from, or a Spotify track
 /// to play (with its artist's slug when that artist has a card).
+#[derive(Clone)]
 enum Hit {
     Artist(String),
     Track { title: String, artist: String, uri: String, slug: Option<String> },
+}
+
+/// One line of the search modal: what was found, how it shows.
+#[derive(Clone)]
+struct Found {
+    hit: Hit,
+    mark: char,
+    note: String,
+}
+
+/// The search modal (Joel, 08/09/2026, maquette `Recherche.dc.html`) —
+/// `:search` alone, or `ti` anchored to a position of the list. The
+/// catalogue answers at every keystroke; Spotify answers behind, and its
+/// group says « … interrogation » until it does.
+struct Finder {
+    /// `Some(at)` = `ti`, insert at index `at` of the queue.
+    insert: Option<usize>,
+    query: String,
+    catalogue: Vec<Found>,
+    /// `None` while Spotify is being asked; the `Err` is its excuse.
+    spotify: Option<Result<Vec<Found>, String>>,
+    /// The query the pending Spotify job was sent for: a late answer to an
+    /// older query is dropped, so the list never jumps under the cursor.
+    asked: String,
+    cursor: usize,
+    only_catalogue: bool,
+}
+
+fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
+    let (title, artist) = match &f.hit {
+        Hit::Artist(slug) => (slug.replace('-', " "), String::new()),
+        Hit::Track { title, artist, .. } => (title.clone(), artist.clone()),
+    };
+    crate::tui::FinderLine::Row { catalogue, mark: f.mark, title, artist, note: f.note.clone() }
+}
+
+impl Finder {
+    fn rows(&self) -> Vec<&Found> {
+        let mut rows: Vec<&Found> = self.catalogue.iter().collect();
+        if !self.only_catalogue {
+            if let Some(Ok(found)) = &self.spotify {
+                rows.extend(found.iter());
+            }
+        }
+        rows
+    }
 }
 
 /// What came of trying to load one stop.
@@ -681,6 +729,26 @@ impl Live<'_> {
                     }
                 }
             }
+            Job::Searched { query, result } => {
+                let Some(finder) = self.finder.as_mut() else { return };
+                if finder.asked != query {
+                    return;
+                }
+                finder.spotify = Some(result.map(|tracks| {
+                    tracks
+                        .into_iter()
+                        .map(|(title, artist, uri)| {
+                            let slug = self.catalog.search_names(&artist, 1).into_iter().next();
+                            let note = if slug.is_some() {
+                                "(branche ensuite) la fiche existe".to_string()
+                            } else {
+                                "(hors catalogue)".to_string()
+                            };
+                            Found { hit: Hit::Track { title, artist, uri, slug }, mark: '~', note }
+                        })
+                        .collect()
+                }));
+            }
             Job::Harvested { slug, result } => {
                 self.harvesting.remove(&slug);
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
@@ -852,96 +920,6 @@ impl Live<'_> {
         say!(self, "les branches sont affichées en permanence, à droite");
     }
 
-    /// `/` search: catalog artists first (branch-native), then Spotify tracks
-    /// (play anything). Results wait in `self.pending` for a numeric pick.
-    async fn search(&mut self, query: &str) {
-        let mut hits: Vec<Hit> = self
-            .catalog
-            .search_names(query, 5)
-            .into_iter()
-            .map(Hit::Artist)
-            .collect();
-        let found = self.web.lock().await.search_tracks(query, 5).await;
-        match found {
-            Ok(tracks) => {
-                for (title, artist, uri) in tracks {
-                    let slug = self.catalog.search_names(&artist, 1).into_iter().next();
-                    hits.push(Hit::Track { title, artist, uri, slug });
-                }
-            }
-            Err(why) => say!(self, "(Spotify injoignable — {why} ; catalogue seul)"),
-        }
-
-        if hits.is_empty() {
-            say!(self, "(rien pour « {query} »)");
-            return;
-        }
-        say!(self, "\nRésultats pour « {query} » :");
-        for (i, hit) in hits.iter().enumerate() {
-            match hit {
-                Hit::Artist(slug) => {
-                    say!(self, "  {}  [catalogue] {}", i + 1, self.catalog.cards[slug].name)
-                }
-                Hit::Track { title, artist, slug, .. } => {
-                    // prose, not a glyph: « ↳ » belongs to the door in the
-                    // provenance marks, and one glyph must carry one meaning
-                    let mark = if slug.is_some() { "branche ensuite" } else { "hors catalogue" };
-                    say!(self, "  {}  [spotify]   {title} — {artist} ({mark})", i + 1);
-                }
-            }
-        }
-        self.pending = hits;
-    }
-
-    /// Pick a `/` result by number.
-    async fn pick_search(&mut self, n: usize) {
-        if n == 0 || n > self.pending.len() {
-            say!(self, "Résultat incompris.");
-            self.pending.clear();
-            return;
-        }
-        let hit = self.pending.remove(n - 1);
-        self.pending.clear();
-        match hit {
-            Hit::Artist(slug) => {
-                let (_, _, _, _, played) = self.state();
-                let stops = crate::engine::encore(
-                    self.catalog,
-                    &slug,
-                    &self.learned,
-                    &self.tail,
-                    self.comfort,
-                    &played,
-                    self.size,
-                    &mut self.rng,
-                );
-                say!(self, "→ {}", self.catalog.cards[&slug].name);
-                self.start_segment(vec![slug], stops, false, false).await;
-            }
-            Hit::Track { title, artist, uri, slug } => {
-                // a one-track "segment": play it now, branch from its artist
-                // if we know it, otherwise it's off-map (no branches from here)
-                let round_artists: Vec<String> = slug.iter().cloned().collect();
-                // a searched track may or may not already be one of the
-                // artist's tops — that is exactly what `tt` would change
-                let source = match slug.as_ref().map(|s| &self.catalog.cards[s]) {
-                    Some(card) if card.tops.contains(&title) => crate::engine::Source::Top,
-                    Some(_) => crate::engine::Source::Outside,
-                    None => crate::engine::Source::Offmap,
-                };
-                let stop = crate::engine::Stop {
-                    slug: slug.unwrap_or_default(),
-                    artist,
-                    title,
-                    source,
-                    head: None,
-                    encore: false,
-                };
-                self.play_uri(round_artists, stop, &uri).await;
-            }
-        }
-    }
-
     /// Play an exact Spotify uri now (from `/` search), as a fresh segment.
     async fn play_uri(&mut self, round_artists: Vec<String>, stop: crate::engine::Stop, uri: &str) {
         let Ok(track) = SpotifyUri::from_uri(uri) else {
@@ -1107,6 +1085,9 @@ impl Live<'_> {
             return self.on_comfort_key(cmd);
         }
         // la modale de la discographie aussi : elle a sa table (keys.rs)
+        if self.finder.is_some() {
+            return self.on_finder_key(cmd).await;
+        }
         if self.explore.is_some() {
             return self.on_explore_key(cmd);
         }
@@ -1145,16 +1126,6 @@ impl Live<'_> {
         }
         // while `/` results are on screen, a digit picks one of them rather
         // than a branch; anything else dismisses them
-        if !self.pending.is_empty() {
-            match cmd {
-                Cmd::Digit(n) => {
-                    self.pick_search(n).await;
-                    return true;
-                }
-                _ => self.pending.clear(),
-            }
-        }
-
         match cmd {
             // « q » ne quitte plus : il rend l'accueil, l'écoute continue en
             // dessous et « r » y ramène (Joel, 08/09/2026)
@@ -1244,7 +1215,7 @@ impl Live<'_> {
             Cmd::Colon(text) => {
                 self.colon(&text);
                 if let Some(query) = self.search_requested.take() {
-                    self.search(query.trim()).await;
+                    self.open_finder(None, &query);
                 }
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
@@ -1483,13 +1454,11 @@ impl Live<'_> {
         let seed = self.rounds[0].artists.first().cloned().unwrap_or_default();
         let prompt = if !self.typed.is_empty() {
             self.typed.clone()
-        } else if self.pending.is_empty() {
+        } else {
             format!(
                 "[1-{} branche · h/l · p · espace = les touches · q]",
                 self.branches.len().max(1)
             )
-        } else {
-            format!("[1-{} pour jouer un résultat, autre touche = annuler]", self.pending.len())
         };
         // 1a : la colonne des branches est toujours là, chaque branche
         // dépliée avec ses morceaux (Joel, 07/09/2026)
@@ -1544,6 +1513,7 @@ impl Live<'_> {
             comfort_word: comfort_word(self.comfort.value()),
             progress: self.progress.as_ref().map(Progress::now),
             toast: self.toast(),
+            finder: self.finder.as_ref().map(|f| self.finder_view(f)),
             explore: self.explore.as_ref(),
             prompt,
         };
@@ -1619,6 +1589,67 @@ impl Live<'_> {
         }
     }
 
+    /// Ce que la TUI dessine de la modale de recherche.
+    fn finder_view(&self, finder: &Finder) -> crate::tui::FinderView {
+        let mut lines: Vec<crate::tui::FinderLine> = Vec::new();
+        let cat = finder.catalogue.len();
+        if cat > 0 {
+            lines.push(crate::tui::FinderLine::Header {
+                catalogue: true,
+                text: format!("catalogue  {cat} résultat{}", if cat > 1 { "s" } else { "" }),
+            });
+            for f in &finder.catalogue {
+                lines.push(found_line(f, true));
+            }
+        }
+        let mut spotify_count: Option<usize> = None;
+        if !finder.only_catalogue {
+            match &finder.spotify {
+                None => lines.push(crate::tui::FinderLine::Info("[spotify] … interrogation".to_string())),
+                Some(Err(why)) => lines.push(crate::tui::FinderLine::Info(format!("[spotify] injoignable — {why}"))),
+                Some(Ok(found)) if !found.is_empty() => {
+                    spotify_count = Some(found.len());
+                    lines.push(crate::tui::FinderLine::Header {
+                        catalogue: false,
+                        text: format!("spotify  {} titres · hors catalogue sauf mention", found.len()),
+                    });
+                    for f in found {
+                        lines.push(found_line(f, false));
+                    }
+                }
+                Some(Ok(_)) => {}
+            }
+        }
+        if lines.is_empty() && !finder.query.trim().is_empty() {
+            lines.push(crate::tui::FinderLine::Info(format!(
+                "(rien pour « {} » — ni catalogue, ni spotify)",
+                finder.query.trim()
+            )));
+        }
+        let anchor = finder.insert.map(|at| {
+            let before = if at == 0 {
+                self.current.as_ref().map(|s| s.title.clone())
+            } else {
+                self.queue.get(at - 1).map(|s| s.title.clone())
+            };
+            let after = self.queue.get(at).map(|s| s.title.clone());
+            match (before, after) {
+                (Some(b), Some(a)) => format!("l'insertion tombe en {} — entre {b} et {a}", at + 2),
+                (Some(b), None) => format!("l'insertion tombe en {} — après {b}, en fin de file", at + 2),
+                _ => format!("l'insertion tombe en {}", at + 2),
+            }
+        });
+        crate::tui::FinderView {
+            insert: finder.insert.is_some(),
+            anchor,
+            query: finder.query.clone(),
+            counts: (cat, spotify_count, finder.spotify.is_none() && !finder.only_catalogue),
+            only_catalogue: finder.only_catalogue,
+            lines,
+            cursor: finder.cursor,
+        }
+    }
+
     /// The grey note beside a track (maquette 3a, Joel 07/09/2026): what the
     /// listening knows of it — how often it sounded and when, how often it
     /// was skipped — or that it never did.
@@ -1663,7 +1694,260 @@ impl Live<'_> {
     /// `t` — the current track. Measures write to `learned/` at once and
     /// without asking (0013); the editions still wait for the layer that
     /// writes cards and commits them.
+    /// `ti` — track insert : la modale de recherche, ancrée là où l'on est
+    /// dans la liste — avant la ligne surlignée si elle est à venir, sinon
+    /// juste après ce qui sonne (Joel, 08/09/2026).
+    fn open_insert(&mut self) {
+        let ahead = self.past.len() + usize::from(self.current.is_some());
+        let at = self
+            .selection
+            .filter(|index| *index >= ahead)
+            .map(|index| (index - ahead).min(self.queue.len()))
+            .unwrap_or(0);
+        self.open_finder(Some(at), "");
+    }
+
+    /// Open the search modal. The reader goes to text mode: from here on
+    /// every key is typed, until escape or enter.
+    fn open_finder(&mut self, insert: Option<usize>, query: &str) {
+        let mut finder = Finder {
+            insert,
+            query: String::new(),
+            catalogue: Vec::new(),
+            spotify: Some(Ok(Vec::new())),
+            asked: String::new(),
+            cursor: 0,
+            only_catalogue: false,
+        };
+        if !query.is_empty() {
+            finder.query = query.to_string();
+        }
+        self.finder = Some(finder);
+        self.overlay = None;
+        self.help_open = false;
+        crate::keys::set_text(true);
+        if !query.is_empty() {
+            self.refind();
+        }
+    }
+
+    fn close_finder(&mut self) {
+        self.finder = None;
+        crate::keys::set_text(false);
+        self.tui.clear();
+    }
+
+    /// Recompute the catalogue group now, and ask Spotify behind.
+    fn refind(&mut self) {
+        let Some(finder) = self.finder.as_mut() else { return };
+        let query = finder.query.trim().to_string();
+        finder.cursor = 0;
+        finder.catalogue.clear();
+        if query.is_empty() {
+            finder.spotify = Some(Ok(Vec::new()));
+            finder.asked.clear();
+            return;
+        }
+        let needle = query.to_lowercase();
+        // artists first — a card is where a branch can start
+        if finder.insert.is_none() {
+            for slug in self.catalog.search_names(&query, 4) {
+                let card = &self.catalog.cards[&slug];
+                let note = format!(
+                    "fiche {} · {} liens · {} tops",
+                    if card.generated { "générée" } else { "écrite" },
+                    card.links.len(),
+                    card.tops.len()
+                );
+                finder.catalogue.push(Found { hit: Hit::Artist(slug), mark: '♪', note });
+            }
+        }
+        // then the titles the cards know — tops, and what the ear liked
+        let mut titles: Vec<Found> = Vec::new();
+        for (slug, card) in &self.catalog.cards {
+            let liked = self.learned.liked_tracks(slug);
+            let known = card.tops.iter().chain(liked.iter().copied());
+            for title in known {
+                if !title.to_lowercase().contains(&needle) || titles.iter().any(|f| matches!(&f.hit, Hit::Track { title: t, slug: Some(s), .. } if t == title && s == slug)) {
+                    continue;
+                }
+                let is_liked = liked.contains(&title);
+                let note = match self.learned.track_stats(slug, title) {
+                    Some((plays, _, _)) if plays >= 0.5 => format!("{} écoute{}", plays.round() as u64, if plays >= 1.5 { "s" } else { "" }),
+                    _ => "jamais joué".to_string(),
+                };
+                titles.push(Found {
+                    hit: Hit::Track {
+                        title: title.clone(),
+                        artist: card.name.clone(),
+                        uri: String::new(),
+                        slug: Some(slug.clone()),
+                    },
+                    mark: if is_liked { '♥' } else { '♪' },
+                    note: if is_liked { format!("♥ aimé · {note}") } else { note },
+                });
+            }
+        }
+        titles.sort_by(|a, b| a.note.cmp(&b.note));
+        titles.truncate(8);
+        finder.catalogue.extend(titles);
+        // Spotify, behind: two letters at least, or it is noise
+        if query.chars().count() >= 2 {
+            finder.spotify = None;
+            finder.asked = query.clone();
+            let web = self.web.clone();
+            let tx = self.jobs_tx.clone();
+            tokio::task::spawn_local(async move {
+                let result = web.lock().await.search_tracks(&query, 6).await;
+                let _ = tx.send(Job::Searched { query, result });
+            });
+        } else {
+            finder.spotify = Some(Ok(Vec::new()));
+            finder.asked.clear();
+        }
+    }
+
+    /// Les touches de la modale de recherche : tout est frappe, sauf les
+    /// flèches, entrée, tab et échap.
+    async fn on_finder_key(&mut self, cmd: Cmd) -> bool {
+        match cmd {
+            Cmd::Typing(line) => {
+                if let Some(finder) = self.finder.as_mut() {
+                    finder.query = line.unwrap_or_default();
+                }
+                self.refind();
+            }
+            Cmd::Up => {
+                if let Some(finder) = self.finder.as_mut() {
+                    finder.cursor = finder.cursor.saturating_sub(1);
+                }
+            }
+            Cmd::Down => {
+                if let Some(finder) = self.finder.as_mut() {
+                    let last = finder.rows().len().saturating_sub(1);
+                    finder.cursor = (finder.cursor + 1).min(last);
+                }
+            }
+            Cmd::Filter => {
+                if let Some(finder) = self.finder.as_mut() {
+                    finder.only_catalogue = !finder.only_catalogue;
+                    finder.cursor = 0;
+                }
+            }
+            Cmd::Escape => self.close_finder(),
+            Cmd::Auto => self.take_found().await,
+            _ => {}
+        }
+        true
+    }
+
+    /// Enter in the modal: the row under the cursor — branched, played, or
+    /// inserted, according to the door we came in by.
+    async fn take_found(&mut self) {
+        let Some(finder) = self.finder.as_ref() else { return };
+        let Some(found) = finder.rows().get(finder.cursor).map(|f| (*f).clone()) else {
+            return;
+        };
+        let insert = finder.insert;
+        self.close_finder();
+        let stop_of = |hit: &Hit, catalog: &Catalog| -> Option<(crate::engine::Stop, Option<String>)> {
+            match hit {
+                Hit::Track { title, artist, uri, slug } => {
+                    let source = match slug.as_ref().map(|s| &catalog.cards[s]) {
+                        Some(card) if card.tops.contains(title) => crate::engine::Source::Top,
+                        Some(_) => crate::engine::Source::Outside,
+                        None => crate::engine::Source::Offmap,
+                    };
+                    Some((
+                        crate::engine::Stop {
+                            slug: slug.clone().unwrap_or_default(),
+                            artist: artist.clone(),
+                            title: title.clone(),
+                            source,
+                            head: None,
+                            encore: false,
+                        },
+                        if uri.is_empty() { None } else { Some(uri.clone()) },
+                    ))
+                }
+                Hit::Artist(_) => None,
+            }
+        };
+        match (insert, &found.hit) {
+            // ti : le titre entre dans la file à l'ancre, marqué
+            (Some(at), Hit::Track { .. }) => {
+                let Some((mut stop, _)) = stop_of(&found.hit, self.catalog) else { return };
+                stop.head = Some(crate::engine::Head {
+                    label: stop.title.clone(),
+                    reason: "inséré (ti)".to_string(),
+                });
+                let at = at.min(self.queue.len());
+                say!(self, "→ inséré en {} : {} — {}", at + 2, stop.title, stop.artist);
+                self.queue.insert(at, stop);
+            }
+            // ti sur un artiste : son meilleur morceau non joué
+            (Some(at), Hit::Artist(slug)) => {
+                let (_, _, _, _, played) = self.state();
+                let mut stops = crate::engine::encore(
+                    self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1, &mut self.rng,
+                );
+                let Some(mut stop) = stops.pop() else {
+                    say!(self, "(plus rien de non joué chez {})", self.catalog.cards[slug].name);
+                    return;
+                };
+                stop.head = Some(crate::engine::Head {
+                    label: stop.title.clone(),
+                    reason: "inséré (ti)".to_string(),
+                });
+                let at = at.min(self.queue.len());
+                say!(self, "→ inséré en {} : {} — {}", at + 2, stop.title, stop.artist);
+                self.queue.insert(at, stop);
+            }
+            // :search sur un artiste : un segment chez lui, comme une branche
+            (None, Hit::Artist(slug)) => {
+                let (_, _, _, _, played) = self.state();
+                let stops = crate::engine::encore(
+                    self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size, &mut self.rng,
+                );
+                say!(self, "→ {} — via :search", self.catalog.cards[slug].name);
+                self.start_segment(vec![slug.clone()], stops, false, false).await;
+            }
+            // :search sur un titre : il sonne maintenant, les branches
+            // repartent de son artiste s'il a une fiche
+            (None, Hit::Track { .. }) => {
+                let Some((stop, uri)) = stop_of(&found.hit, self.catalog) else { return };
+                let round_artists: Vec<String> =
+                    if stop.slug.is_empty() { Vec::new() } else { vec![stop.slug.clone()] };
+                say!(self, "→ {} — via :search", stop.title);
+                match uri {
+                    Some(uri) => self.play_uri(round_artists, stop, &uri).await,
+                    None => self.play_stop_now(round_artists, stop).await,
+                }
+            }
+        }
+    }
+
+    /// Play a catalogue stop now, as a fresh segment — its address is
+    /// looked up behind, like any other.
+    async fn play_stop_now(&mut self, round_artists: Vec<String>, stop: crate::engine::Stop) {
+        if let Some(current) = self.current.take() {
+            if !self.loading {
+                self.past.push(current);
+            }
+        }
+        self.loading = false;
+        self.rounds.push(Round { artists: round_artists, tracks: vec![stop.title.clone()] });
+        self.queue.clear();
+        let _ = self.load_stop(stop).await;
+        self.recompute();
+    }
+
     async fn on_track_key(&mut self, key: char) {
+        // `ti` n'a pas besoin de morceau sous l'aiguille : il vise une place
+        if key == 'i' {
+            self.open_insert();
+            return;
+        }
         let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
@@ -2084,10 +2368,10 @@ impl Live<'_> {
             // d'une commande)
             (Some("discography"), _) => self.explore_requested = true,
             // la surcouche personnelle se calcule, elle ne se stocke pas
-            (Some("search"), Some(_)) => {
+            // :search ouvre la modale — vide, ou déjà remplie du texte donné
+            (Some("search"), _) => {
                 self.search_requested = Some(text.trim().trim_start_matches("search").trim().to_string());
             }
-            (Some("search"), None) => say!(self, "(:search <texte> — catalogue et Spotify)"),
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
@@ -2170,6 +2454,7 @@ impl Live<'_> {
                 ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
                 ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
                 ("td", "door \u{2014} en faire une door (fiche, un commit)", true),
+                ("ti", "insert \u{2014} ins\u{e9}rer un titre ici, par la recherche", true),
                 ("ad", "les tops se corrigent dans la discographie", true),
             ],
             Some('a') => &[
@@ -2191,7 +2476,7 @@ impl Live<'_> {
                 ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
                 ("p", "pause / lecture", true),
                 ("/texte", "filtrer une liste \u{2014} la collection, la discographie", true),
-                (":search <texte>", "chercher \u{2014} catalogue et Spotify, un chiffre choisit", true),
+                (":search", "chercher \u{2014} la modale : catalogue puis Spotify, entr\u{e9}e prend", true),
                 ("c<n>", "zone de confort, 5 cocon \u{2192} 0 exploration", true),
                 ("cc", "r\u{e9}gler le confort aux fl\u{e8}ches", true),
                 ("u", "annuler le dernier geste", false),

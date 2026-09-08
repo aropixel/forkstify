@@ -83,6 +83,7 @@ moteur retient.
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
 | `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
+| `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué | file | ✅ |
 
 **Plus de `tt` / `tT` en écoute** (Joel, 08/09/2026,
 [0018](decisions/0018-un-seul-geste-pour-le-gout.md)) : les tops ne sont que
@@ -133,7 +134,7 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
 | `/texte` | | **Filtrer** une liste — la collection à l'accueil, la discographie ; échap efface (Joel, 08/09/2026) | ✅ |
-| `:search <texte>` | | **Chercher** — catalogue + Spotify en écoute, un chiffre choisit ; catalogue seul à l'accueil, l'artiste trouvé démarre | ✅ |
+| `:search` | | **La modale de recherche** (maquette `Recherche.dc.html`, 08/09/2026) : une ligne de saisie `⟩`, les résultats se recalculent à chaque caractère — le catalogue d'abord (artistes et titres connus des fiches et de l'appris), Spotify derrière, jamais mêlés. ↑↓ choisissent, **entrée** branche sur un artiste ou joue un titre, **tab** masque Spotify, **échap** ferme. `:search <texte>` l'ouvre déjà remplie. À l'accueil, `:search <texte>` démarre l'artiste trouvé | ✅ |
 | `q` | **quit** | En écoute : **revenir à l'accueil**, l'écoute continue en dessous avec son pied de lecture. À l'accueil : quitter (affiche le parcours) — Joel, 08/09/2026 | ✅ |
 | `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon reprendre le dernier parcours. Échap sans curseur fait de même | ✅ |
 | `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |

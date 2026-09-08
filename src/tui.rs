@@ -100,6 +100,8 @@ pub struct View<'a> {
     /// Le cartouche en bas à droite : ce qui charge, ou la dernière chose
     /// dite, en couleur (Joel, 08/09/2026).
     pub toast: Option<Toast>,
+    /// La modale de recherche, quand elle est ouverte.
+    pub finder: Option<FinderView>,
     /// La modale de la discographie (`ad`), posée sur l'écoute : elle prend
     /// le corps de l'écran, l'en-tête et le pied restent — « la lecture n'a
     /// pas cessé » (maquette 1a).
@@ -120,6 +122,28 @@ pub struct Bar<'a> {
     pub next: Option<&'a Stop>,
     pub ahead: usize,
     pub notice: String,
+}
+
+/// La modale de recherche (maquette `Recherche.dc.html`, Joel 08/09/2026) :
+/// une ligne de saisie, une règle qui coupe et compte, le catalogue avant
+/// Spotify, jamais mêlés.
+pub struct FinderView {
+    /// `ti` plutôt que `:search` : le titre change, et l'ancre s'affiche.
+    pub insert: bool,
+    pub anchor: Option<String>,
+    pub query: String,
+    /// (catalogue, spotify, spotify en cours d'interrogation)
+    pub counts: (usize, Option<usize>, bool),
+    pub only_catalogue: bool,
+    pub lines: Vec<FinderLine>,
+    /// L'index, parmi les `Row` seulement.
+    pub cursor: usize,
+}
+
+pub enum FinderLine {
+    Header { catalogue: bool, text: String },
+    Row { catalogue: bool, mark: char, title: String, artist: String, note: String },
+    Info(String),
 }
 
 /// Un toast : un texte, sa couleur, et s'il reste tant que ça charge.
@@ -541,6 +565,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         render_explore(frame, body, screen);
     }
 
+    // — la recherche prend le corps, comme la discographie
+    if let Some(finder) = &view.finder {
+        render_finder(frame, body, finder);
+    }
+
     // — le toast, en bas à droite du corps, par-dessus la colonne ou la
     // modale : ce qui charge, ou ce qui vient d'être dit
     if let Some(toast) = &view.toast {
@@ -551,6 +580,140 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     if let Some((title, body)) = view.overlay {
         render_block(frame, area, title, body);
     }
+}
+
+/// La modale de recherche : le même filet léger que la discographie, une
+/// seule ligne de frappe « ⟩ », la règle qui coupe la saisie des résultats
+/// et porte le décompte, puis les deux groupes — bleu écrit par un humain,
+/// cyan deviné.
+fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
+    frame.render_widget(Clear, area);
+    let width = area.width as usize;
+    let rule = |text: &str| Span::styled(text.to_string(), Style::default().fg(DIM));
+    let mut lines: Vec<Line> = Vec::new();
+
+    // — le titre porte la touche, comme partout
+    lines.push(ruled(
+        vec![
+            rule("┌─ "),
+            Span::styled(
+                if view.insert { "insérer un titre " } else { "recherche " },
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            ),
+            rule("── "),
+            Span::styled(if view.insert { "ti " } else { ":search " }, Style::default().fg(MUTED)),
+            Span::styled(
+                if view.insert { "titres seulement" } else { "titres et artistes" },
+                Style::default().fg(DIM),
+            ),
+        ],
+        width,
+    ));
+    if let Some(anchor) = &view.anchor {
+        lines.push(Line::from(vec![
+            rule("│ "),
+            Span::styled("→ ", Style::default().fg(BRANCH)),
+            Span::styled(anchor.clone(), Style::default().fg(MUTED)),
+        ]));
+    }
+    // — la seule zone de frappe
+    let mut input = vec![
+        rule("│ "),
+        Span::styled("⟩ ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled(view.query.clone(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled(" ", Style::default().bg(Color::White)),
+    ];
+    if view.query.is_empty() {
+        input.push(Span::styled("   un titre, un artiste, ou un slug de fiche", Style::default().fg(DIM)));
+    }
+    lines.push(Line::from(input));
+    // — la règle qui coupe, et compte
+    let (cat, spot, asking) = view.counts;
+    let mut counts = vec![
+        rule("│ "),
+        rule(&"─".repeat(width.saturating_sub(40).max(8))),
+        Span::styled(format!(" catalogue {cat}"), Style::default().fg(CATALOG)),
+        Span::styled(" · ", Style::default().fg(DIM)),
+    ];
+    counts.push(match (view.only_catalogue, asking, spot) {
+        (true, _, _) => Span::styled("spotify masqué (tab)".to_string(), Style::default().fg(DIM)),
+        (_, true, _) => Span::styled("spotify …".to_string(), Style::default().fg(VECTOR)),
+        (_, _, Some(n)) => Span::styled(format!("spotify {n}"), Style::default().fg(VECTOR)),
+        _ => Span::styled("spotify 0".to_string(), Style::default().fg(DIM)),
+    });
+    counts.push(rule(" ──"));
+    lines.push(Line::from(counts));
+
+    // — les résultats, groupés
+    let cursor_style = Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD);
+    let mut row_index = 0usize;
+    for line in &view.lines {
+        match line {
+            FinderLine::Header { catalogue, text } => {
+                let tone = if *catalogue { CATALOG } else { VECTOR };
+                lines.push(Line::from(vec![
+                    rule("│ "),
+                    Span::styled("── ", Style::default().fg(tone)),
+                    Span::styled(text.clone(), Style::default().fg(tone).add_modifier(Modifier::BOLD)),
+                ]));
+            }
+            FinderLine::Info(text) => {
+                lines.push(Line::from(vec![rule("│ "), Span::styled(text.clone(), Style::default().fg(DIM))]));
+            }
+            FinderLine::Row { catalogue, mark, title, artist, note } => {
+                let n = row_index + 1;
+                let source = if *catalogue { "[catalogue]" } else { "[spotify]" };
+                let tone = if *catalogue { CATALOG } else { VECTOR };
+                let text = format!(
+                    "{n:>2} {source:<11} {mark} {:<30} {:<22} {}",
+                    fit(title, 30),
+                    fit(artist, 22),
+                    note
+                );
+                if row_index == view.cursor {
+                    lines.push(Line::from(vec![rule("│ "), Span::styled(fit(&text, width.saturating_sub(3)), cursor_style)]));
+                } else {
+                    lines.push(Line::from(vec![
+                        rule("│ "),
+                        Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
+                        Span::styled(format!("{source:<11} "), Style::default().fg(tone)),
+                        Span::styled(format!("{mark} "), Style::default().fg(if *mark == '~' { VECTOR } else { PLAYING })),
+                        Span::styled(format!("{:<30} ", fit(title, 30)), Style::default().fg(Color::White)),
+                        Span::styled(format!("{:<22} ", fit(artist, 22)), Style::default().fg(if *catalogue { CATALOG } else { MUTED })),
+                        Span::styled(note.clone(), Style::default().fg(DIM)),
+                    ]));
+                }
+                row_index += 1;
+            }
+        }
+    }
+
+    // — les touches, et la fermeture
+    lines.push(Line::from(rule("│")));
+    lines.push(Line::from(vec![
+        rule("│ "),
+        Span::styled("entrée ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            if view.insert { "insérer ici   " } else { "brancher là, ou jouer le titre   " },
+            Style::default().fg(MUTED),
+        ),
+        Span::styled("↑↓ ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled("choisir   ", Style::default().fg(MUTED)),
+        Span::styled("tab ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled("catalogue seul", Style::default().fg(MUTED)),
+    ]));
+    lines.push(ruled(
+        vec![
+            rule("└─ "),
+            Span::styled("échap ", Style::default().fg(MUTED)),
+            Span::styled(
+                if view.insert { "ferme sans insérer — la file est inchangée" } else { "ferme et rend la frappe à l'écoute — la lecture n'a pas cessé" },
+                Style::default().fg(DIM),
+            ),
+        ],
+        width,
+    ));
+    frame.render_widget(Paragraph::new(lines), area);
 }
 
 /// Le cartouche d'un toast : un cadre de la couleur du message, le texte
@@ -1325,6 +1488,7 @@ mod tests {
             comfort_word: "équilibré",
             progress: current.map(|_| (154_000, 227_000)),
             toast: None,
+            finder: None,
             explore: None,
             prompt: "[1-2 branche]".to_string(),
         };
@@ -1537,6 +1701,42 @@ mod tests {
         assert!(rows[17].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[17]);
         assert!(rows[18].starts_with("✓ appris poussé"), "{}", rows[18]);
         assert!(rows[19].starts_with("[1-3 pour démarrer · r retour à l'écoute"), "{}", rows[19]);
+    }
+
+    /// La modale de recherche : la saisie, la règle qui compte, les deux
+    /// groupes jamais mêlés, le curseur, et l'ancre de « ti ».
+    #[test]
+    fn the_finder_cuts_the_input_from_the_results() {
+        let view = FinderView {
+            insert: true,
+            anchor: Some("l'insertion tombe en 4 — entre Sea Of Love et Cross Bones Style".to_string()),
+            query: "nothing bu".to_string(),
+            counts: (2, None, true),
+            only_catalogue: false,
+            lines: vec![
+                FinderLine::Header { catalogue: true, text: "catalogue  2 résultats".to_string() },
+                FinderLine::Row { catalogue: true, mark: '♪', title: "Nothing But Time".into(), artist: "Cat Power".into(), note: "3 écoutes".into() },
+                FinderLine::Row { catalogue: true, mark: '♥', title: "Nothing Compares 2 U".into(), artist: "Sinéad O'Connor".into(), note: "♥ aimé · 1 écoute".into() },
+                FinderLine::Info("[spotify] … interrogation".to_string()),
+            ],
+            cursor: 1,
+        };
+        let mut terminal = Terminal::new(TestBackend::new(100, 14)).unwrap();
+        terminal.draw(|frame| render_finder(frame, frame.area(), &view)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let rows: Vec<String> =
+            (0..14).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
+        assert!(rows[0].starts_with("┌─ insérer un titre ── ti titres seulement ─"), "{}", rows[0]);
+        assert!(rows[1].starts_with("│ → l'insertion tombe en 4"), "{}", rows[1]);
+        assert!(rows[2].starts_with("│ ⟩ nothing bu"), "{}", rows[2]);
+        assert!(rows[3].contains("catalogue 2 · spotify …"), "{}", rows[3]);
+        assert!(rows[4].contains("── catalogue  2 résultats"), "{}", rows[4]);
+        assert!(rows[5].contains(" 1 [catalogue] ♪ Nothing But Time"), "{}", rows[5]);
+        assert!(rows[6].contains(" 2 [catalogue] ♥ Nothing Compares 2 U"), "{}", rows[6]);
+        assert_eq!(buffer[(4, 6)].style().bg, Some(Color::Yellow), "le curseur surligne la ligne 2");
+        assert!(rows[7].contains("[spotify] … interrogation"), "{}", rows[7]);
+        assert!(rows[9].contains("entrée insérer ici"), "{}", rows[9]);
+        assert!(rows[10].starts_with("└─ échap ferme sans insérer"), "{}", rows[10]);
     }
 
     #[test]

@@ -309,6 +309,49 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La modale de recherche, et `ti` (08/09/2026)
+
+Joel : « :search se lance sans argument, une modale s'ouvre, avec une ligne
+séparant la zone de texte de la zone de résultats ; ti — track insert —
+insère une track où on est dans la liste, en ouvrant la même modale. »
+Maquette `Recherche.dc.html` (Claude Design) : 1a `:search`, 1b `ti` ancré,
+1c les deux bords.
+
+- **La modale est modale, et c'est nouveau** : tant qu'elle est ouverte, la
+  grammaire sans préfixe ne s'applique plus — sinon taper « cros »
+  déclencherait c, r, o, s. Le lecteur de touches a un **mode texte**
+  (`keys::set_text`) : tout est frappe, sauf ↑↓, entrée, tab et échap.
+  D'où l'invite `⟩`, pour dire « ici, on écrit ».
+- **Une seule règle coupe la saisie des résultats**, et porte le décompte :
+  `── catalogue 3 · spotify 5 ──`. Pas de champ encadré.
+- **Le catalogue avant Spotify, toujours**, en deux groupes jamais mêlés
+  (bleu écrit par un humain, cyan deviné). Le catalogue répond à chaque
+  caractère — artistes par nom, titres connus des fiches et de l'appris,
+  avec la provenance `♪ ♥` et les écoutes ; Spotify répond **derrière**
+  (`Job::Searched`), le groupe cyan dit « … interrogation » jusque-là, et
+  une réponse à une frappe plus ancienne est jetée : la liste ne saute
+  jamais sous le curseur.
+- **Entrée fait selon la porte** : par `:search`, un artiste branche là
+  (un segment chez lui), un titre sonne maintenant et les branches
+  repartent de son artiste s'il a une fiche ; par `ti`, le titre **entre
+  dans la file à l'ancre** — avant la ligne surlignée si elle est à venir,
+  sinon juste après ce qui sonne — marqué « inséré (ti) » en gris à côté ;
+  un artiste choisi insère son meilleur morceau non joué. Le toast dit
+  « → inséré en 4 : titre — artiste » ou « → … — via :search ».
+- **`ti` lit son ancre en haut** (« l'insertion tombe en 4 — entre X et
+  Y »), comme la maquette le voulait : insérer à l'aveugle dans une file
+  qu'on ne voit plus est le geste le plus facile à rater.
+- **Tab** masque Spotify. Vide, la modale dit quoi taper ; sans résultat,
+  elle le dit aussi.
+- L'ancienne recherche par journal (résultats numérotés, un chiffre choisit)
+  et son état `pending` disparaissent.
+
+**Écarté de la maquette** : `e` (mettre à la file), `tb`, `A`/`N` dans la
+modale — ce sont des lettres, elles se tapent ; la portée « fiches du
+parcours » de `ti` (tout le catalogue répond, avec Spotify derrière) ; les
+durées ; les cinq dernières recherches. Un test de rendu. Non vérifié en
+session réelle.
+
 ## `ag` — l'artiste dans le navigateur (08/09/2026)
 
 Joel : « ajoute une commande, ag ?, pour googler l'artiste en cours dans le
