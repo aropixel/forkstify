@@ -309,6 +309,14 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `ag` — l'artiste dans le navigateur (08/09/2026)
+
+Joel : « ajoute une commande, ag ?, pour googler l'artiste en cours dans le
+navigateur par défaut ». `ag` ouvre `https://www.google.com/search?q=…` par
+`xdg-open`, détaché (entrées et sorties fermées, pour ne rien laisser
+s'imprimer sous la TUI). Il vise comme `ad` : la ligne surlignée s'il y en a
+une, sinon ce qui sonne. Le toast dit « → artiste — dans le navigateur ».
+
 ## Quatre retouches du clavier (08/09/2026)
 
 Joel : retirer le mode file d'attente de l'aide ; « je ne vois plus le

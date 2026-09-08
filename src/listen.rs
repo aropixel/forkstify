@@ -1722,6 +1722,29 @@ impl Live<'_> {
             self.explore_requested = true;
             return;
         }
+        // `ag` — google : l'artiste visé (surligné, sinon en cours) dans le
+        // navigateur par défaut (Joel, 08/09/2026)
+        if key == 'g' {
+            let Some(stop) = self.target() else {
+                say!(self, "(rien en cours)");
+                return;
+            };
+            let url = format!(
+                "https://www.google.com/search?q={}",
+                crate::spotify::encode(&stop.artist)
+            );
+            match std::process::Command::new("xdg-open")
+                .arg(&url)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+            {
+                Ok(_) => say!(self, "→ {} — dans le navigateur", stop.artist),
+                Err(e) => say!(self, "⏹ navigateur introuvable (xdg-open : {e})"),
+            }
+            return;
+        }
         let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
@@ -2154,6 +2177,7 @@ impl Live<'_> {
                 ("as", "skip \u{2014} cet artiste, moins souvent", true),
                 ("ab", "ban \u{2014} plus jamais cet artiste", true),
                 ("ad", "discography \u{2014} sa discographie, par album", true),
+                ("ag", "google \u{2014} l'artiste dans le navigateur", true),
                 ("ae", "edit \u{2014} ouvrir la fiche", false),
                 ("aL", "link \u{2014} lier \u{e0} un autre artiste", true),
             ],

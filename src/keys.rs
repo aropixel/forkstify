@@ -124,7 +124,7 @@ pub enum Parse {
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
 const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
-const ARTIST_KEYS: [char; 6] = ['l', 's', 'b', 'e', 'L', 'd'];
+const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
 /// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
 /// une ligne de liste : les deux éditions et les deux mesures.
 // plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : la modale aime,
@@ -495,6 +495,7 @@ mod tests {
         assert_eq!(parse("tl").done(), Some(Cmd::Track('l')));
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
+        assert_eq!(parse("ag").done(), Some(Cmd::Artist('g')));
         assert_eq!(parse("h").done(), Some(Cmd::Prev));
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));
         assert_eq!(parse("r").done(), Some(Cmd::Resume));
