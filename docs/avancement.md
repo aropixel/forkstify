@@ -309,6 +309,32 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Lot 4 : 100 fiches, la référence passe à 314 (08/09/2026)
+
+Joel : « est-ce qu'il reste des fiches à créer ? on les importe sur
+aropixel ? » Relevé : 100 slugs appelés par des liens sans fiche (le lot
+que le lot 3 appelait depuis le 02/09), 22 appelés par au moins deux fiches ;
+561 classés sans fiche, tous sous le score 5, laissés à la traîne comme
+prévu. Une fiche générée est de la connaissance, pas du goût : elle va à la
+**référence** `aropixel` (0016), le fork la reçoit par `upstream`.
+
+**Les scripts d'outillage étaient cassés depuis le renommage du 06/09** :
+`generate-cards.py`, `vectoriser.py` et `voisins.py` lisaient encore
+`fiches/` et `vecteurs/vecteurs.jsonl`. Corrigés sur la branche `lot-4`
+partie de `upstream/main`. Le générateur réessaie désormais sur un délai
+dépassé — le premier lancement était mort au premier artiste sur un
+`TimeoutError` de MusicBrainz.
+
+**Généré dans un conteneur `python:3.12-slim`** (bibliothèque standard
+seule, MusicBrainz à une requête par seconde) : **100 fiches écrites**, le
+catalogue compte **314 fiches**. Rapport : à relire, MBID incertain —
+blundetto, dalle-beton, lej, ozuna, palatine ; sans Deezer, donc sans tops —
+mahmoud-ahmed. Vecteurs recalculés dans le conteneur `fastembed` (modèle
+téléchargé, ~220 Mo, cache dans `tools/cache/`, désormais ignoré par git).
+
+Poussé sur `aropixel/main`, puis le fork `kbyjoel` rebasé dessus : les
+commits d'appris de Joel ne partent pas vers la référence.
+
 ## Échap passe du premier coup (08/09/2026)
 
 Joel : « quand je veux fermer avec échap, je dois souvent appuyer plusieurs
