@@ -82,6 +82,7 @@ moteur retient.
 | `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
+| `J` / `K` | | **Déplacer** la ligne surlignée d'un cran vers le bas / le haut, tout de suite — seul ce qui est à venir bouge, le nom de branche voyage avec son morceau, la touche contraire annule (Joel, 08/09/2026) | file | ✅ |
 | `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
 | `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué | file | ✅ |
 

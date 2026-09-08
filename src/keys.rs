@@ -60,6 +60,10 @@ pub enum Cmd {
     /// n'est rien : il attend son second (Joel, 06/09/2026).
     Top,
     Bottom,
+    /// `J` / `K` — déplacer la ligne surlignée d'un cran dans la file, tout
+    /// de suite (Joel, 08/09/2026). La touche contraire annule.
+    MoveDown,
+    MoveUp,
     PlayPause,
     /// Space, the leader: open the key helper. Carries the namespace that
     /// was half-typed, so `f` then space lists only the branch keys — and
@@ -208,6 +212,8 @@ pub fn parse(buf: &str) -> Parse {
         ['g'] => Parse::Pending,
         ['g', 'g'] => Parse::Done(Cmd::Top),
         ['G'] => Parse::Done(Cmd::Bottom),
+        ['J'] => Parse::Done(Cmd::MoveDown),
+        ['K'] => Parse::Done(Cmd::MoveUp),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
         ['?'] => Parse::Done(Cmd::Why),
@@ -563,6 +569,8 @@ mod tests {
         assert_eq!(parse("s").done(), Some(Cmd::Sort));
         assert_eq!(parse("gg").done(), Some(Cmd::Top));
         assert_eq!(parse("G").done(), Some(Cmd::Bottom));
+        assert_eq!(parse("J").done(), Some(Cmd::MoveDown));
+        assert_eq!(parse("K").done(), Some(Cmd::MoveUp));
         assert!(matches!(parse("g"), Parse::Pending));
         assert_eq!(parse("l").done(), Some(Cmd::Next));
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));

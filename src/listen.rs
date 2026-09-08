@@ -1049,6 +1049,29 @@ impl Live<'_> {
 
     /// `x` — retirer de la file le morceau sous la sélection. Il reste
     /// proposable : ce n'est pas un ban, c'est un « pas dans cette soirée ».
+    /// `J` / `K` — la ligne surlignée descend ou monte d'un cran dans la
+    /// file. Seul ce qui est à venir bouge : le passé est une histoire, le
+    /// morceau en cours est cloué. Le nom de branche voyage avec son
+    /// morceau. Ça se voit dans la numérotation, ça ne se dit pas.
+    fn move_selected(&mut self, step: isize) {
+        let Some(index) = self.selection else {
+            say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
+            return;
+        };
+        let ahead = self.past.len() + usize::from(self.current.is_some());
+        if index < ahead {
+            say!(self, "(on ne déplace que ce qui est à suivre)");
+            return;
+        }
+        let from = index - ahead;
+        let to = from as isize + step;
+        if to < 0 || to as usize >= self.queue.len() {
+            return;
+        }
+        self.queue.swap(from, to as usize);
+        self.selection = Some(ahead + to as usize);
+    }
+
     fn drop_selected(&mut self) {
         let Some(index) = self.selection else {
             say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
@@ -1151,6 +1174,8 @@ impl Live<'_> {
                 self.overlay = None;
             }
             Cmd::Track('x') => self.drop_selected(),
+            Cmd::MoveDown => self.move_selected(1),
+            Cmd::MoveUp => self.move_selected(-1),
             Cmd::ComfortMode => {
                 self.comfort_before = Some(self.comfort);
                 say!(self, "zone de confort — ↑↓ pour régler, entrée valide, échap annule");
@@ -2474,6 +2499,7 @@ impl Live<'_> {
                 ("a", "l'artiste \u{2014} tape a pour ses touches", true),
                 ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
                 ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
+                ("J K", "d\u{e9}placer la ligne surlign\u{e9}e d'un cran", true),
                 ("p", "pause / lecture", true),
                 ("/texte", "filtrer une liste \u{2014} la collection, la discographie", true),
                 (":search", "chercher \u{2014} la modale : catalogue puis Spotify, entr\u{e9}e prend", true),

@@ -309,6 +309,17 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `J` / `K` déplacent un morceau de la liste (08/09/2026)
+
+Joel : « comment sélectionner un morceau de la liste de lecture et le
+déplacer ? » Trois voies proposées — `J`/`K` d'un cran tout de suite, `tg`
+saisir-poser aux flèches, `tm<n>` en position n — et la première retenue :
+un cran couvre l'usage réel, remonter un morceau qu'on veut entendre plus
+tôt, sans mode ni validation, la touche contraire annule. Seul ce qui est à
+venir bouge ; le nom de branche voyage avec son morceau ; le déplacement se
+voit dans la numérotation et ne se dit pas. `tg` viendra si les longs
+déplacements se révèlent fréquents.
+
 ## La modale de recherche, et `ti` (08/09/2026)
 
 Joel : « :search se lance sans argument, une modale s'ouvre, avec une ligne
