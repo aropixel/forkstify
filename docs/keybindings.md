@@ -77,14 +77,18 @@ moteur retient.
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
-| `tl` | track **like** | Aimer le morceau | mesure | ✅ |
-| `ts` | track **skip** | « Pas celui-là, pas maintenant » — note et passe | mesure | ✅ |
+| `tl` | track **like** | **Plus souvent** — j'aime ce morceau. Le seul geste du goût : un aimé prime sur les tops dans le tirage (×10 au cocon, ×2 grand ouvert), et efface les « moins souvent » | mesure | ✅ |
+| `ts` | track **skip** | **Moins souvent** — il ne m'intéresse pas : note, retire l'aimé, et passe | mesure | ✅ |
 | `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
-| `tt` | track **top** | Promouvoir en top | édition | ✅ |
-| `tT` | track **untop** | Retirer des tops | édition | ✅ |
 | `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
+
+**Plus de `tt` / `tT` en écoute** (Joel, 08/09/2026,
+[0018](decisions/0018-un-seul-geste-pour-le-gout.md)) : les tops ne sont que
+les portes d'entrée d'un fork vierge, et se corrigent dans la discographie
+(`ad`) ou à la main dans la fiche. À l'écoute, un seul geste simple dit
+« je veux entendre ce morceau plus souvent », et son contraire.
 
 ## `a` — l'artiste en cours
 

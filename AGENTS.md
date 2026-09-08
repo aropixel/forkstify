@@ -69,6 +69,10 @@ Le détail est dans `docs/decisions/`. En résumé :
   `t` le morceau, `a` l'artiste ; la cible se préfixe, le compte suit le
   namespace, la table fait foi dans `docs/keybindings.md`
   ([0015](docs/decisions/0015-grammaire-clavier-namespaces.md)).
+- **Un seul geste pour le goût** : `tl` « plus souvent », `ts` « moins
+  souvent » ; les aimés priment sur les tops (×10 au cocon, ×2 ouvert), les
+  tops ne sont que les portes d'entrée d'un fork vierge, plus de `tt` à
+  l'écoute ([0018](docs/decisions/0018-un-seul-geste-pour-le-gout.md)).
 - **L'appris vit dans `learned/`** (un fichier par artiste, compteurs
   décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)),
   **et se synchronise tout seul** : pull au démarrage, commit toutes les dix

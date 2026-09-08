@@ -120,7 +120,9 @@ pub enum Parse {
     Unknown,
 }
 
-const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
+// no `tt`/`tT` here: the tops are corrected in the discography (`ad`),
+// the listening keyboard keeps one gesture for taste (0018)
+const TRACK_KEYS: [char; 6] = ['l', 's', 'b', 'm', 'd', 'x'];
 const ARTIST_KEYS: [char; 6] = ['l', 's', 'b', 'e', 'L', 'd'];
 /// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
 /// une ligne de liste : les deux éditions et les deux mesures.
@@ -500,6 +502,7 @@ mod tests {
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));
         assert!(matches!(parse("tz"), Parse::Unknown));
+        assert!(matches!(parse("tt"), Parse::Unknown), "0018 : pas d'édition des tops en écoute");
         assert!(matches!(parse("e"), Parse::Pending));
         assert!(matches!(parse("e0"), Parse::Unknown));
     }

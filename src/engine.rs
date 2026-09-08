@@ -363,7 +363,12 @@ impl Comfort {
 /// are heading towards matches it, and then it jumps ahead. None of this is
 /// a rule: it is what the weighted draw is given to chew on.
 const W_TOP: f32 = 1.0;
-const W_LIKED: f32 = 0.8;
+/// A liked track outweighs a top — the like is the listener's one gesture
+/// for « more of this », the tops are only the entry points of a blank
+/// fork (0018). How much it outweighs follows the dial: ×10 in the cocon,
+/// ×2 wide open, where the unknown is what we are after.
+const LIKE_COCON: f32 = 10.0;
+const LIKE_OPEN: f32 = 2.0;
 const W_DOOR: f32 = 0.4;
 const DOOR_BONUS: f32 = 2.5;
 /// The tail's own weight, before the comfort dial scales it. Low per track,
@@ -377,6 +382,11 @@ const W_TAIL: f32 = 0.25;
 /// `towards` (the direction the branch is heading) meets its tags (0011).
 /// The long tail of the discography — the fourth source — needs an API
 /// cache that does not exist yet.
+/// The weight of a liked track, by the dial (0018).
+fn liked_weight(comfort: Comfort) -> f32 {
+    W_TOP * (LIKE_OPEN + (LIKE_COCON - LIKE_OPEN) * (1.0 - comfort.openness()))
+}
+
 fn reservoir(
     card: &Card,
     slug: &str,
@@ -390,9 +400,16 @@ fn reservoir(
     for title in &card.tops {
         pool.push((title.clone(), W_TOP, Source::Top));
     }
+    // what the listener likes comes first, top or not: a liked top takes
+    // the like's weight and wears its mark (0018)
+    let liked_weight = liked_weight(comfort);
     for title in learned.liked_tracks(slug) {
-        if !pool.iter().any(|(t, ..)| t == title) {
-            pool.push((title.clone(), W_LIKED, Source::Liked));
+        match pool.iter_mut().find(|(t, ..)| t == title) {
+            Some(entry) => {
+                entry.1 = liked_weight;
+                entry.2 = Source::Liked;
+            }
+            None => pool.push((title.clone(), liked_weight, Source::Liked)),
         }
     }
     for door in &card.doors {
@@ -798,9 +815,27 @@ mod tests {
         // les deux tops, plus le titre aimé qui n'en est pas un
         assert_eq!(pool.len(), 3, "{pool:?}");
         assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP);
-        assert_eq!(weight_of(&pool, "Killing an Arab"), W_LIKED);
+        assert_eq!(weight_of(&pool, "Killing an Arab"), liked_weight(Comfort::new(0)));
         let liked = pool.iter().find(|(t, ..)| t == "Killing an Arab").unwrap();
         assert_eq!(liked.2, Source::Liked);
+    }
+
+    /// 0018 : aimer est le seul geste du goût, et il prime sur les tops —
+    /// un top aimé prend le poids de l'aimé et sa marque, et au cocon un
+    /// aimé pèse dix tops.
+    #[test]
+    fn l_aime_prime_sur_le_top() {
+        let card = the_cure();
+        let mut learned = Learned::blank();
+        learned.like_track("the-cure", "A Forest");
+        let cocon = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(5), &HashSet::new(), &[]);
+        let forest = cocon.iter().find(|(t, ..)| t == "A Forest").unwrap();
+        assert_eq!(forest.2, Source::Liked, "un top aimé porte ♥");
+        assert!((forest.1 - 10.0 * W_TOP).abs() < 1e-6, "{}", forest.1);
+        assert_eq!(weight_of(&cocon, "Boys Don't Cry"), W_TOP);
+        // grand ouvert, l'aimé pèse encore deux tops : jamais moins
+        let ouvert = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
+        assert!((weight_of(&ouvert, "A Forest") - 2.0 * W_TOP).abs() < 1e-6);
     }
 
     /// 0011 : une door est un critère additionnel, jamais principal — son

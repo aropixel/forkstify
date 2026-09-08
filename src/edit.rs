@@ -95,36 +95,6 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("fiche non écrite ({e})"))
 }
 
-/// `tt` — promouvoir un morceau en top.
-pub fn add_top(dir: &Path, slug: &str, name: &str, title: &str) -> Result<Edit, String> {
-    let path = card_path(dir, slug);
-    let text = read(&path)?;
-    if let Some((from, to)) = array_span(&text, "tops") {
-        if text[from..to].contains(&quoted(title)) {
-            return Err(format!("« {title} » est déjà un top"));
-        }
-    }
-    let updated = insert_into_array(&text, "tops", &format!("  {},", quoted(title)));
-    write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — top : + {title}"), body: None, path })
-}
-
-/// `tT` — retirer un morceau des tops.
-pub fn remove_top(dir: &Path, slug: &str, name: &str, title: &str) -> Result<Edit, String> {
-    let path = card_path(dir, slug);
-    let text = read(&path)?;
-    let needle = quoted(title);
-    let kept: Vec<&str> = text
-        .lines()
-        .filter(|line| !(line.trim_start().starts_with(&needle) && line.trim_end().ends_with(',')))
-        .collect();
-    if kept.len() == text.lines().count() {
-        return Err(format!("« {title} » n'est pas dans les tops"));
-    }
-    write(&path, &(kept.join("\n") + "\n"))?;
-    Ok(Edit { summary: format!("{name} — top : − {title}"), body: None, path })
-}
-
 /// `td` — faire d'un morceau une **door** vers une direction ([0011] : `to`
 /// pointe vers des tags, jamais vers un artiste).
 pub fn add_door(

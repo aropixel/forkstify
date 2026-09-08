@@ -306,6 +306,35 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Un seul geste pour le goût (08/09/2026)
+
+Joel, après une journée d'écoute : « j'avais du mal à savoir s'il valait
+mieux que je like ou que je mette en top : pour moi c'était la même
+chose. » Puis : « je ne mettrais même pas de raccourci tt. On laisse la
+possibilité de modifier les tops sur son fork, mais on ne laisse qu'un seul
+geste simple pour dire je veux voir ce morceau plus souvent. En
+contrepartie, il faut aussi pouvoir dire ce morceau ne m'intéresse pas, et
+les likes doivent être entièrement prioritaires sur les tops, qui ne
+deviennent plus que des portes d'entrée sur un fork vierge. »
+
+Décision [0018](decisions/0018-un-seul-geste-pour-le-gout.md), câblée :
+
+- **`tl` plus souvent, `ts` moins souvent**, et l'un défait l'autre (aimer
+  remet les sauts à zéro, sauter retire l'aimé). `tb` reste le plus jamais.
+- **Un aimé prime sur les tops** dans le réservoir : ×10 au cocon, ×2 grand
+  ouvert, le curseur entre les deux (`liked_weight`). Un top aimé prend ce
+  poids et porte `♥`. Avant, un aimé pesait 0,8 et un top aimé restait un
+  top ordinaire — c'est ce qui rendait `tl` inaudible.
+- **Plus de `tt` / `tT` à l'écoute** : la grammaire ne les connaît plus,
+  l'aide du niveau `t` dit « les tops se corrigent dans la discographie »
+  (`ad`, qui écrit par `edit::set_tops`). `add_top` / `remove_top`, qui
+  ne servaient qu'à `tt` / `tT`, sont retirés.
+
+Trois tests (réservoir, appris, grammaire). Le sujet du dépôt de référence
+contre le fork personnel (une organisation GitHub pour l'amont, ton clone
+devenant ton fork) reste à faire de ta main ; l'application n'a besoin de
+rien pour ça, sauf plus tard un `:upstream`.
+
 ## Compiler soi-même, et compter l'usage (08/09/2026)
 
 Deux wrappers dans `bin/` — la convention de la machine, mise les met dans

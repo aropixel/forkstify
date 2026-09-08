@@ -294,14 +294,21 @@ impl Learned {
         self.save(slug);
     }
 
+    /// « Plus souvent » — the one gesture of taste (0018). It also forgives
+    /// the skips: the opposite gesture cancels the previous one.
     pub fn like_track(&mut self, slug: &str, title: &str) {
-        self.entry(slug).tops.entry(title.to_string()).or_default().liked = true;
+        let top = self.entry(slug).tops.entry(title.to_string()).or_default();
+        top.liked = true;
+        top.skipped = 0;
         self.save(slug);
     }
 
+    /// « Moins souvent » — this one does not interest me. Each skip pushes
+    /// the track further back, and takes the like away.
     pub fn skip_track(&mut self, slug: &str, title: &str) {
         let top = self.entry(slug).tops.entry(title.to_string()).or_default();
         top.skipped += 1;
+        top.liked = false;
         self.save(slug);
     }
 
@@ -522,6 +529,26 @@ fn from_iso(text: &str) -> Option<i64> {
     let doy = (153 * mp + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     Some(era * 146_097 + doe - 719_468)
+}
+
+#[cfg(test)]
+mod taste_tests {
+    use super::*;
+
+    /// 0018 : aimer et passer sont les deux gestes du goût, et l'un défait
+    /// l'autre.
+    #[test]
+    fn le_geste_contraire_annule_le_precedent() {
+        let mut learned = Learned::blank();
+        learned.skip_track("the-cure", "A Forest");
+        learned.skip_track("the-cure", "A Forest");
+        assert_eq!(learned.skipped("the-cure", "A Forest"), 2);
+        learned.like_track("the-cure", "A Forest");
+        assert_eq!(learned.skipped("the-cure", "A Forest"), 0);
+        assert_eq!(learned.liked_tracks("the-cure"), vec!["A Forest"]);
+        learned.skip_track("the-cure", "A Forest");
+        assert!(learned.liked_tracks("the-cure").is_empty());
+    }
 }
 
 #[cfg(test)]

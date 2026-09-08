@@ -1357,11 +1357,11 @@ impl Live<'_> {
         match key {
             'l' => {
                 self.learned.like_track(&stop.slug, &stop.title);
-                say!(self, "\n♥ {} — aimé", stop.title);
+                say!(self, "\n♥ {} — plus souvent", stop.title);
             }
             's' => {
                 self.learned.skip_track(&stop.slug, &stop.title);
-                say!(self, "\n↷ {} — passé, noté", stop.title);
+                say!(self, "\n↷ {} — moins souvent, passé", stop.title);
                 self.next().await;
             }
             'b' => {
@@ -1374,24 +1374,8 @@ impl Live<'_> {
                 Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
                 Err(e) => say!(self, "\n(récolte non écrite : {e})"),
             },
-            't' => {
-                let done = crate::edit::add_top(
-                    &self.catalog_dir,
-                    &stop.slug,
-                    &stop.artist,
-                    &stop.title,
-                );
-                self.report(done);
-            }
-            'T' => {
-                let done = crate::edit::remove_top(
-                    &self.catalog_dir,
-                    &stop.slug,
-                    &stop.artist,
-                    &stop.title,
-                );
-                self.report(done);
-            }
+            // pas de « tt » / « tT » : en écoute, un seul geste dit le goût ;
+            // les tops se corrigent dans la discographie, « ad » (0018)
             'd' => {
                 // 0011 : une door pointe vers des tags, la direction où l'on
                 // va — donc ceux de l'artiste suivant, sinon les siens
@@ -1824,13 +1808,12 @@ impl Live<'_> {
                 ("e!<n>", "n encores, le reste retir\u{e9}", true),
             ],
             Some('t') => &[
-                ("tl", "like \u{2014} aimer le morceau", true),
-                ("ts", "skip \u{2014} pas celui-l\u{e0}, pas maintenant", true),
+                ("tl", "like \u{2014} plus souvent : j'aime ce morceau", true),
+                ("ts", "skip \u{2014} moins souvent : il ne m'int\u{e9}resse pas (et passe)", true),
                 ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
                 ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
-                ("tt", "top \u{2014} promouvoir en top", true),
-                ("tT", "untop \u{2014} retirer des tops", true),
-                ("td", "door \u{2014} en faire une door", true),
+                ("td", "door \u{2014} en faire une door (fiche, un commit)", true),
+                ("ad", "les tops se corrigent dans la discographie", true),
             ],
             Some('a') => &[
                 ("al", "like \u{2014} cet artiste, plus souvent", true),
