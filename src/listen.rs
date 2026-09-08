@@ -1374,8 +1374,9 @@ impl Live<'_> {
                 Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
                 Err(e) => say!(self, "\n(récolte non écrite : {e})"),
             },
-            // pas de « tt » / « tT » : en écoute, un seul geste dit le goût ;
-            // les tops se corrigent dans la discographie, « ad » (0018)
+            // pas de « tt » / « tT » en écoute : un seul geste dit le goût,
+            // « tl » ; les tops se corrigent dans la discographie (0018)
+            't' | 'T' => say!(self, "(les tops se corrigent dans la discographie : « ad » — ici, « tl » dit plus souvent)"),
             'd' => {
                 // 0011 : une door pointe vers des tags, la direction où l'on
                 // va — donc ceux de l'artiste suivant, sinon les siens

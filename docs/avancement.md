@@ -325,9 +325,10 @@ Décision [0018](decisions/0018-un-seul-geste-pour-le-gout.md), câblée :
   ouvert, le curseur entre les deux (`liked_weight`). Un top aimé prend ce
   poids et porte `♥`. Avant, un aimé pesait 0,8 et un top aimé restait un
   top ordinaire — c'est ce qui rendait `tl` inaudible.
-- **Plus de `tt` / `tT` à l'écoute** : la grammaire ne les connaît plus,
-  l'aide du niveau `t` dit « les tops se corrigent dans la discographie »
-  (`ad`, qui écrit par `edit::set_tops`). `add_top` / `remove_top`, qui
+- **Plus de `tt` / `tT` à l'écoute** : la session les refuse et renvoie à
+  la discographie ; la grammaire les lit encore, parce que c'est là, dans
+  `ad`, qu'ils servent (`edit::set_tops`) — une première version les avait
+  retirés de l'analyseur et cassait la modale, corrigé dans la foulée. `add_top` / `remove_top`, qui
   ne servaient qu'à `tt` / `tT`, sont retirés.
 
 Trois tests (réservoir, appris, grammaire). Le sujet du dépôt de référence

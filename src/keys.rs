@@ -120,9 +120,9 @@ pub enum Parse {
     Unknown,
 }
 
-// no `tt`/`tT` here: the tops are corrected in the discography (`ad`),
-// the listening keyboard keeps one gesture for taste (0018)
-const TRACK_KEYS: [char; 6] = ['l', 's', 'b', 'm', 'd', 'x'];
+// `t` and `T` stay parseable for the discography screen (`ad`), where the
+// tops are corrected; the listening session itself refuses them (0018)
+const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
 const ARTIST_KEYS: [char; 6] = ['l', 's', 'b', 'e', 'L', 'd'];
 /// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
 /// une ligne de liste : les deux éditions et les deux mesures.
@@ -502,7 +502,9 @@ mod tests {
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));
         assert!(matches!(parse("tz"), Parse::Unknown));
-        assert!(matches!(parse("tt"), Parse::Unknown), "0018 : pas d'édition des tops en écoute");
+        // 0018 : « tt » se lit encore — la discographie s'en sert — mais
+        // c'est la session qui le refuse en écoute
+        assert_eq!(parse("tt").done(), Some(Cmd::Track('t')));
         assert!(matches!(parse("e"), Parse::Pending));
         assert!(matches!(parse("e0"), Parse::Unknown));
     }
