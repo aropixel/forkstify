@@ -82,7 +82,6 @@ pub struct View<'a> {
     /// l'axe — sinon il masquerait en permanence le bas de la file.
     pub panel: bool,
 
-    pub notices: &'a [String],
     /// Une note grise par morceau de l'axe (passé, courant, file), dans le
     /// même ordre : ce que l'écoute en sait (maquette 3a).
     pub notes: &'a [String],
@@ -121,7 +120,6 @@ pub struct Bar<'a> {
     pub position: (usize, usize),
     pub next: Option<&'a Stop>,
     pub ahead: usize,
-    pub notice: String,
 }
 
 /// La modale de recherche (maquette `Recherche.dc.html`, Joel 08/09/2026) :
@@ -353,11 +351,12 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     // maquette 2b : une ligne d'en-tête, le bloc de la graine, le corps qui
     // prend le reste, puis un pied de trois lignes et l'invite — le bas ne
     // bouge jamais, quoi que forkstify dise
-    let [head, seed_block, body, now, bar, next, status, prompt] = Layout::vertical([
+    // plus de ligne de statut sous « à suivre » : tout se dit en toast, et
+    // les touches suivent directement (Joel, 08/09/2026)
+    let [head, seed_block, body, now, bar, next, prompt] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(4),
         Constraint::Min(3),
-        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -531,10 +530,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
     // — le pied (maquette 2b), partagé avec l'accueil
-    let last = view.notices.iter().rev().find(|line| !line.trim().is_empty());
     render_bar(
         frame,
-        [now, bar, next, status],
+        [now, bar, next],
         &Bar {
             current: view.current,
             paused: view.paused,
@@ -543,7 +541,6 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             position: (view.past.len() + 1, tracks),
             next: view.queue.first(),
             ahead: view.queue.len(),
-            notice: last.cloned().unwrap_or_default(),
         },
     );
 
@@ -751,7 +748,7 @@ fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
 /// progression, puis ce qui suit et à combien de morceaux se trouve
 /// l'embranchement — ce que la liste ne dit plus quand elle a défilé —, et
 /// la dernière chose dite.
-fn render_bar(frame: &mut ratatui::Frame, [now, bar, next, status]: [Rect; 4], view: &Bar) {
+fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Bar) {
     let full = now.width as usize;
     let (rank, tracks) = view.position;
     let now_line = match view.current {
@@ -835,11 +832,6 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next, status]: [Rect; 4], v
         full,
     );
     frame.render_widget(Paragraph::new(next_line), next);
-
-    // — la dernière chose dite, sur une ligne qui ne grandit pas : ce qui
-    // n'a pas d'effet visible dans la liste (un ban, une édition, une
-    // erreur), mis en forme par nature comme le composant Notice
-    frame.render_widget(Paragraph::new(notice_line(&view.notice)), status);
 }
 
 /// Coupe un texte en lignes d'au plus `width` caractères, sur les espaces.
@@ -1049,7 +1041,7 @@ impl Tui {
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
     // le pied de lecture prend ses quatre lignes quand une session joue
-    let foot = if view.bar.is_some() { 4 } else { 0 };
+    let foot = if view.bar.is_some() { 3 } else { 0 };
     let [head, whole, foot_area, prompt] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(3),
@@ -1058,14 +1050,13 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     ])
     .areas(area);
     if let Some(bar) = &view.bar {
-        let [now, progress, next, status] = Layout::vertical([
-            Constraint::Length(1),
+        let [now, progress, next] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
         ])
         .areas(foot_area);
-        render_bar(frame, [now, progress, next, status], bar);
+        render_bar(frame, [now, progress, next], bar);
     }
 
     // à gauche ce que forkstify propose, à droite ce qu'il possède. Le
@@ -1479,7 +1470,6 @@ mod tests {
             queue,
             branches,
             panel: true,
-            notices: &[],
             notes: &notes,
             selection: None,
             overlay: None,
@@ -1573,10 +1563,10 @@ mod tests {
         assert!(text.contains("████░ 0.78"), "{text}");
         // the rule runs the whole body height (below the head and the seed
         // block, above the four-line foot), the hints sit at its foot
-        let body_rows = 5..(30 - 5);
+        let body_rows = 5..(30 - 4);
         assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
-        assert!(rows[24].contains("fn1 sans attendre la fin"), "{text}");
-        assert!(rows[23].contains("1-3 prendre"), "{text}");
+        assert!(rows[25].contains("fn1 sans attendre la fin"), "{text}");
+        assert!(rows[24].contains("1-3 prendre"), "{text}");
     }
 
     #[test]
@@ -1635,14 +1625,14 @@ mod tests {
         assert!(rows[3].starts_with("The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s"), "{}", rows[3]);
         assert!(rows[4].starts_with("1 embranchement depuis — 2 artistes traversés"), "{}", rows[4]);
         // le pied : ce qui sonne et sa provenance, ce qui suit et l'embranchement
-        let now = &rows[rows.len() - 5];
+        let now = &rows[rows.len() - 4];
         assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
         assert!(now.trim_end().ends_with("♪ top │ 2:34 / 3:47 -1:13"), "{now}");
         // la barre : 154 s sur 227, soit 108 cellules pleines sur 160
-        let bar = &rows[rows.len() - 4];
+        let bar = &rows[rows.len() - 3];
         assert_eq!(bar.chars().filter(|c| *c == '█').count(), 108, "{bar}");
         assert_eq!(bar.chars().filter(|c| *c == '░').count(), 52, "{bar}");
-        let next = &rows[rows.len() - 3];
+        let next = &rows[rows.len() - 2];
         assert!(next.starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{next}");
         assert!(next.trim_end().ends_with("→ embranchement dans 3 morceaux"), "{next}");
     }
@@ -1687,7 +1677,6 @@ mod tests {
                 position: (2, 5),
                 next: Some(&next),
                 ahead: 3,
-                notice: "✓ appris poussé".to_string(),
             }),
         };
         let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
@@ -1695,11 +1684,11 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let rows: Vec<String> =
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
-        assert!(rows[15].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5)"), "{}", rows[15]);
-        assert_eq!(rows[16].chars().filter(|c| *c == '█').count(), 25, "{}", rows[16]);
-        assert!(rows[17].starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{}", rows[17]);
-        assert!(rows[17].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[17]);
-        assert!(rows[18].starts_with("✓ appris poussé"), "{}", rows[18]);
+        assert!(rows[16].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5)"), "{}", rows[16]);
+        assert_eq!(rows[17].chars().filter(|c| *c == '█').count(), 25, "{}", rows[17]);
+        assert!(rows[18].starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{}", rows[18]);
+        assert!(rows[18].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[18]);
+        // et les touches suivent « à suivre » sans rien entre les deux
         assert!(rows[19].starts_with("[1-3 pour démarrer · r retour à l'écoute"), "{}", rows[19]);
     }
 

@@ -309,6 +309,15 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Plus de ligne de statut : tout en toast (08/09/2026)
+
+Joel : « je ne veux plus aucune notification en dessous de à suivre, elles
+doivent toutes apparaître en toasts ; à suivre doit toujours être suivi des
+indications de raccourcis. » La ligne « dernière chose dite » disparaît du
+pied, en session comme sous l'accueil ; les touches suivent « à suivre »
+directement. Tout ce qui se dit passe en toast, parenthèses comprises (en
+gris, quatre secondes). Le journal reste en mémoire pour les blocs (`?`).
+
 ## `J` / `K` déplacent un morceau de la liste (08/09/2026)
 
 Joel : « comment sélectionner un morceau de la liste de lecture et le

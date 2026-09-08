@@ -1383,9 +1383,10 @@ impl Live<'_> {
         }
         let excess = notices.len().saturating_sub(14);
         notices.drain(..excess);
-        // ce qui n'est pas une simple parenthèse se pose aussi en toast
+        // tout ce qui se dit se pose en toast : il n'y a plus de ligne de
+        // statut sous « à suivre » (Joel, 08/09/2026)
         let first = line.trim().to_string();
-        if !first.is_empty() && !first.starts_with('(') {
+        if !first.is_empty() {
             *self.toast.borrow_mut() = Some((first, std::time::Instant::now()));
         }
     }
@@ -1437,7 +1438,6 @@ impl Live<'_> {
             // le pied se construit champ par champ : l'écran a besoin de
             // `tui` en exclusif pendant que le reste est lu
             let tracks = self.past.len() + usize::from(self.current.is_some()) + self.queue.len();
-            let notices = self.notices.borrow();
             let bar = live.then(|| crate::tui::Bar {
                 current: self.current.as_ref(),
                 paused: self.paused,
@@ -1446,12 +1446,6 @@ impl Live<'_> {
                 position: (self.past.len() + 1, tracks),
                 next: self.queue.front(),
                 ahead: self.queue.len(),
-                notice: notices
-                    .iter()
-                    .rev()
-                    .find(|line| !line.trim().is_empty())
-                    .cloned()
-                    .unwrap_or_default(),
             });
             self.home.draw(
                 self.catalog,
@@ -1513,7 +1507,6 @@ impl Live<'_> {
             Some(days) => format!("dernière écoute {}", crate::home::age(Some(days))),
             None => "jamais écouté".to_string(),
         };
-        let notices = self.notices.borrow();
         let view = View {
             path,
             seed: &seed,
@@ -1529,7 +1522,6 @@ impl Live<'_> {
             queue: self.queue.as_slices().0,
             branches: &self.branches,
             panel: true,
-            notices: &notices,
             notes: &notes,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
