@@ -25,6 +25,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 | `docs/conception/` | Notes de travail par sujet, vivantes, réécrites au fil des échanges. Chacune distingue **décidé**, **orientation** (proposé, non contredit) et **à trancher**. |
 | `docs/avancement.md` | L'état courant : fait, en attente, prochaines étapes. Point d'entrée d'une session. |
 | `docs/keybindings.md` | La table des touches : câblé, décidé, proposé, et les collisions. Référence unique. |
+| `bin/build`, `bin/test` | Compiler et tester dans le conteneur `forkstify-build` (mise met `bin/` dans le `PATH` : `build`, `test`). Le binaire sort dans `target/release/forkstify` et tourne sur l'hôte. |
 
 Le reste vient avec les décisions.
 

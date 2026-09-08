@@ -155,3 +155,33 @@ l'argument de ligne de commande le surchargeant.
    `generated = true` jusqu'à relecture.
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
+
+## Mesurer l'usage à travers les forks
+
+Depuis [0017](../decisions/0017-synchronisation-de-l-appris.md), chaque
+commit que l'application produit — appris, édition, import — porte un
+trailer git `Forkstify: <kind> <version>`. La recherche de commits de GitHub
+indexe les messages des dépôts publics, ce qui permet de compter ces commits
+à travers tous les forks sans rien demander à personne :
+
+```sh
+# tous les commits produits par forkstify, dépôts publics confondus
+gh api search/commits -f q='"Forkstify:"' --jq .total_count
+
+# par nature : l'appris, les éditions de fiches, les imports
+gh api search/commits -f q='"Forkstify: learned"' --jq .total_count
+gh api search/commits -f q='"Forkstify: edit"'    --jq .total_count
+gh api search/commits -f q='"Forkstify: import"'  --jq .total_count
+
+# les dépôts concernés, un par ligne
+gh api search/commits -f q='"Forkstify:"' --paginate \
+  --jq '.items[].repository.full_name' | sort | uniq -c | sort -rn
+
+# et le nombre de forks du dépôt de référence, qui compte les utilisateurs
+gh api repos/kbyjoel/forkstify-catalog --jq .forks_count
+```
+
+Limites : seules les **branches par défaut** des dépôts **publics** sont
+indexées ; un fork privé n'est pas compté ; le trailer dit que forkstify a
+écrit le commit, pas qui. Tant que le dépôt de référence est privé, ces
+commandes ne comptent que ce qu'on y pousse soi-même.

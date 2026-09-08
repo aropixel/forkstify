@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Compile forkstify dans son conteneur (le PHP/Rust de la machine ne sert
+# pas aux projets : tout est dockerisé). L'image se construit au premier
+# appel ; le registre cargo vit dans le volume forkstify-cargo.
+#   bin/build          → cargo build --release
+#   bin/build <args…>  → cargo <args…>   (ex. bin/build test --release)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+docker image inspect forkstify-build >/dev/null 2>&1 || docker build -q -t forkstify-build .
+if [ $# -eq 0 ]; then set -- build --release; fi
+exec docker run --rm -t -v "$PWD":/app -w /app -v forkstify-cargo:/usr/local/cargo/registry forkstify-build cargo "$@"

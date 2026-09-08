@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **07/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **08/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -305,6 +305,20 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## Compiler soi-même, et compter l'usage (08/09/2026)
+
+Deux wrappers dans `bin/` — la convention de la machine, mise les met dans
+le `PATH` dès qu'on entre dans le dossier : **`build`** (cargo build
+--release dans le conteneur `forkstify-build`, construit au premier appel,
+registre cargo dans le volume `forkstify-cargo`) et **`test`**. Les trois
+commits rapatriés de l'autre poste (l'exploration d'un artiste, « ad »)
+compilent sans avertissement, 41 tests verts.
+
+Les commandes qui comptent les commits produits par forkstify à travers les
+forks publics (trailer `Forkstify:`) sont notées dans
+[`premiere-installation.md`](conception/premiere-installation.md), section
+« Mesurer l'usage à travers les forks ».
 
 ## L'appris se synchronise tout seul (07/09/2026)
 
