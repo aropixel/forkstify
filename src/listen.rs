@@ -149,6 +149,7 @@ async fn async_run(
         screen: Screen::Home,
         home: Home::default(),
         status,
+        toast: std::cell::RefCell::new(None),
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -190,7 +191,7 @@ async fn async_run(
                 None => break,
             },
             _ = tick.tick() => {
-                if live.progress.as_ref().is_some_and(|p| p.running) {
+                if live.progress.as_ref().is_some_and(|p| p.running) || live.toast_active() {
                     live.paint();
                 }
             }
@@ -341,7 +342,13 @@ struct Live<'a> {
     home: Home,
     /// Les autorisations et la synchronisation, pour l'en-tête de l'accueil.
     status: Vec<(String, bool)>,
+    /// La dernière chose dite qui mérite un toast, et quand : le cartouche
+    /// coloré en bas à droite, quatre secondes (Joel, 08/09/2026).
+    toast: std::cell::RefCell<Option<(String, std::time::Instant)>>,
 }
+
+/// Combien de temps un toast reste — puis il s'efface de lui-même au tic.
+const TOAST_SECONDS: u64 = 4;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Screen {
@@ -1371,6 +1378,50 @@ impl Live<'_> {
         }
         let excess = notices.len().saturating_sub(14);
         notices.drain(..excess);
+        // ce qui n'est pas une simple parenthèse se pose aussi en toast
+        let first = line.trim().to_string();
+        if !first.is_empty() && !first.starts_with('(') {
+            *self.toast.borrow_mut() = Some((first, std::time::Instant::now()));
+        }
+    }
+
+    /// Un toast est à l'écran, ou vient de s'effacer : il faut redessiner.
+    fn toast_active(&self) -> bool {
+        self.toast
+            .borrow()
+            .as_ref()
+            .is_some_and(|(_, at)| at.elapsed().as_secs_f32() < TOAST_SECONDS as f32 + 1.5)
+    }
+
+    /// Le toast du moment : ce qui charge, collant tant que ça charge ;
+    /// sinon la dernière chose dite, quatre secondes.
+    fn toast(&self) -> Option<crate::tui::Toast> {
+        if self.loading {
+            if let Some(stop) = &self.current {
+                return Some(crate::tui::Toast {
+                    text: format!("chargement — {} — {}", stop.title, stop.artist),
+                    tone: crate::tui::LOADING,
+                    sticky: true,
+                });
+            }
+        }
+        if let Some(slug) = self.harvesting.iter().next() {
+            let name = self.catalog.cards.get(slug).map(|c| c.name.as_str()).unwrap_or(slug);
+            return Some(crate::tui::Toast {
+                text: format!("discographie de {name} — en cours de chargement"),
+                tone: crate::tui::LOADING,
+                sticky: true,
+            });
+        }
+        self.toast
+            .borrow()
+            .as_ref()
+            .filter(|(_, at)| at.elapsed().as_secs() < TOAST_SECONDS)
+            .map(|(text, _)| crate::tui::Toast {
+                text: text.clone(),
+                tone: crate::tui::tone_of(text),
+                sticky: false,
+            })
     }
 
     /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
@@ -1483,6 +1534,7 @@ impl Live<'_> {
             comfort: self.comfort.value(),
             comfort_word: comfort_word(self.comfort.value()),
             progress: self.progress.as_ref().map(Progress::now),
+            toast: self.toast(),
             explore: self.explore.as_ref(),
             prompt,
         };
@@ -1855,8 +1907,6 @@ impl Live<'_> {
                     Cmd::AlbumTop => screen.top_album(ALBUM_TOPS),
                     Cmd::Undo => screen.undo(),
                     Cmd::Search(query) => screen.search(&query),
-                    Cmd::Track('t') => screen.top(),
-                    Cmd::Track('T') => screen.untop(),
                     Cmd::Unknown(seq) => screen.notice = format!("({seq} ne fait rien ici)"),
                     _ => {}
                 }

@@ -309,6 +309,27 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Plus de `tt` dans la modale, et des toasts (08/09/2026)
+
+Joel : « les raccourcis tt et tT sont toujours présents dans la modale de
+discographie, je veux les retirer. Les messages de chargement doivent être
+plus visibles — des toasts en bas d'une des deux colonnes, avec de la
+couleur ? »
+
+- **`tt` / `tT` quittent la modale** (grammaire `parse_modal`, touches,
+  légende, `Explore::top` / `untop` et leurs tests). Reste `A`, qui promeut
+  d'un coup les titres les plus écoutés d'un album ; un titre seul s'aime
+  (`tl`), il ne se promeut plus. Le test d'écriture passe par `A`.
+- **Les toasts** : un cartouche cadré de la couleur du message, texte en
+  gras, en bas à droite du corps, au-dessus des touches de la colonne des
+  branches — par-dessus la modale aussi. **Collant tant que ça charge**
+  (« ⏳ en cours — chargement — titre — artiste », « discographie de X — en
+  cours de chargement », en cyan, la couleur de l'attente réseau), sinon
+  **quatre secondes** pour la dernière chose dite (`✓` vert, `⏹` rouge, `↻`
+  jaune, `→` magenta — `tui::tone_of`, la même lecture que la ligne du
+  pied). Les parenthèses restent sur la ligne du pied, sans toast. Le tic
+  d'une seconde l'efface.
+
 ## « Précédent » recommence d'abord (08/09/2026)
 
 Joel : « quand je fais flèche pour morceau précédent et qu'un morceau est en

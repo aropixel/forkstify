@@ -204,8 +204,7 @@ ouvert, pour que le doute se lève à l'écran.
 | `j` / `k`, ↑ / ↓ | Descendre, monter — l'album sous le curseur s'ouvre seul | ✅ |
 | `h` / `l` | Tout plier (douze lignes), rouvrir l'album du curseur | ✅ |
 | `gg` / `G` | Les deux bouts de la liste | ✅ |
-| `tt` / `tT` | Promouvoir / retirer des tops **la ligne** — mis **en attente** | ✅ |
-| `A` | **Album** : promouvoir les quatre titres les plus écoutés de l'album, hors tops | ✅ |
+| `A` | **Album** : promouvoir les quatre titres les plus écoutés de l'album, hors tops — mis **en attente**. Plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : un titre seul s'aime, il ne se promeut pas | ✅ |
 | `tl` / `tb` | Aimer / bannir la ligne — ce sont des **mesures**, écrites tout de suite | ✅ |
 | `e` | Mettre le morceau **à la file**, sans fermer | ✅ |
 | `s` | L'ordre : chronologique ⇄ mes écoutes d'abord | ✅ |

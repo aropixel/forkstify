@@ -562,56 +562,6 @@ impl Explore {
         self.pending.iter().position(|p| normalize(&p.title) == key)
     }
 
-    /// `tt` — promouvoir en top le morceau sous le curseur.
-    pub fn top(&mut self) {
-        let Some(track) = self.track() else {
-            self.notice = "(place-toi sur un morceau — A promeut l'album entier)".into();
-            return;
-        };
-        let (title, is_top, why) = (track.title.clone(), track.is_top(), Self::why(track));
-        if let Some(index) = self.pending_on(&title) {
-            if self.pending[index].add {
-                self.notice = format!("(« {title} » est déjà en attente)");
-            } else {
-                self.pending.remove(index);
-                self.notice = format!("↺ retrait annulé — {title}");
-            }
-            return;
-        }
-        if is_top {
-            self.notice = format!("(« {title} » est déjà un top)");
-            return;
-        }
-        // le geste se voit dans la fournée, en bas : il ne se dit pas
-        self.pending.push(Pending { add: true, title: clean_title(&title), why });
-        self.notice.clear();
-    }
-
-    /// `tT` — retirer des tops le morceau sous le curseur.
-    pub fn untop(&mut self) {
-        let Some(track) = self.track() else {
-            self.notice = "(place-toi sur un morceau)".into();
-            return;
-        };
-        let (title, card_top, why) =
-            (track.title.clone(), track.card_top.clone(), Self::why(track));
-        if let Some(index) = self.pending_on(&title) {
-            if self.pending[index].add {
-                self.pending.remove(index);
-                self.notice = format!("↺ promotion annulée — {title}");
-            } else {
-                self.notice = format!("(« {title} » est déjà en attente)");
-            }
-            return;
-        }
-        let Some(card_top) = card_top else {
-            self.notice = format!("(« {title} » n'est pas dans les tops)");
-            return;
-        };
-        self.pending.push(Pending { add: false, title: card_top, why });
-        self.notice.clear();
-    }
-
     /// `A` — promouvoir l'album : ses titres les plus écoutés qui ne sont pas
     /// encore des tops. C'est le grain du problème (« je n'aime que cet
     /// album »), et le geste qui n'existe nulle part ailleurs.
@@ -792,56 +742,22 @@ mod tests {
         let last = screen.albums.last().expect("un album");
         assert!(last.orphan);
         assert_eq!(last.tracks[0].title, "Song to Bobby");
-        // et il reste retirable
-        let mut screen = screen;
-        screen.cursor = Cursor { album: screen.albums.len() - 1, track: Some(0) };
-        screen.untop();
-        assert_eq!(screen.removes(), vec!["Song to Bobby".to_string()]);
-    }
-
-    #[test]
-    fn promouvoir_ecrit_un_titre_propre_et_s_annule() {
-        let mut screen = screen();
-        // Metal Heart, deuxième piste de Moon Pix
-        screen.cursor = Cursor { album: 0, track: Some(1) };
-        screen.top();
-        assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);
-        screen.undo();
-        assert!(screen.pending.is_empty());
-    }
-
-    /// Deux gestes contraires sur le même titre s'annulent au lieu de
-    /// s'empiler — sinon la fournée écrirait puis retirerait.
-    #[test]
-    fn le_geste_contraire_annule_le_precedent() {
-        let mut screen = screen();
-        screen.cursor = Cursor { album: 0, track: Some(1) };
-        screen.top();
-        screen.untop();
-        assert!(screen.pending.is_empty(), "l'un défait l'autre");
-        // et retirer un top puis le repromouvoir revient au même
-        screen.cursor = Cursor { album: 0, track: Some(0) };
-        screen.untop();
-        assert_eq!(screen.removes().len(), 1);
-        screen.top();
-        assert!(screen.pending.is_empty());
-    }
-
-    #[test]
-    fn on_ne_promeut_pas_ce_qui_est_deja_un_top() {
-        let mut screen = screen();
-        screen.cursor = Cursor { album: 0, track: Some(0) };
-        screen.top();
-        assert!(screen.pending.is_empty());
-        assert!(screen.notice.contains("déjà un top"));
     }
 
     #[test]
     fn ce_qui_est_ecrit_devient_vrai_a_l_ecran() {
-        let mut screen = screen();
+        // « A » ne promeut que ce qui a été écouté : une écoute de Metal Heart
+        let mut learned = Learned::blank();
+        learned.played("cat-power", "Metal Heart");
+        let mut screen = Explore::open("cat-power", &card(), &tail(), &learned, Some("Metal Heart"));
+        // « A » sur Moon Pix, un seul titre : le plus écouté hors tops
         screen.cursor = Cursor { album: 0, track: Some(1) };
-        screen.top();
+        screen.top_album(1);
+        assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);
         assert_eq!(screen.commit_line(), "Cat Power — tops : +1 −0");
+        screen.undo();
+        assert!(screen.pending.is_empty(), "u défait, gratuitement");
+        screen.top_album(1);
         screen.written();
         assert!(screen.pending.is_empty());
         let moon = &screen.albums[0];

@@ -126,7 +126,9 @@ const TRACK_KEYS: [char; 8] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x'];
 const ARTIST_KEYS: [char; 6] = ['l', 's', 'b', 'e', 'L', 'd'];
 /// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
 /// une ligne de liste : les deux éditions et les deux mesures.
-const MODAL_TRACK_KEYS: [char; 4] = ['t', 'T', 'l', 'b'];
+// plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : la modale aime,
+// bannit, met à la file — et `A` promeut un album d'un coup
+const MODAL_TRACK_KEYS: [char; 2] = ['l', 'b'];
 
 /// Match the pending buffer against the grammar of 0015.
 pub fn parse(buf: &str) -> Parse {

@@ -28,6 +28,8 @@ const VECTOR: Color = Color::Cyan;
 const DOOR: Color = Color::LightRed;
 const EDIT: Color = Color::Yellow;
 const DANGER: Color = Color::Red;
+/// Ce qui charge : la couleur des vecteurs, celle de l'attente réseau.
+pub const LOADING: Color = Color::Cyan;
 const MUTED: Color = Color::Gray;
 
 /// La part de largeur donnée à la colonne de gauche — les propositions à
@@ -95,6 +97,9 @@ pub struct View<'a> {
     /// (position, durée) en millisecondes du morceau qui sonne — `None`
     /// tant que librespot n'a rien dit.
     pub progress: Option<(u32, u32)>,
+    /// Le cartouche en bas à droite : ce qui charge, ou la dernière chose
+    /// dite, en couleur (Joel, 08/09/2026).
+    pub toast: Option<Toast>,
     /// La modale de la discographie (`ad`), posée sur l'écoute : elle prend
     /// le corps de l'écran, l'en-tête et le pied restent — « la lecture n'a
     /// pas cessé » (maquette 1a).
@@ -115,6 +120,13 @@ pub struct Bar<'a> {
     pub next: Option<&'a Stop>,
     pub ahead: usize,
     pub notice: String,
+}
+
+/// Un toast : un texte, sa couleur, et s'il reste tant que ça charge.
+pub struct Toast {
+    pub text: String,
+    pub tone: Color,
+    pub sticky: bool,
 }
 
 pub struct Tui {
@@ -151,6 +163,25 @@ impl Drop for Tui {
 /// vert, ⏹ et ⊘ en rouge, ↻ ⚑ en jaune (une édition), → en magenta, une
 /// parenthèse en gris, « pas encore câblé » en italique estompé. Ce qui
 /// suit un « — » ou une parenthèse finale est le détail, estompé.
+/// La couleur d'un message, lue au glyphe qui l'ouvre — la même pour la
+/// ligne du pied et pour le toast.
+pub fn tone_of(text: &str) -> Color {
+    let text = text.trim();
+    let not_wired = text.contains("pas encore c\u{e2}bl\u{e9}");
+    let first = text.chars().next().unwrap_or(' ');
+    match first {
+        '✓' | '♥' | '▶' => PLAYING,
+        '⏹' | '⊘' => DANGER,
+        '↻' | '⚑' => EDIT,
+        '→' => BRANCH,
+        '…' | '⏳' => LOADING,
+        '(' => MUTED,
+        _ if not_wired => DIM,
+        _ if text.starts_with("échec") || text.contains("introuvable") || text.contains("illisible") => DANGER,
+        _ => Color::White,
+    }
+}
+
 fn notice_line(text: &str) -> Line<'static> {
     let text = text.trim();
     if text.is_empty() {
@@ -158,16 +189,7 @@ fn notice_line(text: &str) -> Line<'static> {
     }
     let not_wired = text.contains("pas encore c\u{e2}bl\u{e9}");
     let first = text.chars().next().unwrap_or(' ');
-    let tone = match first {
-        '✓' | '♥' | '▶' => PLAYING,
-        '⏹' | '⊘' => DANGER,
-        '↻' | '⚑' => EDIT,
-        '→' => BRANCH,
-        '(' => MUTED,
-        _ if not_wired => DIM,
-        _ if text.starts_with("échec") || text.contains("introuvable") || text.contains("illisible") => DANGER,
-        _ => Color::White,
-    };
+    let tone = tone_of(text);
     let style = if not_wired {
         Style::default().fg(DIM).add_modifier(Modifier::ITALIC)
     } else {
@@ -519,10 +541,47 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         render_explore(frame, body, screen);
     }
 
+    // — le toast, en bas à droite du corps, par-dessus la colonne ou la
+    // modale : ce qui charge, ou ce qui vient d'être dit
+    if let Some(toast) = &view.toast {
+        render_toast(frame, body, toast);
+    }
+
     // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
     if let Some((title, body)) = view.overlay {
         render_block(frame, area, title, body);
     }
+}
+
+/// Le cartouche d'un toast : un cadre de la couleur du message, le texte
+/// en gras dedans, posé en bas à droite du corps au-dessus des touches de
+/// la colonne. Collant tant que ça charge, sinon quatre secondes.
+fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
+    let width = 48.min(body.width.saturating_sub(2));
+    if width < 12 || body.height < 6 {
+        return;
+    }
+    let lines = wrap_words(&toast.text, width.saturating_sub(4) as usize);
+    let height = (lines.len() as u16 + 2).min(body.height.saturating_sub(3));
+    let rect = Rect {
+        x: body.x + body.width - width - 1,
+        y: body.y + body.height.saturating_sub(height + 3),
+        width,
+        height,
+    };
+    frame.render_widget(Clear, rect);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(toast.tone))
+        .title(Span::styled(
+            if toast.sticky { " ⏳ en cours " } else { " " },
+            Style::default().fg(toast.tone).add_modifier(Modifier::BOLD),
+        ));
+    let text: Vec<Line> = lines
+        .into_iter()
+        .map(|l| Line::from(Span::styled(format!(" {l}"), Style::default().fg(toast.tone).add_modifier(Modifier::BOLD))))
+        .collect();
+    frame.render_widget(Paragraph::new(text).block(block), rect);
 }
 
 /// Le pied de lecture (maquette 2b) : ce qui sonne et sa provenance, sa
@@ -1265,6 +1324,7 @@ mod tests {
             comfort: 3,
             comfort_word: "équilibré",
             progress: current.map(|_| (154_000, 227_000)),
+            toast: None,
             explore: None,
             prompt: "[1-2 branche]".to_string(),
         };
@@ -1300,16 +1360,19 @@ mod tests {
             track("Metal Heart", "Moon Pix", "1998", 2),
             track("Sea Of Love", "The Covers Record", "2000", 1),
         ];
+        let mut learned = crate::learned::Learned::blank();
+        learned.played("cat-power", "Metal Heart");
         let mut screen = crate::explore::Explore::open(
             "cat-power",
             &card,
             &tail,
-            &crate::learned::Learned::blank(),
+            &learned,
             Some("Metal Heart"),
         );
-        // premier album ouvert, curseur sur son deuxième morceau
+        // premier album ouvert, curseur sur son deuxième morceau ; « A »
+        // promeut le titre le plus écouté de l'album hors tops
         screen.move_by(2);
-        screen.top();
+        screen.top_album(1);
         assert_eq!(screen.pending.len(), 1);
 
         let (width, height) = (100u16, 18u16);
@@ -1682,10 +1745,6 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
     }
     foot.push(Line::from(vec![
         rule("│ "),
-        Span::styled("tt ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
-        Span::styled("top  ", Style::default().fg(MUTED)),
-        Span::styled("tT ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
-        Span::styled("hors top  ", Style::default().fg(MUTED)),
         Span::styled("A ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
         Span::styled("l'album  ", Style::default().fg(MUTED)),
         Span::styled("tl ", Style::default().fg(PLAYING)),
