@@ -212,6 +212,39 @@ pub fn set_tops(
     })
 }
 
+/// La **génération d'une fiche** ([0016]) : la seule édition qui *crée* un
+/// fichier au lieu d'en retoucher un. Le texte vient de `generate`, qui le
+/// compose comme les 316 fiches de la référence — on ne le sérialise pas ici
+/// pour la même raison que rien n'est réécrit ailleurs.
+///
+/// Elle refuse d'écraser une fiche existante : une génération est un ajout,
+/// jamais un remplacement. Ce qui existe se corrige à la main ou par les
+/// autres éditions.
+pub fn create_card(
+    dir: &Path,
+    slug: &str,
+    name: &str,
+    text: &str,
+    tops: usize,
+    links: usize,
+) -> Result<Edit, String> {
+    let path = card_path(dir, slug);
+    if path.exists() {
+        return Err(format!("{name} a déjà une fiche"));
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("pas de dossier cards/ ({e})"))?;
+    }
+    write(&path, text)?;
+    Ok(Edit {
+        summary: format!("{name} — fiche générée"),
+        body: Some(format!(
+            "{tops} top(s), {links} lien(s) — MusicBrainz et Deezer.\ngenerated = true : à relire."
+        )),
+        path,
+    })
+}
+
 /// Le commit. Une édition qui ne laisse pas de trace relisible n'en est pas
 /// une (0013) ; on ne pousse pas, en revanche — c'est l'affaire de `:sync`.
 pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {

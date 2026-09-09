@@ -7,7 +7,7 @@ le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 - **Conception** : vision et philosophie (« Reprendre la main sur
   l'algorithme »), vocabulaire, 13 décisions (`docs/decisions/`), 5 notes
-  vivantes (`docs/conception/`). Rust, TOML, MBID, deux dépôts, format de
+  vivantes (`docs/conception/`, 11 aujourd'hui). Rust, TOML, MBID, deux dépôts, format de
   fiche v1 (links typés anglais + proximité en cascade, doors en critère
   additionnel, tout optionnel sauf `format`/`name`/`mbid`). 14 décisions ;
   dernière le 04/09/2026 : **forme de l'appris** — dossier `learned/`, un
@@ -308,6 +308,54 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## La génération de fiche à la volée (09/09/2026)
+
+Joel, le matin : « comment faire pour ajouter un artiste ? J'ai envie
+d'écouter Jacques Brel mais il n'est pas dans le catalogue. J'ai pu le
+trouver via la recherche Spotify, mais je ne peux pas jouer le morceau et
+cela ne crée pas la fiche artiste. » Puis : « oui je veux pouvoir faire de la
+génération à la volée. »
+
+C'était la moitié non écrite de
+[0016](decisions/0016-base-large-et-generation-a-la-volee.md). Le point que
+la décision avait laissé ouvert — **quand** la génération se déclenche — est
+tranché : **les deux**, la recherche et l'arrivée. Le sujet a sa note,
+[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+
+- **`src/generate.rs`** — le pipeline de `tools/generate-cards.py` porté en
+  Rust : MusicBrainz (identité, dates, origine, genres, relations typées)
+  puis Deezer sans clé (cinq tops, quatre similaires). Quatre appels, environ
+  trois secondes, en `spawn_blocking` comme la récolte de discographie. La
+  limite d'une requête par seconde de MusicBrainz est tenue, et le 503 —
+  fréquent — se réessaie au lieu de passer pour une absence.
+- **Une différence avec le script, voulue** : un lien `similar` vers un
+  artiste **sans fiche** est conservé au lieu d'être abandonné. C'est
+  précisément ce qui fait grandir le catalogue le long de ses liens.
+- **La recherche fait entrer quelqu'un de neuf** : `entrée` sur un résultat
+  hors catalogue génère la fiche, la commite, et démarre chez lui — de
+  l'accueil comme de l'écoute. `:generate <nom>` fait la même chose sans
+  passer par un morceau. Fini le « rien d'où brancher ».
+- **L'arrivée fait grandir le catalogue** : `graph_neighbors` jetait les
+  liens dont la fiche manque (Brel en avait trois). `engine::missing_neighbors`
+  les rend, la colonne les affiche en gris — « ○ fiche à générer » — et ils
+  se prennent au chiffre suivant les branches.
+- **La session possède désormais son catalogue** (`Live { catalog: Catalog }`
+  au lieu de `&'a Catalog`) et y insère la fiche fraîche : une génération
+  qu'il faudrait relancer pour voir n'en serait pas une. `listen::run` charge
+  le catalogue lui-même ; l'appelant ne le prête plus.
+- **Une fiche générée est une édition** (0013) : `edit::create_card` écrit,
+  refuse d'écraser, et commite avec le trailer `Forkstify: edit`.
+
+**Reste ouvert, et Joel décidera** : la **vectorisation** d'une fiche
+générée. Elle naît sans vecteur — elle navigue par ses liens et ses tags,
+l'écran le dit — et le rattrapage passe encore par la commande docker de
+`tools/vectoriser.py`. Les deux sorties (commande `:vectors`, ou `fastembed`
+en Rust) sont chiffrées dans la note ; aucune n'a de code à défaire.
+
+**Non éprouvé en session réelle** : le pipeline l'est (test réseau
+`le_pipeline_compose_une_vraie_fiche`, ignoré par défaut), les deux
+déclencheurs ne le sont pas.
 
 ## `:search` s'ouvre aussi de l'accueil (09/09/2026)
 
@@ -1259,9 +1307,11 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    premier geste, et il passe avant tout ajout. `:warm` est le test le plus
    court de la récolte.
 2. **Les cinq éditions** — `tt`/`tT` (tops), `td` (door), `ae` ($EDITOR),
-   `aL` (lier deux artistes). Elles touchent une **fiche**, pas l'appris, et
-   demandent la couche qui écrit et commite le catalogue, qui n'existe pas.
-   C'est le dernier tiers de [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)
+   `aL` (lier deux artistes). Elles touchent une **fiche**, pas l'appris.
+   La couche qui écrit et commite le catalogue **existe depuis le
+   06/09/2026** (`src/edit.rs`, et `create_card` depuis le 09/09) : `tt`,
+   `tT`, `td` et `aL` sont câblées ; il reste `ae` ($EDITOR), que le lecteur
+   de touches empêche. C'est le dernier tiers de [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)
    et le retour n° 8 de Joel.
 3. ~~**Le cooldown daté**~~ — fait le 08/09/2026 (un dixième le jour même,
    demi-vie d'une semaine).
@@ -1272,16 +1322,21 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    `rounds` est une **liste plate**, alors que « retirer toute la profondeur
    d'une branche » suppose un arbre manipulable.
 6. ~~**La synchronisation git**~~ — faite le 07/09/2026 (0017).
-7. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
+7. **Trancher la vectorisation d'une fiche générée** — la seule question
+   ouverte de [0016](decisions/0016-base-large-et-generation-a-la-volee.md)
+   depuis le 09/09/2026 : commande `:vectors` qui lance le conteneur en fond,
+   ou `fastembed` en Rust. Chiffré dans
+   [conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+8. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
    clarification de Joel : sortir du cluster, ou repartir d'une graine ?
-8. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
+9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
    `cargo clean` efface aujourd'hui l'authentification.
-9. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
+10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
    touche par touche est faite, l'affichage reste celui d'un terminal qui
    déroule.
-10. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
+11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
-11. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
+12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). Reste ouvert : **unifier la cible de `t`/`a`** —
     `ad` suit la sélection, le reste du namespace suit le morceau en cours.
 
@@ -1289,6 +1344,11 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 
 - MBID de **Les Thugs** introuvable (homonymie probable) et une entrée au
   nom vide dans `learned/mbid.json` ; 110 MBID résolus « par nom » à relire.
+- **Les commits d'édition parlent français** (« Cat Power — tops : +2 −0 »,
+  « Jacques Brel — fiche générée ») alors que `AGENTS.md` veut l'anglais pour
+  les messages que l'application produit — `learned:` et `import:` le sont.
+  `edit::Edit.summary` sert à la fois de phrase à l'écran et de sujet de
+  commit : les séparer, ou trancher la règle.
 - `resoudre-mbid.py` ne lit que les fichiers Spotify — à adapter aux
   récoltes Deezer (`learned/amis/*-deezer.json`).
 

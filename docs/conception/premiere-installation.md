@@ -153,10 +153,11 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
    rester un outillage lancé à part ? Il demande un scope OAuth de plus
    (`user-library-read` est déjà là ; `user-follow-read` et `user-top-read`
    ne le sont pas) et plusieurs centaines d'appels.
-3. **La génération de fiche à la volée** : au moment où l'on arrive chez un
-   artiste sans fiche, ou seulement sur demande ? Elle écrit dans le
-   catalogue, donc c'est une **édition** au sens de 0013 — avec un commit, et
-   `generated = true` jusqu'à relecture.
+3. ~~**La génération de fiche à la volée**~~ — tranché le 09/09/2026 :
+   **les deux**, la recherche pour faire entrer quelqu'un de neuf et
+   l'arrivée pour grandir le long des liens. Le sujet a désormais sa note,
+   [generation-a-la-volee.md](generation-a-la-volee.md), où reste ouverte la
+   **vectorisation** de la fiche générée.
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
 

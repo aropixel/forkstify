@@ -11,6 +11,7 @@ mod catalog;
 mod config;
 mod edit;
 mod engine;
+mod generate;
 mod explore;
 mod home;
 mod import;
@@ -313,7 +314,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 synced.is_ok(),
             ),
         ];
-        break listen::run(&catalog, None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
+        break listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
     };
 
     // l'écran alterné rendu, on laisse le parcours derrière soi
@@ -376,7 +377,6 @@ fn main() -> anyhow::Result<()> {
             let mut rx = home::reader();
             let mut tui = tui::Tui::enter()?;
             let path = listen::run(
-                &catalog,
                 Some(home::Choice::Artist(slug)),
                 learned,
                 discography::Tail::load(),

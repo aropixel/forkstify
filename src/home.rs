@@ -451,6 +451,9 @@ pub enum Outcome {
     /// l'écran de la session, qui la tient pour les deux écrans (Joel,
     /// 09/09/2026).
     Find(String),
+    /// `:generate <nom>` — faire entrer un artiste absent du catalogue, puis
+    /// partir de chez lui ([0016]).
+    Generate(String),
     Quit,
 }
 
@@ -655,6 +658,9 @@ impl Home {
                     (Some("search"), _) => {
                         Outcome::Find(text.trim().trim_start_matches("search").trim().to_string())
                     }
+                    (Some("generate"), Some(_)) => Outcome::Generate(
+                        text.trim().trim_start_matches("generate").trim().to_string(),
+                    ),
                     _ => Outcome::Stay,
                 }
             }

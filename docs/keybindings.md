@@ -54,6 +54,19 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 | `1`…`9` | | Raccourci de `f1`…`f9` | ✅ |
 | entrée | | Auto : tire au sort parmi les branches affichées | ✅ |
 
+**Les numéros continuent sur les creux** (09/09/2026,
+[0016](decisions/0016-base-large-et-generation-a-la-volee.md)). Un lien de la
+fiche vers un artiste **qui n'a pas encore de fiche** n'est plus jeté : il
+s'affiche en gris au bas de la colonne, marqué « ○ fiche à générer », et se
+prend au chiffre suivant. Le prendre **génère la fiche** — MusicBrainz puis
+Deezer, quelques secondes — puis la branche part comme les autres. La
+génération est une **édition** : elle commite, et la fiche porte
+`generated = true`. Voir
+[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+
+`entrée` ne tire jamais un creux : elle choisit parmi ce qui peut sonner
+tout de suite.
+
 Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
 Le `n` est *now*. Ça se lit à voix haute : « fork now 3 », « fork force 3 ».
 
@@ -117,7 +130,9 @@ par artiste dans le catalogue, compteurs à décroissance intégrée
 (`src/edit.rs`). La fiche est retouchée textuellement, jamais réécrite —
 c'est une interface publique, et une relecture par serde perdrait tout ce
 que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
-**prochain lancement**, et le produit le dit.
+**prochain lancement**, et le produit le dit — **sauf la génération d'une
+fiche** (09/09/2026), qui entre dans le catalogue de la session sur-le-champ :
+on la demande pour écouter maintenant.
 
 ## Navigation et session
 
@@ -135,7 +150,7 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
 | `/texte` | | **Filtrer** une liste — la collection à l'accueil, la discographie ; échap efface (Joel, 08/09/2026) | ✅ |
-| `:search` | | **La modale de recherche** (maquette `Recherche.dc.html`, 08/09/2026) : une ligne de saisie `⟩`, les résultats se recalculent à chaque caractère — le catalogue d'abord (artistes et titres connus des fiches et de l'appris), Spotify derrière, jamais mêlés. ↑↓ choisissent, **entrée** branche sur un artiste ou joue un titre, **tab** masque Spotify, **échap** ferme. `:search <texte>` l'ouvre déjà remplie, et la frappe continue le mot. **Elle s'ouvre aussi de l'accueil** (Joel, 09/09/2026), où entrée démarre un parcours — sur l'artiste, ou sur le morceau puis les branches de son artiste ; un titre sans fiche n'a rien d'où brancher et le dit | ✅ |
+| `:search` | | **La modale de recherche** (maquette `Recherche.dc.html`, 08/09/2026) : une ligne de saisie `⟩`, les résultats se recalculent à chaque caractère — le catalogue d'abord (artistes et titres connus des fiches et de l'appris), Spotify derrière, jamais mêlés. ↑↓ choisissent, **entrée** branche sur un artiste ou joue un titre, **tab** masque Spotify, **échap** ferme. `:search <texte>` l'ouvre déjà remplie, et la frappe continue le mot. **Elle s'ouvre aussi de l'accueil** (Joel, 09/09/2026), où entrée démarre un parcours — sur l'artiste, ou sur le morceau puis les branches de son artiste ; un résultat **hors catalogue** génère la fiche de son artiste avant de partir (09/09/2026, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)) | ✅ |
 | `q` | **quit** | En écoute : **revenir à l'accueil**, l'écoute continue en dessous avec son pied de lecture. À l'accueil : quitter (affiche le parcours) — Joel, 08/09/2026 | ✅ |
 | `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon reprendre le dernier parcours. Échap sans curseur fait de même | ✅ |
 | `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |
@@ -181,6 +196,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
+| `:generate <nom>` | **Faire entrer un artiste absent** du catalogue, puis partir de chez lui ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)) : fiche composée depuis MusicBrainz et Deezer, commit, et le catalogue de la session l'a tout de suite. Marche à l'accueil comme en écoute. La modale de recherche fait la même chose sur un résultat hors catalogue, par simple `entrée` | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
 | `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | ✅ |
 | `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |

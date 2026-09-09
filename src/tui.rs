@@ -76,6 +76,11 @@ pub struct View<'a> {
     pub loading: bool,
     pub queue: &'a [Stop],
     pub branches: &'a [Branch],
+    /// Les liens qui pointent vers une fiche absente (0016) : des directions
+    /// que le catalogue nomme mais ne sait pas encore marcher. Elles se
+    /// numérotent **à la suite** des branches, et les prendre génère la
+    /// fiche au lieu de jouer tout de suite.
+    pub missing: &'a [crate::engine::Missing],
     /// Le volet des branches est **toujours là** (Joel, 06/09/2026) : on ne
     /// veut pas attendre l'embranchement pour savoir où l'on peut aller.
     /// Il a donc sa place réservée à droite plutôt que d'être posé sur
@@ -906,9 +911,18 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
         Span::styled("── ", Style::default().fg(BRANCH)),
         Span::styled("branches", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
         Span::styled(format!(" {}", view.branches.len()), Style::default().fg(DIM)),
+        // les creux se comptent à part : ils ne sonnent pas encore
+        Span::styled(
+            if view.missing.is_empty() {
+                String::new()
+            } else {
+                format!(" · {} ○", view.missing.len())
+            },
+            Style::default().fg(DIM),
+        ),
     ]));
     lines.push(Line::from(""));
-    if view.branches.is_empty() {
+    if view.branches.is_empty() && view.missing.is_empty() {
         lines.push(Line::from(Span::styled(
             "cul-de-sac — « fu » pour revenir",
             Style::default().fg(MUTED),
@@ -963,6 +977,42 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             gauge.push(Span::styled(format!(" {word}"), Style::default().fg(MUTED)));
         }
         lines.push(Line::from(gauge));
+        lines.push(Line::from(""));
+    }
+
+    // les creux : un lien du catalogue vers une fiche qui n'existe pas
+    // encore. Ils se numérotent à la suite, en gris, et le cercle vide dit
+    // qu'il faudra les générer avant de les marcher (0016).
+    for (i, missing) in view.missing.iter().enumerate() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  {}  ", view.branches.len() + i + 1),
+                Style::default().fg(MUTED).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(missing.name.clone(), Style::default().fg(MUTED)),
+        ]));
+        for piece in wrap_words(&missing.why, width.saturating_sub(5)) {
+            lines.push(Line::from(Span::styled(
+                format!("     {piece}"),
+                Style::default().fg(DIM),
+            )));
+        }
+        // la même jauge que les branches, en gris : la proximité du lien est
+        // connue, c'est la fiche qui manque
+        let cells: String =
+            (0..5).map(|i| if i < missing.proximity { '█' } else { '░' }).collect();
+        lines.push(Line::from(vec![
+            Span::styled("     ", Style::default()),
+            Span::styled(cells, Style::default().fg(DIM)),
+            Span::styled(
+                if missing.pending {
+                    format!(" {} · … génération", missing.kind)
+                } else {
+                    format!(" {} · ○ fiche à générer", missing.kind)
+                },
+                Style::default().fg(if missing.pending { BRANCH } else { MUTED }),
+            ),
+        ]));
         lines.push(Line::from(""));
     }
 
@@ -1449,7 +1499,44 @@ mod tests {
     /// Screen rows as plain text, so assertions read like the screen.
     fn screen(width: u16, height: u16, branches: &[Branch]) -> Vec<String> {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
-        playlist(width, height, branches, &[], Some(&current), &[])
+        playlist(width, height, branches, &[], Some(&current), &[], &[])
+    }
+
+    fn missing(pending: bool) -> crate::engine::Missing {
+        crate::engine::Missing {
+            slug: "georges-moustaki".into(),
+            name: "Georges Moustaki".into(),
+            kind: "similar".into(),
+            proximity: 4,
+            why: "similaires · chez Jacques Brel".into(),
+            pending,
+        }
+    }
+
+    /// 0016 : un lien vers une fiche absente se propose au lieu d'être jeté,
+    /// numéroté **à la suite** des branches — sinon les chiffres mentiraient.
+    #[test]
+    fn les_creux_se_numerotent_apres_les_branches() {
+        let current = stop("Ne me quitte pas", "Jacques Brel");
+        let rows =
+            playlist(100, 38, &branches(), &[], Some(&current), &[], &[missing(false)]);
+        let text = rows.join("\n");
+        assert!(text.contains("2  Chelsea Wolfe"), "{text}");
+        assert!(text.contains("── branches 2 · 1 ○"), "{text}");
+        assert!(text.contains("3  Georges Moustaki"), "{text}");
+        assert!(text.contains("similaires · chez Jacques Brel"), "{text}");
+        assert!(text.contains("████░ similar · ○ fiche à générer"), "{text}");
+    }
+
+    /// Une génération dure quelques secondes : la colonne doit le dire, sinon
+    /// « f3 » a l'air de n'avoir rien fait.
+    #[test]
+    fn un_creux_en_cours_de_generation_le_dit() {
+        let current = stop("Ne me quitte pas", "Jacques Brel");
+        let rows = playlist(100, 30, &[], &[], Some(&current), &[], &[missing(true)]);
+        let text = rows.join("\n");
+        assert!(text.contains("similar · … génération"), "{text}");
+        assert!(!text.contains("○ fiche à générer"), "{text}");
     }
 
     fn playlist(
@@ -1459,6 +1546,7 @@ mod tests {
         past: &[Stop],
         current: Option<&Stop>,
         queue: &[Stop],
+        missing: &[crate::engine::Missing],
     ) -> Vec<String> {
         let total = past.len() + usize::from(current.is_some()) + queue.len();
         let notes: Vec<String> = (0..total)
@@ -1477,6 +1565,7 @@ mod tests {
             paused: false,
             loading: false,
             queue,
+            missing,
             branches,
             panel: true,
             notes: &notes,
@@ -1603,7 +1692,7 @@ mod tests {
             headed(stop("Right Now", "The Creatures"), "The Creatures", "membres en commun"),
             headed(stop("Alison", "Slowdive"), "Slowdive", "proche du centre de la branche (0.74)"),
         ];
-        let rows = playlist(160, 30, &branches(), &past, Some(&current), &queue);
+        let rows = playlist(160, 30, &branches(), &past, Some(&current), &queue, &[]);
         let text = rows.join("\n");
         let axis = |needle: &str| -> String {
             let row = rows.iter().find(|r| r.contains(needle)).unwrap();

@@ -204,6 +204,71 @@ pub fn graph_neighbors(
     sorted
 }
 
+/// A link pointing at a card that does not exist — a direction the catalog
+/// names but cannot walk yet.
+///
+/// The engine has always dropped those (`graph_neighbors` below). Since
+/// 09/09/2026 they are a proposal instead: generating the card is one
+/// keystroke, and that is how a catalog grows along its own edges
+/// (`docs/conception/generation-a-la-volee.md`). They stay out of
+/// `graph_neighbors` on purpose — every walk indexes `catalog.cards`, and a
+/// neighbor without a card would be a panic waiting to happen.
+pub struct Missing {
+    pub slug: String,
+    /// The name to show, and the one to ask MusicBrainz for: a slug spelled
+    /// back out, since nothing else is known of an artist without a card.
+    pub name: String,
+    pub kind: String,
+    pub proximity: u8,
+    pub why: String,
+    /// La génération est en route : la colonne le dit plutôt que de laisser
+    /// croire qu'un `f<n>` n'a rien fait.
+    pub pending: bool,
+}
+
+/// The context's links that point nowhere, closest first.
+pub fn missing_neighbors(
+    catalog: &Catalog,
+    context: &[String],
+    excluded: &HashSet<String>,
+) -> Vec<Missing> {
+    let mut best: HashMap<String, (u8, String, String)> = HashMap::new();
+    for source in context {
+        let Some(card) = catalog.cards.get(source) else { continue };
+        for link in &card.links {
+            if catalog.cards.contains_key(&link.to) || excluded.contains(&link.to) {
+                continue;
+            }
+            let mut why = label(&link.kind).to_string();
+            if let Some(note) = &link.note {
+                why.push_str(" — ");
+                why.push_str(note);
+            }
+            why.push_str(&format!(" · chez {}", card.name));
+            let proximity = catalog.proximity(link);
+            let entry = best
+                .entry(link.to.clone())
+                .or_insert((0, link.kind.clone(), String::new()));
+            if proximity > entry.0 {
+                *entry = (proximity, link.kind.clone(), why);
+            }
+        }
+    }
+    let mut sorted: Vec<Missing> = best
+        .into_iter()
+        .map(|(slug, (proximity, kind, why))| Missing {
+            name: crate::generate::pretty(&slug),
+            slug,
+            kind,
+            proximity,
+            why,
+            pending: false,
+        })
+        .collect();
+    sorted.sort_by(|a, b| b.proximity.cmp(&a.proximity).then(a.slug.cmp(&b.slug)));
+    sorted
+}
+
 /// Neighbors of a whole branch through the graph: the neighbors of each
 /// of its artists, merged. A candidate linked to several of them fits the
 /// branch's direction better and climbs.
@@ -778,7 +843,7 @@ pub fn propose(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::catalog::Door;
+    use crate::catalog::{Door, Link};
 
     /// A blank tail: the tests that predate it must keep meaning the same
     /// thing, and a cocon draws none of it anyway.
@@ -800,6 +865,62 @@ mod tests {
             }],
             links: Vec::new(),
         }
+    }
+
+    /// 0016 : un lien vers une fiche absente n'est plus jeté, il se propose.
+    /// C'est ce qui a manqué le 09/09/2026 — Brel pointait vers trois
+    /// artistes, et le moteur n'en voyait aucun.
+    #[test]
+    fn un_lien_sans_fiche_devient_une_proposition() {
+        let mut brel = the_cure();
+        brel.name = "Jacques Brel".into();
+        brel.links = vec![
+            Link { to: "georges-brassens".into(), kind: "similar".into(), note: None, proximity: None },
+            Link { to: "georges-moustaki".into(), kind: "similar".into(), note: None, proximity: None },
+        ];
+        let mut brassens = the_cure();
+        brassens.name = "Georges Brassens".into();
+        let cards =
+            HashMap::from([("jacques-brel".to_string(), brel), ("georges-brassens".to_string(), brassens)]);
+        let catalog = Catalog {
+            cards,
+            proximities: HashMap::from([("similar".to_string(), 4)]),
+            vectors: HashMap::new(),
+        };
+
+        // le voisin qui a une fiche reste une vraie branche…
+        let walkable = graph_neighbors(&catalog, "jacques-brel", &HashSet::new());
+        assert_eq!(walkable.len(), 1);
+        assert_eq!(walkable[0].0, "georges-brassens");
+
+        // …et celui qui n'en a pas devient un creux, nommé et pesé
+        let missing =
+            missing_neighbors(&catalog, &["jacques-brel".to_string()], &HashSet::new());
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].slug, "georges-moustaki");
+        assert_eq!(missing[0].name, "Georges Moustaki");
+        assert_eq!(missing[0].proximity, 4);
+        assert!(missing[0].why.contains("chez Jacques Brel"), "{}", missing[0].why);
+        assert!(!missing[0].pending);
+    }
+
+    /// Un artiste déjà visité ne redevient pas une proposition à générer.
+    #[test]
+    fn un_creux_exclu_ne_se_propose_pas() {
+        let mut brel = the_cure();
+        brel.links = vec![Link {
+            to: "georges-moustaki".into(),
+            kind: "similar".into(),
+            note: None,
+            proximity: None,
+        }];
+        let catalog = Catalog {
+            cards: HashMap::from([("jacques-brel".to_string(), brel)]),
+            proximities: HashMap::new(),
+            vectors: HashMap::new(),
+        };
+        let excluded = HashSet::from(["georges-moustaki".to_string()]);
+        assert!(missing_neighbors(&catalog, &["jacques-brel".to_string()], &excluded).is_empty());
     }
 
     fn weight_of(pool: &[(String, f32, Source)], title: &str) -> f32 {

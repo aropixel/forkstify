@@ -37,7 +37,6 @@ use std::collections::{HashSet, VecDeque};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
-    catalog: &Catalog,
     choice: Option<Choice>,
     learned: Learned,
     tail: Tail,
@@ -56,13 +55,12 @@ pub fn run(
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let local = tokio::task::LocalSet::new();
     local
-        .block_on(&rt, async_run(catalog, choice, learned, tail, comfort, rx, tui, catalog_dir, status))
+        .block_on(&rt, async_run(choice, learned, tail, comfort, rx, tui, catalog_dir, status))
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn async_run(
-    catalog: &Catalog,
     choice: Option<Choice>,
     learned: Learned,
     tail: Tail,
@@ -75,6 +73,9 @@ async fn async_run(
     // l'écran alterné appartient à la TUI : les étapes s'y dessinent, elles
     // ne s'impriment pas
     tui.clear();
+    // chargé ici, et non plus prêté par l'appelant : la session le fera
+    // grandir (0016), et elle doit donc en être propriétaire
+    let catalog = Catalog::load(catalog_dir)?;
     let census = format!(
         "appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache",
         learned.known(),
@@ -137,6 +138,8 @@ async fn async_run(
         warm_requested: false,
         search_requested: None,
         branches: Vec::new(),
+        missing: Vec::new(),
+        generating: HashSet::new(),
         finder: None,
         size: 3,
         progress: None,
@@ -248,7 +251,7 @@ async fn async_run(
         .rounds
         .iter()
         .flat_map(|round| round.artists.iter())
-        .filter_map(|slug| catalog.cards.get(slug).map(|c| c.name.clone()))
+        .filter_map(|slug| live.catalog.cards.get(slug).map(|c| c.name.clone()))
         .collect();
     // l'écran alterné appartient à l'application entière : le parcours
     // remonte à l'accueil au lieu de s'imprimer sur un écran qui disparaît
@@ -265,7 +268,11 @@ const RESTART_AFTER_MS: u32 = 3_000;
 const ALBUM_TOPS: usize = 4;
 
 struct Live<'a> {
-    catalog: &'a Catalog,
+    /// **La session possède son catalogue** depuis le 09/09/2026 : une fiche
+    /// générée doit exister pour le moteur tout de suite, pas au prochain
+    /// lancement (`docs/conception/generation-a-la-volee.md`). Il était
+    /// prêté en lecture seule jusque-là.
+    catalog: Catalog,
     /// Où vivent les fiches : une édition les modifie et les commite (0013).
     catalog_dir: std::path::PathBuf,
     learned: Learned,
@@ -310,6 +317,13 @@ struct Live<'a> {
     /// `:search <texte>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
+    /// Les liens de l'entourage qui pointent vers une fiche absente (0016) :
+    /// des directions que le catalogue nomme mais ne sait pas encore
+    /// marcher. Elles se numérotent à la suite des branches.
+    missing: Vec<crate::engine::Missing>,
+    /// Les fiches en cours de génération, pour qu'un second `f<n>` ne relance
+    /// pas le même travail — comme `harvesting` pour les discographies.
+    generating: HashSet<String>,
     /// The search modal, when open.
     finder: Option<Finder>,
     size: usize,
@@ -364,6 +378,19 @@ enum Job {
     Resolved { title: String, artist: String, result: Resolved },
     Searched { query: String, result: Result<Vec<(String, String, String)>, String> },
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
+    Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
+}
+
+/// Ce qu'on voulait faire de l'artiste **une fois qu'il a une fiche**. La
+/// génération dure quelques secondes ; l'intention se garde avec elle,
+/// sinon le geste se perdrait en route.
+enum After {
+    /// La recherche : on part de chez lui, avec ce morceau en ouverture
+    /// s'il y en avait un.
+    Play { title: Option<String>, uri: Option<String> },
+    /// Une branche en creux : elle se prend comme les autres, là où la
+    /// touche l'a demandé.
+    Branch { when: When, reason: String },
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -528,7 +555,7 @@ impl Live<'_> {
         };
         let (_, current, _, _, played) = self.state();
         let mut stops = crate::engine::encore(
-            self.catalog,
+            &self.catalog,
             &current,
             &self.learned,
             &self.tail,
@@ -597,7 +624,7 @@ impl Live<'_> {
         // opening: the chosen track first if the seed was one, then the
         // seed's own tops (arbitrage du 05/09 : la graine peut être les deux)
         let mut opening = crate::engine::encore(
-            self.catalog,
+            &self.catalog,
             &seed,
             &self.learned,
             &self.tail,
@@ -633,7 +660,7 @@ impl Live<'_> {
             return true;
         }
         let live = !self.rounds.is_empty();
-        let outcome = self.home.on_cmd(cmd, self.catalog, &self.learned, &mut self.comfort, live);
+        let outcome = self.home.on_cmd(cmd, &self.catalog, &self.learned, &mut self.comfort, live);
         match outcome {
             Outcome::Stay => {}
             Outcome::Back => {
@@ -642,6 +669,10 @@ impl Live<'_> {
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
             Outcome::Find(query) => self.open_finder(None, &query),
+            Outcome::Generate(name) => {
+                let slug = crate::generate::slugify(&name);
+                self.generate(&slug, Some(&name), After::Play { title: None, uri: None });
+            }
             Outcome::Quit => return false,
         }
         true
@@ -743,7 +774,7 @@ impl Live<'_> {
                             let note = if slug.is_some() {
                                 "(branche ensuite) la fiche existe".to_string()
                             } else {
-                                "(hors catalogue)".to_string()
+                                "(hors catalogue — ⏎ génère la fiche)".to_string()
                             };
                             Found { hit: Hit::Track { title, artist, uri, slug }, mark: '~', note }
                         })
@@ -771,7 +802,177 @@ impl Live<'_> {
                     },
                 }
             }
+            Job::Generated { slug, after, result } => {
+                self.generating.remove(&slug);
+                let draft = match result {
+                    Ok(draft) => draft,
+                    Err(why) => {
+                        self.mark_pending();
+                        return self.tell(format!(
+                            "⏹ {} — {why}",
+                            crate::generate::pretty(&slug)
+                        ));
+                    }
+                };
+                let (name, tops, links) = (draft.name.clone(), draft.tops, draft.links);
+                let caveats = draft.caveats.join(" · ");
+                if let Err(why) = self.adopt(draft) {
+                    self.mark_pending();
+                    return self.tell(format!("⏹ fiche de {name} — {why}"));
+                }
+                // la fiche existe maintenant pour le moteur : le lien qui la
+                // réclamait n'est plus un creux
+                self.missing.retain(|m| m.slug != slug);
+                let mut done = format!("✓ {name} — fiche générée : {tops} top(s), {links} lien(s)");
+                if !caveats.is_empty() {
+                    done.push_str(&format!(" ({caveats})"));
+                }
+                done.push_str(" · sans vecteur : navigation par le graphe");
+                self.tell(done);
+                match after {
+                    After::Play { title, uri } => self.play_fresh(&slug, title, uri).await,
+                    After::Branch { when, reason } => self.branch_to(&slug, when, reason).await,
+                }
+            }
         }
+    }
+
+    /// Dire quelque chose, sur l'écran où l'on est : l'accueil a sa propre
+    /// ligne, l'écoute a ses toasts. Un travail de fond peut finir sur l'un
+    /// ou l'autre — la génération dure quelques secondes, et on a pu changer
+    /// d'écran entre-temps.
+    fn tell(&mut self, what: String) {
+        if self.screen == Screen::Home {
+            self.home.say(what);
+        } else {
+            say!(self, "{what}");
+        }
+    }
+
+    /// Reporter sur les creux affichés ce que la session est en train de
+    /// générer, pour que la colonne le dise au lieu de rester muette.
+    fn mark_pending(&mut self) {
+        for missing in &mut self.missing {
+            missing.pending = self.generating.contains(&missing.slug);
+        }
+    }
+
+    /// Faire entrer une fiche fraîche dans la session : le disque, le commit
+    /// — c'est une édition (0013) — puis le catalogue **en mémoire**, sans
+    /// quoi elle n'existerait qu'au prochain lancement.
+    fn adopt(&mut self, draft: crate::generate::Draft) -> Result<(), String> {
+        let card: crate::catalog::Card = toml::from_str(&draft.toml)
+            .map_err(|e| format!("la fiche composée ne se relit pas ({e})"))?;
+        let edit = crate::edit::create_card(
+            &self.catalog_dir,
+            &draft.slug,
+            &draft.name,
+            &draft.toml,
+            draft.tops,
+            draft.links,
+        )?;
+        crate::edit::commit(&self.catalog_dir, &edit)?;
+        self.catalog.cards.insert(draft.slug, card);
+        Ok(())
+    }
+
+    /// Demander la fiche d'un artiste qui n'en a pas. Quatre appels réseau et
+    /// la seconde d'écart qu'exige MusicBrainz : c'est du fond, comme une
+    /// récolte de discographie, et l'écran ne l'attend pas.
+    fn generate(&mut self, slug: &str, hint: Option<&str>, after: After) {
+        if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
+            self.tell(format!("({name} a déjà une fiche)"));
+            return;
+        }
+        if !self.generating.insert(slug.to_string()) {
+            let name = crate::generate::pretty(slug);
+            self.tell(format!("(la fiche de {name} est déjà en route)"));
+            return;
+        }
+        self.mark_pending();
+        let name = hint.map(String::from).unwrap_or_else(|| crate::generate::pretty(slug));
+        self.tell(format!("… fiche de {name} — musicbrainz puis deezer, quelques secondes"));
+        let known = crate::generate::Known::of(&self.catalog);
+        let (asked, hint) = (slug.to_string(), hint.map(String::from));
+        let reported = asked.clone();
+        let tx = self.jobs_tx.clone();
+        tokio::task::spawn_local(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                crate::generate::draft(&asked, hint.as_deref(), &known)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("la génération s'est interrompue ({e})")));
+            let _ = tx.send(Job::Generated { slug: reported, after, result });
+        });
+    }
+
+    /// Une fiche vient de naître et on voulait l'écouter : de l'accueil le
+    /// parcours démarre chez elle, en session elle sonne tout de suite —
+    /// c'est ce que `:search` fait déjà d'un artiste du catalogue.
+    async fn play_fresh(&mut self, slug: &str, title: Option<String>, uri: Option<String>) {
+        if self.screen == Screen::Home {
+            let choice = match title {
+                Some(title) => Choice::Track { slug: slug.to_string(), title },
+                None => Choice::Artist(slug.to_string()),
+            };
+            self.start_journey(choice).await;
+            return;
+        }
+        let card = &self.catalog.cards[slug];
+        let stop = match title {
+            Some(title) => crate::engine::Stop {
+                slug: slug.to_string(),
+                artist: card.name.clone(),
+                title: title.clone(),
+                source: if card.tops.contains(&title) {
+                    crate::engine::Source::Top
+                } else {
+                    crate::engine::Source::Outside
+                },
+                head: None,
+                encore: false,
+            },
+            None => {
+                let (_, _, _, _, played) = self.state();
+                let mut stops = crate::engine::encore(
+                    &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1,
+                    &mut self.rng,
+                );
+                let Some(stop) = stops.pop() else {
+                    say!(self, "(rien à jouer chez {})", card.name);
+                    return;
+                };
+                stop
+            }
+        };
+        let artists = vec![slug.to_string()];
+        match uri {
+            Some(uri) => self.play_uri(artists, stop, &uri).await,
+            None => self.play_stop_now(artists, stop).await,
+        }
+    }
+
+    /// Une branche en creux vient de recevoir sa fiche : elle se prend
+    /// désormais comme n'importe quelle autre.
+    async fn branch_to(&mut self, slug: &str, when: When, reason: String) {
+        let (_, _, _, _, played) = self.state();
+        let stops = crate::engine::encore(
+            &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size,
+            &mut self.rng,
+        );
+        if stops.is_empty() {
+            say!(self, "(rien à jouer chez {})", self.catalog.cards[slug].name);
+            return;
+        }
+        let branch = crate::engine::Branch {
+            label: self.catalog.cards[slug].name.clone(),
+            reason,
+            artists: vec![slug.to_string()],
+            stops,
+            weight: 3.0,
+        };
+        self.take_branch(branch, when).await;
+        self.render();
     }
 
     /// An outage stops the walk rather than turning every remaining track
@@ -973,7 +1174,7 @@ impl Live<'_> {
     fn recompute(&mut self) {
         let (context, _, universe, visited, played) = self.state();
         self.branches = crate::engine::propose(
-            self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort, &visited,
+            &self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort, &visited,
             &played, self.size, &mut self.rng,
         );
         // « moins souvent » / « plus souvent » ride on the branches that
@@ -983,6 +1184,11 @@ impl Live<'_> {
                 branch.weight *= self.learned.weight(first);
             }
         }
+        // les liens qui ne mènent nulle part : ils ne sont plus jetés, ils
+        // se proposent (0016 — la génération à la volée)
+        self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
+        self.missing.truncate(3);
+        self.mark_pending();
     }
 
 
@@ -991,7 +1197,15 @@ impl Live<'_> {
     /// « entrée » unreadable (Joel, 05/09/2026).
     async fn auto_advance(&mut self) {
         if self.branches.is_empty() {
-            say!(self, "\n(cul-de-sac — « u » pour revenir, « q » pour quitter)");
+            // un creux n'est pas une branche : il faut le réseau avant de
+            // sonner, et le hasard ne fait pas attendre quelqu'un (0016)
+            match self.missing.len() {
+                0 => say!(self, "\n(cul-de-sac — « u » pour revenir, « q » pour quitter)"),
+                n => say!(
+                    self,
+                    "\n(rien qui sonne tout de suite — {n} fiche(s) à générer, « f1 » à « f{n} »)"
+                ),
+            }
             return;
         }
         let weights: Vec<f32> = self.branches.iter().map(|b| b.weight.max(0.1)).collect();
@@ -1006,11 +1220,26 @@ impl Live<'_> {
     /// alors depuis le **bout** de la file, pas depuis ce qui sonne — c'est
     /// la « chaîne » des maquettes.
     async fn choose(&mut self, n: usize, when: When) {
+        // les creux se numérotent après les branches : choisir l'un d'eux
+        // demande sa fiche, et la branche se prend quand elle arrive
+        if n > self.branches.len() && n <= self.branches.len() + self.missing.len() {
+            let missing = &self.missing[n - self.branches.len() - 1];
+            let (slug, reason) = (missing.slug.clone(), missing.why.clone());
+            self.generate(&slug, None, After::Branch { when, reason });
+            return;
+        }
         if n == 0 || n > self.branches.len() {
             say!(self, "choix incompris");
             return;
         }
         let branch = self.branches.remove(n - 1);
+        self.take_branch(branch, when).await;
+    }
+
+    /// Poser une branche dans la file, là où la touche l'a demandée. Séparé
+    /// de `choose` parce qu'une fiche générée arrive par le même chemin,
+    /// plusieurs secondes après la frappe.
+    async fn take_branch(&mut self, branch: crate::engine::Branch, when: When) {
         if self.current.is_none() {
             self.start_branch(branch, when).await;
             return;
@@ -1454,7 +1683,7 @@ impl Live<'_> {
             // l'écoute — c'est la même, ouverte d'ailleurs
             let finder = self.finder.as_ref().map(|finder| self.finder_view(finder));
             self.home.draw(
-                self.catalog,
+                &self.catalog,
                 &self.learned,
                 &self.tail,
                 self.comfort,
@@ -1483,7 +1712,7 @@ impl Live<'_> {
         } else {
             format!(
                 "[1-{} branche · h/l · p · espace = les touches · q]",
-                self.branches.len().max(1)
+                (self.branches.len() + self.missing.len()).max(1)
             )
         };
         // 1a : la colonne des branches est toujours là, chaque branche
@@ -1528,6 +1757,7 @@ impl Live<'_> {
             loading: self.loading,
             queue: self.queue.as_slices().0,
             branches: &self.branches,
+            missing: &self.missing,
             panel: true,
             notes: &notes,
             selection: self.selection,
@@ -1885,9 +2115,16 @@ impl Live<'_> {
                     self.start_journey(Choice::Track { slug: slug.clone(), title: title.clone() })
                         .await
                 }
-                Hit::Track { title, .. } => self.home.say(format!(
-                    "« {title} » n'a pas de fiche : rien d'où brancher (depuis l'écoute, :search le joue quand même)"
-                )),
+                // hors catalogue : on le fait entrer (0016). C'est le geste
+                // du 09/09/2026 — « j'ai envie d'écouter Jacques Brel ».
+                Hit::Track { title, artist, uri, .. } => {
+                    let slug = crate::generate::slugify(artist);
+                    let after = After::Play {
+                        title: Some(title.clone()),
+                        uri: Some(uri.clone()),
+                    };
+                    self.generate(&slug, Some(artist), after);
+                }
             }
             return;
         }
@@ -1917,7 +2154,7 @@ impl Live<'_> {
         match (insert, &found.hit) {
             // ti : le titre entre dans la file à l'ancre, marqué
             (Some(at), Hit::Track { .. }) => {
-                let Some((mut stop, _)) = stop_of(&found.hit, self.catalog) else { return };
+                let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
                     reason: "inséré (ti)".to_string(),
@@ -1930,7 +2167,7 @@ impl Live<'_> {
             (Some(at), Hit::Artist(slug)) => {
                 let (_, _, _, _, played) = self.state();
                 let mut stops = crate::engine::encore(
-                    self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1, &mut self.rng,
+                    &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1, &mut self.rng,
                 );
                 let Some(mut stop) = stops.pop() else {
                     say!(self, "(plus rien de non joué chez {})", self.catalog.cards[slug].name);
@@ -1948,15 +2185,24 @@ impl Live<'_> {
             (None, Hit::Artist(slug)) => {
                 let (_, _, _, _, played) = self.state();
                 let stops = crate::engine::encore(
-                    self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size, &mut self.rng,
+                    &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size, &mut self.rng,
                 );
                 say!(self, "→ {} — via :search", self.catalog.cards[slug].name);
                 self.start_segment(vec![slug.clone()], stops, false, false).await;
             }
+            // :search sur un titre hors catalogue : sa fiche se génère, et
+            // il sonne dès qu'elle est là — sans quoi les branches
+            // repartiraient de nulle part (0016)
+            (None, Hit::Track { title, artist, uri, slug: None }) => {
+                let slug = crate::generate::slugify(artist);
+                let after =
+                    After::Play { title: Some(title.clone()), uri: Some(uri.clone()) };
+                self.generate(&slug, Some(artist), after);
+            }
             // :search sur un titre : il sonne maintenant, les branches
-            // repartent de son artiste s'il a une fiche
+            // repartent de son artiste
             (None, Hit::Track { .. }) => {
-                let Some((stop, uri)) = stop_of(&found.hit, self.catalog) else { return };
+                let Some((stop, uri)) = stop_of(&found.hit, &self.catalog) else { return };
                 let round_artists: Vec<String> =
                     if stop.slug.is_empty() { Vec::new() } else { vec![stop.slug.clone()] };
                 say!(self, "→ {} — via :search", stop.title);
@@ -2413,6 +2659,16 @@ impl Live<'_> {
             (Some("search"), _) => {
                 self.search_requested = Some(text.trim().trim_start_matches("search").trim().to_string());
             }
+            // :generate — faire entrer un artiste absent, puis partir de
+            // chez lui (0016). La fiche arrive en quelques secondes.
+            (Some("generate"), Some(_)) => {
+                let name = text.trim().trim_start_matches("generate").trim().to_string();
+                let slug = crate::generate::slugify(&name);
+                self.generate(&slug, Some(&name), After::Play { title: None, uri: None });
+            }
+            (Some("generate"), None) => {
+                say!(self, "usage : :generate <nom de l'artiste>")
+            }
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
@@ -2581,7 +2837,7 @@ impl Live<'_> {
         self.rounds.pop();
         let (_, current, _, _, played) = self.state();
         let stops = crate::engine::encore(
-            self.catalog,
+            &self.catalog,
             &current,
             &self.learned,
             &self.tail,
