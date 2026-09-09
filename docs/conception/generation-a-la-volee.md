@@ -95,6 +95,15 @@ plutôt que d'échouer.
   pas demandées ? Le déclencheur « à l'arrivée » rend la question moins
   urgente : le voisinage se génère au fur et à mesure qu'on y va.
 
+- **Le nom MusicBrainz n'est pas toujours celui de Spotify.** La fiche
+  générée prend le nom de MusicBrainz (« La Ruda »), et la résolution d'un
+  morceau cherche Spotify par `track:… artist:<nom>` — or Spotify dit
+  « La Ruda Salska » (Joel, 09/09/2026). Les tops sont alors introuvables
+  alors que la fiche porte l'identifiant Spotify de l'artiste. Corrigé à la
+  main dans la fiche ; à trancher : un champ d'alias, ou une résolution qui
+  vérifie l'identifiant Spotify des résultats plutôt que le nom, ou prendre
+  le nom Spotify à la génération quand l'identifiant est connu.
+
 - **Reverser à l'amont.** [catalogue.md](catalogue.md) § La mutualisation
   veut qu'une fiche générée absente de la référence soit proposée en PR
   pré-mâchée. Rien ne le fait ; à concevoir avec `:mine`.
