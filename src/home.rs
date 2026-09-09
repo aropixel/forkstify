@@ -592,7 +592,7 @@ impl Home {
         &mut self,
         cmd: Cmd,
         catalog: &Catalog,
-        learned: &Learned,
+        learned: &mut Learned,
         comfort: &mut Comfort,
         live: bool,
     ) -> Outcome {
@@ -656,6 +656,34 @@ impl Home {
                     }
                     None => Outcome::Stay,
                 }
+            }
+            // al / as / ab sur la ligne surlignée — 0020 : à l'accueil, la
+            // ligne surlignée, ou rien. « as » sort l'artiste des aimés et
+            // l'écrit dans learned/, où il prime sur Spotify (Joel,
+            // 09/09/2026)
+            Cmd::Artist(key @ ('l' | 's' | 'b')) => {
+                let Some(index) = self.cursor else {
+                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    return Outcome::Stay;
+                };
+                let Some((slug, row)) = listing.get(index) else { return Outcome::Stay };
+                let slug = slug.clone().unwrap_or_else(|| crate::generate::slugify(&row.name));
+                let name = row.name.clone();
+                self.said = match key {
+                    'l' => format!("↑ {name} — plus souvent (poids {:.2})", learned.like_artist(&slug)),
+                    's' => format!(
+                        "↓ {name} — moins souvent, hors des aimés (poids {:.2}) · al pour revenir",
+                        learned.skip_artist(&slug)
+                    ),
+                    _ => {
+                        learned.ban_artist(&slug);
+                        format!("⊘ {name} — plus jamais")
+                    }
+                };
+                // la ligne a pu quitter la vue : le curseur reste sur une ligne
+                let left = collection(catalog, learned, self.sort, self.scope, &self.filter).len();
+                self.cursor = (left > 0).then(|| index.min(left - 1));
+                Outcome::Stay
             }
             Cmd::Auto => match flat.first() {
                 Some(entry) => Outcome::Start(pick(entry)),

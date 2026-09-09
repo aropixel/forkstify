@@ -680,7 +680,13 @@ impl Live<'_> {
             return true;
         }
         let live = !self.rounds.is_empty();
-        let outcome = self.home.on_cmd(cmd, &self.catalog, &self.learned, &mut self.comfort, live);
+        // une mesure d'artiste faite à l'accueil change les branches de la
+        // session qui joue dessous
+        let measured = matches!(cmd, Cmd::Artist(_));
+        let outcome = self.home.on_cmd(cmd, &self.catalog, &mut self.learned, &mut self.comfort, live);
+        if measured && live {
+            self.recompute();
+        }
         match outcome {
             Outcome::Stay => {}
             Outcome::Back => {

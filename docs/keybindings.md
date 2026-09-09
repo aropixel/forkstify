@@ -120,9 +120,9 @@ les portes d'entrée d'un fork vierge, et se corrigent dans la discographie
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
-| `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) | mesure | ✅ |
-| `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) | mesure | ✅ |
-| `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file | mesure | ✅ |
+| `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) — et de retour parmi les aimés. **À l'accueil aussi**, sur la ligne surlignée (Joel, 09/09/2026) | mesure | ✅ |
+| `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) — et **hors des aimés** : un drapeau `unliked` dans `learned/`, qui prime sur les aimés Spotify et survit aux récoltes. À l'accueil aussi | mesure | ✅ |
+| `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file. À l'accueil aussi | mesure | ✅ |
 | `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
 | `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
 | `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous | édition | ✅ |

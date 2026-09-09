@@ -170,9 +170,12 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
    `WebApi` (qui sait déjà paginer), une modale de playlists sur le modèle
    de la discographie, le classement calculé par l'application, et le
    fichier de graine en vocabulaire anglais (0014, toujours en attente).
-   Les scripts de `tools/` se retirent alors. À trancher : le moment
-   (premier lancement, ou `:setup` rejouable pour re-récolter), et si les
-   playlists cochées se mémorisent dans `learned/`.
+   Les scripts de `tools/` se retirent alors. **Tranché par Joel le
+   09/09/2026 : au premier lancement *et* rejouable** pour re-récolter ;
+   il fournira une maquette Claude Design quand on attaquera la
+   fonctionnalité — on ne code pas avant. Reste ouvert : si les playlists
+   cochées se mémorisent dans `learned/` (probable, pour que la re-récolte
+   soit un seul geste).
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
 

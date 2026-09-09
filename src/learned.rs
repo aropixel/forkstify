@@ -60,6 +60,12 @@ pub struct Artist {
     pub weight: f32,
     #[serde(default, skip_serializing_if = "is_false")]
     pub blacklisted: bool,
+    /// « Not one of my liked » — set by `as`, cleared by `al`. Explicit,
+    /// because the Spotify seed says otherwise and would come back with
+    /// the next harvest (a son's likes, Joel, 09/09/2026); the weight alone
+    /// would not do, it climbs back.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub unliked: bool,
     /// Sorted on disk: a stable order keeps diffs honest between machines.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tops: BTreeMap<String, Top>,
@@ -67,7 +73,7 @@ pub struct Artist {
 
 impl Default for Artist {
     fn default() -> Self {
-        Artist { plays: 0.0, last: None, weight: 1.0, blacklisted: false, tops: BTreeMap::new() }
+        Artist { plays: 0.0, last: None, weight: 1.0, blacklisted: false, unliked: false, tops: BTreeMap::new() }
     }
 }
 
@@ -162,10 +168,11 @@ impl Learned {
     /// there). What the home's collection shows by default (Joel,
     /// 09/09/2026).
     pub fn liked(&self, slug: &str, name: &str) -> bool {
-        let here = self
-            .artists
-            .get(slug)
-            .is_some_and(|a| a.weight > 1.0 || a.tops.values().any(|t| t.liked));
+        let artist = self.artists.get(slug);
+        if artist.is_some_and(|a| a.unliked || a.blacklisted) {
+            return false;
+        }
+        let here = artist.is_some_and(|a| a.weight > 1.0 || a.tops.values().any(|t| t.liked));
         here || self.seed_liked.contains(&name.to_lowercase())
     }
 
@@ -359,6 +366,7 @@ impl Learned {
     pub fn like_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
         artist.weight = (artist.weight * MORE_OFTEN).min(WEIGHT_CEILING);
+        artist.unliked = false;
         let weight = artist.weight;
         self.save(slug);
         weight
@@ -367,6 +375,7 @@ impl Learned {
     pub fn skip_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
         artist.weight = (artist.weight * LESS_OFTEN).max(WEIGHT_FLOOR);
+        artist.unliked = true;
         let weight = artist.weight;
         self.save(slug);
         weight
@@ -447,6 +456,7 @@ fn merge_artist_at(base: Option<&str>, ours: &str, theirs: &str, today: i64) -> 
     );
     let weight = if (a.weight - base.weight).abs() > 1e-6 { a.weight } else { b.weight };
     let blacklisted = merge_flag(base.blacklisted, a.blacklisted, b.blacklisted);
+    let unliked = merge_flag(base.unliked, a.unliked, b.unliked);
 
     let mut keys: Vec<&String> = base.tops.keys().chain(a.tops.keys()).chain(b.tops.keys()).collect();
     keys.sort();
@@ -474,7 +484,8 @@ fn merge_artist_at(base: Option<&str>, ours: &str, theirs: &str, today: i64) -> 
             },
         );
     }
-    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, tops }).map_err(|e| e.to_string())
+    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, unliked, tops })
+        .map_err(|e| e.to_string())
 }
 
 /// A counter and its date: the side that did not move yields to the other;
@@ -688,6 +699,13 @@ mod tests {
         learned.like_track("the-cure", "A Forest");
         assert!(learned.liked("the-cure", "The Cure"));
         learned.skip_track("the-cure", "A Forest");
+        assert!(!learned.liked("the-cure", "The Cure"));
+        learned.like_artist("the-cure");
+        assert!(learned.liked("the-cure", "The Cure"));
+        // « moins souvent » takes the artist out of the liked, even with
+        // a ♥ on a track; « plus souvent » brings it back
+        learned.like_track("the-cure", "A Forest");
+        learned.skip_artist("the-cure");
         assert!(!learned.liked("the-cure", "The Cure"));
         learned.like_artist("the-cure");
         assert!(learned.liked("the-cure", "The Cure"));

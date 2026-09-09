@@ -257,7 +257,11 @@ Ils sont justes tous les deux, mais ce sont des chantiers, pas de l'affichage.
    C'est un changement d'ordre d'initialisation, pas un détail d'affichage.
 4. **Combien d'entrées par bloc ?** Trois branches à un embranchement ; la
    même contrainte de lisibilité vaut sans doute ici.
-5. **Retirer un artiste des aimés, et que ça tienne.** Le 09/09/2026, la
+5. ~~**Retirer un artiste des aimés, et que ça tienne.**~~ — tranché et
+   câblé le 09/09/2026 : `al`, `as`, `ab` à l'accueil sur la ligne
+   surlignée ; `as` pose `unliked = true` dans `learned/artists/<slug>.toml`,
+   `al` l'efface, la fusion 0017 le traite comme un drapeau. Le contexte :
+   le 09/09/2026, la
    vue « aimés » montrait Bosh, Bossikan et Bow Wow : des titres aimés sur
    Spotify… par le fils de Joel. La source ne se corrige pas depuis
    l'application, et une prochaine récolte les ramènerait. Il faut donc un
