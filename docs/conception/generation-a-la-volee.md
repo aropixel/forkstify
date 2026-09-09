@@ -31,7 +31,11 @@ bout : le catalogue ne grandit pas le long de ses propres liens.
 1. **La recherche fait entrer quelqu'un de neuf.** Entrée sur un résultat
    hors catalogue génère la fiche de son artiste, la commite, puis démarre
    chez lui. C'est le geste du matin, sans touche à apprendre.
-   `:generate <nom>` fait la même chose sans passer par un morceau.
+   `:generate <nom>` fait la même chose sans passer par un morceau ;
+   `:generate <nom> <mbid>` quand la recherche par le nom échoue et qu'on
+   a trouvé l'identifiant à la main (Joel, 09/09/2026, « Oai Star »).
+   Dans ce cas, si MusicBrainz ne répond pas du tout, la fiche naît
+   minimale — nom, id, tops Deezer — plutôt que pas du tout.
 2. **L'arrivée fait grandir le catalogue le long de ses liens.** Un lien
    vers une fiche absente cesse d'être jeté : il s'affiche comme une branche
    en creux, et s'y engager génère la fiche avant de marcher.

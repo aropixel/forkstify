@@ -156,6 +156,15 @@ fn encode(text: &str) -> String {
     crate::spotify::encode(text)
 }
 
+/// A MusicBrainz id as typed: 8-4-4-4-12 hex digits.
+pub fn is_mbid(text: &str) -> bool {
+    text.len() == 36
+        && text.char_indices().all(|(i, c)| match i {
+            8 | 13 | 18 | 23 => c == '-',
+            _ => c.is_ascii_hexdigit(),
+        })
+}
+
 /// Find the artist by name. The score alone is not enough — "destinys child"
 /// must land on "Destiny's Child" — so the slugs are compared too.
 fn search_mbid(name: &str) -> Option<String> {
@@ -418,20 +427,47 @@ fn compose(
 
 /// Generate the card of `slug`. `hint` is the artist's real name when the
 /// caller has it (a Spotify search result); without one the slug is spelled
-/// back out, which is how a link into the void names its target.
+/// back out, which is how a link into the void names its target. `mbid`
+/// is the id found by hand when the search by name fails (Joel,
+/// 09/09/2026): it skips the search, and if MusicBrainz then stays silent
+/// the card is born minimal — name, id, Deezer tops — rather than not at
+/// all.
 ///
 /// Blocking, and slow on purpose (MusicBrainz's rate limit): four network
 /// calls, about three seconds.
-pub fn draft(slug: &str, hint: Option<&str>, known: &Known) -> Result<Draft, String> {
+pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) -> Result<Draft, String> {
     let asked = match hint {
         Some(name) => name.to_string(),
         None => slug.replace('-', " "),
     };
-    let mbid = search_mbid(&asked)
-        .ok_or_else(|| format!("« {asked} » est introuvable sur MusicBrainz"))?;
-    let facts = facts(&mbid).ok_or("MusicBrainz n'a pas répondu")?;
-
     let mut caveats = Vec::new();
+    let (mbid, facts) = match mbid {
+        Some(mbid) => {
+            let facts = facts(mbid).unwrap_or_else(|| {
+                caveats.push("MusicBrainz n'a pas répondu : fiche minimale, à relire".to_string());
+                Facts {
+                    name: asked.clone(),
+                    kind: None,
+                    country: None,
+                    area: None,
+                    begin: None,
+                    end: None,
+                    genres: Vec::new(),
+                    relations: Vec::new(),
+                    spotify: None,
+                    deezer: None,
+                }
+            });
+            (mbid.to_string(), facts)
+        }
+        None => {
+            let mbid = search_mbid(&asked).ok_or_else(|| {
+                format!("« {asked} » est introuvable sur MusicBrainz — :generate {asked} <mbid> avec l'identifiant trouvé à la main")
+            })?;
+            let facts = facts(&mbid).ok_or("MusicBrainz n'a pas répondu")?;
+            (mbid, facts)
+        }
+    };
     let deezer_id = facts.deezer.clone().or_else(|| deezer_id_by_name(&facts.name));
     let (tops, similar) = match &deezer_id {
         Some(id) => {
@@ -498,6 +534,14 @@ pub fn draft(slug: &str, hint: Option<&str>, known: &Known) -> Result<Draft, Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn un_mbid_se_reconnait_a_sa_forme() {
+        assert!(is_mbid("db6107e1-f692-453a-ab0e-4566faaba298"));
+        assert!(!is_mbid("Oai Star"));
+        assert!(!is_mbid("db6107e1f692453aab0e4566faaba298"));
+        assert!(!is_mbid("db6107e1-f692-453a-ab0e-4566faaba29g"));
+    }
 
     #[test]
     fn le_slug_suit_la_regle_du_catalogue() {
@@ -599,7 +643,7 @@ mod tests {
             (match_key("georges-brassens"), "georges-brassens".to_string()),
             (match_key("serge-gainsbourg"), "serge-gainsbourg".to_string()),
         ]);
-        let draft = draft("jacques-brel", None, &known).expect("Jacques Brel");
+        let draft = draft("jacques-brel", None, None, &known).expect("Jacques Brel");
         println!("{}", draft.toml);
         assert_eq!(draft.name, "Jacques Brel");
         let card: crate::catalog::Card = toml::from_str(&draft.toml).expect("fiche lisible");

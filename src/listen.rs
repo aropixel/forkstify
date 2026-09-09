@@ -691,7 +691,7 @@ impl Live<'_> {
             Outcome::Find(query) => self.open_finder(None, &query),
             Outcome::Generate(name) => {
                 let slug = crate::generate::slugify(&name);
-                self.generate(&slug, Some(&name), After::Play { title: None, uri: None });
+                self.generate(&slug, Some(&name), None, After::Play { title: None, uri: None });
             }
             Outcome::Quit => return false,
         }
@@ -949,7 +949,7 @@ impl Live<'_> {
     /// Demander la fiche d'un artiste qui n'en a pas. Quatre appels réseau et
     /// la seconde d'écart qu'exige MusicBrainz : c'est du fond, comme une
     /// récolte de discographie, et l'écran ne l'attend pas.
-    fn generate(&mut self, slug: &str, hint: Option<&str>, after: After) {
+    fn generate(&mut self, slug: &str, hint: Option<&str>, mbid: Option<&str>, after: After) {
         if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
             self.tell(format!("({name} a déjà une fiche)"));
             return;
@@ -963,12 +963,12 @@ impl Live<'_> {
         let name = hint.map(String::from).unwrap_or_else(|| crate::generate::pretty(slug));
         self.tell(format!("… fiche de {name} — musicbrainz puis deezer, quelques secondes"));
         let known = crate::generate::Known::of(&self.catalog);
-        let (asked, hint) = (slug.to_string(), hint.map(String::from));
+        let (asked, hint, mbid) = (slug.to_string(), hint.map(String::from), mbid.map(String::from));
         let reported = asked.clone();
         let tx = self.jobs_tx.clone();
         tokio::task::spawn_local(async move {
             let result = tokio::task::spawn_blocking(move || {
-                crate::generate::draft(&asked, hint.as_deref(), &known)
+                crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), &known)
             })
             .await
             .unwrap_or_else(|e| Err(format!("la génération s'est interrompue ({e})")));
@@ -1295,7 +1295,7 @@ impl Live<'_> {
         if n > self.branches.len() && n <= self.branches.len() + self.missing.len() {
             let missing = &self.missing[n - self.branches.len() - 1];
             let (slug, reason) = (missing.slug.clone(), missing.why.clone());
-            self.generate(&slug, None, After::Branch { when, reason });
+            self.generate(&slug, None, None, After::Branch { when, reason });
             return;
         }
         if n == 0 || n > self.branches.len() {
@@ -2222,7 +2222,7 @@ impl Live<'_> {
                         title: Some(title.clone()),
                         uri: Some(uri.clone()),
                     };
-                    self.generate(&slug, Some(artist), after);
+                    self.generate(&slug, Some(artist), None, after);
                 }
             }
             return;
@@ -2296,7 +2296,7 @@ impl Live<'_> {
                 let slug = crate::generate::slugify(artist);
                 let after =
                     After::Play { title: Some(title.clone()), uri: Some(uri.clone()) };
-                self.generate(&slug, Some(artist), after);
+                self.generate(&slug, Some(artist), None, after);
             }
             // :search sur un titre : il sonne maintenant, les branches
             // repartent de son artiste
@@ -2770,14 +2770,31 @@ impl Live<'_> {
                 self.search_requested = Some(text.trim().trim_start_matches("search").trim().to_string());
             }
             // :generate — faire entrer un artiste absent, puis partir de
-            // chez lui (0016). La fiche arrive en quelques secondes.
+            // chez lui (0016). La fiche arrive en quelques secondes. Un
+            // dernier mot en forme de MBID remplace la recherche par le
+            // nom (Joel, 09/09/2026) ; et si l'artiste était proposé en
+            // creux, c'est sa branche qui se prend, pas un saut chez lui.
             (Some("generate"), Some(_)) => {
-                let name = text.trim().trim_start_matches("generate").trim().to_string();
+                let mut words: Vec<&str> =
+                    text.trim().trim_start_matches("generate").split_whitespace().collect();
+                let mbid = match words.last() {
+                    Some(last) if crate::generate::is_mbid(last) => words.pop().map(str::to_lowercase),
+                    _ => None,
+                };
+                let name = words.join(" ");
+                if name.is_empty() {
+                    say!(self, "usage : :generate <nom de l'artiste> [mbid]");
+                    return;
+                }
                 let slug = crate::generate::slugify(&name);
-                self.generate(&slug, Some(&name), After::Play { title: None, uri: None });
+                let after = match self.missing.iter().find(|m| m.slug == slug) {
+                    Some(missing) => After::Branch { when: When::EndOfBranch, reason: missing.why.clone() },
+                    None => After::Play { title: None, uri: None },
+                };
+                self.generate(&slug, Some(&name), mbid.as_deref(), after);
             }
             (Some("generate"), None) => {
-                say!(self, "usage : :generate <nom de l'artiste>")
+                say!(self, "usage : :generate <nom de l'artiste> [mbid]")
             }
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
@@ -2895,6 +2912,7 @@ impl Live<'_> {
                 (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
                 (":warm", "récolter la discographie de l'artiste en cours", true),
                 (":discography", "sa discographie par album — raccourci « ad »", true),
+                (":generate <nom> [mbid]", "faire entrer un artiste absent — l'id à la main si le nom ne suffit pas", true),
                 (":mine", "ce que ce catalogue a de plus que l'amont", true),
                 (":sync", "commiter et pousser l'appris maintenant", true),
                 ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
