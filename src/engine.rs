@@ -864,6 +864,10 @@ mod tests {
                 note: None,
             }],
             links: Vec::new(),
+            begin: None,
+            end: None,
+            origin: None,
+            description: None,
         }
     }
 

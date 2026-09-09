@@ -6,6 +6,7 @@ description = "Lecteur de musique par branches — PoC : navigation à sec"
 
 [dependencies]
 anyhow = "1"
+fastembed = { version = "6", default-features = false, features = ["hf-hub-rustls-tls", "ort-download-binaries-rustls-tls"] }
 futures-util = "0.3"
 libc = "0.2"
 librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }

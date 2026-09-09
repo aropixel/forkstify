@@ -379,6 +379,9 @@ enum Job {
     Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
+    /// The fresh card's vector (0019) — or why there is none; the card is
+    /// adopted either way.
+    Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
 }
 
 /// Ce qu'on voulait faire de l'artiste **une fois qu'il a une fiche**. La
@@ -816,10 +819,10 @@ impl Live<'_> {
                 }
             }
             Job::Generated { slug, after, result } => {
-                self.generating.remove(&slug);
                 let draft = match result {
                     Ok(draft) => draft,
                     Err(why) => {
+                        self.generating.remove(&slug);
                         self.mark_pending();
                         return self.tell(format!(
                             "⏹ {} — {why}",
@@ -827,9 +830,35 @@ impl Live<'_> {
                         ));
                     }
                 };
+                // the vector, behind (0019): the text is composed now, from
+                // the catalog as it is, the model runs off the loop
+                let text = match toml::from_str::<crate::catalog::Card>(&draft.toml) {
+                    Ok(card) => crate::embed::text_of(&slug, &card, &self.catalog.cards),
+                    Err(_) => String::new(),
+                };
+                if !crate::embed::model_cached() {
+                    self.tell(format!("… vecteur de {} — premier calcul : le modèle se télécharge (241 Mo)", draft.name));
+                }
+                let tx = self.jobs_tx.clone();
+                let reported = slug.clone();
+                tokio::task::spawn_local(async move {
+                    let vector = tokio::task::spawn_blocking(move || {
+                        crate::embed::embed(&[text]).map(|mut v| v.remove(0))
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(format!("la vectorisation s'est interrompue ({e})")));
+                    let _ = tx.send(Job::Vectorized { slug: reported, after, draft, vector });
+                });
+            }
+            Job::Vectorized { slug, after, draft, vector } => {
+                self.generating.remove(&slug);
                 let (name, tops, links) = (draft.name.clone(), draft.tops, draft.links);
                 let caveats = draft.caveats.join(" · ");
-                if let Err(why) = self.adopt(draft) {
+                let (vector, no_vector) = match vector {
+                    Ok(v) => (Some(v), None),
+                    Err(why) => (None, Some(why)),
+                };
+                if let Err(why) = self.adopt(draft, vector) {
                     self.mark_pending();
                     return self.tell(format!("⏹ fiche de {name} — {why}"));
                 }
@@ -840,7 +869,10 @@ impl Live<'_> {
                 if !caveats.is_empty() {
                     done.push_str(&format!(" ({caveats})"));
                 }
-                done.push_str(" · sans vecteur : navigation par le graphe");
+                match no_vector {
+                    None => done.push_str(" · vecteur calculé"),
+                    Some(why) => done.push_str(&format!(" · sans vecteur ({why}) : navigation par le graphe")),
+                }
                 self.tell(done);
                 match after {
                     After::Play { title, uri } => self.play_fresh(&slug, title, uri).await,
@@ -873,10 +905,10 @@ impl Live<'_> {
     /// Faire entrer une fiche fraîche dans la session : le disque, le commit
     /// — c'est une édition (0013) — puis le catalogue **en mémoire**, sans
     /// quoi elle n'existerait qu'au prochain lancement.
-    fn adopt(&mut self, draft: crate::generate::Draft) -> Result<(), String> {
+    fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
             .map_err(|e| format!("la fiche composée ne se relit pas ({e})"))?;
-        let edit = crate::edit::create_card(
+        let mut edit = crate::edit::create_card(
             &self.catalog_dir,
             &draft.slug,
             &draft.name,
@@ -884,8 +916,16 @@ impl Live<'_> {
             draft.tops,
             draft.links,
         )?;
+        // the vector goes in the same commit (0019): the index shipped with
+        // the fork never lags behind its cards
+        if let Some(vector) = &vector {
+            edit.also.push(crate::embed::write_vector(&self.catalog_dir, &draft.slug, vector)?);
+        }
         crate::edit::commit(&self.catalog_dir, &edit)?;
-        self.catalog.cards.insert(draft.slug, card);
+        self.catalog.cards.insert(draft.slug.clone(), card);
+        if let Some(vector) = vector {
+            self.catalog.vectors.insert(draft.slug, vector);
+        }
         Ok(())
     }
 

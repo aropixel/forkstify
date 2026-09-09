@@ -156,8 +156,9 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
 3. ~~**La génération de fiche à la volée**~~ — tranché le 09/09/2026 :
    **les deux**, la recherche pour faire entrer quelqu'un de neuf et
    l'arrivée pour grandir le long des liens. Le sujet a désormais sa note,
-   [generation-a-la-volee.md](generation-a-la-volee.md), où reste ouverte la
-   **vectorisation** de la fiche générée.
+   [generation-a-la-volee.md](generation-a-la-volee.md) ; la
+   **vectorisation** de la fiche générée est tranchée par
+   [0019](../decisions/0019-vectorisation-par-l-application.md).
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
 

@@ -80,6 +80,10 @@ Le détail est dans `docs/decisions/`. En résumé :
   pilote git ; les commits de l'application sont en anglais et portent le
   trailer `Forkstify: <kind> <version>`
   ([0017](docs/decisions/0017-synchronisation-de-l-appris.md)).
+- **L'application vectorise elle-même** : une fiche générée naît avec son
+  vecteur, dans le même commit ; `forkstify vectors` régénère l'index et
+  remplace le script Python ; même modèle, 128 jetons, vecteurs normalisés
+  ([0019](docs/decisions/0019-vectorisation-par-l-application.md)).
 - **Langue** : français pour la prose (doc, commits humains, interface) ;
   **anglais pour tout ce qui est interface publique du dépôt — code
   (identifiants, commentaires), vocabulaire sur disque (chemins,

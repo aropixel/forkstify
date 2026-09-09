@@ -309,6 +309,36 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le vecteur naît avec la fiche (09/09/2026)
+
+Joel a tranché (b) : **l'application vectorise elle-même**
+([0019](decisions/0019-vectorisation-par-l-application.md)).
+
+- **`embed.rs`** : la composition du texte portée mot pour mot depuis
+  `vectoriser.py` (vérifiée identique sur les 316 textes de la référence,
+  `forkstify vectors --texts` contre `vectoriser.py --textes`), le modèle
+  par `fastembed` (features rustls, variante quantifiée, `max_length =
+  128`, cache dans `$XDG_CACHE_HOME/forkstify/fastembed`), l'écriture d'une
+  ligne dans `vectors.jsonl` en ordre de slug, la régénération complète.
+  `Card` porte désormais `begin`, `end`, `origin`, `description`.
+- **En session** : `Job::Generated` compose le texte et envoie le modèle en
+  fond (`spawn_blocking`), `Job::Vectorized` adopte la fiche **et** son
+  vecteur dans le même commit (`Edit.also`). Si le modèle manque, la fiche
+  entre quand même et le toast dit « sans vecteur ». Premier calcul : le
+  toast prévient que le modèle se télécharge.
+- **`forkstify vectors [catalogue] [--texts]`** régénère l'index et
+  `meta.toml` (clés anglaises, `max_length`, `normalized`). L'import le
+  fait dans son commit, plus de docker.
+- **Image de build** : `g++` ajouté au Dockerfile. Binaire : 23 → 58 Mo.
+- **Index de référence régénéré** par l'application et poussé sur le fork
+  (`dd82e8d` côté catalogue) : cosinus ≥ 0,999999 avec l'ancien, normes
+  à 1. `tools/vectoriser.py` marqué remplacé, gardé pour mémoire.
+
+**Reste** : une édition de lien en session ne recalcule pas les vecteurs
+(elle ne compte qu'au prochain lancement) — noté dans la note de
+conception. L'index régénéré est sur le fork, pas encore sur la référence
+`aropixel` : à pousser.
+
 ## L'essai fastembed en Rust (09/09/2026)
 
 Pour trancher la vectorisation d'une fiche générée, un spike jetable dans
@@ -1361,14 +1391,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    `rounds` est une **liste plate**, alors que « retirer toute la profondeur
    d'une branche » suppose un arbre manipulable.
 6. ~~**La synchronisation git**~~ — faite le 07/09/2026 (0017).
-7. **Trancher la vectorisation d'une fiche générée** — la seule question
-   ouverte de [0016](decisions/0016-base-large-et-generation-a-la-volee.md)
-   depuis le 09/09/2026 : commande `:vectors` qui lance le conteneur en fond,
-   ou `fastembed` en Rust. **Mesuré le 09/09/2026** (essai concluant,
-   orientation (b)) dans
-   [conception/generation-a-la-volee.md](conception/generation-a-la-volee.md) ;
-   si (b) : régénérer l'index par l'application, `max_length = 128`, `g++`
-   dans le Dockerfile, le vecteur dans le commit de la fiche.
+7. ~~**Trancher la vectorisation d'une fiche générée**~~ — tranché le
+   09/09/2026 ([0019](decisions/0019-vectorisation-par-l-application.md)) :
+   l'application vectorise elle-même, fait le jour même.
 8. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
    clarification de Joel : sortir du cluster, ou repartir d'une graine ?
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un

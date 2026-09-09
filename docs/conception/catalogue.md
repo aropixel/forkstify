@@ -129,7 +129,11 @@ personne ne sait faire ça, et il ne faut pas le demander :
   veuille dire la même chose partout. Le dépôt contient donc les vecteurs et,
   dans ses métadonnées, le nom et la version du modèle qui les a produits.
   L'application recalcule localement le vecteur d'une fiche modifiée ;
-  l'amont régénère tout à chaque changement de modèle. Prototypé le
+  l'amont régénère tout à chaque changement de modèle. **Fait le
+  09/09/2026** ([0019](../decisions/0019-vectorisation-par-l-application.md)) :
+  `embed.rs` vectorise dans l'application — une fiche générée naît avec
+  son vecteur, `forkstify vectors` régénère l'index et a remplacé
+  `vectoriser.py` (troncature à 128 jetons, vecteurs normalisés). Prototypé le
   02/09/2026 (`tools/vectoriser.py` et `voisins.py`) : modèle
   `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, mean pooling,
   supporté par fastembed en Python comme en Rust), index dans
@@ -283,9 +287,9 @@ important puisqu'on prend un morceau d'un tout :
   de cent sans rien casser.
 - **Une fiche sans vecteur ne casse rien non plus** — elle est seulement
   invisible à la branche aventureuse, `vector_neighbors` ne travaillant que
-  sur ce que `vecteurs.jsonl` contient. **Il faut donc régénérer les
-  vecteurs après un import** (`tools/vectoriser.py`), sinon les fiches
-  reprises ne seront atteignables que par le graphe.
+  sur ce que `vectors.jsonl` contient. **L'import régénère donc l'index
+  dans son commit** ([0019](../decisions/0019-vectorisation-par-l-application.md)) ;
+  à la main, `forkstify vectors`.
 
 Cette tolérance n'est pas un hasard : elle vient de « un fichier par
 artiste » et du fait que le graphe et l'espace vectoriel sont deux chemins

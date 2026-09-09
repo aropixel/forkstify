@@ -10,6 +10,7 @@
 mod catalog;
 mod config;
 mod edit;
+mod embed;
 mod engine;
 mod generate;
 mod explore;
@@ -341,9 +342,33 @@ fn main() -> anyhow::Result<()> {
                 }
             };
         }
+        // the whole index, from the cards (0019) — `--texts` shows what gets
+        // vectorized instead, to compare with another vectorizer
+        [command, rest @ ..] if command == "vectors" => {
+            let path = rest.iter().find(|a| !a.starts_with("--"));
+            let catalog = Catalog::load(&catalog_path(path))?;
+            if rest.iter().any(|a| a == "--texts") {
+                let mut slugs: Vec<&String> = catalog.cards.keys().collect();
+                slugs.sort();
+                for slug in slugs {
+                    println!("--- {slug}\n{}\n", embed::text_of(slug, &catalog.cards[slug], &catalog.cards));
+                }
+                return Ok(());
+            }
+            return match embed::regenerate(&catalog_path(path), &catalog.cards) {
+                Ok(n) => {
+                    println!("✓ {n} vecteurs écrits dans vectors/vectors.jsonl");
+                    Ok(())
+                }
+                Err(why) => {
+                    eprintln!("vectors : {why}");
+                    std::process::exit(1);
+                }
+            };
+        }
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]\n        forkstify merge-learned <base> <ours> <theirs>   (pilote de fusion git)");
+            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]\n        forkstify vectors [catalogue] [--texts]\n        forkstify merge-learned <base> <ours> <theirs>   (pilote de fusion git)");
             std::process::exit(2);
         }
     };

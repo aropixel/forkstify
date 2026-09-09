@@ -11,12 +11,11 @@
 //! - **On n'écrase jamais une fiche qu'on a déjà.** Ses corrections sur nos
 //!   artistes ne nous intéressent pas ici ; c'est le rôle d'une PR, où l'on
 //!   discute. L'import n'ajoute que ce qui manque.
-//! - **Les vecteurs se régénèrent ensuite**, sinon les fiches reprises ne
-//!   seront atteignables que par le graphe — `vector_neighbors` ne travaille
-//!   que sur ce que `vectors.jsonl` contient.
-//!
-//! C'est une sous-commande et non un geste d'écoute : la vectorisation
-//! demande un conteneur et plusieurs minutes.
+//! - **Les vecteurs se régénèrent dans le même commit** (0019), sinon les
+//!   fiches reprises ne seraient atteignables que par le graphe —
+//!   `vector_neighbors` ne travaille que sur ce que `vectors.jsonl` contient.
+//!   Et elles ne seraient pas seules : les vecteurs d'une fiche citent ses
+//!   voisins, un nouveau voisin change le texte de ceux qui le pointent.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -92,7 +91,16 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     let mut args: Vec<&str> = vec!["checkout", &reference, "--"];
     args.extend(missing.iter().map(|p| p.as_str()));
     git(dir, &args)?;
-    git(dir, &["add", "cards/"])?;
+    // tout l'index, pas seulement les nouvelles : leurs voisines les citent
+    let vectors = match crate::catalog::Catalog::load(dir) {
+        Ok(catalog) => crate::embed::regenerate(dir, &catalog.cards),
+        Err(why) => Err(why.to_string()),
+    };
+    match &vectors {
+        Ok(n) => println!("✓ {n} vecteurs recalculés"),
+        Err(why) => println!("⏹ vecteurs non recalculés ({why}) — « forkstify vectors » les rattrapera"),
+    }
+    git(dir, &["add", "cards/", "vectors/"])?;
     git(
         dir,
         &[
@@ -105,37 +113,7 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
         ],
     )?;
     println!("\n✓ {} fiche(s) reprises, en un commit", missing.len());
-
-    regenerate_vectors(dir);
     Ok(())
-}
-
-/// Sans vecteurs à jour, les fiches reprises n'existent que pour le graphe.
-/// La vectorisation demande fastembed, donc un conteneur : on le lance s'il
-/// est là, on donne la commande sinon.
-fn regenerate_vectors(dir: &Path) {
-    println!("\n… régénération des vecteurs (plusieurs minutes)");
-    let uid = unsafe { libc::getuid() };
-    let gid = unsafe { libc::getgid() };
-    let script = format!(
-        "pip install -q fastembed && python tools/vectoriser.py && chown -R {uid}:{gid} vectors tools/cache/fastembed"
-    );
-    let status = Command::new("docker")
-        .args(["run", "--rm", "-v"])
-        .arg(format!("{}:/catalogue", dir.display()))
-        .args(["-w", "/catalogue", "-e", "FASTEMBED_CACHE_PATH=/catalogue/tools/cache/fastembed"])
-        .args(["python:3.12-slim", "bash", "-c", &script])
-        .status();
-    match status {
-        Ok(code) if code.success() => println!("\n✓ vecteurs à jour"),
-        Ok(_) | Err(_) => {
-            println!("\n⏹ vecteurs non régénérés — les fiches reprises ne seront");
-            println!("   atteignables que par le graphe tant qu'ils ne le sont pas.");
-            println!("\n   docker run --rm -v \"{}\":/catalogue -w /catalogue \\", dir.display());
-            println!("     -e FASTEMBED_CACHE_PATH=/catalogue/tools/cache/fastembed \\");
-            println!("     python:3.12-slim bash -c \"{script}\"");
-        }
-    }
 }
 
 #[cfg(test)]

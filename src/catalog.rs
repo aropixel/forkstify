@@ -42,6 +42,13 @@ pub struct Card {
     pub doors: Vec<Door>,
     #[serde(default)]
     pub links: Vec<Link>,
+    /// Dates and origin as MusicBrainz gives them, and the human prose —
+    /// what the vector's text is composed from (embed.rs), nothing else
+    /// reads them.
+    pub begin: Option<String>,
+    pub end: Option<String>,
+    pub origin: Option<String>,
+    pub description: Option<String>,
 }
 
 pub struct Catalog {

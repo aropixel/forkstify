@@ -85,6 +85,9 @@ pub struct Edit {
     /// isolé n'en a pas besoin.
     pub body: Option<String>,
     pub path: PathBuf,
+    /// What else the same edit touched — the index, when a card comes with
+    /// its vector (0019) : one thought, one commit.
+    pub also: Vec<PathBuf>,
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -120,6 +123,7 @@ pub fn add_door(
         summary: format!("{name} — door : {title} → {}", tags.join(", ")),
         body: None,
         path,
+        also: Vec::new(),
     })
 }
 
@@ -144,7 +148,7 @@ pub fn add_link(
     }
     let updated = insert_into_array(&text, "links", &link_line(to_slug, kind));
     write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — lien : → {to_name} ({kind})"), body: None, path })
+    Ok(Edit { summary: format!("{name} — lien : → {to_name} ({kind})"), body: None, path, also: Vec::new() })
 }
 
 /// La **fournée** de l'écran de la discographie (maquette 1a, 07/09/2026) :
@@ -209,6 +213,7 @@ pub fn set_tops(
         summary: format!("{name} — tops : +{} −{}", added.len(), removed.len()),
         body: Some(lines.join("\n")),
         path,
+        also: Vec::new(),
     })
 }
 
@@ -242,17 +247,16 @@ pub fn create_card(
             "{tops} top(s), {links} lien(s) — MusicBrainz et Deezer.\ngenerated = true : à relire."
         )),
         path,
+        also: Vec::new(),
     })
 }
 
 /// Le commit. Une édition qui ne laisse pas de trace relisible n'en est pas
 /// une (0013) ; on ne pousse pas, en revanche — c'est l'affaire de `:sync`.
 pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
-    let relative = edit
-        .path
-        .strip_prefix(dir)
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|_| edit.path.clone());
+    let relative = |path: &Path| -> String {
+        path.strip_prefix(dir).unwrap_or(path).to_string_lossy().to_string()
+    };
     let run = |args: &[&str]| -> Result<(), String> {
         let out = std::process::Command::new("git")
             .arg("-C")
@@ -266,7 +270,9 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
             Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
         }
     };
-    run(&["add", &relative.to_string_lossy()])?;
+    for path in std::iter::once(&edit.path).chain(&edit.also) {
+        run(&["add", &relative(path)])?;
+    }
     let mut args = vec!["commit".to_string(), "-q".to_string(), "-m".to_string(), edit.summary.clone()];
     if let Some(body) = &edit.body {
         args.push("-m".to_string());
