@@ -188,7 +188,12 @@ fn collection(
         }),
     }
     if scope == Scope::Liked {
-        rows.retain(|(slug, row)| learned.liked(slug.as_deref().unwrap_or(""), &row.name));
+        // an artist without a card is written under the slug of its name —
+        // the same one the gestures use below
+        rows.retain(|(slug, row)| {
+            let slug = slug.clone().unwrap_or_else(|| crate::generate::slugify(&row.name));
+            learned.liked(&slug, &row.name)
+        });
     }
     if !filter.is_empty() {
         let needle = filter.to_lowercase();
