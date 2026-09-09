@@ -125,31 +125,41 @@ fn match_key(slug: &str) -> String {
     words.concat()
 }
 
-/// Un GET qui distingue **« non »** de **« pas maintenant »**. MusicBrainz
-/// répond 503 dès qu'on la presse, et Deezer 429 : ce n'est pas une absence,
-/// et rendre `None` tout de suite ferait échouer une génération parfaitement
-/// possible. Le script Python patiente de la même façon.
-fn get(url: &str) -> Option<serde_json::Value> {
-    for attempt in 1..=4u64 {
+/// A GET that tells **« no »** from **« not now »**. MusicBrainz answers
+/// 503 as soon as it is pressed — often, for a minute at a time — and
+/// Deezer 429: that is not an absence, and giving up at once would fail a
+/// generation that is perfectly possible. `Ok(None)` is an answer (404: the
+/// artist is not there); `Err` is the server still busy after half a
+/// minute, or unreachable — worth saying, and worth retrying later.
+fn get(url: &str) -> Result<Option<serde_json::Value>, String> {
+    let host = url.split('/').nth(2).unwrap_or("le serveur");
+    const ATTEMPTS: u64 = 6;
+    for attempt in 1..=ATTEMPTS {
         match ureq::get(url).set("User-Agent", AGENT).call() {
-            Ok(response) => return response.into_json().ok(),
-            Err(ureq::Error::Status(429 | 503, _)) if attempt < 4 => {
+            Ok(response) => return Ok(response.into_json().ok()),
+            Err(ureq::Error::Status(429 | 503, _)) if attempt < ATTEMPTS => {
                 std::thread::sleep(Duration::from_secs(2 * attempt));
             }
-            // 404 et le reste sont des réponses : l'artiste n'est pas là
-            Err(_) => return None,
+            Err(ureq::Error::Status(429 | 503, _)) => {
+                return Err(format!("{host} est occupé — réessaie dans un instant"));
+            }
+            // 404 and the rest are answers: the artist is not there
+            Err(ureq::Error::Status(..)) => return Ok(None),
+            Err(ureq::Error::Transport(e)) => return Err(format!("{host} injoignable ({e})")),
         }
     }
-    None
+    Err(format!("{host} est occupé — réessaie dans un instant"))
 }
 
-fn musicbrainz(path: &str) -> Option<serde_json::Value> {
+fn musicbrainz(path: &str) -> Result<Option<serde_json::Value>, String> {
     std::thread::sleep(MB_PAUSE);
     get(&format!("https://musicbrainz.org/ws/2/{path}"))
 }
 
+/// Deezer's answers are all optional to a card (tops, neighbours, a
+/// respelling): a silence is a silence.
 fn deezer(path: &str) -> Option<serde_json::Value> {
-    get(&format!("https://api.deezer.com/{path}"))
+    get(&format!("https://api.deezer.com/{path}")).ok().flatten()
 }
 
 fn encode(text: &str) -> String {
@@ -165,20 +175,45 @@ pub fn is_mbid(text: &str) -> bool {
         })
 }
 
-/// Find the artist by name. The score alone is not enough — "destinys child"
-/// must land on "Destiny's Child" — so the slugs are compared too.
-fn search_mbid(name: &str) -> Option<String> {
-    let body = musicbrainz(&format!("artist?query={}&limit=5&fmt=json", encode(name)))?;
+/// Find the artist by name. A slug spelled back out lost its apostrophes
+/// and accents — « Lojo » for Lo’Jo — and MusicBrainz's search does not
+/// bridge that gap; Deezer's does, so when the first try finds nobody it
+/// lends the real spelling, checked against the same key (Joel,
+/// 09/09/2026). `Err` is a server that would not answer.
+fn search_mbid(name: &str) -> Result<Option<String>, String> {
+    if let Some(mbid) = mbid_among(name)? {
+        return Ok(Some(mbid));
+    }
     let wanted = match_key(&slugify(name));
-    for hit in body["artists"].as_array()? {
+    let respelled = deezer(&format!("search/artist?q={}&limit=5", encode(name))).and_then(|body| {
+        body["data"].as_array()?.iter().find_map(|hit| {
+            let hit = hit["name"].as_str()?;
+            (hit != name && match_key(&slugify(hit)) == wanted).then(|| hit.to_string())
+        })
+    });
+    match respelled {
+        Some(other) => mbid_among(&other),
+        None => Ok(None),
+    }
+}
+
+/// One MusicBrainz search. The score alone is not enough — "destinys child"
+/// must land on "Destiny's Child" — so the slugs are compared too.
+fn mbid_among(name: &str) -> Result<Option<String>, String> {
+    let Some(body) = musicbrainz(&format!("artist?query={}&limit=5&fmt=json", encode(name)))? else {
+        return Ok(None);
+    };
+    let wanted = match_key(&slugify(name));
+    for hit in body["artists"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
         if hit["score"].as_u64().unwrap_or(0) < 90 {
             break;
         }
-        if match_key(&slugify(hit["name"].as_str()?)) == wanted {
-            return hit["id"].as_str().map(String::from);
+        let Some(found) = hit["name"].as_str() else { continue };
+        if match_key(&slugify(found)) == wanted {
+            return Ok(hit["id"].as_str().map(String::from));
         }
     }
-    None
+    Ok(None)
 }
 
 /// A typed relation of the format (0010), and who it points at.
@@ -225,8 +260,12 @@ fn id_after(url: &str, marker: &str, numeric: bool) -> Option<String> {
     (!id.is_empty()).then_some(id)
 }
 
-fn facts(mbid: &str) -> Option<Facts> {
-    let body = musicbrainz(&format!("artist/{mbid}?inc=genres+artist-rels+url-rels&fmt=json"))?;
+/// `Ok(None)`: MusicBrainz does not know this id. `Err`: it would not say.
+fn facts(mbid: &str) -> Result<Option<Facts>, String> {
+    let Some(body) = musicbrainz(&format!("artist/{mbid}?inc=genres+artist-rels+url-rels&fmt=json"))?
+    else {
+        return Ok(None);
+    };
 
     let mut genres: Vec<(String, u64)> = body["genres"]
         .as_array()
@@ -262,8 +301,9 @@ fn facts(mbid: &str) -> Option<Facts> {
     }
 
     let ended = body["life-span"]["ended"].as_bool().unwrap_or(false);
-    Some(Facts {
-        name: body["name"].as_str()?.to_string(),
+    let Some(name) = body["name"].as_str() else { return Ok(None) };
+    Ok(Some(Facts {
+        name: name.to_string(),
         kind: body["type"].as_str().map(String::from),
         country: body["country"].as_str().map(String::from),
         area: body["begin-area"]["name"].as_str().map(String::from),
@@ -273,7 +313,7 @@ fn facts(mbid: &str) -> Option<Facts> {
         relations,
         spotify,
         deezer: deezer_id,
-    })
+    }))
 }
 
 fn deezer_id_by_name(name: &str) -> Option<String> {
@@ -443,28 +483,33 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
     let mut caveats = Vec::new();
     let (mbid, facts) = match mbid {
         Some(mbid) => {
-            let facts = facts(mbid).unwrap_or_else(|| {
-                caveats.push("MusicBrainz n'a pas répondu : fiche minimale, à relire".to_string());
-                Facts {
-                    name: asked.clone(),
-                    kind: None,
-                    country: None,
-                    area: None,
-                    begin: None,
-                    end: None,
-                    genres: Vec::new(),
-                    relations: Vec::new(),
-                    spotify: None,
-                    deezer: None,
+            let facts = match facts(mbid) {
+                Ok(Some(facts)) => facts,
+                Ok(None) => return Err(format!("MusicBrainz ne connaît pas l'identifiant {mbid}")),
+                Err(why) => {
+                    caveats.push(format!("{why} : fiche minimale, à relire"));
+                    Facts {
+                        name: asked.clone(),
+                        kind: None,
+                        country: None,
+                        area: None,
+                        begin: None,
+                        end: None,
+                        genres: Vec::new(),
+                        relations: Vec::new(),
+                        spotify: None,
+                        deezer: None,
+                    }
                 }
-            });
+            };
             (mbid.to_string(), facts)
         }
         None => {
-            let mbid = search_mbid(&asked).ok_or_else(|| {
+            let mbid = search_mbid(&asked)?.ok_or_else(|| {
                 format!("« {asked} » est introuvable sur MusicBrainz — :generate {asked} <mbid> avec l'identifiant trouvé à la main")
             })?;
-            let facts = facts(&mbid).ok_or("MusicBrainz n'a pas répondu")?;
+            let facts = facts(&mbid)?
+                .ok_or_else(|| format!("MusicBrainz ne connaît plus l'identifiant {mbid}"))?;
             (mbid, facts)
         }
     };
@@ -534,6 +579,17 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Network: « lojo » is a slug spelled back out, and MusicBrainz alone
+    /// answers « Lojo Russo »; Deezer lends « Lo'jo ».
+    #[test]
+    #[ignore]
+    fn un_slug_sans_apostrophe_se_retrouve_par_deezer() {
+        assert_eq!(
+            search_mbid("Lojo").expect("MusicBrainz").as_deref(),
+            Some("a1c1fb23-38e0-4d7f-8fed-3c81fef5ad0f")
+        );
+    }
 
     #[test]
     fn un_mbid_se_reconnait_a_sa_forme() {

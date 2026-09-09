@@ -36,6 +36,12 @@ bout : le catalogue ne grandit pas le long de ses propres liens.
    a trouvé l'identifiant à la main (Joel, 09/09/2026, « Oai Star »).
    Dans ce cas, si MusicBrainz ne répond pas du tout, la fiche naît
    minimale — nom, id, tops Deezer — plutôt que pas du tout.
+   Deux garde-fous depuis le même jour : **MusicBrainz est souvent
+   occupé** (503 pendant une minute), on patiente jusqu'à une demi-minute
+   et on dit « occupé, réessaie » plutôt que « introuvable » ; et **un nom
+   venu d'un slug a perdu ses apostrophes** (« Lojo » pour Lo’Jo), que la
+   recherche MusicBrainz ne rattrape pas — Deezer la rattrape, et prête
+   l'orthographe, vérifiée à la même clé que les fiches.
 2. **L'arrivée fait grandir le catalogue le long de ses liens.** Un lien
    vers une fiche absente cesse d'être jeté : il s'affiche comme une branche
    en creux, et s'y engager génère la fiche avant de marcher.
