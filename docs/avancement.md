@@ -309,6 +309,22 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'essai fastembed en Rust (09/09/2026)
+
+Pour trancher la vectorisation d'une fiche générée, un spike jetable dans
+`~/Work/tries/fastembed-spike` (hors dépôt) a vectorisé les 316 textes de
+la référence avec le crate `fastembed` 6 et les a comparés à
+`vectors/vectors.jsonl`. Résultat : **cosinus ≥ 0,999999 partout à
+`max_length = 128`** (à 512, défaut du crate, les fiches riches divergent
+jusqu'à 0,82), build à froid 26 s, binaire +35 Mo, `g++` requis dans
+l'image de build, modèle 241 Mo téléchargé au premier usage, 14 ms par
+texte. Les features par défaut tirent OpenSSL : prendre les variantes
+`rustls`. Découvert au passage : la référence Python **n'est pas
+normalisée** (normes 2,5–3,6), ce que le centroïde du moteur subit.
+Chiffres, conditions et orientation (b, avec repli en feature cargo) dans
+[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+**Joel tranche.**
+
 ## Les versions d'un titre se distinguent dans la recherche (09/09/2026)
 
 Retour de Joel : « quand la chanson apparaît plusieurs fois (*Quand on n'a
@@ -1348,8 +1364,11 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 7. **Trancher la vectorisation d'une fiche générée** — la seule question
    ouverte de [0016](decisions/0016-base-large-et-generation-a-la-volee.md)
    depuis le 09/09/2026 : commande `:vectors` qui lance le conteneur en fond,
-   ou `fastembed` en Rust. Chiffré dans
-   [conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+   ou `fastembed` en Rust. **Mesuré le 09/09/2026** (essai concluant,
+   orientation (b)) dans
+   [conception/generation-a-la-volee.md](conception/generation-a-la-volee.md) ;
+   si (b) : régénérer l'index par l'application, `max_length = 128`, `g++`
+   dans le Dockerfile, le vecteur dans le commit de la fiche.
 8. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
    clarification de Joel : sortir du cluster, ou repartir d'une graine ?
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
