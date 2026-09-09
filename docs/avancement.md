@@ -309,6 +309,63 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Une journée d'écoute : la file, la cible, la génération, les aimés (09/09/2026)
+
+La première vraie session d'écoute longue de Joel, et ses retours traités
+au fil de l'eau — l'étape 1 des prochaines étapes est **entamée**. Dans
+l'ordre :
+
+- **La liste de lecture montrait une file tronquée.** La file est un
+  `VecDeque` ; après un `push_front` (branche prise « maintenant », retour
+  arrière, `ti`) le tampon s'enroule et `as_slices().0` n'en rendait que la
+  première moitié : une branche choisie manquait, ou revenait quelques
+  morceaux plus tard. `make_contiguous()` avant de dessiner.
+- **`tx` existait** mais manquait dans l'aide de `t` ; ajouté, et son index
+  suit désormais le même axe que le déplacement.
+- **L'encore visait le bout de la chaîne.** Depuis que choisir une branche
+  s'ajoute à la file, le « courant » tiré des rounds est le dernier artiste
+  empilé, plus ce qui sonne : un `en3` servait le mauvais artiste. D'où la
+  **décision [0020](decisions/0020-la-cible-d-un-geste.md)** : un geste vise
+  la **ligne surlignée, sinon ce qui sonne**, pour `t`, `a` et `e` ; `ts` et
+  `tb` ne font avancer la musique que s'ils visent ce qui sonne ; `en<n>`
+  et `e!<n>` se posent **derrière la ligne surlignée** quand elle est à
+  venir. Le retour n° 12 (cible de `t`/`a`) est clos par là.
+- **La Ruda** : cinq tops posés à la main, et la fiche renommée « La Ruda
+  Salska » — le nom MusicBrainz n'est pas celui de Spotify, et la
+  résolution d'un morceau cherche par nom. Question notée dans
+  [generation-a-la-volee.md](conception/generation-a-la-volee.md).
+- **`:generate <nom> <mbid>`** : l'identifiant trouvé à la main remplace la
+  recherche par le nom ; si MusicBrainz se tait, fiche minimale marquée à
+  relire ; un artiste proposé en creux prend sa branche. Lu de l'accueil
+  comme de l'écoute.
+- **« Lojo est introuvable »**, deux causes : MusicBrainz répond 503 par
+  rafales (on patiente six essais sur une demi-minute, et on dit
+  « occupé » plutôt qu'« introuvable ») ; et un nom venu d'un slug a perdu
+  ses apostrophes (« Lojo » pour Lo’Jo) — **Deezer prête l'orthographe**,
+  vérifiée à la clé des fiches. Test réseau ignoré par défaut.
+- **`docs/atouts.md`** : les impressions positives de Joel, datées et
+  citées, pour lister les atouts le moment venu. Première entrée : la
+  redécouverte de ce que Spotify ne proposait pas, la cohérence maîtrisée,
+  l'inattendu quand même.
+- **L'accueil montre les aimés par défaut**, `v` bascule sur tout le
+  catalogue. Aimé = un « plus souvent » ou un ♥ ici, un titre, un album ou
+  un suivi sur Spotify (`classement.json`).
+- **Les invités d'un titre aimé ne sont pas des aimés** (Bosh, Bossikan,
+  Bow Wow — le fils de Joel) : les scripts de récolte ne comptent plus que
+  l'artiste principal ; récolte relancée par Joel, classement recalculé :
+  605 artistes classés au lieu de 741.
+- **`al` / `as` / `ab` à l'accueil**, sur la ligne surlignée. `as` pose un
+  drapeau `unliked` dans `learned/artists/<slug>.toml` qui prime sur
+  Spotify et survit aux récoltes ; `al` l'efface ; la fusion 0017 le
+  traite comme un ban. Un artiste sans fiche s'écrit et se relit sous le
+  slug de son nom.
+
+Deux questions de conception notées, tranchées en partie : **retirer un
+artiste des aimés** (fait, ci-dessus) et **un setup fluide** — connexion,
+import de la bibliothèque, playlists à cocher — tranché « premier
+lancement *et* rejouable », maquette Claude Design à venir de Joel avant
+de coder ([premiere-installation.md](conception/premiere-installation.md)).
+
 ## Le vecteur naît avec la fiche (09/09/2026)
 
 Joel a tranché (b) : **l'application vectorise elle-même**
@@ -1370,11 +1427,10 @@ que ce soit. Ils se traitent au fur et à mesure.
 Relu le 05/09/2026 au soir, contre le code. Les étapes 2 et 4 de la liste
 précédente sont largement faites ; ce qui suit est ce qui reste.
 
-1. **Éprouver `ecouter` en vrai.** Rien de ce qui a été livré le 05/09 n'a
-   tourné dans une session : le mode brut, les sept mesures qui **écrivent
-   dans le catalogue**, le réservoir, le confort, la traîne. C'est le
-   premier geste, et il passe avant tout ajout. `:warm` est le test le plus
-   court de la récolte.
+1. **Éprouver `ecouter` en vrai.** Entamé le 09/09/2026 : une longue
+   session de Joel, dix retours traités le jour même (section ci-dessus),
+   et les premiers atouts dans `docs/atouts.md`. Reste à éprouver : les
+   mesures qui écrivent dans les fiches, le réservoir, `:warm`.
 2. **Les cinq éditions** — `tt`/`tT` (tops), `td` (door), `ae` ($EDITOR),
    `aL` (lier deux artistes). Elles touchent une **fiche**, pas l'appris.
    La couche qui écrit et commite le catalogue **existe depuis le
@@ -1396,6 +1452,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    l'application vectorise elle-même, fait le jour même.
 8. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
    clarification de Joel : sortir du cluster, ou repartir d'une graine ?
+13. **Le setup fluide** (Joel, 09/09/2026) : au premier lancement et
+    rejouable — connexion, import de la bibliothèque (artistes, albums,
+    titres), playlists à cocher, classement calculé par l'application, les
+    scripts Python retirés. **Attend la maquette Claude Design de Joel.**
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
    `cargo clean` efface aujourd'hui l'authentification.
 10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
@@ -1418,6 +1478,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
   commit : les séparer, ou trancher la règle.
 - `resoudre-mbid.py` ne lit que les fichiers Spotify — à adapter aux
   récoltes Deezer (`learned/amis/*-deezer.json`).
+- **Le nom MusicBrainz n'est pas toujours celui de Spotify** (La Ruda /
+  La Ruda Salska) et la résolution d'un morceau cherche par nom : alias,
+  vérification de l'identifiant Spotify des résultats, ou nom Spotify à la
+  génération — à trancher.
 
 ## Règles de session
 
