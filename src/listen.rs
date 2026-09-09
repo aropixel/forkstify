@@ -1360,12 +1360,13 @@ impl Live<'_> {
             say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
             return;
         };
-        let ahead = index as isize - self.past.len() as isize - 1;
-        if ahead < 0 || ahead as usize >= self.queue.len() {
+        // same axis as `move_selected`: past, then the current track if any
+        let before = self.past.len() + usize::from(self.current.is_some());
+        if index < before || index - before >= self.queue.len() {
             say!(self, "(on ne retire que ce qui est à suivre)");
             return;
         }
-        let ahead = ahead as usize;
+        let ahead = index - before;
         let Some(stop) = self.queue.remove(ahead) else { return };
         // si c'était la tête d'une branche, la suivante en prend le nom
         if let Some(head) = stop.head {
@@ -2810,6 +2811,7 @@ impl Live<'_> {
                 ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
                 ("td", "door \u{2014} en faire une door (fiche, un commit)", true),
                 ("ti", "insert \u{2014} ins\u{e9}rer un titre ici, par la recherche", true),
+                ("tx", "remove \u{2014} retirer de la file la ligne surlign\u{e9}e (pas un ban)", true),
                 ("ad", "les tops se corrigent dans la discographie", true),
             ],
             Some('a') => &[
