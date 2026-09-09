@@ -309,6 +309,29 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les versions d'un titre se distinguent dans la recherche (09/09/2026)
+
+Retour de Joel : « quand la chanson apparaît plusieurs fois (*Quand on n'a
+que l'amour*), je ne sais pas laquelle est laquelle ». Les lignes `[spotify]`
+de la modale ne portaient que titre, artiste et une mention générique :
+cinq versions de Brel (studio, Olympia, best-of…) faisaient cinq lignes
+identiques.
+
+- `search_tracks` ramène désormais **album, année et durée** (`SearchHit`
+  dans `spotify.rs`, à la place du triplet titre/artiste/uri).
+- La note d'une ligne Spotify les dit **d'abord** — `Olympia 64 · 1964 ·
+  3:07 · branche ensuite` — puis ce que fait entrée : `branche ensuite`
+  quand l'artiste a une fiche, `⏎ génère la fiche` sinon. Les anciennes
+  parenthèses `(branche ensuite) la fiche existe` / `(hors catalogue — ⏎
+  génère la fiche)` disparaissent ; l'en-tête du groupe dit déjà « hors
+  catalogue sauf mention ».
+- Le catalogue n'est pas touché : ses titres sont déjà dédoublonnés par
+  (titre, fiche), et l'artiste suffit à les distinguer.
+
+Sur un terminal étroit, c'est la fin de la note qui se coupe — donc la
+mention, jamais l'album. Vérifié à sec (tests) ; à constater à l'usage sur
+un titre à plusieurs versions.
+
 ## La génération de fiche à la volée (09/09/2026)
 
 Joel, le matin : « comment faire pour ajouter un artiste ? J'ai envie

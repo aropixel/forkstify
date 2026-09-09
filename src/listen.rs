@@ -376,7 +376,7 @@ enum Screen {
 /// What a background job brings back.
 enum Job {
     Resolved { title: String, artist: String, result: Resolved },
-    Searched { query: String, result: Result<Vec<(String, String, String)>, String> },
+    Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
 }
@@ -769,14 +769,27 @@ impl Live<'_> {
                 finder.spotify = Some(result.map(|tracks| {
                     tracks
                         .into_iter()
-                        .map(|(title, artist, uri)| {
-                            let slug = self.catalog.search_names(&artist, 1).into_iter().next();
-                            let note = if slug.is_some() {
-                                "(branche ensuite) la fiche existe".to_string()
-                            } else {
-                                "(hors catalogue — ⏎ génère la fiche)".to_string()
-                            };
-                            Found { hit: Hit::Track { title, artist, uri, slug }, mark: '~', note }
+                        .map(|hit| {
+                            let slug = self.catalog.search_names(&hit.artist, 1).into_iter().next();
+                            // album, year and length first: that is what
+                            // tells the Olympia take from the studio one
+                            let mut note: Vec<String> = Vec::new();
+                            if !hit.album.is_empty() {
+                                note.push(hit.album.clone());
+                            }
+                            if !hit.year.is_empty() {
+                                note.push(hit.year.clone());
+                            }
+                            if hit.duration_ms > 0 {
+                                let secs = hit.duration_ms / 1000;
+                                note.push(format!("{}:{:02}", secs / 60, secs % 60));
+                            }
+                            note.push(if slug.is_some() { "branche ensuite" } else { "⏎ génère la fiche" }.to_string());
+                            Found {
+                                hit: Hit::Track { title: hit.title, artist: hit.artist, uri: hit.uri, slug },
+                                mark: '~',
+                                note: note.join(" · "),
+                            }
                         })
                         .collect()
                 }));

@@ -57,6 +57,18 @@ pub fn has_refresh() -> bool {
     std::fs::read_to_string(REFRESH_CACHE).is_ok_and(|t| !t.trim().is_empty())
 }
 
+/// One row of a track search: enough to tell two versions of a title apart.
+#[derive(Clone, Debug)]
+pub struct SearchHit {
+    pub title: String,
+    pub artist: String,
+    pub uri: String,
+    pub album: String,
+    /// The release year alone — « 1964 » — or empty when Spotify has none.
+    pub year: String,
+    pub duration_ms: u64,
+}
+
 impl WebApi {
     /// Reuse the cached refresh token; fall back to the browser flow once.
     pub async fn new(prefer_studio: bool) -> Result<WebApi, Box<dyn std::error::Error>> {
@@ -184,13 +196,15 @@ impl WebApi {
         }
     }
 
-    /// Free-text track search (for the `/` shortcut): a few results as
-    /// (title, artist, uri), best match first.
+    /// Free-text track search (the `:search` modal): a few results, best
+    /// match first. Album, year and length come along — a title Spotify
+    /// holds five times (studio, Olympia, best-of…) is otherwise five
+    /// identical rows (Joel, 09/09/2026).
     pub async fn search_tracks(
         &mut self,
         query: &str,
         limit: usize,
-    ) -> Result<Vec<(String, String, String)>, String> {
+    ) -> Result<Vec<SearchHit>, String> {
         // an unreachable Spotify is not an empty result — say which it is
         if let Err(e) = self.refresh_if_needed().await {
             return Err(format!("jeton Spotify périmé ({e})"));
@@ -209,11 +223,18 @@ impl WebApi {
         let hits = items
             .iter()
             .filter_map(|track| {
-                Some((
-                    track["name"].as_str()?.to_string(),
-                    track["artists"][0]["name"].as_str()?.to_string(),
-                    track["uri"].as_str()?.to_string(),
-                ))
+                Some(SearchHit {
+                    title: track["name"].as_str()?.to_string(),
+                    artist: track["artists"][0]["name"].as_str()?.to_string(),
+                    uri: track["uri"].as_str()?.to_string(),
+                    album: track["album"]["name"].as_str().unwrap_or_default().to_string(),
+                    year: track["album"]["release_date"]
+                        .as_str()
+                        .and_then(|date| date.get(..4))
+                        .unwrap_or_default()
+                        .to_string(),
+                    duration_ms: track["duration_ms"].as_u64().unwrap_or_default(),
+                })
             })
             .collect();
         Ok(hits)
