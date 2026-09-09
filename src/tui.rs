@@ -704,7 +704,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
             rule("└─ "),
             Span::styled("échap ", Style::default().fg(MUTED)),
             Span::styled(
-                if view.insert { "ferme sans insérer — la file est inchangée" } else { "ferme et rend la frappe à l'écoute — la lecture n'a pas cessé" },
+                if view.insert { "ferme sans insérer — la file est inchangée" } else { "ferme la recherche — la lecture n'a pas cessé" },
                 Style::default().fg(DIM),
             ),
         ],
@@ -1029,6 +1029,9 @@ pub struct HomeView<'a> {
     pub collection: Option<Collection<'a>>,
     /// Le pied de lecture, quand une session joue sous l'accueil.
     pub bar: Option<Bar<'a>>,
+    /// La modale de recherche, quand elle est ouverte : `:search` s'ouvre
+    /// aussi de l'accueil (Joel, 09/09/2026).
+    pub finder: Option<FinderView>,
 }
 
 impl Tui {
@@ -1199,6 +1202,12 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
 
     if let (Some(area), Some(list)) = (collection, view.collection.as_ref()) {
         render_collection(frame, area, list);
+    }
+
+    // — la recherche prend tout le corps de l'accueil, collection comprise :
+    // c'est elle qu'on regarde tant qu'elle est ouverte
+    if let Some(finder) = &view.finder {
+        render_finder(frame, whole, finder);
     }
 
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
@@ -1669,6 +1678,7 @@ mod tests {
             comfort: 3,
             comfort_word: "équilibré",
             collection: None,
+            finder: None,
             bar: Some(Bar {
                 current: Some(&current),
                 paused: false,
@@ -1690,6 +1700,51 @@ mod tests {
         assert!(rows[18].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[18]);
         // et les touches suivent « à suivre » sans rien entre les deux
         assert!(rows[19].starts_with("[1-3 pour démarrer · r retour à l'écoute"), "{}", rows[19]);
+    }
+
+    /// `:search` s'ouvre aussi de l'accueil (Joel, 09/09/2026) : la modale
+    /// couvre le corps — la collection comprise — et laisse le pied de
+    /// lecture et l'invite.
+    #[test]
+    fn the_home_wears_the_finder() {
+        let rows_of_home = [Row::Rule("chercher".into())];
+        let view = HomeView {
+            status: vec![("✓ librespot".to_string(), true)],
+            census: "catalogue local".to_string(),
+            rows: &rows_of_home,
+            prompt: "[1-3 pour démarrer · q]".to_string(),
+            comfort: 3,
+            comfort_word: "équilibré",
+            collection: None,
+            finder: Some(FinderView {
+                insert: false,
+                anchor: None,
+                query: "siou".to_string(),
+                counts: (1, None, true),
+                only_catalogue: false,
+                lines: vec![FinderLine::Row {
+                    catalogue: true,
+                    mark: '♪',
+                    title: "Cities in Dust".into(),
+                    artist: "Siouxsie and the Banshees".into(),
+                    note: "3 écoutes".into(),
+                }],
+                cursor: 0,
+            }),
+            bar: None,
+        };
+        let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
+        terminal.draw(|frame| render_home(frame, &view)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let rows: Vec<String> =
+            (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
+        // le corps est à la modale : plus de « chercher » de l'accueil dessous
+        assert!(rows[2].starts_with("┌─ recherche ── :search"), "{}", rows[2]);
+        assert!(rows[3].starts_with("│ ⟩ siou"), "{}", rows[3]);
+        assert!(rows.iter().any(|row| row.contains("Cities in Dust")), "{rows:?}");
+        assert!(!rows.iter().any(|row| row.contains("── chercher")), "{rows:?}");
+        // l'invite reste, elle, avec sa jauge de confort
+        assert!(rows[19].starts_with("[1-3 pour démarrer · q]"), "{}", rows[19]);
     }
 
     /// La modale de recherche : la saisie, la règle qui compte, les deux

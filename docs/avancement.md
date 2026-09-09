@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **08/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **09/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -308,6 +308,33 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## `:search` s'ouvre aussi de l'accueil (09/09/2026)
+
+Joel : « quand on fait `:search` depuis l'accueil, la fenêtre de recherche
+ne s'ouvre pas » ; « sur l'accueil, il y a encore un ancien texte qui dit
+que `/` fait une recherche, alors que `/` filtre maintenant ».
+
+- **La modale n'existait que sur l'écran d'écoute.** À l'accueil,
+  `:search <texte>` faisait encore l'ancien geste — résoudre un nom dans le
+  catalogue et démarrer — et `:search` seul ne faisait rien du tout. C'est
+  désormais **la même modale sur les deux écrans** : le clavier lui est
+  donné **avant** l'aiguillage d'écran, et elle se dessine par-dessus le
+  corps de l'accueil, collection comprise ; le pied de lecture et l'invite
+  restent.
+- **Entrée démarre un parcours**, depuis l'accueil : sur l'artiste, ou sur
+  le morceau — le titre d'abord, puis les branches de son artiste. C'est la
+  règle de l'accueil, un chiffre y fait déjà la même chose. Un titre
+  Spotify **sans fiche** n'a rien d'où brancher : l'accueil le dit et
+  renvoie à l'écoute, où `:search` le joue quand même.
+- **Le texte de l'accueil parlait encore de l'ancien `/`** : le bloc
+  « chercher » annonçait `/` pour « catalogue et spotify ». Il annonce
+  `:search`, et une seconde ligne dit ce que `/` fait vraiment — filtrer la
+  collection, échap efface. L'écran non connecté aussi.
+- **`:search bowie` ouvre la modale remplie, et la frappe continue le
+  mot** : le mode texte du lecteur de touches vidait sa ligne au passage,
+  si bien que la première touche effaçait « bowie ». La ligne de départ est
+  posée avec le mode (`keys::set_text(true, "bowie")`).
 
 ## Lot 4 : 100 fiches, la référence passe à 314 (08/09/2026)
 

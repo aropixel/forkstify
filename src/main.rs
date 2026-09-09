@@ -284,6 +284,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 comfort_word: listen::comfort_word(comfort.value()),
                 collection: None,
                 bar: None,
+                finder: None,
             });
             if !status.librespot {
                 // l'application s'annonce elle-même : brancher le téléphone

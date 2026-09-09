@@ -13,6 +13,7 @@
 //! `/` and `:` leave raw mode for a line, which is where a query belongs.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// When a chosen branch or an encore should start.
@@ -113,7 +114,16 @@ static MODAL: AtomicBool = AtomicBool::new(false);
 /// toggles the scope. No grammar, or « cros » would fire c, r, o, s.
 static TEXT: AtomicBool = AtomicBool::new(false);
 
-pub fn set_text(on: bool) {
+/// Ce que la ligne du mode texte contient à l'ouverture — `:search bowie`
+/// ouvre la modale déjà remplie, et la frappe suivante doit **continuer**
+/// ce mot, pas l'effacer (Joel, 09/09/2026).
+static TEXT_LINE: Mutex<String> = Mutex::new(String::new());
+
+pub fn set_text(on: bool, start: &str) {
+    if let Ok(mut line) = TEXT_LINE.lock() {
+        line.clear();
+        line.push_str(start);
+    }
     TEXT.store(on, Ordering::Relaxed);
 }
 
@@ -342,7 +352,10 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
 
             if text() != was_text {
                 was_text = !was_text;
-                line.clear();
+                line = match (was_text, TEXT_LINE.lock()) {
+                    (true, Ok(start)) => start.clone(),
+                    _ => String::new(),
+                };
                 clear_pending(&mut pending, &tx);
             }
             if was_text {

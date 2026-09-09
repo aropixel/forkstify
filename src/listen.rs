@@ -641,6 +641,7 @@ impl Live<'_> {
                 self.tui.clear();
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
+            Outcome::Find(query) => self.open_finder(None, &query),
             Outcome::Quit => return false,
         }
         true
@@ -1099,6 +1100,11 @@ impl Live<'_> {
 
     /// One parsed command (0015). Returns false to quit.
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
+        // la modale de recherche prend le clavier des deux écrans : elle
+        // s'ouvre aussi de l'accueil (Joel, 09/09/2026)
+        if self.finder.is_some() {
+            return self.on_finder_key(cmd).await;
+        }
         if self.screen == Screen::Home {
             return self.on_home_cmd(cmd).await;
         }
@@ -1108,9 +1114,6 @@ impl Live<'_> {
             return self.on_comfort_key(cmd);
         }
         // la modale de la discographie aussi : elle a sa table (keys.rs)
-        if self.finder.is_some() {
-            return self.on_finder_key(cmd).await;
-        }
         if self.explore.is_some() {
             return self.on_explore_key(cmd);
         }
@@ -1447,6 +1450,9 @@ impl Live<'_> {
                 next: self.queue.front(),
                 ahead: self.queue.len(),
             });
+            // la modale de recherche se pose sur l'accueil comme sur
+            // l'écoute — c'est la même, ouverte d'ailleurs
+            let finder = self.finder.as_ref().map(|finder| self.finder_view(finder));
             self.home.draw(
                 self.catalog,
                 &self.learned,
@@ -1455,6 +1461,7 @@ impl Live<'_> {
                 &self.status,
                 bar,
                 live,
+                finder,
                 self.tui,
             );
             return;
@@ -1742,7 +1749,7 @@ impl Live<'_> {
         self.finder = Some(finder);
         self.overlay = None;
         self.help_open = false;
-        crate::keys::set_text(true);
+        crate::keys::set_text(true, query);
         if !query.is_empty() {
             self.refind();
         }
@@ -1750,7 +1757,7 @@ impl Live<'_> {
 
     fn close_finder(&mut self) {
         self.finder = None;
-        crate::keys::set_text(false);
+        crate::keys::set_text(false, "");
         self.tui.clear();
     }
 
@@ -1867,6 +1874,23 @@ impl Live<'_> {
         };
         let insert = finder.insert;
         self.close_finder();
+        // depuis l'accueil, choisir **démarre un parcours** — c'est la règle
+        // de l'accueil, un chiffre y fait déjà la même chose (Joel,
+        // 09/09/2026). Un titre sans fiche n'a rien d'où brancher : il se
+        // joue depuis l'écoute, pas depuis l'accueil.
+        if self.screen == Screen::Home {
+            match &found.hit {
+                Hit::Artist(slug) => self.start_journey(Choice::Artist(slug.clone())).await,
+                Hit::Track { title, slug: Some(slug), .. } => {
+                    self.start_journey(Choice::Track { slug: slug.clone(), title: title.clone() })
+                        .await
+                }
+                Hit::Track { title, .. } => self.home.say(format!(
+                    "« {title} » n'a pas de fiche : rien d'où brancher (depuis l'écoute, :search le joue quand même)"
+                )),
+            }
+            return;
+        }
         let stop_of = |hit: &Hit, catalog: &Catalog| -> Option<(crate::engine::Stop, Option<String>)> {
             match hit {
                 Hit::Track { title, artist, uri, slug } => {

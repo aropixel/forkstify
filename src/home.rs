@@ -250,7 +250,7 @@ pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
         wired: false,
     });
     rows.push(Row::Key {
-        key: "/".into(),
+        key: ":search".into(),
         what: "chercher une fiche au catalogue seul".into(),
         note: String::new(),
         wired: false,
@@ -392,13 +392,19 @@ fn rows_of(
 
     rows.push(Row::Rule("chercher".into()));
     rows.push(Row::Key {
-        key: "/".into(),
+        key: ":search".into(),
         what: "un artiste ou un morceau".into(),
         note: "catalogue et spotify".into(),
         wired: true,
     });
+    rows.push(Row::Key {
+        key: "/".into(),
+        what: "filtrer la collection".into(),
+        note: "à droite ; échap efface".into(),
+        wired: true,
+    });
     rows.push(Row::Dim(
-        "     un artiste démarre un segment sur lui ; un morceau se joue,\n     puis branche depuis son artiste s'il a une fiche.".into(),
+        "     entrée démarre un parcours sur ce qui est choisi : l'artiste,\n     ou le morceau puis les branches de son artiste.".into(),
     ));
 
     let mut n = 0;
@@ -441,6 +447,10 @@ pub enum Outcome {
     Start(Choice),
     /// Revenir à l'écran de la session en cours, sans rien changer.
     Back,
+    /// Ouvrir la modale de recherche, vide ou déjà remplie — elle vit sur
+    /// l'écran de la session, qui la tient pour les deux écrans (Joel,
+    /// 09/09/2026).
+    Find(String),
     Quit,
 }
 
@@ -473,6 +483,12 @@ impl Default for Home {
 }
 
 impl Home {
+    /// Ce que l'accueil dit sous la liste, quand la réponse vient d'un
+    /// geste fait ailleurs — la modale de recherche, par exemple.
+    pub fn say(&mut self, text: String) {
+        self.said = text;
+    }
+
     /// Dessine l'accueil. `bar` est le pied de lecture, quand une session
     /// joue en dessous ; `live` dit s'il y a une session où retourner.
     #[allow(clippy::too_many_arguments)]
@@ -485,6 +501,7 @@ impl Home {
         status: &[(String, bool)],
         bar: Option<crate::tui::Bar<'_>>,
         live: bool,
+        finder: Option<crate::tui::FinderView>,
         tui: &mut Tui,
     ) {
         let listing = collection(catalog, learned, self.sort, &self.filter);
@@ -530,6 +547,7 @@ impl Home {
                 sort: self.sort.label(),
             }),
             bar,
+            finder,
         });
     }
 
@@ -631,15 +649,11 @@ impl Home {
                         }
                         Outcome::Stay
                     }
-                    (Some("search"), Some(_)) => {
-                        let query = text.trim().trim_start_matches("search").trim();
-                        match crate::resolve(catalog, query) {
-                            Some(slug) => Outcome::Start(Choice::Artist(slug)),
-                            None => {
-                                self.said = format!("(rien pour « {query} » dans le catalogue)");
-                                Outcome::Stay
-                            }
-                        }
+                    // la même modale qu'en écoute, ouverte depuis l'accueil :
+                    // « :search » seul l'ouvre vide, « :search <texte> » la
+                    // remplit (Joel, 09/09/2026)
+                    (Some("search"), _) => {
+                        Outcome::Find(text.trim().trim_start_matches("search").trim().to_string())
                     }
                     _ => Outcome::Stay,
                 }
