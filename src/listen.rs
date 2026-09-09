@@ -1748,6 +1748,11 @@ impl Live<'_> {
             );
             return;
         }
+        // the queue is a ring buffer: after a `push_front` it wraps, and
+        // `as_slices().0` would then show only its first half — a branch
+        // just taken vanished, or came back a few tracks later, once the
+        // head had turned around (Joel, 09/09/2026). Straighten it first.
+        self.queue.make_contiguous();
         // la modale dit « ▶ sonne » sur la bonne ligne, même quand le
         // morceau change pendant qu'elle est ouverte
         let playing = self.current.as_ref().map(|stop| stop.title.clone());
@@ -1808,7 +1813,7 @@ impl Live<'_> {
             current: self.current.as_ref(),
             paused: self.paused,
             loading: self.loading,
-            queue: self.queue.as_slices().0,
+            queue: self.queue.as_slices().0, // whole, made contiguous above
             branches: &self.branches,
             missing: &self.missing,
             panel: true,
