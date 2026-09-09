@@ -77,8 +77,8 @@ Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 | Touche | Mot | Action | |
 |---|---|---|---|
 | `e<n>` | **encore** | n morceaux de plus de l'artiste **visé**, en fin de file | ✅ |
-| `en<n>` | encore **now** | …après le morceau en cours, le reste conservé | ✅ |
-| `e!<n>` | encore now, **force** | …après le morceau en cours, le reste retiré | ✅ |
+| `en<n>` | encore **now** | …derrière la ligne surlignée si elle est à venir, sinon après le morceau en cours ; le reste conservé | ✅ |
+| `e!<n>` | encore now, **force** | …au même endroit, le reste retiré | ✅ |
 
 L'artiste visé est celui de la ligne **surlignée**, sinon celui du morceau
 qui sonne ([0020](decisions/0020-la-cible-d-un-geste.md)) — pas le bout

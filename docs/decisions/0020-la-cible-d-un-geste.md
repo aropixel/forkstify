@@ -26,8 +26,10 @@ une ligne est surlignée suite à un déplacement, elle est prioritaire. »
   morceau ou de son artiste : `t`, `a` et `e`.
 - La sélection ne joue rien et se voit : c'est pourquoi elle commande quand
   elle existe. Échap l'efface et rend la cible au morceau en cours.
-- **Où l'encore se pose ne change pas** : fin de file pour `e<n>`, après le
-  morceau en cours pour `en<n>` et `e!<n>`. Seul l'artiste suit la cible.
+- **L'encore se pose près de sa cible** : `e<n>` en fin de file ; `en<n>`
+  et `e!<n>` **derrière la ligne surlignée** si elle est à venir, sinon
+  juste après le morceau en cours (Joel, même jour). `e!` retire ce qui
+  suit cet endroit.
 - `ts` et `tb` ne font avancer la musique que s'ils visent ce qui sonne.
   Sur une ligne à venir, `ts` la sort de la file (« passer » un morceau
   prévu, c'est ne pas le jouer) ; sur une ligne passée, il note seulement.
@@ -37,5 +39,3 @@ une ligne est surlignée suite à un déplacement, elle est prioritaire. »
 - `under_needle` et `target` disent la même chose ; `e` s'y raccorde.
 - La table des touches ([`keybindings.md`](../keybindings.md)) porte la
   règle en tête du namespace `t`.
-- Reste à juger à l'usage si un `en<n>` visant une ligne à venir devrait se
-  poser **derrière cette ligne** plutôt qu'après le morceau en cours.

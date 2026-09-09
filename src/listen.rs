@@ -598,14 +598,21 @@ impl Live<'_> {
             return;
         }
         self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
-        if when == When::NowForce {
-            self.queue.clear();
-        }
+        // « now » lands behind the highlighted line when it is still to
+        // come (Joel, 09/09/2026), right after what plays otherwise
+        let before = self.past.len() + usize::from(self.current.is_some());
+        let at = self
+            .selection
+            .filter(|index| *index >= before && index - before < self.queue.len())
+            .map_or(0, |index| index - before + 1);
         match when {
             When::EndOfBranch => self.queue.extend(stops),
-            _ => {
-                for stop in stops.into_iter().rev() {
-                    self.queue.push_front(stop);
+            When::Now | When::NowForce => {
+                if when == When::NowForce {
+                    self.queue.truncate(at);
+                }
+                for (offset, stop) in stops.into_iter().enumerate() {
+                    self.queue.insert(at + offset, stop);
                 }
             }
         }
