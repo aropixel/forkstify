@@ -76,9 +76,13 @@ Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 
 | Touche | Mot | Action | |
 |---|---|---|---|
-| `e<n>` | **encore** | n morceaux de plus de l'artiste, **en fin de branche** | ✅ |
-| `en<n>` | encore **now** | …après le morceau en cours, le reste conservé | ✅ |
+| `e<n>` | **encore** | n morceaux de plus de l'artiste **au bout de la file**, posés en fin de file | ✅ |
+| `en<n>` | encore **now** | n morceaux de plus de l'artiste **qui sonne**, après le morceau en cours, le reste conservé | ✅ |
 | `e!<n>` | encore now, **force** | …après le morceau en cours, le reste retiré | ✅ |
+
+L'artiste d'un encore est celui du morceau à côté duquel il se pose — pas
+le bout de la chaîne des branches, qui n'est plus ce qui sonne depuis que
+choisir une branche s'ajoute à la file (Joel, 09/09/2026).
 
 `e` seul n'est pas une commande : le compte est obligatoire.
 

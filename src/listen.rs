@@ -542,7 +542,20 @@ impl Live<'_> {
     /// (0015): at the end of the branch, right after the current track, or
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
-        let (_, current, _, _, played) = self.state();
+        // the encore's artist is the one of the track it lands next to:
+        // what plays for `en`/`e!`, the end of the queue for `e`. With
+        // branches chained into the queue, the end of the rounds is no
+        // longer what plays (Joel, 09/09/2026). Off-catalog track: the
+        // last known artist, as for the branches.
+        let anchor = match when {
+            When::EndOfBranch => self.queue.back().or(self.current.as_ref()),
+            _ => self.current.as_ref(),
+        };
+        let current = anchor
+            .map(|stop| stop.slug.clone())
+            .filter(|slug| self.catalog.cards.contains_key(slug))
+            .unwrap_or_else(|| self.state().1);
+        let (_, _, _, _, played) = self.state();
         // sanding is where depth is wanted: if the card's unplayed tops
         // cannot serve the whole request, go and get the tail first (0012 §1)
         let card = &self.catalog.cards[&current];
@@ -556,7 +569,7 @@ impl Live<'_> {
         } else {
             None
         };
-        let (_, current, _, _, played) = self.state();
+        let (_, _, _, _, played) = self.state();
         let mut stops = crate::engine::encore(
             &self.catalog,
             &current,
