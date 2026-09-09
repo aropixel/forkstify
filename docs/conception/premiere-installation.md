@@ -159,6 +159,20 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
    [generation-a-la-volee.md](generation-a-la-volee.md) ; la
    **vectorisation** de la fiche générée est tranchée par
    [0019](../decisions/0019-vectorisation-par-l-application.md).
+5. **Un setup fluide au premier lancement** (Joel, 09/09/2026, après
+   l'épisode des titres aimés par son fils) : aujourd'hui la bibliothèque
+   Spotify entre par quatre scripts Python lancés à la main, qui lisent le
+   trousseau, puis `classement.py`. Il faudrait, à l'installation ou au
+   premier déclenchement : **se connecter** (l'OAuth existe déjà dans
+   l'application), **importer sa bibliothèque** — artistes suivis, albums
+   aimés, titres aimés — et **choisir les playlists** à compter, à cocher
+   dans une liste. Ce que ça implique : réécrire la récolte en Rust sur
+   `WebApi` (qui sait déjà paginer), une modale de playlists sur le modèle
+   de la discographie, le classement calculé par l'application, et le
+   fichier de graine en vocabulaire anglais (0014, toujours en attente).
+   Les scripts de `tools/` se retirent alors. À trancher : le moment
+   (premier lancement, ou `:setup` rejouable pour re-récolter), et si les
+   playlists cochées se mémorisent dans `learned/`.
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
 

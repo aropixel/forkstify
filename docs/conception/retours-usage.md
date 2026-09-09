@@ -315,6 +315,11 @@ Restent ouverts :
    morceau, la différence — noter ou non dans `learned/` — étant invisible
    dans les doigts.
 3. **`aL` ou `ac`** pour lier deux artistes.
+6. **Retirer un artiste des aimés** depuis l'accueil, écrit dans `learned/`
+   — voir [ecran-d-accueil.md](ecran-d-accueil.md) § À trancher, point 5.
+7. **Un setup fluide** : connexion, import de la bibliothèque, playlists à
+   cocher — voir [premiere-installation.md](premiere-installation.md)
+   § À trancher, point 5.
 4. ~~**La cible de `t`/`a`** (retour n° 12)~~ — tranché le 09/09/2026
    ([0020](../decisions/0020-la-cible-d-un-geste.md)) : la ligne surlignée
    prime, sinon le morceau en cours, pour `t`, `a` et `e`. Le déclencheur :

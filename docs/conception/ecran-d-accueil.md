@@ -257,3 +257,18 @@ Ils sont justes tous les deux, mais ce sont des chantiers, pas de l'affichage.
    C'est un changement d'ordre d'initialisation, pas un détail d'affichage.
 4. **Combien d'entrées par bloc ?** Trois branches à un embranchement ; la
    même contrainte de lisibilité vaut sans doute ici.
+5. **Retirer un artiste des aimés, et que ça tienne.** Le 09/09/2026, la
+   vue « aimés » montrait Bosh, Bossikan et Bow Wow : des titres aimés sur
+   Spotify… par le fils de Joel. La source ne se corrige pas depuis
+   l'application, et une prochaine récolte les ramènerait. Il faut donc un
+   geste à l'accueil, **écrit dans `learned/`**, qui prime sur Spotify.
+   Deux forces possibles, et la table des touches les a déjà en écoute :
+   - **`as`** sur la ligne surlignée — « moins souvent » : l'artiste
+     quitte la vue « aimés » et reste proposable. Ce serait un drapeau
+     explicite `liked = false` dans `learned/artists/<slug>.toml`, car le
+     poids seul ne suffit pas (il remonte) ; `al` l'efface.
+   - **`ab`** — « plus jamais » : le ban existant, qui l'exclut de tout.
+   Orientation : câbler les deux à l'accueil, sur la ligne surlignée, avec
+   la règle 0020 (la ligne surlignée, sinon rien à l'accueil). Le drapeau
+   se fusionne comme les autres (`merge_flag`), donc survit à la
+   synchronisation.
