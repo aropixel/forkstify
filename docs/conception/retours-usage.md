@@ -315,15 +315,11 @@ Restent ouverts :
    morceau, la différence — noter ou non dans `learned/` — étant invisible
    dans les doigts.
 3. **`aL` ou `ac`** pour lier deux artistes.
-4. **La cible de `t`/`a`** (retour n° 12) : `ad` suit la sélection, le
-   reste du namespace suit le morceau en cours. Deux règles sur un même
-   axe — à unifier ou à assumer, cela se jugera à l'usage.
-5. **La cible de `e`** (09/09/2026) : depuis que les branches s'enchaînent
-   dans la file, `en3` prenait l'artiste du **bout de la chaîne**, pas celui
-   qui sonnait. Corrigé le jour même : l'encore suit le morceau à côté
-   duquel il se pose — ce qui sonne pour `en`/`e!`, le bout de la file pour
-   `e`. Reste à juger si la **ligne surlignée** devrait primer, comme pour
-   `ad` — c'est la même question que le point 4.
+4. ~~**La cible de `t`/`a`** (retour n° 12)~~ — tranché le 09/09/2026
+   ([0020](../decisions/0020-la-cible-d-un-geste.md)) : la ligne surlignée
+   prime, sinon le morceau en cours, pour `t`, `a` et `e`. Le déclencheur :
+   un `en3` qui servait l'artiste du bout de la chaîne des branches, pas
+   celui qui sonnait.
 
 ## Ce qui n'a pas été vérifié
 

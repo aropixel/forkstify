@@ -76,13 +76,14 @@ Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
 
 | Touche | Mot | Action | |
 |---|---|---|---|
-| `e<n>` | **encore** | n morceaux de plus de l'artiste **au bout de la file**, posés en fin de file | ✅ |
-| `en<n>` | encore **now** | n morceaux de plus de l'artiste **qui sonne**, après le morceau en cours, le reste conservé | ✅ |
+| `e<n>` | **encore** | n morceaux de plus de l'artiste **visé**, en fin de file | ✅ |
+| `en<n>` | encore **now** | …après le morceau en cours, le reste conservé | ✅ |
 | `e!<n>` | encore now, **force** | …après le morceau en cours, le reste retiré | ✅ |
 
-L'artiste d'un encore est celui du morceau à côté duquel il se pose — pas
-le bout de la chaîne des branches, qui n'est plus ce qui sonne depuis que
-choisir une branche s'ajoute à la file (Joel, 09/09/2026).
+L'artiste visé est celui de la ligne **surlignée**, sinon celui du morceau
+qui sonne ([0020](decisions/0020-la-cible-d-un-geste.md)) — pas le bout
+de la chaîne des branches, qui n'est plus ce qui sonne depuis que choisir
+une branche s'ajoute à la file (Joel, 09/09/2026).
 
 `e` seul n'est pas une commande : le compte est obligatoire.
 
@@ -90,7 +91,13 @@ choisir une branche s'ajoute à la file (Joel, 09/09/2026).
 sonner. `t` et `a` sont ceux de l'**affinage** — ils décident de ce que le
 moteur retient.
 
-## `t` — le morceau en cours
+## `t` — le morceau visé
+
+**La cible d'un geste** ([0020](decisions/0020-la-cible-d-un-geste.md)) :
+la ligne **surlignée** s'il y en a une (↑↓, `gg`, `G`), le morceau qui
+sonne sinon. Vaut pour `t`, `a` et `e`. `ts` et `tb` ne font avancer la
+musique que s'ils visent ce qui sonne ; sur une ligne à venir, `ts` la
+sort de la file. Échap efface le surlignage.
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|

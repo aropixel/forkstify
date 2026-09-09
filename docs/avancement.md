@@ -1404,8 +1404,8 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
-    (`ad`, modale 1a). Reste ouvert : **unifier la cible de `t`/`a`** —
-    `ad` suit la sélection, le reste du namespace suit le morceau en cours.
+    (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
+    09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).
 
 ## Corrections en attente (petites)
 

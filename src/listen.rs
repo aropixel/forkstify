@@ -542,16 +542,13 @@ impl Live<'_> {
     /// (0015): at the end of the branch, right after the current track, or
     /// right after it with the rest dropped.
     async fn encore(&mut self, count: usize, when: When) {
-        // the encore's artist is the one of the track it lands next to:
-        // what plays for `en`/`e!`, the end of the queue for `e`. With
-        // branches chained into the queue, the end of the rounds is no
-        // longer what plays (Joel, 09/09/2026). Off-catalog track: the
-        // last known artist, as for the branches.
-        let anchor = match when {
-            When::EndOfBranch => self.queue.back().or(self.current.as_ref()),
-            _ => self.current.as_ref(),
-        };
-        let current = anchor
+        // the encore's artist is the one of the highlighted line, else of
+        // what plays (0020) — not the end of the chain of branches, which
+        // is no longer what plays since choosing a branch queues it (Joel,
+        // 09/09/2026). Off-catalog track: the last known artist, as for
+        // the branches.
+        let current = self
+            .target()
             .map(|stop| stop.slug.clone())
             .filter(|slug| self.catalog.cards.contains_key(slug))
             .unwrap_or_else(|| self.state().1);
@@ -1373,14 +1370,21 @@ impl Live<'_> {
             say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
             return;
         };
+        if !self.drop_line(index) {
+            say!(self, "(on ne retire que ce qui est à suivre)");
+        }
+    }
+
+    /// Take line `index` of the axis out of the queue. False when the line
+    /// is not queued — the past is a story, the current track is nailed.
+    fn drop_line(&mut self, index: usize) -> bool {
         // same axis as `move_selected`: past, then the current track if any
         let before = self.past.len() + usize::from(self.current.is_some());
         if index < before || index - before >= self.queue.len() {
-            say!(self, "(on ne retire que ce qui est à suivre)");
-            return;
+            return false;
         }
         let ahead = index - before;
-        let Some(stop) = self.queue.remove(ahead) else { return };
+        let Some(stop) = self.queue.remove(ahead) else { return false };
         // si c'était la tête d'une branche, la suivante en prend le nom
         if let Some(head) = stop.head {
             if let Some(next) = self.queue.get_mut(ahead) {
@@ -1389,9 +1393,8 @@ impl Live<'_> {
                 }
             }
         }
-        if self.selection.map(|i| i >= self.axis_len()).unwrap_or(false) {
-            self.selection = Some(self.axis_len().saturating_sub(1));
-        }
+        self.clamp_selection();
+        true
     }
 
     /// One parsed command (0015). Returns false to quit.
@@ -2002,9 +2005,11 @@ impl Live<'_> {
         parts.join(" · ")
     }
 
-    /// The track under the needle, or a word saying why there is none.
+    /// The track a gesture works on — the highlighted line if there is
+    /// one, what plays otherwise (0020) — or a word saying why there is
+    /// none.
     fn under_needle(&self) -> Option<crate::engine::Stop> {
-        match &self.current {
+        match self.target() {
             None => {
                 say!(self, "\n(rien en cours)");
                 None
@@ -2013,7 +2018,22 @@ impl Live<'_> {
                 say!(self, "\n({} — hors catalogue, rien à apprendre)", stop.artist);
                 None
             }
-            Some(stop) => Some(stop.clone()),
+            Some(stop) => Some(stop),
+        }
+    }
+
+    /// Whether a gesture aims at what plays (no selection, or the
+    /// highlighted line is the current track): that is the only case where
+    /// « skip » and « ban » also move the music on.
+    fn aims_at_playing(&self) -> bool {
+        self.current.is_some() && self.selection.map_or(true, |i| i == self.past.len())
+    }
+
+    /// The selection must still point at a line once the axis shrank.
+    fn clamp_selection(&mut self) {
+        let len = self.axis_len();
+        if let Some(index) = self.selection {
+            self.selection = (len > 0).then(|| index.min(len - 1));
         }
     }
 
@@ -2315,14 +2335,24 @@ impl Live<'_> {
             }
             's' => {
                 self.learned.skip_track(&stop.slug, &stop.title);
-                say!(self, "\n↷ {} — moins souvent, passé", stop.title);
-                self.next().await;
+                if self.aims_at_playing() {
+                    say!(self, "\n↷ {} — moins souvent, passé", stop.title);
+                    self.next().await;
+                } else if self.selection.is_some_and(|index| self.drop_line(index)) {
+                    // « passer » un morceau à venir, c'est le sortir de la file
+                    say!(self, "\n↷ {} — moins souvent, retiré de la file", stop.title);
+                } else {
+                    say!(self, "\n↷ {} — moins souvent", stop.title);
+                }
             }
             'b' => {
                 self.learned.ban_track(&stop.slug, &stop.title);
                 self.queue.retain(|s| s.title != stop.title);
+                self.clamp_selection();
                 say!(self, "\n⊘ {} — plus jamais", stop.title);
-                self.next().await;
+                if self.aims_at_playing() {
+                    self.next().await;
+                }
             }
             'm' => match self.learned.mark(&stop.artist, &stop.title) {
                 Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
@@ -2404,6 +2434,7 @@ impl Live<'_> {
                 self.learned.ban_artist(&stop.slug);
                 let before = self.queue.len();
                 self.queue.retain(|s| s.slug != stop.slug);
+                self.clamp_selection();
                 say!(self, 
                     "\n⊘ {} — plus jamais ({} morceau(x) retiré(s) de la file)",
                     stop.artist,

@@ -137,10 +137,10 @@ rien de neuf dans `edit.rs` hormis le titre propre.
 
 1. **La cible.** `ad` vise l'artiste de la ligne **surlignée** s'il y en a
    une, celui du morceau en cours sinon — et l'en-tête de la modale nomme
-   l'artiste ouvert. **Le reste du namespace `t`/`a` n'a pas bougé** : il
-   agit toujours sur le morceau en cours (`under_needle`), sauf `tx`. Deux
-   règles cohabitent donc encore sur l'axe ; les unifier reste à trancher,
-   et ne se jugera qu'à l'usage.
+   l'artiste ouvert. Le reste du namespace `t`/`a` agissait sur le morceau
+   en cours, sauf `tx` ; **unifié le 09/09/2026**
+   ([0020](../decisions/0020-la-cible-d-un-geste.md)) : tout geste vise la
+   ligne surlignée, sinon ce qui sonne.
 2. **Le nom et la forme.** `ad` / `:discography`, et une **modale** posée
    sur l'écran d'écoute — pas un écran qui le remplace. La lecture n'a
    jamais cessé, et on la voit derrière.
@@ -167,7 +167,6 @@ rien de neuf dans `edit.rs` hormis le titre propre.
 
 ## Ce qui reste ouvert
 
-- **Unifier la cible de `t`/`a`** (point 1 ci-dessus).
 - **Le repli des albums** ne se juge qu'à l'usage : pas de pliage par album
   mémorisé, `h` plie tout et `l` rouvre celui du curseur.
 - **Les compilations et les participations** restent hors récolte
