@@ -689,10 +689,9 @@ impl Live<'_> {
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
             Outcome::Find(query) => self.open_finder(None, &query),
-            Outcome::Generate(name) => {
-                let slug = crate::generate::slugify(&name);
-                self.generate(&slug, Some(&name), None, After::Play { title: None, uri: None });
-            }
+            // la même lecture qu'en écoute : le MBID en dernier mot compte
+            // aussi depuis l'accueil (Joel, 09/09/2026)
+            Outcome::Generate(asked) => self.generate_asked(&asked),
             Outcome::Quit => return false,
         }
         true
@@ -974,6 +973,28 @@ impl Live<'_> {
             .unwrap_or_else(|e| Err(format!("la génération s'est interrompue ({e})")));
             let _ = tx.send(Job::Generated { slug: reported, after, result });
         });
+    }
+
+    /// `:generate <nom> [mbid]`, from either screen: the name as typed, and
+    /// a last word shaped like a MusicBrainz id in place of the search by
+    /// name. An artist proposed as a gap takes its branch instead of a jump.
+    fn generate_asked(&mut self, asked: &str) {
+        let mut words: Vec<&str> = asked.split_whitespace().collect();
+        let mbid = match words.last() {
+            Some(last) if crate::generate::is_mbid(last) => words.pop().map(str::to_lowercase),
+            _ => None,
+        };
+        let name = words.join(" ");
+        if name.is_empty() {
+            self.tell("usage : :generate <nom de l'artiste> [mbid]".to_string());
+            return;
+        }
+        let slug = crate::generate::slugify(&name);
+        let after = match self.missing.iter().find(|m| m.slug == slug) {
+            Some(missing) => After::Branch { when: When::EndOfBranch, reason: missing.why.clone() },
+            None => After::Play { title: None, uri: None },
+        };
+        self.generate(&slug, Some(&name), mbid.as_deref(), after);
     }
 
     /// Une fiche vient de naître et on voulait l'écouter : de l'accueil le
@@ -2775,23 +2796,7 @@ impl Live<'_> {
             // nom (Joel, 09/09/2026) ; et si l'artiste était proposé en
             // creux, c'est sa branche qui se prend, pas un saut chez lui.
             (Some("generate"), Some(_)) => {
-                let mut words: Vec<&str> =
-                    text.trim().trim_start_matches("generate").split_whitespace().collect();
-                let mbid = match words.last() {
-                    Some(last) if crate::generate::is_mbid(last) => words.pop().map(str::to_lowercase),
-                    _ => None,
-                };
-                let name = words.join(" ");
-                if name.is_empty() {
-                    say!(self, "usage : :generate <nom de l'artiste> [mbid]");
-                    return;
-                }
-                let slug = crate::generate::slugify(&name);
-                let after = match self.missing.iter().find(|m| m.slug == slug) {
-                    Some(missing) => After::Branch { when: When::EndOfBranch, reason: missing.why.clone() },
-                    None => After::Play { title: None, uri: None },
-                };
-                self.generate(&slug, Some(&name), mbid.as_deref(), after);
+                self.generate_asked(text.trim().trim_start_matches("generate"));
             }
             (Some("generate"), None) => {
                 say!(self, "usage : :generate <nom de l'artiste> [mbid]")
