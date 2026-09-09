@@ -87,6 +87,30 @@ impl Sort {
     }
 }
 
+/// Ce que la collection montre : par défaut **les aimés** — ici (« plus
+/// souvent », un ♥) ou sur Spotify (titre, album, suivi) — ou bien tout le
+/// catalogue (Joel, 09/09/2026). `v`, la vue, comme dans la discographie.
+#[derive(Clone, Copy, PartialEq)]
+enum Scope {
+    Liked,
+    All,
+}
+
+impl Scope {
+    fn next(self) -> Scope {
+        match self {
+            Scope::Liked => Scope::All,
+            Scope::All => Scope::Liked,
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Scope::Liked => "aimés",
+            Scope::All => "tous",
+        }
+    }
+}
+
 /// « il y a n jours » en deux caractères, comme une TUI le dit. Sert à la
 /// collection de l'accueil et aux notes de la liste de lecture.
 pub(crate) fn age(days: Option<i64>) -> String {
@@ -108,6 +132,7 @@ fn collection(
     catalog: &Catalog,
     learned: &Learned,
     sort: Sort,
+    scope: Scope,
     filter: &str,
 ) -> Vec<(Option<String>, CollectionRow)> {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -162,7 +187,10 @@ fn collection(
             .then_with(|| a.1.name.cmp(&b.1.name))
         }),
     }
-        if !filter.is_empty() {
+    if scope == Scope::Liked {
+        rows.retain(|(slug, row)| learned.liked(slug.as_deref().unwrap_or(""), &row.name));
+    }
+    if !filter.is_empty() {
         let needle = filter.to_lowercase();
         rows.retain(|(_, row)| row.name.to_lowercase().contains(&needle));
     }
@@ -466,6 +494,7 @@ pub struct Home {
     typed: String,
     said: String,
     sort: Sort,
+    scope: Scope,
     /// le curseur de la collection : tant qu'il n'existe pas, entrée garde
     /// son sens de toujours — « choisis pour moi »
     cursor: Option<usize>,
@@ -479,6 +508,7 @@ impl Default for Home {
             typed: String::new(),
             said: String::new(),
             sort: Sort::Familiarity,
+            scope: Scope::Liked,
             cursor: None,
             filter: String::new(),
         }
@@ -507,7 +537,7 @@ impl Home {
         finder: Option<crate::tui::FinderView>,
         tui: &mut Tui,
     ) {
-        let listing = collection(catalog, learned, self.sort, &self.filter);
+        let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
         let shelf: Vec<CollectionRow> = listing.iter().map(|(_, row)| row.clone()).collect();
         let carded = listing.iter().filter(|(slug, _)| slug.is_some()).count();
         let blocks = entries(catalog, learned, comfort);
@@ -548,6 +578,7 @@ impl Home {
                 carded,
                 cursor: self.cursor,
                 sort: self.sort.label(),
+                scope: self.scope.label(),
             }),
             bar,
             finder,
@@ -584,7 +615,7 @@ impl Home {
                 self.said.clear();
             }
         }
-        let listing = collection(catalog, learned, self.sort, &self.filter);
+        let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
         let blocks = entries(catalog, learned, *comfort);
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
         let pick = |entry: &Entry| match &entry.choice {
@@ -697,6 +728,11 @@ impl Home {
             Cmd::Escape if live => Outcome::Back,
             Cmd::Sort => {
                 self.sort = self.sort.next();
+                Outcome::Stay
+            }
+            Cmd::Filter => {
+                self.scope = self.scope.next();
+                self.cursor = None;
                 Outcome::Stay
             }
             _ => Outcome::Stay,

@@ -167,6 +167,11 @@ Enfin : **le catalogue est local**. Même sans aucune connexion, les fiches,
 les vecteurs et `learned/` sont lisibles — la navigation à sec reste
 possible. L'écran non connecté n'est donc pas un cul-de-sac.
 
+**La vue de la collection** (Joel, 09/09/2026) : par défaut elle ne montre
+que **les aimés** — un artiste ou un titre aimé ici, un titre, un album ou
+un suivi sur Spotify (`classement.json`) — et `v` bascule sur **tous** les
+artistes du catalogue. Le tri `s` s'applique à la vue.
+
 ## Les maquettes (Claude Design, 05/09/2026)
 
 Projet **« Accueil Forkstify »**, deux planches :

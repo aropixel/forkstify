@@ -166,6 +166,7 @@ on la demande pour écouter maintenant.
 | `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon reprendre le dernier parcours. Échap sans curseur fait de même | ✅ |
 | `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |
 | `s` | **sort** | Changer l'ordre de la collection : familiarité → a-z → dernière écoute — **accueil seulement** | ✅ |
+| `v` | **vue** | La collection montre **les aimés** par défaut — artiste ou titre aimé ici, titre, album ou suivi sur Spotify — ou **tous** les artistes du catalogue (Joel, 09/09/2026). Accueil seulement ; le même mot que dans la discographie | ✅ |
 | `gg` / `G` | | Les deux bouts d'une liste, comme dans vim — la collection à l'accueil, l'axe en écoute. `g` seul attend son second | ✅ |
 | `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |

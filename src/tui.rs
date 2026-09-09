@@ -1364,6 +1364,8 @@ pub struct Collection<'a> {
     pub carded: usize,
     pub cursor: Option<usize>,
     pub sort: &'a str,
+    /// « aimés » ou « tous » — ce que la liste montre
+    pub scope: &'a str,
 }
 
 /// La colonne de droite : elle **ne propose rien, elle liste**. C'est la
@@ -1390,9 +1392,11 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
                 ),
             ]),
             Line::from(vec![
-                Span::styled("trié par ", Style::default().fg(DIM)),
+                Span::styled("vue : ", Style::default().fg(DIM)),
+                Span::styled(view.scope.to_string(), Style::default().fg(CATALOG)),
+                Span::styled(" (v) · trié par ", Style::default().fg(DIM)),
                 Span::styled(view.sort.to_string(), Style::default().fg(CATALOG)),
-                Span::styled("   s pour changer", Style::default().fg(DIM)),
+                Span::styled(" (s)", Style::default().fg(DIM)),
             ]),
         ]),
         head,

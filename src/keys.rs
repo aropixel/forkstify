@@ -218,6 +218,9 @@ pub fn parse(buf: &str) -> Parse {
         ['c', 'c'] => Parse::Done(Cmd::ComfortMode),
         ['c', d] if ('0'..='5').contains(d) => Parse::Done(Cmd::Comfort(*d as u8 - b'0')),
         ['s'] => Parse::Done(Cmd::Sort),
+        // la vue de la collection, aimés ⇄ tous — le même mot que dans la
+        // discographie (Joel, 09/09/2026)
+        ['v'] => Parse::Done(Cmd::Filter),
         ['g'] => Parse::Pending,
         ['g', 'g'] => Parse::Done(Cmd::Top),
         ['G'] => Parse::Done(Cmd::Bottom),

@@ -10,7 +10,7 @@
 //! confirmation, and never enters a commit of the catalogue proper.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Plays at which familiarity reaches half — beyond, it saturates.
@@ -94,6 +94,9 @@ pub struct Learned {
     /// listening of our own (0014). Keyed by display name — the seed file
     /// predates slugs.
     seed: HashMap<String, f64>,
+    /// Who the Spotify account already likes — a liked track or album, or
+    /// a followed artist — by lowercase name, from the same seed file.
+    seed_liked: HashSet<String>,
     today: i64,
 }
 
@@ -124,6 +127,7 @@ impl Learned {
 
         let mut seed = HashMap::new();
         let mut seed_names: HashMap<String, String> = HashMap::new();
+        let mut seed_liked = HashSet::new();
         if let Ok(text) = std::fs::read_to_string(root.join("classement.json")) {
             if let Ok(rows) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
                 for row in rows {
@@ -134,17 +138,35 @@ impl Learned {
                     {
                         seed.insert(name.to_lowercase(), score);
                         seed_names.insert(name.to_lowercase(), name.to_string());
+                        let liked = row["titres_aimes"].as_u64().unwrap_or(0) > 0
+                            || row["albums_aimes"].as_u64().unwrap_or(0) > 0
+                            || row["suivi"].as_bool().unwrap_or(false);
+                        if liked {
+                            seed_liked.insert(name.to_lowercase());
+                        }
                     }
                 }
             }
         }
 
         let seed_max = seed.values().copied().fold(1.0, f64::max);
-        Learned { root, artists, seed, seed_max, seed_names, today: today() }
+        Learned { root, artists, seed, seed_max, seed_names, seed_liked, today: today() }
     }
 
     pub fn known(&self) -> usize {
         self.artists.len()
+    }
+
+    /// Liked, here or on Spotify: the artist itself (« plus souvent »,
+    /// a follow), or one of its tracks (♥ here, a liked track or album
+    /// there). What the home's collection shows by default (Joel,
+    /// 09/09/2026).
+    pub fn liked(&self, slug: &str, name: &str) -> bool {
+        let here = self
+            .artists
+            .get(slug)
+            .is_some_and(|a| a.weight > 1.0 || a.tops.values().any(|t| t.liked));
+        here || self.seed_liked.contains(&name.to_lowercase())
     }
 
     pub fn seeded(&self) -> usize {
@@ -649,6 +671,7 @@ impl Learned {
             seed: HashMap::new(),
             seed_max: 1.0,
             seed_names: HashMap::new(),
+            seed_liked: HashSet::new(),
             today: 20_000,
         }
     }
@@ -656,6 +679,20 @@ impl Learned {
 
 #[cfg(test)]
 mod tests {
+    /// The home's default view: an artist is « liked » here by a ♥ on one
+    /// of its tracks or a « plus souvent » on itself; a skip undoes it.
+    #[test]
+    fn aime_ici_par_un_titre_ou_par_l_artiste() {
+        let mut learned = Learned::blank();
+        assert!(!learned.liked("the-cure", "The Cure"));
+        learned.like_track("the-cure", "A Forest");
+        assert!(learned.liked("the-cure", "The Cure"));
+        learned.skip_track("the-cure", "A Forest");
+        assert!(!learned.liked("the-cure", "The Cure"));
+        learned.like_artist("the-cure");
+        assert!(learned.liked("the-cure", "The Cure"));
+    }
+
     use super::*;
 
     #[test]
@@ -714,7 +751,7 @@ mod tests {
         let mut learned =
             Learned { root: PathBuf::from("/nonexistent"), artists: HashMap::new(),
                       seed: HashMap::new(), seed_max: 1.0,
-                      seed_names: HashMap::new(), today: 20_000 };
+                      seed_names: HashMap::new(), seed_liked: HashSet::new(), today: 20_000 };
         for _ in 0..40 {
             learned.skip_artist("x");
         }
