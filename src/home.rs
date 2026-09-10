@@ -685,10 +685,8 @@ impl Home {
                 };
                 match listing.get(index) {
                     Some((Some(slug), row)) => Outcome::Explore { slug: slug.clone(), name: row.name.clone() },
-                    Some((None, row)) => {
-                        self.said = format!("{} n'a pas de fiche : pas de discographie à ouvrir", row.name);
-                        Outcome::Stay
-                    }
+                    // sans fiche : la session la génère, puis ouvre (0016)
+                    Some((None, row)) => Outcome::Artist { key: 'd', slug: None, name: row.name.clone() },
                     None => Outcome::Stay,
                 }
             }

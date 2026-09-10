@@ -130,7 +130,7 @@ demandent une fiche.
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file. À l'accueil aussi | mesure | ✅ |
 | `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
 | `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
-| `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous. **À l'accueil aussi**, sur la ligne surlignée de la collection, posée sur l'accueil (Joel, 10/09/2026) | édition | ✅ |
+| `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous. **À l'accueil aussi**, sur la ligne surlignée de la collection, posée sur l'accueil ; un artiste **sans fiche** la reçoit d'abord ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)), la discographie s'ouvre dès qu'elle est là (Joel, 10/09/2026) | édition | ✅ |
 | `ag` | artist **google** | Chercher l'artiste visé (surligné, sinon en cours) dans le navigateur par défaut, via `xdg-open` (Joel, 08/09/2026) | session | ✅ |
 
 Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus

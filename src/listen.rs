@@ -408,6 +408,9 @@ enum After {
     /// La fiche seule : le morceau est déjà dans la file (`ti` sur un
     /// titre hors catalogue), il n'attend rien — il sera rattaché.
     Card,
+    /// `ad` sur un artiste sans fiche : la fiche d'abord, sa discographie
+    /// dès qu'elle est là (Joel, 10/09/2026).
+    Explore,
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -753,7 +756,11 @@ impl Live<'_> {
                     head: None,
                     encore: false,
                 };
-                if key != 'g' && !carded {
+                if key == 'd' && !carded {
+                    // 0016 : arriver chez lui, c'est lui faire une fiche
+                    let slug = crate::generate::slugify(&name);
+                    self.generate(&slug, Some(&name), None, After::Explore);
+                } else if key != 'g' && !carded {
                     self.tell(format!("({name} n'a pas de fiche)"));
                 } else {
                     self.artist_action(key, stop);
@@ -973,6 +980,7 @@ impl Live<'_> {
                     After::Play { title, uri } => self.play_fresh(&slug, title, uri).await,
                     After::Branch { when, reason } => self.branch_to(&slug, when, reason).await,
                     After::Card => self.paint(),
+                    After::Explore => self.open_explore_of(&slug, &name).await,
                 }
             }
         }
