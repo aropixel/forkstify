@@ -20,8 +20,14 @@ const SCOPES: [&str; 5] = [
     "user-modify-playback-state",
     "streaming",
 ];
-const REFRESH_CACHE: &str = "target/spike-webapi-refresh";
-const RESOLVE_CACHE: &str = "target/resolve-cache.json";
+/// The refresh token and the title → uri cache, under the state dir (0021);
+/// taken over from `target/` the first time.
+fn refresh_cache() -> std::path::PathBuf {
+    crate::config::state_file("web-refresh-token", "target/spike-webapi-refresh")
+}
+fn resolve_cache() -> std::path::PathBuf {
+    crate::config::state_file("resolve-cache.json", "target/resolve-cache.json")
+}
 
 /// Outcome of a title lookup. `Absent` is an answer from Spotify (worth
 /// caching); `Failed` means the question never got asked (never cached).
@@ -54,7 +60,7 @@ fn is_live(text: &str) -> bool {
 /// Is there a refresh token on disk? Asked by the home screen before
 /// anything is opened, so it can say what is connected without connecting.
 pub fn has_refresh() -> bool {
-    std::fs::read_to_string(REFRESH_CACHE).is_ok_and(|t| !t.trim().is_empty())
+    std::fs::read_to_string(refresh_cache()).is_ok_and(|t| !t.trim().is_empty())
 }
 
 /// One row of a track search: enough to tell two versions of a title apart.
@@ -76,7 +82,7 @@ impl WebApi {
             .open_in_browser()
             .build()?;
 
-        let cached = std::fs::read_to_string(REFRESH_CACHE)
+        let cached = std::fs::read_to_string(refresh_cache())
             .ok()
             .map(|text| text.trim().to_string())
             .filter(|text| !text.is_empty());
@@ -93,7 +99,7 @@ impl WebApi {
             None => client.get_access_token_async().await?,
         };
 
-        let resolved = std::fs::read_to_string(RESOLVE_CACHE)
+        let resolved = std::fs::read_to_string(resolve_cache())
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
@@ -132,7 +138,7 @@ impl WebApi {
             return;
         }
         self.refresh_token = refresh;
-        if let Err(e) = std::fs::write(REFRESH_CACHE, &self.refresh_token) {
+        if let Err(e) = std::fs::write(refresh_cache(), &self.refresh_token) {
             eprintln!("jeton de renouvellement non enregistré ({e})");
         }
     }
@@ -188,7 +194,7 @@ impl WebApi {
 
         self.resolved.insert(key, uri.clone());
         if let Ok(text) = serde_json::to_string(&self.resolved) {
-            let _ = std::fs::write(RESOLVE_CACHE, text);
+            let _ = std::fs::write(resolve_cache(), text);
         }
         match uri {
             Some(uri) => Resolved::Track(uri),

@@ -1461,8 +1461,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
     morceau. Deux étages proposés dans
     [barre-omarchy.md](conception/barre-omarchy.md) : forkstify publie
     d'abord de vraies métadonnées MPRIS (portable), puis un petit plugin
-    Omarchy les montre. **Attend l'arbitrage de Joel** sur les questions
-    de la note.
+    Omarchy les montre. **Fait le 10/09/2026** ([0021](decisions/0021-le-depot-est-le-plugin-omarchy.md)) :
+    le dépôt est le plugin, l'état vit sous `~/.local/state/forkstify`, le
+    widget installe et lance le binaire. Reste à éprouver en vrai.
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
    `cargo clean` efface aujourd'hui l'authentification.
 10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie

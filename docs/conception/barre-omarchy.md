@@ -39,8 +39,15 @@ Joel a tranché les quatre questions : le widget ne regarde que forkstify ;
 `omarchy/` pour le widget), et c'est le plugin qui **installe et lance** le
 binaire, puisque `omarchy plugin add` ne fait que cloner, valider et
 activer ; pochette plus tard ; rien sur le clic milieu ni la molette.
-Trois étages : les métadonnées MPRIS (**fait le 10/09**), les chemins XDG
-(prérequis pour lancer depuis la barre), le plugin.
+Trois étages, **tous faits le 10/09/2026** : les métadonnées MPRIS ; les
+jetons et caches sous `~/.local/state/forkstify` (repris depuis `target/`
+au premier lancement, sans ré-autoriser) ; le plugin — `manifest.json` à
+la racine, `omarchy/BarWidget.qml`, `omarchy/install.sh`. Un écart assumé
+avec l'ancien script : **l'icône reste visible** en pause (barres fixes,
+atténuées) et quand forkstify ne tourne pas (barres à plat), sinon rien ne
+permettrait de cliquer pour lancer ou installer. Chez Joel, le dépôt est
+**lié** dans `~/.config/omarchy/plugins/io.github.aropixel.forkstify` ;
+ailleurs, `omarchy plugin add git@github.com:aropixel/forkstify.git`.
 
 ## Orientation : deux étages, le premier portable
 

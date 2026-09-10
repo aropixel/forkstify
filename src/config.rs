@@ -112,3 +112,28 @@ impl Config {
         }
     }
 }
+
+/// Where tokens and caches live: `$XDG_STATE_HOME/forkstify`, else
+/// `~/.local/state/forkstify`. They used to sit in `target/`, relative to
+/// the directory the binary was launched from — which a launch from the
+/// desktop's bar no longer has (0021).
+pub fn state_dir() -> PathBuf {
+    let base = std::env::var("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".local/state"));
+    let dir = base.join("forkstify");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// A state file, taken over from its old place under `target/` the first
+/// time — so nobody has to authorize Spotify again after the move.
+pub fn state_file(name: &str, legacy: &str) -> PathBuf {
+    let path = state_dir().join(name);
+    if !path.exists() {
+        if let Ok(bytes) = std::fs::read(legacy) {
+            let _ = std::fs::write(&path, bytes);
+        }
+    }
+    path
+}
