@@ -108,7 +108,9 @@ BarWidget {
     text: root.glyph
     color: root.playing ? root.bar.barForeground : Qt.darker(root.bar.barForeground, 1.6)
     font.family: root.bar.fontFamily
-    font.pixelSize: Style.font.body
+    // block glyphs fill their em: a size down keeps them level with the
+    // bar's icons (Joel, 10/09/2026)
+    font.pixelSize: Style.font.caption
   }
 
   MouseArea {
