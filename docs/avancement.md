@@ -309,6 +309,25 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Entrée sur un artiste sans fiche génère, et tout se dit en toast (10/09/2026)
+
+Joel, sur Kanye West surligné dans la collection : « cela me met "Kanye
+West n'a pas de fiche : rien d'où brancher" ». Or arriver chez un artiste,
+c'est lui faire une fiche (0016), comme `ad` depuis le matin et comme la
+modale de recherche : `entrée` sur une ligne sans fiche passe par
+`:generate` — la fiche naît, le parcours part de chez lui.
+
+Et « la notification apparaît en bas et n'est pas bien visible. Note-le en
+règle : toutes les notifications doivent apparaître en toast. » La règle du
+08/09 disait déjà « plus de ligne de statut », mais l'accueil gardait sa
+ligne du bas pour ce qu'il disait (`(inconnu : …)`, « rien de surligné »,
+ce que `tell` lui remontait). Désormais **tout passe par le toast**, sous
+l'accueil comme en écoute : l'accueil dépose ce qu'il a à dire, la session
+le relève après chaque touche et le pose en cartouche ; `tell` ne distingue
+plus les écrans. Règle consignée dans
+[`forme-de-l-application.md`](conception/forme-de-l-application.md) § « Tout
+se dit en toast », test `the_home_says_everything_in_a_toast`.
+
 ## L'agent : une IA qui pilote forkstify de l'extérieur (10/09/2026)
 
 Idée de Joel : une commande `:agent` qui transmet un prompt à une IA

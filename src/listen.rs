@@ -730,6 +730,10 @@ impl Live<'_> {
         // session qui joue dessous
         let measured = matches!(cmd, Cmd::Artist(_));
         let outcome = self.home.on_cmd(cmd, &self.catalog, &mut self.learned, &mut self.comfort, live);
+        // ce que l'accueil a à dire se pose en toast, comme en écoute
+        if let Some(said) = self.home.take_said() {
+            say!(self, "{said}");
+        }
         if measured && live {
             self.recompute();
         }
@@ -763,12 +767,8 @@ impl Live<'_> {
                 } else if key != 'g' && !carded {
                     self.tell(format!("({name} n'a pas de fiche)"));
                 } else {
+                    // ce qu'il dit passe déjà en toast par `notice`
                     self.artist_action(key, stop);
-                    let said: Vec<String> =
-                        self.notices.borrow_mut().drain(..).filter(|l| !l.trim().is_empty()).collect();
-                    if !said.is_empty() {
-                        self.home.say(said.join(" · "));
-                    }
                 }
             }
             // la même lecture qu'en écoute : le MBID en dernier mot compte
@@ -986,16 +986,13 @@ impl Live<'_> {
         }
     }
 
-    /// Dire quelque chose, sur l'écran où l'on est : l'accueil a sa propre
-    /// ligne, l'écoute a ses toasts. Un travail de fond peut finir sur l'un
-    /// ou l'autre — la génération dure quelques secondes, et on a pu changer
-    /// d'écran entre-temps.
+    /// Dire quelque chose, quel que soit l'écran : **tout se dit en toast**,
+    /// sous l'accueil comme en écoute (Joel, 10/09/2026). Un travail de
+    /// fond peut finir sur l'un ou l'autre — la génération dure quelques
+    /// secondes, et on a pu changer d'écran entre-temps.
     fn tell(&mut self, what: String) {
-        if self.screen == Screen::Home {
-            self.home.say(what);
-        } else {
-            say!(self, "{what}");
-        }
+        // sous l'accueil comme en écoute : en toast (Joel, 10/09/2026)
+        say!(self, "{what}");
     }
 
     /// Reporter sur les creux affichés ce que la session est en train de
@@ -1937,6 +1934,7 @@ impl Live<'_> {
                 finder,
                 self.explore.as_ref(),
                 self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
+                self.toast(),
                 self.tui,
             );
             return;

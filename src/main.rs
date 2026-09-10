@@ -289,6 +289,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 finder: None,
                 explore: None,
                 overlay: None,
+                toast: None,
             });
             if !status.librespot {
                 // l'application s'annonce elle-même : brancher le téléphone

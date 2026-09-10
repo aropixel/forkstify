@@ -93,6 +93,18 @@ Enfin, très neovim : chaque touche n'est que le raccourci d'une **commande
 rendent tout découvrable et scriptable ; les keybinds deviennent une table
 de correspondance, remappable dans un fichier de config.
 
+### Tout se dit en toast
+
+Règle de Joel (08/09/2026, redite le 10/09/2026 sur l'accueil) : **toute
+notification s'affiche en toast** — le cartouche en bas à droite du corps,
+quatre secondes, collant tant que ça charge —, sous l'accueil comme en
+écoute, modale ouverte ou non. La ligne du bas ne porte que ce qu'on tape
+et les touches disponibles ; rien ne s'y « dit ». Ce qui est long se
+montre dans un bloc (`?`, l'aide à la saisie), ce qui est court se dit en
+toast. Le 10/09, un message de l'accueil (« n'a pas de fiche ») passait
+encore par la ligne du bas, où il n'était pas visible : `tell` et ce que
+l'accueil a à dire passent désormais tous par le même toast.
+
 ### Une branche est un segment
 
 Demandé par Joel au premier test de la navigation à sec (03/09/2026) :

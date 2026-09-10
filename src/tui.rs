@@ -1087,6 +1087,10 @@ pub struct HomeView<'a> {
     pub explore: Option<&'a crate::explore::Explore>,
     /// L'aide à la saisie (espace), posée par-dessus tout.
     pub overlay: Option<(&'a str, &'a [String])>,
+    /// Le toast : **toute notification s'affiche en toast**, sous l'accueil
+    /// comme en écoute (Joel, 10/09/2026) — plus rien ne se dit sur la
+    /// ligne du bas.
+    pub toast: Option<Toast>,
 }
 
 impl Tui {
@@ -1282,6 +1286,12 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         ])),
         prompt,
     );
+
+    // — le toast, en bas à droite du corps, par-dessus la collection ou la
+    // modale : la même règle qu'en écoute, tout se dit en toast
+    if let Some(toast) = &view.toast {
+        render_toast(frame, whole, toast);
+    }
 
     // — et ce qui se pose par-dessus tout : l'aide à la saisie
     if let Some((title, body)) = view.overlay {
@@ -1788,6 +1798,7 @@ mod tests {
             finder: None,
             explore: None,
             overlay: None,
+            toast: None,
             bar: Some(Bar {
                 current: Some(&current),
                 paused: false,
@@ -1815,6 +1826,35 @@ mod tests {
     /// couvre le corps — la collection comprise — et laisse le pied de
     /// lecture et l'invite.
     #[test]
+    fn the_home_says_everything_in_a_toast() {
+        // « toutes les notifications doivent apparaître en toast » (Joel,
+        // 10/09/2026) : sous l'accueil aussi, ce qui se dit se pose en
+        // cartouche sur le corps, et la ligne du bas garde ses touches
+        let rows_of_home = [Row::Rule("chercher".into())];
+        let view = HomeView {
+            status: vec![("✓ librespot".to_string(), true)],
+            census: "catalogue local".to_string(),
+            rows: &rows_of_home,
+            prompt: "[1-3 pour démarrer · q]".to_string(),
+            comfort: 3,
+            comfort_word: "équilibré",
+            collection: None,
+            explore: None,
+            overlay: None,
+            finder: None,
+            bar: None,
+            toast: Some(Toast { text: "(inconnu : zz)".into(), tone: MUTED, sticky: false }),
+        };
+        let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
+        terminal.draw(|frame| render_home(frame, &view)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let rows: Vec<String> =
+            (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
+        assert!(rows.iter().any(|row| row.contains("(inconnu : zz)")), "{rows:?}");
+        assert!(rows[19].starts_with("[1-3 pour démarrer · q]"), "{}", rows[19]);
+    }
+
+    #[test]
     fn the_home_wears_the_finder() {
         let rows_of_home = [Row::Rule("chercher".into())];
         let view = HomeView {
@@ -1827,6 +1867,7 @@ mod tests {
             collection: None,
             explore: None,
             overlay: None,
+            toast: None,
             finder: Some(FinderView {
                 insert: false,
                 anchor: None,

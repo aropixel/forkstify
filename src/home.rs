@@ -528,10 +528,16 @@ impl Default for Home {
 }
 
 impl Home {
-    /// Ce que l'accueil dit sous la liste, quand la réponse vient d'un
-    /// geste fait ailleurs — la modale de recherche, par exemple.
-    pub fn say(&mut self, text: String) {
-        self.said = text;
+    /// Ce que l'accueil a à dire après une touche. La session le relève
+    /// après chaque geste et le pose en toast : **toute notification
+    /// s'affiche en toast** (Joel, 10/09/2026), la ligne du bas ne porte
+    /// que la saisie et les touches.
+    pub fn take_said(&mut self) -> Option<String> {
+        if self.said.is_empty() {
+            None
+        } else {
+            Some(std::mem::take(&mut self.said))
+        }
     }
 
     /// Dessine l'accueil. `bar` est le pied de lecture, quand une session
@@ -549,6 +555,7 @@ impl Home {
         finder: Option<crate::tui::FinderView>,
         explore: Option<&crate::explore::Explore>,
         overlay: Option<(&str, &[String])>,
+        toast: Option<crate::tui::Toast>,
         tui: &mut Tui,
     ) {
         let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
@@ -567,8 +574,6 @@ impl Home {
             rows: &rows,
             prompt: if !self.typed.is_empty() {
                 self.typed.clone()
-            } else if !self.said.is_empty() {
-                self.said.clone()
             } else if !self.filter.is_empty() {
                 format!(
                     "[filtre « {} » — {} artiste(s) · ↑↓ entrée · échap efface · :search <texte> cherche]",
@@ -598,6 +603,7 @@ impl Home {
             finder,
             explore,
             overlay,
+            toast,
         });
     }
 
@@ -663,13 +669,10 @@ impl Home {
                 let index = self.cursor.unwrap();
                 match listing.get(index) {
                     Some((Some(slug), _)) => Outcome::Start(Choice::Artist(slug.clone())),
-                    Some((None, row)) => {
-                        self.said = format!(
-                            "{} n'a pas de fiche : rien d'où brancher (le catalogue grandit avec l'usage)",
-                            row.name
-                        );
-                        Outcome::Stay
-                    }
+                    // sans fiche : la session la génère, puis part de chez
+                    // lui — arriver chez un artiste, c'est lui faire une
+                    // fiche (0016 ; Joel, 10/09/2026, sur Kanye West)
+                    Some((None, row)) => Outcome::Generate(row.name.clone()),
                     None => Outcome::Stay,
                 }
             }
