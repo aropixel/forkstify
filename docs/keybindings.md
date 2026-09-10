@@ -108,7 +108,7 @@ sort de la file. Échap efface le surlignage.
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
 | `J` / `K` | | **Déplacer** la ligne surlignée d'un cran vers le bas / le haut, tout de suite — seul ce qui est à venir bouge, le nom de branche voyage avec son morceau, la touche contraire annule (Joel, 08/09/2026) | file | ✅ |
 | `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
-| `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué | file | ✅ |
+| `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué. Un titre **hors catalogue** s'insère tout de suite et sa fiche se génère derrière ; à son arrivée, le morceau — même s'il joue déjà — est rattaché à la fiche, et `tl` a où écrire (Joel, 10/09/2026) | file | ✅ |
 
 **Plus de `tt` / `tT` en écoute** (Joel, 08/09/2026,
 [0018](decisions/0018-un-seul-geste-pour-le-gout.md)) : les tops ne sont que

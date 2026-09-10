@@ -401,6 +401,9 @@ enum After {
     /// Une branche en creux : elle se prend comme les autres, là où la
     /// touche l'a demandé.
     Branch { when: When, reason: String },
+    /// La fiche seule : le morceau est déjà dans la file (`ti` sur un
+    /// titre hors catalogue), il n'attend rien — il sera rattaché.
+    Card,
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -903,9 +906,14 @@ impl Live<'_> {
                     Some(why) => done.push_str(&format!(" · sans vecteur ({why}) : navigation par le graphe")),
                 }
                 self.tell(done);
+                // ce qui est déjà dans l'axe chez cet artiste — un titre
+                // inséré hors catalogue, en train de jouer peut-être —
+                // rejoint sa fiche : les mesures y ont enfin où écrire
+                self.attach_stops(&slug);
                 match after {
                     After::Play { title, uri } => self.play_fresh(&slug, title, uri).await,
                     After::Branch { when, reason } => self.branch_to(&slug, when, reason).await,
+                    After::Card => self.paint(),
                 }
             }
         }
@@ -1008,6 +1016,26 @@ impl Live<'_> {
             None => After::Play { title: None, uri: None },
         };
         self.generate(&slug, Some(&name), mbid.as_deref(), after);
+    }
+
+    /// Give the stops of an artist who just got a card their slug: they
+    /// were inserted from a Spotify search, off the map, under the name the
+    /// card was asked for (Joel, 10/09/2026 — « tl » said « rien à
+    /// apprendre » on a track that was playing).
+    fn attach_stops(&mut self, slug: &str) {
+        let Some(card) = self.catalog.cards.get(slug) else { return };
+        let tops = card.tops.clone();
+        let stops = self.past.iter_mut().chain(self.current.iter_mut()).chain(self.queue.iter_mut());
+        for stop in stops {
+            if stop.slug.is_empty() && crate::generate::slugify(&stop.artist) == slug {
+                stop.slug = slug.to_string();
+                stop.source = if tops.contains(&stop.title) {
+                    crate::engine::Source::Top
+                } else {
+                    crate::engine::Source::Outside
+                };
+            }
+        }
     }
 
     /// Une fiche vient de naître et on voulait l'écouter : de l'accueil le
@@ -2089,7 +2117,11 @@ impl Live<'_> {
                 None
             }
             Some(stop) if stop.slug.is_empty() => {
-                say!(self, "\n({} — hors catalogue, rien à apprendre)", stop.artist);
+                if self.generating.contains(&crate::generate::slugify(&stop.artist)) {
+                    say!(self, "\n({} — sa fiche est en route, réessaie dans un instant)", stop.artist);
+                } else {
+                    say!(self, "\n({} — hors catalogue, rien à apprendre)", stop.artist);
+                }
                 None
             }
             Some(stop) => Some(stop),
@@ -2318,8 +2350,10 @@ impl Live<'_> {
             }
         };
         match (insert, &found.hit) {
-            // ti : le titre entre dans la file à l'ancre, marqué
-            (Some(at), Hit::Track { .. }) => {
+            // ti : le titre entre dans la file à l'ancre, marqué. Hors
+            // catalogue, sa fiche se génère derrière (0016) sans le faire
+            // attendre : il sera rattaché quand elle arrive
+            (Some(at), Hit::Track { artist, slug, .. }) => {
                 let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
@@ -2328,6 +2362,10 @@ impl Live<'_> {
                 let at = at.min(self.queue.len());
                 say!(self, "→ inséré en {} : {} — {}", at + 2, stop.title, stop.artist);
                 self.queue.insert(at, stop);
+                if slug.is_none() {
+                    let slug = crate::generate::slugify(artist);
+                    self.generate(&slug, Some(artist), None, After::Card);
+                }
             }
             // ti sur un artiste : son meilleur morceau non joué
             (Some(at), Hit::Artist(slug)) => {
