@@ -43,9 +43,10 @@ Trois étages, **tous faits le 10/09/2026** : les métadonnées MPRIS ; les
 jetons et caches sous `~/.local/state/forkstify` (repris depuis `target/`
 au premier lancement, sans ré-autoriser) ; le plugin — `manifest.json` à
 la racine, `omarchy/BarWidget.qml`, `omarchy/install.sh`. Un écart assumé
-avec l'ancien script : **l'icône reste visible** en pause (barres fixes,
-atténuées) et quand forkstify ne tourne pas (barres à plat), sinon rien ne
-permettrait de cliquer pour lancer ou installer. Chez Joel, le dépôt est
+avec l'ancien script : **l'icône reste visible** en pause et quand forkstify ne
+tourne pas — le même escalier `▂▄▆`, fixe et atténué (Joel : des barres à
+plat « donnent l'impression d'un bug ») — sinon rien ne permettrait de
+cliquer pour lancer ou installer. Chez Joel, le dépôt est
 **lié** dans `~/.config/omarchy/plugins/io.github.aropixel.forkstify` ;
 ailleurs, `omarchy plugin add git@github.com:aropixel/forkstify.git`.
 

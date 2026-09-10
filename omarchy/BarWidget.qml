@@ -5,8 +5,9 @@ import Quickshell.Services.Mpris
 import qs.Ui
 import qs.Commons
 
-// forkstify in the bar (0021): the bars dance while it plays, stand still
-// when it is paused, and lie flat when it is not running. One click opens
+// forkstify in the bar (0021): the bars dance while it plays, and stand
+// still — the same staircase, dimmed — when it is paused or not running:
+// flat bars looked like a bug (Joel, 10/09/2026). One click opens
 // the card: the track, its progress, what comes next, and the three
 // controls — or « Lancer » / « Installer » when there is nothing to show.
 // Only the `forkstify` player is watched: the rest belongs to omarchy.media.
@@ -31,7 +32,7 @@ BarWidget {
 
   // the waybar animation Joel had: five frames, 100 ms
   readonly property var frames: ["▂▄▆", "▄▂▆", "▄▆▂", "▆▄▂", "▆▂▄"]
-  readonly property string glyph: playing ? frames[frame] : (running ? "▂▄▆" : "▁▁▁")
+  readonly property string glyph: playing ? frames[frame] : "▂▄▆"
 
   function findPlayer() {
     var list = Mpris.players ? Mpris.players.values : []
