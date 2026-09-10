@@ -112,9 +112,10 @@ pub struct View<'a> {
     pub prompt: String,
 }
 
-/// The playback foot: what is playing, its progress, what comes next, the
-/// last thing said. The same under the session and under home (Joel,
-/// 08/09/2026) — listening goes on when switching screens.
+/// The playback foot: what is playing and what comes next on one line,
+/// then its progress — the bar closes the foot, nothing follows it
+/// (mockup 4a, Joel 10/09/2026). The same under the session and under
+/// home (Joel, 08/09/2026) — listening goes on when switching screens.
 pub struct Bar<'a> {
     pub current: Option<&'a Stop>,
     pub paused: bool,
@@ -123,7 +124,6 @@ pub struct Bar<'a> {
     /// (rank of the current one, total) in the playlist
     pub position: (usize, usize),
     pub next: Option<&'a Stop>,
-    pub ahead: usize,
 }
 
 /// The search modal (mockup `Recherche.dc.html`, Joel 08/09/2026): one
@@ -276,9 +276,19 @@ enum Slot {
 /// from the vectors —, and on the right what the plays know about it. What
 /// has played is not numbered and is dimmed; what is playing carries "▶";
 /// what comes is counted from it.
-fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
+/// `marked` puts "▸" in the gutter: the next track, when the listening
+/// line is too narrow to name it (mockup 4a′, the fallback of 4b).
+fn track_row(stop: &Stop, slot: Slot, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
     // the number in grey, only the arrow in color (mockup 2b)
+    // six cells either way: " 2 →  " or, marked, " 2 ▸→ "
+    let gutter = |arrow: &str, tone: Color| -> Vec<Span<'static>> {
+        let (mark, tail) = if marked { ("▸", " ") } else { ("", "  ") };
+        vec![
+            Span::styled(mark.to_string(), Style::default().fg(MUTED)),
+            Span::styled(format!("{arrow}{tail}"), Style::default().fg(tone).add_modifier(Modifier::BOLD)),
+        ]
+    };
     let prefix: Vec<Span> = match slot {
         Slot::Played => vec![Span::raw("      ")],
         Slot::Playing { n, paused } => vec![
@@ -290,14 +300,16 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
         ],
         // a replay is recognized by its "↻": that is how the gesture is
         // checked, without a notification (Joel, 07/09/2026)
-        Slot::Ahead { n } if stop.encore => vec![
-            Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
-            Span::styled("↻  ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
-        ],
-        Slot::Ahead { n } => vec![
-            Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
-            Span::styled("→  ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
-        ],
+        Slot::Ahead { n } if stop.encore => {
+            let mut spans = vec![Span::styled(format!("{n:>2} "), Style::default().fg(DIM))];
+            spans.extend(gutter("↻", EDIT));
+            spans
+        }
+        Slot::Ahead { n } => {
+            let mut spans = vec![Span::styled(format!("{n:>2} "), Style::default().fg(DIM))];
+            spans.extend(gutter("→", BRANCH));
+            spans
+        }
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
     let body: Vec<Span> = match slot {
@@ -353,21 +365,31 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
     // mockup 2b: a head line, the seed block, the body that takes the rest,
-    // then a three-line foot and the prompt — the bottom never moves,
-    // whatever forkstify says
-    // no status line under "up next" anymore: everything is said in a
-    // toast, and the keys follow directly (Joel, 08/09/2026)
-    let [head, seed_block, body, now, bar, next, prompt] = Layout::vertical([
+    // then the foot and the prompt — the bottom never moves, whatever
+    // forkstify says. The foot is two lines since mockup 4a: what plays and
+    // what comes next share a line, the bar closes it. Everything said goes
+    // in a toast, and the keys follow directly (Joel, 08/09/2026)
+    let [head, seed_block, body, now, bar, prompt] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(4),
         Constraint::Min(3),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
-        Constraint::Length(1),
     ])
     .areas(area);
     let full = area.width as usize;
+    let foot = Bar {
+        current: view.current,
+        paused: view.paused,
+        loading: view.loading,
+        progress: view.progress,
+        position: (view.past.len() + 1, view.past.len() + usize::from(view.current.is_some()) + view.queue.len()),
+        next: view.queue.first(),
+    };
+    // whether the next track fits on the listening line decides its mark
+    // in the list (4a′: when it leaves the line, it falls back to "▸")
+    let (now_line, next_on_line) = listening_line(&foot, full);
 
     // the axis on the left, the branches on the right over the full height
     // (1a), 60/40 like home — their place is reserved, they cover nothing
@@ -398,15 +420,20 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             ],
             vec![
                 Span::styled(
-                    format!(
-                        "segment {} · {} track{} · {} ahead · ",
-                        view.segment,
-                        tracks,
-                        if tracks > 1 { "s" } else { "" },
-                        view.queue.len()
-                    ),
+                    format!("segment {} · {} track{} · ", view.segment, tracks, if tracks > 1 { "s" } else { "" }),
                     Style::default().fg(DIM),
                 ),
+                // the fork countdown is a journey state, not a playback
+                // one: it sits with the segment counters (mockup 4a)
+                Span::styled("→ ", Style::default().fg(BRANCH)),
+                Span::styled(
+                    match view.queue.len() {
+                        0 => "fork next".to_string(),
+                        n => format!("fork in {n}"),
+                    },
+                    Style::default().fg(MUTED),
+                ),
+                Span::styled(" │ ", Style::default().fg(DIM)),
                 Span::styled(format!("comfort {} {gauge} {}", view.comfort, view.comfort_word), comfort_style),
             ],
             full,
@@ -506,7 +533,8 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             None => None,
         };
         let note = view.notes.get(stop_index).map(String::as_str).unwrap_or("");
-        push(track_row(stop, slot, opening, note, width), index, view.selection, &mut lines);
+        let marked = !next_on_line && current_at.map_or(false, |c| stop_index == c + 1);
+        push(track_row(stop, slot, marked, opening, note, width), index, view.selection, &mut lines);
         index += 1;
     }
     if !all.is_empty() {
@@ -531,20 +559,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         .min(lines.len().saturating_sub(height));
     frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
-    // — the foot (mockup 2b), shared with home
-    render_bar(
-        frame,
-        [now, bar, next],
-        &Bar {
-            current: view.current,
-            paused: view.paused,
-            loading: view.loading,
-            progress: view.progress,
-            position: (view.past.len() + 1, tracks),
-            next: view.queue.first(),
-            ahead: view.queue.len(),
-        },
-    );
+    // — the foot (mockup 4a), shared with home
+    frame.render_widget(Paragraph::new(now_line), now);
+    render_progress(frame, bar, &foot);
 
     // — the prompt: always the last line, with its cursor
     let prompt_line = Line::from(vec![
@@ -746,61 +763,125 @@ fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
     frame.render_widget(Paragraph::new(text).block(block), rect);
 }
 
-/// The playback foot (mockup 2b): what is playing and where it comes from,
-/// its progress, then what comes next and how many tracks away the fork is
-/// — what the list no longer says once it has scrolled —, and the last
-/// thing said.
-fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Bar) {
-    let full = now.width as usize;
-    let (rank, tracks) = view.position;
-    let now_line = match view.current {
-        Some(stop) => justified(
-            vec![
-                Span::styled(
-                    format!("{} ", if view.paused { "⏸" } else { "▶" }),
-                    Style::default().fg(PLAYING),
-                ),
-                Span::styled(
-                    stop.title.clone(),
-                    Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(" — ", Style::default().fg(DIM)),
-                Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
-                Span::styled(format!("  ({rank} / {tracks})"), Style::default().fg(DIM)),
-                Span::styled(
-                    if view.loading { " · loading…" } else { "" }.to_string(),
-                    Style::default().fg(VECTOR),
-                ),
-            ],
-            {
-                let mut right = vec![
-                    Span::styled(
-                        format!("{} ", stop.source.mark()),
-                        Style::default().fg(role_of(stop.source)),
-                    ),
-                    Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)),
-                ];
-                // the times, as soon as librespot has said them
-                if let Some((position, duration)) = view.progress {
-                    right.push(Span::styled(" │ ", Style::default().fg(DIM)));
-                    right.push(Span::styled(clock(position), Style::default().fg(MUTED)));
-                    if duration > 0 {
-                        right.push(Span::styled(
-                            format!(" / {} -{}", clock(duration), clock(duration.saturating_sub(position))),
-                            Style::default().fg(DIM),
-                        ));
-                    }
-                }
-                right
-            },
-            full,
-        ),
-        None => Line::from(Span::styled("⏹ nothing playing", Style::default().fg(MUTED))),
+/// The listening line (mockup 4a): one line carries the whole axis of
+/// time — what plays on the left, then what comes next, then where it
+/// comes from and the clock on the right. Returns whether the next track
+/// made it onto the line.
+///
+/// When the terminal narrows, the right block is untouchable (it carries
+/// the time left), everything that gives, gives on the left, in this
+/// order (4a′): 1. the next track's artist · 2. the word "then" and the
+/// counter, the "│" alone says the cut · 3. the source and the remaining
+/// time · 4. the current title, cut with an ellipsis — never before the
+/// other three · 5. the next track as a whole, which falls back to "▸" in
+/// the list. Two rules: never two cuts on one line, and the next title is
+/// never truncated — it is there or it is not.
+fn listening_line(view: &Bar, width: usize) -> (Line<'static>, bool) {
+    let Some(stop) = view.current else {
+        return (Line::from(Span::styled("⏹ nothing playing", Style::default().fg(MUTED))), false);
     };
-    frame.render_widget(Paragraph::new(now_line), now);
-    // the progress, full width, like waybar's media module
+    let (rank, tracks) = view.position;
+    let play_mark = format!("{} ", if view.paused { "⏸" } else { "▶" });
+    let loading = if view.loading { " · loading…" } else { "" };
+    let count = |spans: &[Span]| spans.iter().map(|s| s.content.chars().count()).sum::<usize>();
+
+    // the right block: the source, then the clock as soon as librespot
+    // has said it — `remaining` is the first of the two to give
+    let right = |source: bool, remaining: bool| -> Vec<Span<'static>> {
+        let mut spans = Vec::new();
+        if source {
+            spans.push(Span::styled(format!("{} ", stop.source.mark()), Style::default().fg(role_of(stop.source))));
+            spans.push(Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)));
+        }
+        if let Some((position, duration)) = view.progress {
+            if source {
+                spans.push(Span::styled(" │ ", Style::default().fg(DIM)));
+            }
+            spans.push(Span::styled(clock(position), Style::default().fg(MUTED)));
+            if duration > 0 {
+                let rest = if remaining {
+                    format!(" -{}", clock(duration.saturating_sub(position)))
+                } else {
+                    String::new()
+                };
+                spans.push(Span::styled(format!(" / {}{rest}", clock(duration)), Style::default().fg(DIM)));
+            }
+        }
+        spans
+    };
+    // the left: what plays, its counter, then the next after a rule
+    let left = |title: &str, counter: bool, next: Option<(bool, bool)>| -> Vec<Span<'static>> {
+        let mut spans = vec![
+            Span::styled(play_mark.clone(), Style::default().fg(PLAYING)),
+            Span::styled(title.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" — ", Style::default().fg(DIM)),
+            Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
+        ];
+        if counter {
+            spans.push(Span::styled(format!("  ({rank} / {tracks})"), Style::default().fg(DIM)));
+        }
+        spans.push(Span::styled(loading.to_string(), Style::default().fg(VECTOR)));
+        if let (Some(next), Some((word, artist))) = (view.next, next) {
+            spans.push(Span::styled(" │ ", Style::default().fg(DIM)));
+            if word {
+                spans.push(Span::styled("then ", Style::default().fg(DIM)));
+            }
+            spans.push(Span::styled(format!("{} ", next.source.mark()), Style::default().fg(role_of(next.source))));
+            spans.push(Span::styled(next.title.clone(), Style::default().fg(MUTED)));
+            if artist {
+                spans.push(Span::styled(format!(" — {}", next.artist), Style::default().fg(DIM)));
+            }
+        }
+        spans
+    };
+    // the steps of the sacrifice, most complete first
+    const STEPS: [(bool, bool, bool, bool); 4] = [
+        // (next's artist, "then" and the counter, source and remaining, next at all)
+        (true, true, true, true),
+        (false, true, true, true),
+        (false, false, true, true),
+        (false, false, false, true),
+    ];
+    // below this, the current title is no longer readable: the next track
+    // leaves the line before the title gets that short
+    const TITLE_MIN: usize = 16;
+    let title_len = stop.title.chars().count();
+    for (next_artist, words, source, _) in STEPS {
+        let l = left(&stop.title, words, Some((words, next_artist)));
+        let r = right(source, source);
+        if count(&l) + 2 + count(&r) <= width {
+            return (justified(l, r, width), true);
+        }
+    }
+    // step 4: the title gives, alone, as long as it stays readable
+    let r = right(false, false);
+    let fixed = count(&left("", false, Some((false, false)))) + 2 + count(&r);
+    if width > fixed && width - fixed >= TITLE_MIN.min(title_len) {
+        let room = width - fixed;
+        return (justified(left(&fit(&stop.title, room), false, Some((false, false))), r, width), true);
+    }
+    // step 5: the next leaves the line — then the title alone gives, and
+    // if even that is not enough, the artist goes rather than a second cut
+    let fixed = count(&left("", false, None)) + 2 + count(&r);
+    if width > fixed {
+        return (justified(left(&fit(&stop.title, width - fixed), false, None), r, width), false);
+    }
+    let alone = vec![
+        Span::styled(play_mark, Style::default().fg(PLAYING)),
+        Span::styled(
+            fit(&stop.title, width.saturating_sub(2 + 2 + count(&r))),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ),
+    ];
+    (justified(alone, r, width), false)
+}
+
+/// The progress, full width, like waybar's media module — the last line
+/// of the foot, nothing under it (mockup 4a).
+fn render_progress(frame: &mut ratatui::Frame, bar: Rect, view: &Bar) {
+    let full = bar.width as usize;
     let bar_line = match view.progress {
-        Some((position, duration)) if duration > 0 => {
+        Some((position, duration)) if duration > 0 && view.current.is_some() => {
             let filled = (position as u64 * full as u64 / duration as u64) as usize;
             Line::from(vec![
                 Span::styled("█".repeat(filled.min(full)), Style::default().fg(VECTOR)),
@@ -810,30 +891,6 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
         _ => Line::from(Span::styled("░".repeat(full), Style::default().fg(DIM))),
     };
     frame.render_widget(Paragraph::new(bar_line), bar);
-    let next_line = justified(
-        match view.next {
-            Some(stop) => vec![
-                Span::styled("up next  ", Style::default().fg(DIM)),
-                Span::styled(stop.title.clone(), Style::default().fg(MUTED)),
-                Span::styled(" — ", Style::default().fg(DIM)),
-                Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
-            ],
-            None => vec![Span::styled("up next  (nothing drawn)", Style::default().fg(DIM))],
-        },
-        vec![
-            Span::styled("→ ", Style::default().fg(BRANCH)),
-            Span::styled(
-                match view.ahead {
-                    0 => "fork at the end of the track".to_string(),
-                    1 => "fork in 1 track".to_string(),
-                    n => format!("fork in {n} tracks"),
-                },
-                Style::default().fg(MUTED),
-            ),
-        ],
-        full,
-    );
-    frame.render_widget(Paragraph::new(next_line), next);
 }
 
 /// Wraps a text into lines of at most `width` characters, on spaces. A
@@ -1099,8 +1156,8 @@ impl Tui {
 
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
-    // the playback foot takes its four lines when a session plays
-    let foot = if view.bar.is_some() { 3 } else { 0 };
+    // the playback foot takes its two lines when a session plays (4a)
+    let foot = if view.bar.is_some() { 2 } else { 0 };
     let [head, whole, foot_area, prompt] = Layout::vertical([
         Constraint::Length(2),
         Constraint::Min(3),
@@ -1109,13 +1166,10 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     ])
     .areas(area);
     if let Some(bar) = &view.bar {
-        let [now, progress, next] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .areas(foot_area);
-        render_bar(frame, [now, progress, next], bar);
+        let [now, progress] = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(foot_area);
+        let (line, _) = listening_line(bar, now.width as usize);
+        frame.render_widget(Paragraph::new(line), now);
+        render_progress(frame, progress, bar);
     }
 
     // on the left what forkstify proposes, on the right what it owns. The
@@ -1684,11 +1738,12 @@ mod tests {
         assert!(text.contains("█████ shared members"), "{text}");
         assert!(text.contains("████░ 0.78"), "{text}");
         // the rule runs the whole body height (below the head and the seed
-        // block, above the four-line foot), the hints sit at its foot
-        let body_rows = 5..(30 - 4);
+        // block, above the two-line foot and the prompt), the hints sit at
+        // its foot
+        let body_rows = 5..(30 - 3);
         assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
-        assert!(rows[25].contains("fn1 without waiting for the end"), "{text}");
-        assert!(rows[24].contains("1-3 take"), "{text}");
+        assert!(rows[26].contains("fn1 without waiting for the end"), "{text}");
+        assert!(rows[25].contains("1-3 take"), "{text}");
     }
 
     #[test]
@@ -1744,22 +1799,101 @@ mod tests {
         assert!(rows[horizon - 2].contains("Alison"), "{text}");
         // the head and the seed block (2b)
         assert!(rows[0].starts_with("forkstify listen the-cure"), "{}", rows[0]);
-        assert!(rows[0].trim_end().ends_with("segment 2 · 6 tracks · 3 ahead · comfort 3 ███░░ balanced"), "{}", rows[0]);
+        assert!(rows[0].trim_end().ends_with("segment 2 · 6 tracks · → fork in 3 │ comfort 3 ███░░ balanced"), "{}", rows[0]);
         assert!(rows[2].starts_with("── seed ─"), "{}", rows[2]);
         assert!(rows[3].starts_with("The Cure  [catalog]  written card · 41 links · 12 tops  last played -3s"), "{}", rows[3]);
         assert!(rows[4].starts_with("1 fork so far — 2 artists traversed"), "{}", rows[4]);
-        // the foot: what is playing and where from, what comes next and the
-        // fork
-        let now = &rows[rows.len() - 4];
-        assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
+        // the foot (4a): what is playing, then what comes next, where it
+        // comes from and the clock — one line, the bar closes it
+        let now = &rows[rows.len() - 3];
+        assert!(
+            now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6) │ then ♪ Israel — Siouxsie and the Banshees"),
+            "{now}"
+        );
         assert!(now.trim_end().ends_with("♪ top │ 2:34 / 3:47 -1:13"), "{now}");
         // the bar: 154 s out of 227, i.e. 108 full cells out of 160
-        let bar = &rows[rows.len() - 3];
+        let bar = &rows[rows.len() - 2];
         assert_eq!(bar.chars().filter(|c| *c == '█').count(), 108, "{bar}");
         assert_eq!(bar.chars().filter(|c| *c == '░').count(), 52, "{bar}");
-        let next = &rows[rows.len() - 2];
-        assert!(next.starts_with("up next  Israel — Siouxsie and the Banshees"), "{next}");
-        assert!(next.trim_end().ends_with("→ fork in 3 tracks"), "{next}");
+        // and the prompt is the last line: nothing between the bar and it
+        assert!(rows[rows.len() - 1].starts_with("[1-2 branch]"), "{}", rows[rows.len() - 1]);
+        // the next is on the line, so the list does not mark it
+        assert!(!text.contains('▸'), "{text}");
+    }
+
+    /// The worst case of mockup 4a′: a long title, a long artist, a window
+    /// that narrows. The right block never gives; the left gives in order,
+    /// one cut at most per line, the next track whole or absent.
+    #[test]
+    fn the_listening_line_gives_on_the_left_in_order() {
+        let current = stop("Storm: Lift Your Skinny Fists Like Antennas to Heaven", "Godspeed You! Black Emperor");
+        let next = stop("Idiot Heart", "Sunset Rubdown");
+        let bar = Bar {
+            current: Some(&current),
+            paused: false,
+            loading: false,
+            progress: Some((108_000, 1_352_000)),
+            position: (2, 10),
+            next: Some(&next),
+        };
+        let at = |width: usize| -> (String, bool) {
+            let (line, shown) = listening_line(&bar, width);
+            (line.spans.iter().map(|s| s.content.to_string()).collect::<String>().trim_end().to_string(), shown)
+        };
+        // 1. everything fits, nothing gives
+        let (line, shown) = at(170);
+        assert!(shown);
+        assert!(line.starts_with("▶ Storm: Lift Your Skinny Fists Like Antennas to Heaven — Godspeed You! Black Emperor  (2 / 10) │ then ♪ Idiot Heart — Sunset Rubdown"), "{line}");
+        assert!(line.ends_with("♪ top │ 1:48 / 22:32 -20:44"), "{line}");
+        assert_eq!(line.chars().count(), 170);
+        // 2. the next's artist falls, the title stays whole
+        let (line, shown) = at(145);
+        assert!(shown);
+        assert!(line.contains("(2 / 10) │ then ♪ Idiot Heart") && !line.contains("Sunset Rubdown"), "{line}");
+        assert!(line.ends_with("♪ top │ 1:48 / 22:32 -20:44"), "{line}");
+        // 3. "then" and the counter go, then the source and the remaining
+        let (line, shown) = at(138);
+        assert!(shown);
+        assert!(line.contains("Black Emperor │ ♪ Idiot Heart") && !line.contains("(2 / 10)"), "{line}");
+        assert!(line.ends_with("♪ top │ 1:48 / 22:32 -20:44"), "{line}");
+        let (line, _) = at(120);
+        assert!(line.ends_with("1:48 / 22:32") && !line.contains("top"), "{line}");
+        assert!(line.contains("Antennas to Heaven — Godspeed"), "{line}");
+        // 4. the current title is cut — one ellipsis, the next still whole
+        let (line, shown) = at(96);
+        assert!(shown);
+        assert!(line.contains("…") && line.contains("│ ♪ Idiot Heart"), "{line}");
+        assert_eq!(line.matches('…').count(), 1, "{line}");
+        assert_eq!(line.chars().count(), 96);
+        // 5. the next leaves the line rather than the title going unreadable
+        let (line, shown) = at(72);
+        assert!(!shown);
+        assert!(!line.contains("Idiot Heart") && line.contains("— Godspeed You! Black Emperor"), "{line}");
+        assert_eq!(line.matches('…').count(), 1, "{line}");
+        assert!(line.ends_with("1:48 / 22:32"), "{line}");
+        assert_eq!(line.chars().count(), 72);
+    }
+
+    /// When the next track leaves the listening line, the list says it
+    /// with "▸" in the gutter of the track that comes (4a′, the fallback
+    /// of 4b).
+    #[test]
+    fn a_narrow_screen_marks_the_next_in_the_list() {
+        let current = stop("Cities in Dust", "Siouxsie and the Banshees");
+        let mut israel = stop("Israel", "Siouxsie and the Banshees");
+        israel.encore = true;
+        let queue = [israel, stop("Right Now", "The Creatures")];
+        // wide: the next is named on the listening line, the list is bare
+        let rows = playlist(100, 30, &branches(), &[], Some(&current), &queue, &[]);
+        let text = rows.join("\n");
+        assert!(text.contains(" 2 ↻  ♪ Israel"), "{text}");
+        assert!(rows[rows.len() - 3].contains("│ then ♪ Israel"), "{}", rows[rows.len() - 3]);
+        // narrow: it leaves the line and the gutter says it
+        let rows = playlist(60, 30, &branches(), &[], Some(&current), &queue, &[]);
+        let text = rows.join("\n");
+        assert!(text.contains(" 2 ▸↻ ♪ Israel"), "{text}");
+        assert!(text.contains(" 3 →  ♪ Right Now"), "{text}");
+        assert!(!rows[rows.len() - 3].contains("Israel"), "{}", rows[rows.len() - 3]);
     }
 
     #[test]
@@ -1780,8 +1914,8 @@ mod tests {
     }
 
     /// Home keeps the playback foot when a session plays underneath (Joel,
-    /// 08/09/2026): what is playing, its bar, what comes next, on the four
-    /// lines above the prompt.
+    /// 08/09/2026): what is playing and what comes next, then its bar, on
+    /// the two lines above the prompt (4a).
     #[test]
     fn the_home_keeps_the_playback_foot() {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
@@ -1805,7 +1939,6 @@ mod tests {
                 progress: Some((60_000, 240_000)),
                 position: (2, 5),
                 next: Some(&next),
-                ahead: 3,
             }),
         };
         let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
@@ -1813,11 +1946,9 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let rows: Vec<String> =
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
-        assert!(rows[16].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5)"), "{}", rows[16]);
-        assert_eq!(rows[17].chars().filter(|c| *c == '█').count(), 25, "{}", rows[17]);
-        assert!(rows[18].starts_with("up next  Israel — Siouxsie and the Banshees"), "{}", rows[18]);
-        assert!(rows[18].trim_end().ends_with("→ fork in 3 tracks"), "{}", rows[18]);
-        // and the keys follow "up next" with nothing in between
+        assert!(rows[17].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5) │ then ♪ Israel"), "{}", rows[17]);
+        assert_eq!(rows[18].chars().filter(|c| *c == '█').count(), 25, "{}", rows[18]);
+        // and the keys follow the bar with nothing in between
         assert!(rows[19].starts_with("[1-3 to start · r back to listening"), "{}", rows[19]);
     }
 

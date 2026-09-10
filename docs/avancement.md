@@ -350,6 +350,37 @@ plus les écrans. Règle consignée dans
 [`forme-de-l-application.md`](conception/forme-de-l-application.md) § « Tout
 se dit en toast », test `the_home_says_everything_in_a_toast`.
 
+## Le morceau suivant remonte dans la ligne d'écoute (10/09/2026)
+
+Maquettes **4a** et **4a′** de `Lecture.dc.html` (Claude Design, projet
+« Accueil Forkstify ») : la ligne « à suivre » sous la barre coûtait une
+ligne de pied pour redire ce que la liste montre deux lignes plus haut, et
+tant qu'une ligne suivait la barre, l'œil la prenait pour un séparateur.
+Câblé tel quel :
+
+- **Le pied passe de trois lignes à deux** : la ligne d'écoute porte tout
+  l'axe du temps — `▶ ce qui sonne — artiste  (2 / 10) │ then ♪ suivant —
+  artiste` à gauche, `♪ top │ 1:48 / 3:49 -2:00` à droite —, puis la barre,
+  qui ferme le pied. Même chose sous l'accueil.
+- **`→ fork in 8`** remonte dans la barre de titre avec les compteurs de
+  segment, à la place de « n ahead » : c'est un état du parcours, pas de
+  la lecture. `→ fork next` quand la file est vide.
+- **L'ordre de sacrifice de 4a′** quand la fenêtre rétrécit, le bloc de
+  droite intouchable : 1. l'artiste du suivant · 2. `then` et le compteur,
+  le `│` suffit · 3. la provenance et le restant `-20:44` · 4. le titre en
+  cours coupé à l'ellipse, jamais sous 16 caractères · 5. le suivant
+  quitte la ligne et la liste le marque **`▸` dans la gouttière** (le repli
+  de 4b : ` 2 ▸↻ ♪ Israel`). Un seul `…` par ligne ; le titre du suivant
+  n'est jamais tronqué. Pas de seuils fixes : chaque étape se prend dès
+  que la précédente ne tient pas.
+- **Tranché en attendant mieux** : si même le titre seul ne tient pas,
+  l'artiste en cours s'efface entièrement plutôt que de subir une seconde
+  ellipse (la maquette montrait les deux coupés, sa note interdit deux
+  coupes). Réversible.
+
+Tests : la ligne aux largeurs 170 / 145 / 138 / 120 / 96 / 72 ; la
+gouttière `▸` à 60 colonnes. `Bar` perd `ahead`.
+
 ## L'interface passe en anglais (10/09/2026)
 
 Joel veut publier une première version sous peu, utilisable par le plus

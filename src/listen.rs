@@ -1937,7 +1937,6 @@ impl Live<'_> {
                 progress: self.progress.as_ref().map(Progress::now),
                 position: (self.past.len() + 1, tracks),
                 next: self.queue.front(),
-                ahead: self.queue.len(),
             });
             // the search modal lays over the home as over the listening —
             // it is the same one, opened from elsewhere
