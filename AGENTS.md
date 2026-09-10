@@ -88,6 +88,10 @@ Le détail est dans `docs/decisions/`. En résumé :
 - **La cible d'un geste est la ligne surlignée, sinon ce qui sonne** —
   pour `t`, `a` et `e` ; une seule règle sur l'axe
   ([0020](docs/decisions/0020-la-cible-d-un-geste.md)).
+- **Le dépôt est aussi le plugin Omarchy** : `manifest.json` à la racine,
+  `omarchy/` pour le widget, le plugin installe et lance le binaire ; et le
+  lecteur publie de vraies métadonnées MPRIS, `forkstify:next` compris
+  ([0021](docs/decisions/0021-le-depot-est-le-plugin-omarchy.md)).
 - **Langue** : français pour la prose (doc, commits humains, interface) ;
   **anglais pour tout ce qui est interface publique du dépôt — code
   (identifiants, commentaires), vocabulaire sur disque (chemins,

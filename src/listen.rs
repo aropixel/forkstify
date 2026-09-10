@@ -23,7 +23,8 @@ use crate::engine::Comfort;
 use crate::discography::Tail;
 use crate::home::{Choice, Home, LastSession, Outcome};
 use crate::learned::Learned;
-use crate::mediakeys::{self, Control};
+use crate::mediakeys::{self, Control, Shown};
+use std::rc::Rc;
 use crate::sound::{request_started, track_finished, track_over, Sound};
 use crate::spotify::{Resolved, WebApi};
 use std::sync::Arc;
@@ -95,10 +96,10 @@ async fn async_run(
 
     // MPRIS: let the desktop's media keys (⏮ ⏭ ⏯) drive us
     let (ctrl_tx, mut ctrl_rx) = tokio::sync::mpsc::unbounded_channel::<Control>();
-    let _mpris = match mediakeys::start(ctrl_tx).await {
+    let mpris = match mediakeys::start(ctrl_tx).await {
         Ok(player) => {
             steps.push(("touches multimédia actives (mpris)".to_string(), true));
-            Some(player)
+            Some(Rc::new(player))
         }
         Err(e) => {
             steps.push((format!("mpris indisponible ({e}) — touches multimédia inactives"), true));
@@ -154,6 +155,8 @@ async fn async_run(
         home: Home::default(),
         status,
         toast: std::cell::RefCell::new(None),
+        mpris,
+        mpris_shown: Shown::default(),
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -298,6 +301,10 @@ struct Live<'a> {
     /// bloc (le leader, « ? ») s'affiche seul et en entier.
     notices: std::cell::RefCell<Vec<String>>,
     tui: &'a mut Tui,
+    /// The desktop's view of the player (MPRIS), and what it was last told
+    /// — pushed from `paint`, like the screen (0021).
+    mpris: Option<Rc<mpris_server::Player>>,
+    mpris_shown: Shown,
     /// L'axe s'affiche verticalement : les flèches y déplacent une sélection,
     /// et rien ne change tant qu'on n'a pas validé (Joel, 06/09/2026).
     /// Index dans l'axe : passé, puis le courant, puis la file.
@@ -1766,9 +1773,42 @@ impl Live<'_> {
             })
     }
 
+    /// Tell the desktop what plays (0021). Same discipline as the screen:
+    /// derived from the state, pushed only when it changed; the needle at
+    /// every call, it is one stored value.
+    fn mirror(&mut self) {
+        let Some(player) = self.mpris.as_ref() else { return };
+        let (position_ms, length_ms) = self.progress.as_ref().map_or((0, 0), Progress::now);
+        let mut shown = Shown {
+            title: self.current.as_ref().map(|s| s.title.clone()).unwrap_or_default(),
+            artist: self.current.as_ref().map(|s| s.artist.clone()).unwrap_or_default(),
+            next: self
+                .queue
+                .front()
+                .map(|s| format!("{} — {}", s.title, s.artist))
+                .unwrap_or_default(),
+            length_ms,
+            playing: self.current.as_ref().map(|_| !self.paused && !self.loading),
+            serial: self.mpris_shown.serial,
+        };
+        let same_track = shown.title == self.mpris_shown.title && shown.artist == self.mpris_shown.artist;
+        if !same_track {
+            shown.serial += 1;
+        }
+        mediakeys::position(player, position_ms);
+        if shown != self.mpris_shown {
+            let track_changed = !same_track
+                || shown.next != self.mpris_shown.next
+                || shown.length_ms != self.mpris_shown.length_ms;
+            mediakeys::publish(player, &shown, track_changed);
+            self.mpris_shown = shown;
+        }
+    }
+
     /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
     /// décide de rien.
     fn paint(&mut self) {
+        self.mirror();
         if self.screen == Screen::Home {
             let live = !self.rounds.is_empty();
             // le pied se construit champ par champ : l'écran a besoin de

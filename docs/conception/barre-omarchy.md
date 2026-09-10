@@ -32,6 +32,16 @@ du dépôt `kbyjoel/arch-linux` — une boucle `playerctl status`.
   plugin `io.github.sspaeti.neomd` de Joel en est un exemple : un
   `BarWidget.qml`, une `PopupCard`, un `Model.js`.
 
+## Décidé le 10/09/2026 — [0021](../decisions/0021-le-depot-est-le-plugin-omarchy.md)
+
+Joel a tranché les quatre questions : le widget ne regarde que forkstify ;
+**le dépôt est lui-même le plugin** (`manifest.json` à la racine,
+`omarchy/` pour le widget), et c'est le plugin qui **installe et lance** le
+binaire, puisque `omarchy plugin add` ne fait que cloner, valider et
+activer ; pochette plus tard ; rien sur le clic milieu ni la molette.
+Trois étages : les métadonnées MPRIS (**fait le 10/09**), les chemins XDG
+(prérequis pour lancer depuis la barre), le plugin.
+
 ## Orientation : deux étages, le premier portable
 
 1. **forkstify publie tout ce qu'un bureau attend** (portable, hors
@@ -55,7 +65,7 @@ du dépôt `kbyjoel/arch-linux` — une boucle `playerctl status`.
 Pourquoi deux étages : l'étage 1 sert tout le monde et ne dépend de rien ;
 l'étage 2 est le seul morceau lié à Omarchy, et il reste petit.
 
-## À trancher
+## Tranché (voir ci-dessus) — gardé pour l'historique
 
 1. **Le plugin regarde-t-il seulement forkstify**, ou tout lecteur comme
    l'ancien script waybar ? Recommandation : seulement forkstify — le

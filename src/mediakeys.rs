@@ -7,7 +7,8 @@
 //! so this runs on the current-thread runtime via spawn_local; the callbacks
 //! only forward a Control over a channel, keeping D-Bus off the audio path.
 
-use mpris_server::{PlaybackStatus, Player};
+use mpris_server::{Metadata, PlaybackStatus, Player, Time, TrackId};
+use std::rc::Rc;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Clone, Copy, Debug)]
@@ -47,4 +48,54 @@ pub async fn start(tx: UnboundedSender<Control>) -> Result<Player, Box<dyn std::
 
     tokio::task::spawn_local(player.run());
     Ok(player)
+}
+
+/// What the desktop is told about the track (0021): the same state the
+/// screen draws, pushed by the listen loop whenever it changes. `next` is
+/// « title — artist » of the queue's head, the one thing MPRIS has no word
+/// for — it travels as the custom key `forkstify:next`.
+#[derive(Clone, PartialEq, Default)]
+pub struct Shown {
+    pub title: String,
+    pub artist: String,
+    pub next: String,
+    pub length_ms: u32,
+    /// Some(true) plays, Some(false) is paused, None: nothing on air.
+    pub playing: Option<bool>,
+    /// Counts the tracks, so `mpris:trackid` changes with each one.
+    pub serial: u64,
+}
+
+/// Push a track and its state to the desktop. The D-Bus calls are async
+/// and the Player is single-thread: they run as a local task, off the
+/// caller's path. Errors are the desktop's problem, not the music's.
+pub fn publish(player: &Rc<Player>, shown: &Shown, track_changed: bool) {
+    let player = player.clone();
+    let shown = shown.clone();
+    tokio::task::spawn_local(async move {
+        if track_changed {
+            let trackid = TrackId::try_from(format!("/org/forkstify/track/{}", shown.serial))
+                .unwrap_or(TrackId::NO_TRACK);
+            let mut metadata = Metadata::builder()
+                .trackid(trackid)
+                .title(shown.title.clone())
+                .artist([shown.artist.clone()])
+                .length(Time::from_millis(i64::from(shown.length_ms)))
+                .build();
+            metadata.set("forkstify:next", Some(shown.next.clone()));
+            let _ = player.set_metadata(metadata).await;
+        }
+        let status = match shown.playing {
+            Some(true) => PlaybackStatus::Playing,
+            Some(false) => PlaybackStatus::Paused,
+            None => PlaybackStatus::Stopped,
+        };
+        let _ = player.set_playback_status(status).await;
+    });
+}
+
+/// The needle, for the desktop's progress bar. Cheap: a stored value the
+/// desktop reads when it asks.
+pub fn position(player: &Rc<Player>, position_ms: u32) {
+    player.set_position(Time::from_millis(i64::from(position_ms)));
 }
