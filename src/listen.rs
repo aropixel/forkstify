@@ -390,6 +390,10 @@ enum Job {
     Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
+    /// The card asked for already exists: nothing to generate, but what
+    /// was meant for the artist still happens (Joel, 10/09/2026 — entrée
+    /// on « Kanye West » answered « Ye a déjà une fiche » and stopped).
+    Existing { slug: String, after: After },
     /// The fresh card's vector (0019) — or why there is none; the card is
     /// adopted either way.
     Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
@@ -976,13 +980,23 @@ impl Live<'_> {
                 // inséré hors catalogue, en train de jouer peut-être —
                 // rejoint sa fiche : les mesures y ont enfin où écrire
                 self.attach_stops(&slug);
-                match after {
-                    After::Play { title, uri } => self.play_fresh(&slug, title, uri).await,
-                    After::Branch { when, reason } => self.branch_to(&slug, when, reason).await,
-                    After::Card => self.paint(),
-                    After::Explore => self.open_explore_of(&slug, &name).await,
-                }
+                self.after_card(&slug, &name, after).await;
             }
+            Job::Existing { slug, after } => {
+                let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
+                self.after_card(&slug, &name, after).await;
+            }
+        }
+    }
+
+    /// What was meant for the artist, now that the card is there — fresh
+    /// from the generator or found in the catalogue.
+    async fn after_card(&mut self, slug: &str, name: &str, after: After) {
+        match after {
+            After::Play { title, uri } => self.play_fresh(slug, title, uri).await,
+            After::Branch { when, reason } => self.branch_to(slug, when, reason).await,
+            After::Card => self.paint(),
+            After::Explore => self.open_explore_of(slug, name).await,
         }
     }
 
@@ -1035,7 +1049,10 @@ impl Live<'_> {
     /// récolte de discographie, et l'écran ne l'attend pas.
     fn generate(&mut self, slug: &str, hint: Option<&str>, mbid: Option<&str>, after: After) {
         if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
+            // rien à générer : ce qu'on voulait faire de lui se fait quand
+            // même, par le même chemin que la fiche fraîche
             self.tell(format!("({name} a déjà une fiche)"));
+            let _ = self.jobs_tx.send(Job::Existing { slug: slug.to_string(), after });
             return;
         }
         if !self.generating.insert(slug.to_string()) {

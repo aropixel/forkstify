@@ -309,6 +309,28 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Ye et Kanye West ne font qu'un (10/09/2026)
+
+Après le correctif précédent, `entrée` sur « Kanye West » répondait « Ye a
+déjà une fiche » et s'arrêtait. Deux causes :
+
+- **La collection doublait l'artiste.** La fiche `kanye-west` porte le nom
+  que MusicBrainz lui donne aujourd'hui, « Ye » ; la bibliothèque Spotify
+  dit encore « Kanye West ». La collection rapprochait le classement des
+  fiches **par nom** : deux lignes, « Ye » avec fiche mais à familiarité
+  nulle, « Kanye West » sans fiche. Le seed de `learned/` est désormais
+  **indexé par slug**, et la familiarité comme les aimés se cherchent par
+  le slug de la fiche ou par celui du nom affiché : une ligne, la bonne
+  familiarité. Test `le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change`.
+- **Une fiche déjà là bloquait le geste.** `:generate` sur un artiste qui
+  a sa fiche disait « a déjà une fiche » et ne faisait rien de ce qu'on
+  voulait de lui. Désormais l'intention (`After`) s'exécute quand même,
+  par le même chemin qu'une fiche fraîche (`Job::Existing`, `after_card`) :
+  entrée démarre chez lui, `ad` ouvre sa discographie.
+
+Reste que la fiche s'appelle « Ye » : c'est le nom MusicBrainz du moment,
+la fiche est à Joel — un `ae` la renomme s'il préfère « Kanye West ».
+
 ## Entrée sur un artiste sans fiche génère, et tout se dit en toast (10/09/2026)
 
 Joel, sur Kanye West surligné dans la collection : « cela me met "Kanye

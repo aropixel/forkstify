@@ -97,7 +97,7 @@ pub struct Learned {
     /// minuscules pour comparer, mais la collection s'affiche telle quelle.
     seed_names: HashMap<String, String>,
     /// `classement.json`: the familiarity an artist starts with, before any
-    /// listening of our own (0014). Keyed by display name — the seed file
+    /// listening of our own (0014). Keyed by slug of the name — the seed file
     /// predates slugs.
     seed: HashMap<String, f64>,
     /// Who the Spotify account already likes — a liked track or album, or
@@ -142,13 +142,18 @@ impl Learned {
                     if let (Some(name), Some(score)) =
                         (row["nom"].as_str(), row["score"].as_f64())
                     {
-                        seed.insert(name.to_lowercase(), score);
-                        seed_names.insert(name.to_lowercase(), name.to_string());
+                        // keyed by slug, so that a card whose name moved on
+                        // (« Ye », at `kanye-west`) still meets the seed
+                        // row Spotify keeps under the old name (Joel,
+                        // 10/09/2026)
+                        let key = crate::generate::slugify(name);
+                        seed.insert(key.clone(), score);
+                        seed_names.insert(key.clone(), name.to_string());
                         let liked = row["titres_aimes"].as_u64().unwrap_or(0) > 0
                             || row["albums_aimes"].as_u64().unwrap_or(0) > 0
                             || row["suivi"].as_bool().unwrap_or(false);
                         if liked {
-                            seed_liked.insert(name.to_lowercase());
+                            seed_liked.insert(key);
                         }
                     }
                 }
@@ -173,7 +178,7 @@ impl Learned {
             return false;
         }
         let here = artist.is_some_and(|a| a.weight > 1.0 || a.tops.values().any(|t| t.liked));
-        here || self.seed_liked.contains(&name.to_lowercase())
+        here || self.seed_liked.contains(slug) || self.seed_liked.contains(&crate::generate::slugify(name))
     }
 
     pub fn seeded(&self) -> usize {
@@ -186,7 +191,13 @@ impl Learned {
     /// brought onto the same scale by its own maximum, since one is a count
     /// and the other a composite score.
     pub fn familiarity01(&self, slug: &str, name: &str) -> f32 {
-        let seeded = self.seed.get(&name.to_lowercase()).map_or(0.0, |s| s / self.seed_max);
+        // by the card's slug or by the name as shown: either may be the one
+        // the seed knows
+        let seeded = self
+            .seed
+            .get(slug)
+            .or_else(|| self.seed.get(&crate::generate::slugify(name)))
+            .map_or(0.0, |s| s / self.seed_max);
         let ours = self.artists.get(slug).map_or(0.0, |artist| {
             let plays = decay(artist.plays, artist.last.as_deref(), self.today);
             1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
@@ -762,6 +773,30 @@ mod tests {
         let neuf: Artist = toml::from_str("").expect("vide relisible");
         assert_eq!(neuf.weight, 1.0);
         assert!(!neuf.blacklisted);
+    }
+
+    #[test]
+    fn le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change() {
+        // « Kanye West » dans la bibliothèque Spotify, « Ye » sur la fiche
+        // `kanye-west` : même artiste, même familiarité (Joel, 10/09/2026)
+        let mut seed = HashMap::new();
+        seed.insert("kanye-west".to_string(), 10.0);
+        let mut seed_liked = HashSet::new();
+        seed_liked.insert("kanye-west".to_string());
+        let learned = Learned {
+            root: PathBuf::from("/nonexistent"),
+            artists: HashMap::new(),
+            seed,
+            seed_max: 10.0,
+            seed_names: HashMap::new(),
+            seed_liked,
+            today: 20_000,
+        };
+        assert_eq!(learned.familiarity01("kanye-west", "Ye"), 1.0);
+        assert_eq!(learned.familiarity01("", "Kanye West"), 1.0);
+        assert!(learned.liked("kanye-west", "Ye"));
+        assert!(learned.liked("", "Kanye West"));
+        assert_eq!(learned.familiarity01("drake", "Drake"), 0.0);
     }
 
     #[test]

@@ -140,6 +140,7 @@ fn collection(
 
     for (slug, card) in &catalog.cards {
         seen.insert(card.name.to_lowercase());
+        seen.insert(slug.clone());
         let days = learned.days_since(slug);
         rows.push((
             Some(slug.clone()),
@@ -154,7 +155,10 @@ fn collection(
         ));
     }
     for name in learned.ranked_names() {
-        if seen.contains(&name.to_lowercase()) {
+        // by name, or by slug : Spotify still says « Kanye West » where the
+        // card, at `kanye-west`, is named « Ye » — one row, not two (Joel,
+        // 10/09/2026)
+        if seen.contains(&name.to_lowercase()) || seen.contains(&crate::generate::slugify(name)) {
             continue;
         }
         rows.push((
