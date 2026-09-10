@@ -50,6 +50,13 @@ cliquer pour lancer ou installer. Chez Joel, le dépôt est
 **lié** dans `~/.config/omarchy/plugins/io.github.aropixel.forkstify` ;
 ailleurs, `omarchy plugin add git@github.com:aropixel/forkstify.git`.
 
+**Recharger le widget après une modification du QML** : le shell surveille
+`~/.config/omarchy/plugins/` avec `inotifywait -r`, qui ne descend pas dans
+un dossier lié, et son cache de composants survit à `rescanPlugins` et
+même au « Local plugin changed » que provoque la recréation du lien.
+Seul **`omarchy restart shell`** fait prendre un nouveau QML (vérifié le
+10/09/2026 par capture de la barre). Une seconde de clignotement.
+
 ## Orientation : deux étages, le premier portable
 
 1. **forkstify publie tout ce qu'un bureau attend** (portable, hors
