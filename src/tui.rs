@@ -883,9 +883,11 @@ fn render_progress(frame: &mut ratatui::Frame, bar: Rect, view: &Bar) {
     let bar_line = match view.progress {
         Some((position, duration)) if duration > 0 && view.current.is_some() => {
             let filled = (position as u64 * full as u64 / duration as u64) as usize;
+            // one tone for the whole bar, as in the mockup: the rest reads
+            // as a dotted trail, not as a dim line (Joel, 10/09/2026)
             Line::from(vec![
                 Span::styled("█".repeat(filled.min(full)), Style::default().fg(VECTOR)),
-                Span::styled("░".repeat(full.saturating_sub(filled)), Style::default().fg(DIM)),
+                Span::styled("░".repeat(full.saturating_sub(filled)), Style::default().fg(VECTOR)),
             ])
         }
         _ => Line::from(Span::styled("░".repeat(full), Style::default().fg(DIM))),
