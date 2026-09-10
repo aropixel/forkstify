@@ -53,7 +53,7 @@ fn insert_into_array(text: &str, key: &str, line: &str) -> String {
 /// prétendre à une explication savante, mais elle peut dire son origine —
 /// ce qui permet à qui relit, plus tard ou en amont, de la peser.
 fn provenance(what: &str) -> String {
-    quoted(&format!("{what} à l'écoute, {}", crate::learned::today_iso()))
+    quoted(&format!("{what} while listening, {}", crate::learned::today_iso()))
 }
 
 fn door_line(title: &str, tags: &[String]) -> String {
@@ -62,7 +62,7 @@ fn door_line(title: &str, tags: &[String]) -> String {
         "  {{ track = {}, to = [{}], note = {} }},",
         quoted(title),
         list.join(", "),
-        provenance("posée")
+        provenance("set")
     )
 }
 
@@ -71,7 +71,7 @@ fn link_line(to_slug: &str, kind: &str) -> String {
         "  {{ to = {}, type = {}, note = {} }},",
         quoted(to_slug),
         quoted(kind),
-        provenance("rapproché")
+        provenance("linked")
     )
 }
 
@@ -91,11 +91,11 @@ pub struct Edit {
 }
 
 fn read(path: &Path) -> Result<String, String> {
-    std::fs::read_to_string(path).map_err(|e| format!("fiche illisible ({e})"))
+    std::fs::read_to_string(path).map_err(|e| format!("card unreadable ({e})"))
 }
 
 fn write(path: &Path, text: &str) -> Result<(), String> {
-    std::fs::write(path, text).map_err(|e| format!("fiche non écrite ({e})"))
+    std::fs::write(path, text).map_err(|e| format!("card not written ({e})"))
 }
 
 /// `td` — faire d'un morceau une **door** vers une direction ([0011] : `to`
@@ -108,19 +108,19 @@ pub fn add_door(
     tags: &[String],
 ) -> Result<Edit, String> {
     if tags.is_empty() {
-        return Err("aucune direction à donner à cette door".into());
+        return Err("no direction to give this door".into());
     }
     let path = card_path(dir, slug);
     let text = read(&path)?;
     if let Some((from, to)) = array_span(&text, "doors") {
         if text[from..to].contains(&format!("track = {}", quoted(title))) {
-            return Err(format!("« {title} » est déjà une door"));
+            return Err(format!("\"{title}\" is already a door"));
         }
     }
     let updated = insert_into_array(&text, "doors", &door_line(title, tags));
     write(&path, &updated)?;
     Ok(Edit {
-        summary: format!("{name} — door : {title} → {}", tags.join(", ")),
+        summary: format!("{name} — door: {title} → {}", tags.join(", ")),
         body: None,
         path,
         also: Vec::new(),
@@ -137,18 +137,18 @@ pub fn add_link(
     kind: &str,
 ) -> Result<Edit, String> {
     if slug == to_slug {
-        return Err("un artiste ne se lie pas à lui-même".into());
+        return Err("an artist does not link to itself".into());
     }
     let path = card_path(dir, slug);
     let text = read(&path)?;
     if let Some((from, to)) = array_span(&text, "links") {
         if text[from..to].contains(&format!("to = {}", quoted(to_slug))) {
-            return Err(format!("{name} est déjà lié à {to_name}"));
+            return Err(format!("{name} is already linked to {to_name}"));
         }
     }
     let updated = insert_into_array(&text, "links", &link_line(to_slug, kind));
     write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — lien : → {to_name} ({kind})"), body: None, path, also: Vec::new() })
+    Ok(Edit { summary: format!("{name} — link: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
 }
 
 /// La **fournée** de l'écran de la discographie (maquette 1a, 07/09/2026) :
@@ -166,7 +166,7 @@ pub fn set_tops(
     removes: &[String],
 ) -> Result<Edit, String> {
     if adds.is_empty() && removes.is_empty() {
-        return Err("rien à écrire".into());
+        return Err("nothing to write".into());
     }
     let path = card_path(dir, slug);
     let mut text = read(&path)?;
@@ -198,7 +198,7 @@ pub fn set_tops(
     }
 
     if added.is_empty() && removed.is_empty() {
-        return Err("les tops de la fiche disaient déjà cela".into());
+        return Err("the card's tops already said so".into());
     }
     write(&path, &text)?;
 
@@ -210,7 +210,7 @@ pub fn set_tops(
         lines.push(format!("− {title}"));
     }
     Ok(Edit {
-        summary: format!("{name} — tops : +{} −{}", added.len(), removed.len()),
+        summary: format!("{name} — tops: +{} −{}", added.len(), removed.len()),
         body: Some(lines.join("\n")),
         path,
         also: Vec::new(),
@@ -235,16 +235,16 @@ pub fn create_card(
 ) -> Result<Edit, String> {
     let path = card_path(dir, slug);
     if path.exists() {
-        return Err(format!("{name} a déjà une fiche"));
+        return Err(format!("{name} already has a card"));
     }
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("pas de dossier cards/ ({e})"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("no cards/ folder ({e})"))?;
     }
     write(&path, text)?;
     Ok(Edit {
-        summary: format!("{name} — fiche générée"),
+        summary: format!("{name} — card generated"),
         body: Some(format!(
-            "{tops} top(s), {links} lien(s) — MusicBrainz et Deezer.\ngenerated = true : à relire."
+            "{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
         )),
         path,
         also: Vec::new(),
@@ -263,7 +263,7 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
             .arg(dir)
             .args(args)
             .output()
-            .map_err(|e| format!("git introuvable ({e})"))?;
+            .map_err(|e| format!("git not found ({e})"))?;
         if out.status.success() {
             Ok(())
         } else {
@@ -370,7 +370,7 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
             .arg(dir)
             .args(args)
             .output()
-            .map_err(|e| format!("git introuvable ({e})"))?;
+            .map_err(|e| format!("git not found ({e})"))?;
         if out.status.success() {
             Ok(String::from_utf8_lossy(&out.stdout).to_string())
         } else {
@@ -383,14 +383,14 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
     let base = ["upstream/main", "upstream/master", "origin/main", "origin/master"]
         .into_iter()
         .find(|reference| git(&["rev-parse", "--verify", "--quiet", reference]).is_ok())
-        .ok_or("aucun amont connu — ce catalogue n'a pas de dépôt d'origine")?;
+        .ok_or("no known upstream — this catalog has no origin repository")?;
 
     let stat = git(&["diff", "--numstat", base, "--", "cards/"])?;
     if stat.trim().is_empty() {
-        return Ok(vec![format!("rien de plus que {base} — le catalogue est celui d'origine")]);
+        return Ok(vec![format!("nothing beyond {base} — the catalog is the original one")]);
     }
 
-    let mut lines = vec![format!("ce que ce catalogue a de plus que {base} :")];
+    let mut lines = vec![format!("what this catalog has beyond {base}:")];
     for row in stat.lines() {
         let mut cols = row.split('\t');
         let (added, removed, path) = (cols.next(), cols.next(), cols.next());
@@ -413,7 +413,7 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
             lines.push(format!(" {}", line[1..].trim()));
         }
         if added.len() > 24 {
-            lines.push(format!(" … et {} lignes de plus", added.len() - 24));
+            lines.push(format!(" … and {} more lines", added.len() - 24));
         }
     }
     Ok(lines)

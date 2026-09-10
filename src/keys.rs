@@ -565,7 +565,7 @@ mod tests {
             for b in &complete {
                 assert!(
                     a == b || !b.starts_with(a.as_str()),
-                    "« {a} » est un préfixe de « {b} » : il ne pourrait jamais se déclencher"
+                    "\"{a}\" is a prefix of \"{b}\": it could never fire"
                 );
             }
         }

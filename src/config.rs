@@ -12,8 +12,8 @@ pub struct Config {
     pub playback: Playback,
     #[serde(default)]
     pub journey: Journey,
-    #[serde(default)]
-    pub catalogue: Catalogue,
+    #[serde(default, alias = "catalogue")]
+    pub catalog: Catalogue,
 }
 
 #[derive(Deserialize)]
@@ -70,20 +70,20 @@ const TEMPLATE: &str = "\
 # forkstify — configuration
 
 [playback]
-# Privilégier les versions studio plutôt que live à la résolution d'un titre.
+# Prefer studio versions over live ones when resolving a track.
 prefer_studio = true
 
 [journey]
-# Zone de confort, de 0 à 5 : 5 = cocon (on reste chez ce qu'on connaît),
-# 0 = exploration (on va vers ce qu'on ne connaît pas). Réglable en cours
-# d'écoute avec « c » ou « :comfort 4 ».
+# Comfort zone, from 0 to 5: 5 = cocoon (stay with what you know),
+# 0 = exploration (head for what you don't). Adjustable while listening
+# with c or :comfort 4.
 comfort = 3
 
-[catalogue]
-# Le catalogue actif : un clone du dépôt de référence, ou du fork qu'on en a
-# fait. Vide = ~/Work/forkstify-catalog. L'argument de ligne de commande le
-# surcharge.
-# path = \"/home/moi/Work/forkstify-catalog\"
+[catalog]
+# The active catalog: a clone of the reference repository, or of your fork
+# of it. Empty = ~/Work/forkstify-catalog. The command-line argument
+# overrides it.
+# path = \"/home/me/Work/forkstify-catalog\"
 ";
 
 fn path() -> PathBuf {
@@ -98,7 +98,7 @@ impl Config {
         let file = path();
         match std::fs::read_to_string(&file) {
             Ok(text) => toml::from_str(&text).unwrap_or_else(|e| {
-                eprintln!("config illisible ({e}), valeurs par défaut");
+                eprintln!("config unreadable ({e}), using defaults");
                 Config::default()
             }),
             Err(_) => {

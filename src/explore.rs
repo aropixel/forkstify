@@ -53,10 +53,10 @@ impl Filter {
 
     pub fn word(self) -> &'static str {
         match self {
-            Filter::All => "tout",
+            Filter::All => "all",
             Filter::Tops => "♪ tops",
-            Filter::Liked => "♥ aimés",
-            Filter::Banned => "⊘ bannis",
+            Filter::Liked => "♥ liked",
+            Filter::Banned => "⊘ banned",
         }
     }
 }
@@ -214,7 +214,7 @@ impl Explore {
         self.raw = tail.to_vec();
         self.stats = learned.track_table(&self.slug);
         self.loading = false;
-        self.notice = format!("✓ discographie chargée — {} titres", tail.len());
+        self.notice = format!("✓ discography loaded — {} tracks", tail.len());
         self.build();
     }
 
@@ -306,7 +306,7 @@ impl Explore {
                 })
                 .collect();
             albums.push(Album {
-                title: "tops hors discographie".into(),
+                title: "tops outside the discography".into(),
                 year: None,
                 single: false,
                 orphan: true,
@@ -502,32 +502,32 @@ impl Explore {
             Sort::Plays => Sort::Chrono,
         };
         self.notice = match self.sort {
-            Sort::Chrono => "ordre : chronologique".into(),
-            Sort::Plays => "ordre : mes écoutes d'abord".into(),
+            Sort::Chrono => "order: chronological".into(),
+            Sort::Plays => "order: my plays first".into(),
         };
         self.clamp();
     }
 
     pub fn cycle_filter(&mut self) {
         self.filter = self.filter.next();
-        self.notice = format!("filtre : {}", self.filter.word());
+        self.notice = format!("filter: {}", self.filter.word());
         self.clamp();
     }
 
     pub fn search(&mut self, query: &str) {
         self.query = query.trim().to_string();
         self.notice = if self.query.is_empty() {
-            "filtre levé".into()
+            "filter cleared".into()
         } else {
-            format!("filtre : « {} »", self.query)
+            format!("filter: \"{}\"", self.query)
         };
         self.clamp();
     }
 
     pub fn sort_word(&self) -> &'static str {
         match self.sort {
-            Sort::Chrono => "chronologique",
-            Sort::Plays => "mes écoutes d'abord",
+            Sort::Chrono => "chronological",
+            Sort::Plays => "my plays first",
         }
     }
 
@@ -541,16 +541,16 @@ impl Explore {
     fn why(track: &Track) -> String {
         let mut said = Vec::new();
         if track.plays >= 0.5 {
-            said.push(format!("{:.0} écoutes", track.plays));
+            said.push(format!("{:.0} plays", track.plays));
         }
         if track.liked {
-            said.push("aimé".into());
+            said.push("liked".into());
         }
         if track.banned {
-            said.push("banni".into());
+            said.push("banned".into());
         }
         if said.is_empty() {
-            "jamais écouté".into()
+            "never played".into()
         } else {
             said.join(", ")
         }
@@ -577,7 +577,7 @@ impl Explore {
         candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
         candidates.truncate(most);
         if candidates.is_empty() {
-            self.notice = format!("(rien à promouvoir dans {name} — aucun titre écouté hors des tops)");
+            self.notice = format!("(nothing to promote in {name} — no played track outside the tops)");
             return;
         }
         let mut written = 0;
@@ -588,7 +588,7 @@ impl Explore {
             self.pending.push(Pending { add: true, title: clean_title(&title), why });
             written += 1;
         }
-        self.notice = format!("♪+ {written} titre(s) de {name} — en attente");
+        self.notice = format!("♪+ {written} track(s) from {name} — pending");
     }
 
     /// `u` — défaire la dernière édition préparée. Ici l'annulation est
@@ -597,9 +597,9 @@ impl Explore {
         match self.pending.pop() {
             Some(edit) => {
                 self.notice =
-                    format!("↺ {} {} — annulé", if edit.add { "♪+" } else { "♪−" }, edit.title)
+                    format!("↺ {} {} — undone", if edit.add { "♪+" } else { "♪−" }, edit.title)
             }
-            None => self.notice = "(rien à annuler)".into(),
+            None => self.notice = "(nothing to undo)".into(),
         }
     }
 
@@ -614,7 +614,7 @@ impl Explore {
     /// Ce que la fournée deviendra dans la fiche — affiché avant d'appuyer,
     /// et c'est le sujet du commit.
     pub fn commit_line(&self) -> String {
-        format!("{} — tops : +{} −{}", self.name, self.adds().len(), self.removes().len())
+        format!("{} — tops: +{} −{}", self.name, self.adds().len(), self.removes().len())
     }
 
     /// Les éditions ont été écrites : l'écran adopte les tops qu'il vient de
@@ -754,7 +754,7 @@ mod tests {
         screen.cursor = Cursor { album: 0, track: Some(1) };
         screen.top_album(1);
         assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);
-        assert_eq!(screen.commit_line(), "Cat Power — tops : +1 −0");
+        assert_eq!(screen.commit_line(), "Cat Power — tops: +1 −0");
         screen.undo();
         assert!(screen.pending.is_empty(), "u défait, gratuitement");
         screen.top_album(1);

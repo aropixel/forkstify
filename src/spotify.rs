@@ -139,7 +139,7 @@ impl WebApi {
         }
         self.refresh_token = refresh;
         if let Err(e) = std::fs::write(refresh_cache(), &self.refresh_token) {
-            eprintln!("jeton de renouvellement non enregistré ({e})");
+            eprintln!("refresh token not saved ({e})");
         }
     }
 
@@ -163,7 +163,7 @@ impl WebApi {
             };
         }
         if let Err(e) = self.refresh_if_needed().await {
-            return Resolved::Failed(format!("jeton Spotify périmé ({e})"));
+            return Resolved::Failed(format!("Spotify token expired ({e})"));
         }
 
         // when preferring studio, fetch several and pick the first non-live —
@@ -177,7 +177,7 @@ impl WebApi {
         // no body = the call never went through; that is not an answer and
         // must not be remembered as one
         let Some(body) = self.get_with_backoff(&url).await else {
-            return Resolved::Failed("l'API Spotify n'a pas répondu".to_string());
+            return Resolved::Failed("the Spotify API did not answer".to_string());
         };
         let uri = (|| {
             let items = body["tracks"]["items"].as_array()?;
@@ -213,7 +213,7 @@ impl WebApi {
     ) -> Result<Vec<SearchHit>, String> {
         // an unreachable Spotify is not an empty result — say which it is
         if let Err(e) = self.refresh_if_needed().await {
-            return Err(format!("jeton Spotify périmé ({e})"));
+            return Err(format!("Spotify token expired ({e})"));
         }
         let url = format!(
             "https://api.spotify.com/v1/search?q={}&type=track&limit={}",
@@ -221,7 +221,7 @@ impl WebApi {
             limit
         );
         let Some(body) = self.get_with_backoff(&url).await else {
-            return Err("l'API Spotify n'a pas répondu".to_string());
+            return Err("the Spotify API did not answer".to_string());
         };
         let Some(items) = body["tracks"]["items"].as_array() else {
             return Ok(Vec::new());
@@ -255,14 +255,14 @@ impl WebApi {
         spotify_id: &str,
     ) -> Result<Vec<crate::discography::TailTrack>, String> {
         if let Err(e) = self.refresh_if_needed().await {
-            return Err(format!("jeton Spotify périmé ({e})"));
+            return Err(format!("Spotify token expired ({e})"));
         }
         let url = format!(
             "https://api.spotify.com/v1/artists/{spotify_id}/albums\
              ?include_groups=album,single&limit=50"
         );
         let Some(body) = self.get_with_backoff(&url).await else {
-            return Err("l'API Spotify n'a pas répondu".to_string());
+            return Err("the Spotify API did not answer".to_string());
         };
         let album_ids: Vec<String> = body["items"]
             .as_array()

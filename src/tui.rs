@@ -194,7 +194,7 @@ impl Drop for Tui {
 /// ligne du pied et pour le toast.
 pub fn tone_of(text: &str) -> Color {
     let text = text.trim();
-    let not_wired = text.contains("pas encore c\u{e2}bl\u{e9}");
+    let not_wired = text.contains("not wired yet");
     let first = text.chars().next().unwrap_or(' ');
     match first {
         '✓' | '♥' | '▶' => PLAYING,
@@ -204,7 +204,7 @@ pub fn tone_of(text: &str) -> Color {
         '…' | '⏳' => LOADING,
         '(' => MUTED,
         _ if not_wired => DIM,
-        _ if text.starts_with("échec") || text.contains("introuvable") || text.contains("illisible") => DANGER,
+        _ if text.starts_with("failed") || text.contains("not found") || text.contains("unreadable") => DANGER,
         _ => Color::White,
     }
 }
@@ -214,7 +214,7 @@ fn notice_line(text: &str) -> Line<'static> {
     if text.is_empty() {
         return Line::from("");
     }
-    let not_wired = text.contains("pas encore c\u{e2}bl\u{e9}");
+    let not_wired = text.contains("not wired yet");
     let first = text.chars().next().unwrap_or(' ');
     let tone = tone_of(text);
     let style = if not_wired {
@@ -334,7 +334,7 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
     // une raison réduite à un moignon ne dit rien : sous 14 cellules, rien
     let (middle, middle_tone) = match opening {
         Some(reason) if room >= 14 => {
-            let tone = if reason.starts_with("proche du centre") { VECTOR } else { MUTED };
+            let tone = if reason.starts_with("close to") { VECTOR } else { MUTED };
             (fit(reason, room), tone)
         }
         _ => (String::new(), MUTED),
@@ -396,20 +396,20 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         Paragraph::new(justified(
             vec![
                 Span::styled("forkstify", Style::default().fg(MUTED).add_modifier(Modifier::BOLD)),
-                Span::styled(format!(" ecouter {}", view.seed), Style::default().fg(DIM)),
+                Span::styled(format!(" listen {}", view.seed), Style::default().fg(DIM)),
             ],
             vec![
                 Span::styled(
                     format!(
-                        "segment {} · {} morceau{} · {} à venir · ",
+                        "segment {} · {} track{} · {} ahead · ",
                         view.segment,
                         tracks,
-                        if tracks > 1 { "x" } else { "" },
+                        if tracks > 1 { "s" } else { "" },
                         view.queue.len()
                     ),
                     Style::default().fg(DIM),
                 ),
-                Span::styled(format!("confort {} {gauge} {}", view.comfort, view.comfort_word), comfort_style),
+                Span::styled(format!("comfort {} {gauge} {}", view.comfort, view.comfort_word), comfort_style),
             ],
             full,
         )),
@@ -418,9 +418,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
 
     // — la graine, en bloc : c'est d'elle que tout descend
     let forks = match view.forks {
-        0 => "aucun embranchement encore".to_string(),
-        1 => "1 embranchement depuis".to_string(),
-        n => format!("{n} embranchements depuis"),
+        0 => "no fork yet".to_string(),
+        1 => "1 fork so far".to_string(),
+        n => format!("{n} forks so far"),
     };
     let traversed = view.path.len();
     frame.render_widget(
@@ -428,7 +428,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             Line::from(""),
             Line::from(vec![
                 Span::styled("── ", Style::default().fg(DIM)),
-                Span::styled("graine", Style::default().fg(MUTED)),
+                Span::styled("seed", Style::default().fg(MUTED)),
                 Span::styled(" ──────────────", Style::default().fg(DIM)),
             ]),
             Line::from(vec![
@@ -436,14 +436,13 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
                     view.seed_name.to_string(),
                     Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                 ),
-                Span::styled("  [catalogue]  ", Style::default().fg(CATALOG)),
+                Span::styled("  [catalog]  ", Style::default().fg(CATALOG)),
                 Span::styled(view.seed_facts.to_string(), Style::default().fg(MUTED)),
                 Span::styled(format!("  {}", view.seed_last), Style::default().fg(DIM)),
             ]),
             Line::from(Span::styled(
                 format!(
-                    "{forks} — {traversed} artiste{} traversé{}",
-                    if traversed > 1 { "s" } else { "" },
+                    "{forks} — {traversed} artist{} traversed",
                     if traversed > 1 { "s" } else { "" }
                 ),
                 Style::default().fg(DIM),
@@ -484,7 +483,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         .chain(view.current)
         .chain(view.queue.iter())
         .collect();
-    let seed_reason = format!("graine : {}", view.seed);
+    let seed_reason = format!("seed: {}", view.seed);
     let mut numbered = 0usize;
     for (stop_index, stop) in all.iter().enumerate() {
         let slot = match current_at {
@@ -518,7 +517,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         lines.push(Line::from(Span::styled(
             fit(
                 &format!(
-                    "{:>2}    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche",
+                    "{:>2}    horizon  nothing drawn beyond — 1-3 to add a branch",
                     numbered + 1
                 ),
                 width,
@@ -599,13 +598,13 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         vec![
             rule("┌─ "),
             Span::styled(
-                if view.insert { "insérer un titre " } else { "recherche " },
+                if view.insert { "insert a track " } else { "search " },
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
             rule("── "),
             Span::styled(if view.insert { "ti " } else { ":search " }, Style::default().fg(MUTED)),
             Span::styled(
-                if view.insert { "titres seulement" } else { "titres et artistes" },
+                if view.insert { "tracks only" } else { "tracks and artists" },
                 Style::default().fg(DIM),
             ),
         ],
@@ -626,7 +625,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         Span::styled(" ", Style::default().bg(Color::White)),
     ];
     if view.query.is_empty() {
-        input.push(Span::styled("   un titre, un artiste, ou un slug de fiche", Style::default().fg(DIM)));
+        input.push(Span::styled("   a track, an artist, or a card slug", Style::default().fg(DIM)));
     }
     lines.push(Line::from(input));
     // — la règle qui coupe, et compte
@@ -634,11 +633,11 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     let mut counts = vec![
         rule("│ "),
         rule(&"─".repeat(width.saturating_sub(40).max(8))),
-        Span::styled(format!(" catalogue {cat}"), Style::default().fg(CATALOG)),
+        Span::styled(format!(" catalog {cat}"), Style::default().fg(CATALOG)),
         Span::styled(" · ", Style::default().fg(DIM)),
     ];
     counts.push(match (view.only_catalogue, asking, spot) {
-        (true, _, _) => Span::styled("spotify masqué (tab)".to_string(), Style::default().fg(DIM)),
+        (true, _, _) => Span::styled("spotify hidden (tab)".to_string(), Style::default().fg(DIM)),
         (_, true, _) => Span::styled("spotify …".to_string(), Style::default().fg(VECTOR)),
         (_, _, Some(n)) => Span::styled(format!("spotify {n}"), Style::default().fg(VECTOR)),
         _ => Span::styled("spotify 0".to_string(), Style::default().fg(DIM)),
@@ -664,10 +663,10 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
             }
             FinderLine::Row { catalogue, mark, title, artist, note } => {
                 let n = row_index + 1;
-                let source = if *catalogue { "[catalogue]" } else { "[spotify]" };
+                let source = if *catalogue { "[catalog]" } else { "[spotify]" };
                 let tone = if *catalogue { CATALOG } else { VECTOR };
                 let text = format!(
-                    "{n:>2} {source:<11} {mark} {:<30} {:<22} {}",
+                    "{n:>2} {source:<9} {mark} {:<30} {:<22} {}",
                     fit(title, 30),
                     fit(artist, 22),
                     note
@@ -678,7 +677,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
                     lines.push(Line::from(vec![
                         rule("│ "),
                         Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
-                        Span::styled(format!("{source:<11} "), Style::default().fg(tone)),
+                        Span::styled(format!("{source:<9} "), Style::default().fg(tone)),
                         Span::styled(format!("{mark} "), Style::default().fg(if *mark == '~' { VECTOR } else { PLAYING })),
                         Span::styled(format!("{:<30} ", fit(title, 30)), Style::default().fg(Color::White)),
                         Span::styled(format!("{:<22} ", fit(artist, 22)), Style::default().fg(if *catalogue { CATALOG } else { MUTED })),
@@ -694,22 +693,22 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     lines.push(Line::from(rule("│")));
     lines.push(Line::from(vec![
         rule("│ "),
-        Span::styled("entrée ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled("enter ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled(
-            if view.insert { "insérer ici   " } else { "brancher là, ou jouer le titre   " },
+            if view.insert { "insert here   " } else { "branch there, or play the track   " },
             Style::default().fg(MUTED),
         ),
         Span::styled("↑↓ ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("choisir   ", Style::default().fg(MUTED)),
+        Span::styled("choose   ", Style::default().fg(MUTED)),
         Span::styled("tab ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("catalogue seul", Style::default().fg(MUTED)),
+        Span::styled("catalog only", Style::default().fg(MUTED)),
     ]));
     lines.push(ruled(
         vec![
             rule("└─ "),
-            Span::styled("échap ", Style::default().fg(MUTED)),
+            Span::styled("esc ", Style::default().fg(MUTED)),
             Span::styled(
-                if view.insert { "ferme sans insérer — la file est inchangée" } else { "ferme la recherche — la lecture n'a pas cessé" },
+                if view.insert { "closes without inserting — the queue is unchanged" } else { "closes the search — playback hasn't stopped" },
                 Style::default().fg(DIM),
             ),
         ],
@@ -739,7 +738,7 @@ fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(toast.tone))
         .title(Span::styled(
-            if toast.sticky { " ⏳ en cours " } else { " " },
+            if toast.sticky { " ⏳ in progress " } else { " " },
             Style::default().fg(toast.tone).add_modifier(Modifier::BOLD),
         ));
     let text: Vec<Line> = lines
@@ -771,7 +770,7 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
                 Span::styled(format!("  ({rank} / {tracks})"), Style::default().fg(DIM)),
                 Span::styled(
-                    if view.loading { " · chargement…" } else { "" }.to_string(),
+                    if view.loading { " · loading…" } else { "" }.to_string(),
                     Style::default().fg(VECTOR),
                 ),
             ],
@@ -798,7 +797,7 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
             },
             full,
         ),
-        None => Line::from(Span::styled("⏹ rien ne sonne", Style::default().fg(MUTED))),
+        None => Line::from(Span::styled("⏹ nothing playing", Style::default().fg(MUTED))),
     };
     frame.render_widget(Paragraph::new(now_line), now);
     // la progression, pleine largeur, comme le module media de waybar
@@ -816,20 +815,20 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
     let next_line = justified(
         match view.next {
             Some(stop) => vec![
-                Span::styled("à suivre  ", Style::default().fg(DIM)),
+                Span::styled("up next  ", Style::default().fg(DIM)),
                 Span::styled(stop.title.clone(), Style::default().fg(MUTED)),
                 Span::styled(" — ", Style::default().fg(DIM)),
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
             ],
-            None => vec![Span::styled("à suivre  (rien de tiré)", Style::default().fg(DIM))],
+            None => vec![Span::styled("up next  (nothing drawn)", Style::default().fg(DIM))],
         },
         vec![
             Span::styled("→ ", Style::default().fg(BRANCH)),
             Span::styled(
                 match view.ahead {
-                    0 => "embranchement à la fin du morceau".to_string(),
-                    1 => "embranchement dans 1 morceau".to_string(),
-                    n => format!("embranchement dans {n} morceaux"),
+                    0 => "fork at the end of the track".to_string(),
+                    1 => "fork in 1 track".to_string(),
+                    n => format!("fork in {n} tracks"),
                 },
                 Style::default().fg(MUTED),
             ),
@@ -871,7 +870,7 @@ fn proximity_of(branch: &Branch) -> (Color, String, Option<String>) {
     let cells: String = (0..5)
         .map(|i| if (i as f32) < branch.weight.round() { '█' } else { '░' })
         .collect();
-    if branch.reason.starts_with("proche du centre") {
+    if branch.reason.starts_with("close to") {
         // la branche aventureuse : le moteur a mis le cosinus sur l'échelle 1–5
         let cosine = branch.weight / 5.0;
         (VECTOR, cells, Some(format!("{cosine:.2}")))
@@ -924,7 +923,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
     lines.push(Line::from(""));
     if view.branches.is_empty() && view.missing.is_empty() {
         lines.push(Line::from(Span::styled(
-            "cul-de-sac — « fu » pour revenir",
+            "dead end — fu to go back",
             Style::default().fg(MUTED),
         )));
     }
@@ -1006,9 +1005,9 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             Span::styled(cells, Style::default().fg(DIM)),
             Span::styled(
                 if missing.pending {
-                    format!(" {} · … génération", missing.kind)
+                    format!(" {} · … generation", missing.kind)
                 } else {
-                    format!(" {} · ○ fiche à générer", missing.kind)
+                    format!(" {} · ○ no card yet", missing.kind)
                 },
                 Style::default().fg(if missing.pending { BRANCH } else { MUTED }),
             ),
@@ -1020,13 +1019,13 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
     let hints = [
         Line::from(vec![
             Span::styled("1-3", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled(" prendre  ", Style::default().fg(MUTED)),
+            Span::styled(" take  ", Style::default().fg(MUTED)),
             Span::styled("fr", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled(" reproposer", Style::default().fg(MUTED)),
+            Span::styled(" reroll", Style::default().fg(MUTED)),
         ]),
         Line::from(vec![
             Span::styled("fn1", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled(" sans attendre la fin", Style::default().fg(DIM)),
+            Span::styled(" without waiting for the end", Style::default().fg(DIM)),
         ]),
     ];
     let hint_height = hints.len() as u16;
@@ -1407,18 +1406,18 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
             Line::from(vec![
                 Span::styled("── ", Style::default().fg(Color::DarkGray)),
                 Span::styled(
-                    "la collection",
+                    "the collection",
                     Style::default().fg(MUTED).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
-                    format!("  {} · {} avec fiche", view.total, view.carded),
+                    format!("  {} · {} with a card", view.total, view.carded),
                     Style::default().fg(DIM),
                 ),
             ]),
             Line::from(vec![
-                Span::styled("vue : ", Style::default().fg(DIM)),
+                Span::styled("view: ", Style::default().fg(DIM)),
                 Span::styled(view.scope.to_string(), Style::default().fg(CATALOG)),
-                Span::styled(" (v) · trié par ", Style::default().fg(DIM)),
+                Span::styled(" (v) · sorted by ", Style::default().fg(DIM)),
                 Span::styled(view.sort.to_string(), Style::default().fg(CATALOG)),
                 Span::styled(" (s)", Style::default().fg(DIM)),
             ]),
@@ -1471,11 +1470,11 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(Span::styled(
-                if rest > 0 { format!("── {rest} de plus") } else { "──".into() },
+                if rest > 0 { format!("── {rest} more") } else { "──".into() },
                 Style::default().fg(DIM),
             )),
             Line::from(Span::styled(
-                "↑↓ parcourir · gg G les bouts · entrée démarrer · s trier",
+                "↑↓ browse · gg G the ends · enter start · s sort",
                 Style::default().fg(DIM),
             )),
         ]),
@@ -1503,7 +1502,7 @@ mod tests {
         vec![
             Branch {
                 label: "The Creatures".to_string(),
-                reason: "membres en commun — Siouxsie Sioux et Budgie · tags communs : post-punk, uk"
+                reason: "shared members — Siouxsie Sioux and Budgie · shared tags: post-punk, uk"
                     .to_string(),
                 artists: vec!["the-creatures".to_string()],
                 stops: vec![stop("Right Now", "The Creatures"), stop("Miss the Girl", "The Creatures")],
@@ -1511,7 +1510,7 @@ mod tests {
             },
             Branch {
                 label: "Chelsea Wolfe".to_string(),
-                reason: "proche du centre de la branche (0.78) · tags communs : uk".to_string(),
+                reason: "close to the branch's center (0.78) · shared tags: uk".to_string(),
                 artists: vec!["chelsea-wolfe".to_string()],
                 stops: vec![stop("Carrion Flowers", "Chelsea Wolfe")],
                 weight: 0.78 * 5.0,
@@ -1536,7 +1535,7 @@ mod tests {
             name: "Georges Moustaki".into(),
             kind: "similar".into(),
             proximity: 4,
-            why: "similaires · chez Jacques Brel".into(),
+            why: "similar · around Jacques Brel".into(),
             pending,
         }
     }
@@ -1552,8 +1551,8 @@ mod tests {
         assert!(text.contains("2  Chelsea Wolfe"), "{text}");
         assert!(text.contains("── branches 2 · 1 ○"), "{text}");
         assert!(text.contains("3  Georges Moustaki"), "{text}");
-        assert!(text.contains("similaires · chez Jacques Brel"), "{text}");
-        assert!(text.contains("████░ similar · ○ fiche à générer"), "{text}");
+        assert!(text.contains("similar · around Jacques Brel"), "{text}");
+        assert!(text.contains("████░ similar · ○ no card yet"), "{text}");
     }
 
     /// Une génération dure quelques secondes : la colonne doit le dire, sinon
@@ -1563,8 +1562,8 @@ mod tests {
         let current = stop("Ne me quitte pas", "Jacques Brel");
         let rows = playlist(100, 30, &[], &[], Some(&current), &[], &[missing(true)]);
         let text = rows.join("\n");
-        assert!(text.contains("similar · … génération"), "{text}");
-        assert!(!text.contains("○ fiche à générer"), "{text}");
+        assert!(text.contains("similar · … generation"), "{text}");
+        assert!(!text.contains("○ no card yet"), "{text}");
     }
 
     fn playlist(
@@ -1578,14 +1577,14 @@ mod tests {
     ) -> Vec<String> {
         let total = past.len() + usize::from(current.is_some()) + queue.len();
         let notes: Vec<String> = (0..total)
-            .map(|i| if i == 0 { "1 écoute · hier".to_string() } else { "jamais joué".to_string() })
+            .map(|i| if i == 0 { "1 play · yesterday".to_string() } else { "never played".to_string() })
             .collect();
         let view = View {
             path: vec!["The Cure".to_string(), "Siouxsie and the Banshees".to_string()],
             seed: "the-cure",
             seed_name: "The Cure",
-            seed_facts: "fiche écrite · 41 liens · 12 tops",
-            seed_last: "dernière écoute -3s",
+            seed_facts: "written card · 41 links · 12 tops",
+            seed_last: "last played -3s",
             forks: 1,
             segment: 2,
             past,
@@ -1601,12 +1600,12 @@ mod tests {
             overlay: None,
             comfort_mode: false,
             comfort: 3,
-            comfort_word: "équilibré",
+            comfort_word: "balanced",
             progress: current.map(|_| (154_000, 227_000)),
             toast: None,
             finder: None,
             explore: None,
-            prompt: "[1-2 branche]".to_string(),
+            prompt: "[1-2 branch]".to_string(),
         };
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal.draw(|frame| render(frame, &view)).unwrap();
@@ -1663,16 +1662,16 @@ mod tests {
             .map(|y| (0..width).map(|x| buffer[(x, y)].symbol()).collect::<String>())
             .collect();
 
-        assert!(lines[0].contains("discographie") && lines[0].contains("Cat Power"));
+        assert!(lines[0].contains("discography") && lines[0].contains("Cat Power"));
         // les deux albums tiennent, et seul celui du curseur est déplié
         assert!(lines.iter().any(|l| l.contains("▾") && l.contains("Moon Pix")));
         assert!(lines.iter().any(|l| l.contains("▸") && l.contains("The Covers Record")));
-        assert!(lines.iter().any(|l| l.contains("Metal Heart") && l.contains("▶ sonne")));
+        assert!(lines.iter().any(|l| l.contains("Metal Heart") && l.contains("▶ playing")));
         // ce qui attend se voit, et le commit s'annonce avant d'appuyer
-        assert!(lines.iter().any(|l| l.contains("en attente") && l.contains("1 édition")));
+        assert!(lines.iter().any(|l| l.contains("pending") && l.contains("1 edit")));
         // le sujet du commit se lit avant d'appuyer
         assert!(lines.iter().any(|l| l.contains("cards/cat-power.toml") && l.contains("+1 −0")));
-        assert!(lines.iter().any(|l| l.contains("⏎ écrire")));
+        assert!(lines.iter().any(|l| l.contains("⏎ write")));
     }
 
     #[test]
@@ -1685,23 +1684,25 @@ mod tests {
         assert!(text.contains("♪ Miss the Girl — The Creatures"), "{text}");
         assert!(text.contains("♪ Carrion Flowers — Chelsea Wolfe"), "{text}");
         // the graph says its link, the vector space its cosine
-        assert!(text.contains("█████ membres en commun"), "{text}");
+        assert!(text.contains("█████ shared members"), "{text}");
         assert!(text.contains("████░ 0.78"), "{text}");
         // the rule runs the whole body height (below the head and the seed
         // block, above the four-line foot), the hints sit at its foot
         let body_rows = 5..(30 - 4);
         assert!(body_rows.clone().all(|y| rows[y].contains('│')), "{text}");
-        assert!(rows[25].contains("fn1 sans attendre la fin"), "{text}");
-        assert!(rows[24].contains("1-3 prendre"), "{text}");
+        assert!(rows[25].contains("fn1 without waiting for the end"), "{text}");
+        assert!(rows[24].contains("1-3 take"), "{text}");
     }
 
     #[test]
     fn a_bare_reason_is_said_once_by_the_gauge() {
         let mut around = branches();
-        around[0].reason = "rester dans l'univers du parcours".to_string();
+        around[0].reason = "stay within the journey's universe".to_string();
         around[0].weight = 4.0;
-        let text = screen(100, 30, &around).join("\n");
-        assert_eq!(text.matches("rester dans l'univers du parcours").count(), 1, "{text}");
+        // 110 colonnes : la raison (34 cellules) doit tenir sur une ligne de
+        // la colonne, sinon elle se replie et se lit en deux morceaux
+        let text = screen(110, 30, &around).join("\n");
+        assert_eq!(text.matches("stay within the journey's universe").count(), 1, "{text}");
         assert!(text.contains("████░ \n") || text.contains("████░  "), "{text}");
     }
 
@@ -1711,14 +1712,14 @@ mod tests {
         let current = headed(
             stop("Cities in Dust", "Siouxsie and the Banshees"),
             "Siouxsie and the Banshees",
-            "liens familiaux — Robert Smith y a joué de la guitare en 1983",
+            "family ties — Robert Smith played guitar there in 1983",
         );
         let mut israel = stop("Israel", "Siouxsie and the Banshees");
         israel.encore = true;
         let queue = [
             israel,
-            headed(stop("Right Now", "The Creatures"), "The Creatures", "membres en commun"),
-            headed(stop("Alison", "Slowdive"), "Slowdive", "proche du centre de la branche (0.74)"),
+            headed(stop("Right Now", "The Creatures"), "The Creatures", "shared members"),
+            headed(stop("Alison", "Slowdive"), "Slowdive", "close to the branch's center (0.74)"),
         ];
         let rows = playlist(160, 30, &branches(), &past, Some(&current), &queue, &[]);
         let text = rows.join("\n");
@@ -1727,17 +1728,17 @@ mod tests {
             row.chars().take(95).collect::<String>().trim_end().to_string()
         };
         // le passé n'est pas numéroté, la graine se lit à côté du premier
-        assert!(text.contains("      ♪ A Forest — The Cure  graine : the-cure"), "{text}");
-        assert!(axis("A Forest").ends_with("1 écoute · hier"), "{}", axis("A Forest"));
+        assert!(text.contains("      ♪ A Forest — The Cure  seed: the-cure"), "{text}");
+        assert!(axis("A Forest").ends_with("1 play · yesterday"), "{}", axis("A Forest"));
         // ce qui sonne est le 1, ce qui vient compte à partir de lui
-        assert!(text.contains(" 1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   liens familiaux"), "{text}");
-        assert!(axis("Cities in Dust").ends_with("jamais joué"), "{}", axis("Cities in Dust"));
+        assert!(text.contains(" 1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   family ties"), "{text}");
+        assert!(axis("Cities in Dust").ends_with("never played"), "{}", axis("Cities in Dust"));
         // un encore porte « ↻ » à la place de la flèche
         assert!(text.contains(" 2 ↻  ♪ Israel — Siouxsie and the Banshees"), "{text}");
-        assert!(text.contains(" 3 →  ♪ Right Now — The Creatures  membres en commun"), "{text}");
-        assert!(text.contains(" 4 →  ♪ Alison — Slowdive  proche du centre de la branche (0.74)"), "{text}");
-        assert!(axis("Alison").ends_with("jamais joué"), "{}", axis("Alison"));
-        assert!(text.contains(" 5    horizon  rien de tiré au-delà"), "{text}");
+        assert!(text.contains(" 3 →  ♪ Right Now — The Creatures  shared members"), "{text}");
+        assert!(text.contains(" 4 →  ♪ Alison — Slowdive  close to the branch's center (0.74)"), "{text}");
+        assert!(axis("Alison").ends_with("never played"), "{}", axis("Alison"));
+        assert!(text.contains(" 5    horizon  nothing drawn beyond"), "{text}");
         // plus de filet (Joel, 07/09/2026) : les morceaux se suivent, seul
         // l'horizon prend un blanc
         assert!(!text.contains('╵') && !text.contains(" │ ♪"), "{text}");
@@ -1745,11 +1746,11 @@ mod tests {
         assert!(rows[horizon - 1].chars().take(95).all(|c| c == ' '), "{text}");
         assert!(rows[horizon - 2].contains("Alison"), "{text}");
         // l'en-tête et le bloc de la graine (2b)
-        assert!(rows[0].starts_with("forkstify ecouter the-cure"), "{}", rows[0]);
-        assert!(rows[0].trim_end().ends_with("segment 2 · 6 morceaux · 3 à venir · confort 3 ███░░ équilibré"), "{}", rows[0]);
-        assert!(rows[2].starts_with("── graine ─"), "{}", rows[2]);
-        assert!(rows[3].starts_with("The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s"), "{}", rows[3]);
-        assert!(rows[4].starts_with("1 embranchement depuis — 2 artistes traversés"), "{}", rows[4]);
+        assert!(rows[0].starts_with("forkstify listen the-cure"), "{}", rows[0]);
+        assert!(rows[0].trim_end().ends_with("segment 2 · 6 tracks · 3 ahead · comfort 3 ███░░ balanced"), "{}", rows[0]);
+        assert!(rows[2].starts_with("── seed ─"), "{}", rows[2]);
+        assert!(rows[3].starts_with("The Cure  [catalog]  written card · 41 links · 12 tops  last played -3s"), "{}", rows[3]);
+        assert!(rows[4].starts_with("1 fork so far — 2 artists traversed"), "{}", rows[4]);
         // le pied : ce qui sonne et sa provenance, ce qui suit et l'embranchement
         let now = &rows[rows.len() - 4];
         assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
@@ -1759,23 +1760,23 @@ mod tests {
         assert_eq!(bar.chars().filter(|c| *c == '█').count(), 108, "{bar}");
         assert_eq!(bar.chars().filter(|c| *c == '░').count(), 52, "{bar}");
         let next = &rows[rows.len() - 2];
-        assert!(next.starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{next}");
-        assert!(next.trim_end().ends_with("→ embranchement dans 3 morceaux"), "{next}");
+        assert!(next.starts_with("up next  Israel — Siouxsie and the Banshees"), "{next}");
+        assert!(next.trim_end().ends_with("→ fork in 3 tracks"), "{next}");
     }
 
     #[test]
     fn a_notice_is_shaped_by_its_nature() {
         let plain = |line: Line| -> String { line.spans.iter().map(|s| s.content.to_string()).collect() };
-        let done = notice_line("✓ A Forest promu top — commité");
+        let done = notice_line("✓ A Forest promoted to top — committed");
         assert_eq!(done.spans[0].style.fg, Some(PLAYING));
         assert_eq!(done.spans[1].style.fg, Some(DIM));
-        assert_eq!(plain(done), "✓ A Forest promu top — commité");
-        let banned = notice_line("\n⊘ The Fall — plus jamais");
+        assert_eq!(plain(done), "✓ A Forest promoted to top — committed");
+        let banned = notice_line("\n⊘ The Fall — never again");
         assert_eq!(banned.spans[0].style.fg, Some(DANGER));
-        let hint = notice_line("(plus de tops non joués chez The Cure)");
+        let hint = notice_line("(no more unplayed tops around The Cure)");
         assert_eq!(hint.spans.len(), 1);
         assert_eq!(hint.spans[0].style.fg, Some(MUTED));
-        let later = notice_line("« fw » — partir : décidé (0015), pas encore câblé.");
+        let later = notice_line("fw — leave: decided (0015), not wired yet.");
         assert!(later.spans[0].style.add_modifier.contains(Modifier::ITALIC));
         assert_eq!(plain(notice_line("")), "");
     }
@@ -1789,11 +1790,11 @@ mod tests {
         let next = stop("Israel", "Siouxsie and the Banshees");
         let view = HomeView {
             status: vec![("✓ librespot".to_string(), true)],
-            census: "catalogue local".to_string(),
+            census: "local catalog".to_string(),
             rows: &[],
-            prompt: "[1-3 pour démarrer · r retour à l'écoute · q quitter]".to_string(),
+            prompt: "[1-3 to start · r back to listening · q quit]".to_string(),
             comfort: 3,
-            comfort_word: "équilibré",
+            comfort_word: "balanced",
             collection: None,
             finder: None,
             explore: None,
@@ -1816,10 +1817,10 @@ mod tests {
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
         assert!(rows[16].starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (2 / 5)"), "{}", rows[16]);
         assert_eq!(rows[17].chars().filter(|c| *c == '█').count(), 25, "{}", rows[17]);
-        assert!(rows[18].starts_with("à suivre  Israel — Siouxsie and the Banshees"), "{}", rows[18]);
-        assert!(rows[18].trim_end().ends_with("→ embranchement dans 3 morceaux"), "{}", rows[18]);
+        assert!(rows[18].starts_with("up next  Israel — Siouxsie and the Banshees"), "{}", rows[18]);
+        assert!(rows[18].trim_end().ends_with("→ fork in 3 tracks"), "{}", rows[18]);
         // et les touches suivent « à suivre » sans rien entre les deux
-        assert!(rows[19].starts_with("[1-3 pour démarrer · r retour à l'écoute"), "{}", rows[19]);
+        assert!(rows[19].starts_with("[1-3 to start · r back to listening"), "{}", rows[19]);
     }
 
     /// `:search` s'ouvre aussi de l'accueil (Joel, 09/09/2026) : la modale
@@ -1830,40 +1831,40 @@ mod tests {
         // « toutes les notifications doivent apparaître en toast » (Joel,
         // 10/09/2026) : sous l'accueil aussi, ce qui se dit se pose en
         // cartouche sur le corps, et la ligne du bas garde ses touches
-        let rows_of_home = [Row::Rule("chercher".into())];
+        let rows_of_home = [Row::Rule("search".into())];
         let view = HomeView {
             status: vec![("✓ librespot".to_string(), true)],
-            census: "catalogue local".to_string(),
+            census: "local catalog".to_string(),
             rows: &rows_of_home,
-            prompt: "[1-3 pour démarrer · q]".to_string(),
+            prompt: "[1-3 to start · q]".to_string(),
             comfort: 3,
-            comfort_word: "équilibré",
+            comfort_word: "balanced",
             collection: None,
             explore: None,
             overlay: None,
             finder: None,
             bar: None,
-            toast: Some(Toast { text: "(inconnu : zz)".into(), tone: MUTED, sticky: false }),
+            toast: Some(Toast { text: "(unknown: zz)".into(), tone: MUTED, sticky: false }),
         };
         let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
         terminal.draw(|frame| render_home(frame, &view)).unwrap();
         let buffer = terminal.backend().buffer();
         let rows: Vec<String> =
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
-        assert!(rows.iter().any(|row| row.contains("(inconnu : zz)")), "{rows:?}");
-        assert!(rows[19].starts_with("[1-3 pour démarrer · q]"), "{}", rows[19]);
+        assert!(rows.iter().any(|row| row.contains("(unknown: zz)")), "{rows:?}");
+        assert!(rows[19].starts_with("[1-3 to start · q]"), "{}", rows[19]);
     }
 
     #[test]
     fn the_home_wears_the_finder() {
-        let rows_of_home = [Row::Rule("chercher".into())];
+        let rows_of_home = [Row::Rule("search".into())];
         let view = HomeView {
             status: vec![("✓ librespot".to_string(), true)],
-            census: "catalogue local".to_string(),
+            census: "local catalog".to_string(),
             rows: &rows_of_home,
-            prompt: "[1-3 pour démarrer · q]".to_string(),
+            prompt: "[1-3 to start · q]".to_string(),
             comfort: 3,
-            comfort_word: "équilibré",
+            comfort_word: "balanced",
             collection: None,
             explore: None,
             overlay: None,
@@ -1879,7 +1880,7 @@ mod tests {
                     mark: '♪',
                     title: "Cities in Dust".into(),
                     artist: "Siouxsie and the Banshees".into(),
-                    note: "3 écoutes".into(),
+                    note: "3 plays".into(),
                 }],
                 cursor: 0,
             }),
@@ -1891,12 +1892,12 @@ mod tests {
         let rows: Vec<String> =
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
         // le corps est à la modale : plus de « chercher » de l'accueil dessous
-        assert!(rows[2].starts_with("┌─ recherche ── :search"), "{}", rows[2]);
+        assert!(rows[2].starts_with("┌─ search ── :search"), "{}", rows[2]);
         assert!(rows[3].starts_with("│ ⟩ siou"), "{}", rows[3]);
         assert!(rows.iter().any(|row| row.contains("Cities in Dust")), "{rows:?}");
-        assert!(!rows.iter().any(|row| row.contains("── chercher")), "{rows:?}");
+        assert!(!rows.iter().any(|row| row.contains("── search")), "{rows:?}");
         // l'invite reste, elle, avec sa jauge de confort
-        assert!(rows[19].starts_with("[1-3 pour démarrer · q]"), "{}", rows[19]);
+        assert!(rows[19].starts_with("[1-3 to start · q]"), "{}", rows[19]);
     }
 
     /// La modale de recherche : la saisie, la règle qui compte, les deux
@@ -1905,15 +1906,15 @@ mod tests {
     fn the_finder_cuts_the_input_from_the_results() {
         let view = FinderView {
             insert: true,
-            anchor: Some("l'insertion tombe en 4 — entre Sea Of Love et Cross Bones Style".to_string()),
+            anchor: Some("the insertion lands at 4 — between Sea Of Love and Cross Bones Style".to_string()),
             query: "nothing bu".to_string(),
             counts: (2, None, true),
             only_catalogue: false,
             lines: vec![
-                FinderLine::Header { catalogue: true, text: "catalogue  2 résultats".to_string() },
-                FinderLine::Row { catalogue: true, mark: '♪', title: "Nothing But Time".into(), artist: "Cat Power".into(), note: "3 écoutes".into() },
-                FinderLine::Row { catalogue: true, mark: '♥', title: "Nothing Compares 2 U".into(), artist: "Sinéad O'Connor".into(), note: "♥ aimé · 1 écoute".into() },
-                FinderLine::Info("[spotify] … interrogation".to_string()),
+                FinderLine::Header { catalogue: true, text: "catalog  2 results".to_string() },
+                FinderLine::Row { catalogue: true, mark: '♪', title: "Nothing But Time".into(), artist: "Cat Power".into(), note: "3 plays".into() },
+                FinderLine::Row { catalogue: true, mark: '♥', title: "Nothing Compares 2 U".into(), artist: "Sinéad O'Connor".into(), note: "♥ liked · 1 play".into() },
+                FinderLine::Info("[spotify] … querying".to_string()),
             ],
             cursor: 1,
         };
@@ -1922,17 +1923,17 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let rows: Vec<String> =
             (0..14).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
-        assert!(rows[0].starts_with("┌─ insérer un titre ── ti titres seulement ─"), "{}", rows[0]);
-        assert!(rows[1].starts_with("│ → l'insertion tombe en 4"), "{}", rows[1]);
+        assert!(rows[0].starts_with("┌─ insert a track ── ti tracks only ─"), "{}", rows[0]);
+        assert!(rows[1].starts_with("│ → the insertion lands at 4"), "{}", rows[1]);
         assert!(rows[2].starts_with("│ ⟩ nothing bu"), "{}", rows[2]);
-        assert!(rows[3].contains("catalogue 2 · spotify …"), "{}", rows[3]);
-        assert!(rows[4].contains("── catalogue  2 résultats"), "{}", rows[4]);
-        assert!(rows[5].contains(" 1 [catalogue] ♪ Nothing But Time"), "{}", rows[5]);
-        assert!(rows[6].contains(" 2 [catalogue] ♥ Nothing Compares 2 U"), "{}", rows[6]);
+        assert!(rows[3].contains("catalog 2 · spotify …"), "{}", rows[3]);
+        assert!(rows[4].contains("── catalog  2 results"), "{}", rows[4]);
+        assert!(rows[5].contains(" 1 [catalog] ♪ Nothing But Time"), "{}", rows[5]);
+        assert!(rows[6].contains(" 2 [catalog] ♥ Nothing Compares 2 U"), "{}", rows[6]);
         assert_eq!(buffer[(4, 6)].style().bg, Some(Color::Yellow), "le curseur surligne la ligne 2");
-        assert!(rows[7].contains("[spotify] … interrogation"), "{}", rows[7]);
-        assert!(rows[9].contains("entrée insérer ici"), "{}", rows[9]);
-        assert!(rows[10].starts_with("└─ échap ferme sans insérer"), "{}", rows[10]);
+        assert!(rows[7].contains("[spotify] … querying"), "{}", rows[7]);
+        assert!(rows[9].contains("enter insert here"), "{}", rows[9]);
+        assert!(rows[10].starts_with("└─ esc closes without inserting"), "{}", rows[10]);
     }
 
     #[test]
@@ -1985,7 +1986,7 @@ fn plays_of(plays: f64) -> String {
     if plays < 0.5 {
         "—".to_string()
     } else {
-        format!("{plays:.0} écoute{}", if plays >= 1.5 { "s" } else { "" })
+        format!("{plays:.0} play{}", if plays >= 1.5 { "s" } else { "" })
     }
 }
 
@@ -2003,7 +2004,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
             vec![
                 rule("┌─ "),
                 Span::styled(
-                    "discographie ",
+                    "discography ",
                     Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                 ),
                 rule("── "),
@@ -2013,11 +2014,11 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                 ),
                 Span::styled(
                     format!(
-                        "{} · {} albums · {} titres{}",
-                        if screen.generated { "fiche générée" } else { "fiche écrite" },
+                        "{} · {} albums · {} tracks{}",
+                        if screen.generated { "generated card" } else { "written card" },
                         summary.albums,
                         summary.titles,
-                        if screen.loading { " · chargement…" } else { "" }
+                        if screen.loading { " · loading…" } else { "" }
                     ),
                     Style::default().fg(DIM),
                 ),
@@ -2026,38 +2027,38 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         ),
         Line::from(vec![
             rule("│ "),
-            Span::styled("le réservoir en tire  ", Style::default().fg(MUTED)),
+            Span::styled("the pool draws  ", Style::default().fg(MUTED)),
             Span::styled(
                 format!("♪ {} top{}", summary.tops, plural(summary.tops)),
                 Style::default().fg(PLAYING),
             ),
             Span::styled(" · ", Style::default().fg(DIM)),
             Span::styled(
-                format!("♥ {} aimé{}", summary.liked, plural(summary.liked)),
+                format!("♥ {} liked", summary.liked),
                 Style::default().fg(PLAYING),
             ),
             Span::styled(" · ", Style::default().fg(DIM)),
             Span::styled(
-                format!("⊘ {} banni{}", summary.banned, plural(summary.banned)),
+                format!("⊘ {} banned", summary.banned),
                 Style::default().fg(DANGER),
             ),
             Span::styled(" · ", Style::default().fg(DIM)),
-            Span::styled(format!("· {} en traîne", summary.tail), Style::default().fg(VECTOR)),
+            Span::styled(format!("· {} in the tail", summary.tail), Style::default().fg(VECTOR)),
         ]),
     ];
     // la question qu'on vient poser : quel album porte les écoutes
     head.push(Line::from(vec![
         rule("│ "),
-        Span::styled("tes écoutes  ", Style::default().fg(MUTED)),
+        Span::styled("your plays  ", Style::default().fg(MUTED)),
         Span::styled(
             if summary.plays < 0.5 {
-                "aucune écoute enregistrée chez lui".to_string()
+                "no play recorded for them".to_string()
             } else {
                 format!(
-                    "{} album{} porte{} {} % des {:.0} écoutes",
+                    "{} album{} carr{} {}% of {:.0} plays",
                     summary.carrying,
                     if summary.carrying > 1 { "s" } else { "" },
-                    if summary.carrying > 1 { "nt" } else { "" },
+                    if summary.carrying > 1 { "y" } else { "ies" },
                     summary.carrying_pct,
                     summary.plays
                 )
@@ -2065,21 +2066,21 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
             Style::default().fg(Color::White),
         ),
         Span::styled(
-            format!(" — {} album(s) jamais ouvert(s)", summary.never),
+            format!(" — {} album(s) never opened", summary.never),
             Style::default().fg(DIM),
         ),
     ]));
     head.push(Line::from(vec![
         rule("│ "),
         Span::styled(
-            format!("ordre : {} · filtre : {}", screen.sort_word(), screen.filter.word()),
+            format!("order: {} · filter: {}", screen.sort_word(), screen.filter.word()),
             Style::default().fg(DIM),
         ),
         Span::styled(
             if screen.query.is_empty() {
                 String::new()
             } else {
-                format!(" · « {} »", screen.query)
+                format!(" · \"{}\"", screen.query)
             },
             Style::default().fg(MUTED),
         ),
@@ -2091,10 +2092,10 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         foot.push(ruled(
             vec![
                 rule("│ "),
-                Span::styled("── en attente ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+                Span::styled("── pending ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
                 Span::styled(
                     format!(
-                        "{} édition{} · une fiche · un commit",
+                        "{} edit{} · one card · one commit",
                         screen.pending.len(),
                         plural(screen.pending.len())
                     ),
@@ -2115,7 +2116,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                     Style::default().fg(Color::White),
                 ),
                 Span::styled(
-                    if edit.add { "promouvoir en top  " } else { "retirer du top     " }.to_string(),
+                    if edit.add { "promote to top     " } else { "remove from top    " }.to_string(),
                     Style::default().fg(MUTED),
                 ),
                 Span::styled(format!("({})", edit.why), Style::default().fg(DIM)),
@@ -2124,14 +2125,14 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         if screen.pending.len() > 4 {
             foot.push(Line::from(vec![
                 rule("│ "),
-                rule(&format!("↓ {} de plus", screen.pending.len() - 4)),
+                rule(&format!("↓ {} more", screen.pending.len() - 4)),
             ]));
         }
         // ce que l'utilisateur lit est ce que git retiendra (edit.rs)
         foot.push(Line::from(vec![
             rule("│ "),
             Span::styled(format!("cards/{}.toml ", screen.slug), Style::default().fg(CATALOG)),
-            Span::styled(format!("— « {} »", screen.commit_line()), Style::default().fg(DIM)),
+            Span::styled(format!("— \"{}\"", screen.commit_line()), Style::default().fg(DIM)),
         ]));
     }
     if !screen.notice.is_empty() {
@@ -2142,29 +2143,29 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
     foot.push(Line::from(vec![
         rule("│ "),
         Span::styled("A ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
-        Span::styled("l'album  ", Style::default().fg(MUTED)),
+        Span::styled("the album  ", Style::default().fg(MUTED)),
         Span::styled("tl ", Style::default().fg(PLAYING)),
-        Span::styled("aimer  ", Style::default().fg(MUTED)),
+        Span::styled("like  ", Style::default().fg(MUTED)),
         Span::styled("tb ", Style::default().fg(DANGER)),
-        Span::styled("bannir  ", Style::default().fg(MUTED)),
+        Span::styled("ban  ", Style::default().fg(MUTED)),
         Span::styled("e ", Style::default().fg(BRANCH)),
-        Span::styled("à la file  ", Style::default().fg(MUTED)),
+        Span::styled("to the queue  ", Style::default().fg(MUTED)),
         Span::styled("s v / ", Style::default().fg(VECTOR)),
-        Span::styled("ordre, vue, filtre", Style::default().fg(MUTED)),
+        Span::styled("order, view, filter", Style::default().fg(MUTED)),
     ]));
     foot.push(ruled(
         vec![
             rule("└─ "),
             Span::styled(
                 if screen.pending.is_empty() {
-                    "échap ferme".to_string()
+                    "esc closes".to_string()
                 } else {
-                    format!("⏎ écrire ({} en attente, 1 commit)", screen.pending.len())
+                    format!("⏎ write ({} pending, 1 commit)", screen.pending.len())
                 },
                 Style::default().fg(MUTED),
             ),
             Span::styled(
-                " · u annule la dernière · échap ferme sans écrire".to_string(),
+                " · u undoes the last · esc closes without writing".to_string(),
                 Style::default().fg(DIM),
             ),
         ],
@@ -2185,7 +2186,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                 let album = &screen.albums[index];
                 let share = if summary.plays > 0.0 { album.plays() / summary.plays } else { 0.0 };
                 let marks = if album.orphan {
-                    "à relire".to_string()
+                    "to review".to_string()
                 } else {
                     let mut said = Vec::new();
                     if album.tops() > 0 {
@@ -2230,18 +2231,18 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                     ('·', VECTOR)
                 };
                 let state = if screen.is_playing(track) {
-                    "▶ sonne".to_string()
+                    "▶ playing".to_string()
                 } else if track.banned {
-                    "banni".to_string()
+                    "banned".to_string()
                 } else if track.liked {
-                    "♥ aimé".to_string()
+                    "♥ liked".to_string()
                 } else {
                     String::new()
                 };
                 let last = match track.days {
-                    Some(0) => "aujourd'hui".to_string(),
+                    Some(0) => "today".to_string(),
                     Some(days) => crate::home::age(Some(days)),
-                    None => "jamais".to_string(),
+                    None => "never".to_string(),
                 };
                 let before = format!(
                     "   {:>3} ",

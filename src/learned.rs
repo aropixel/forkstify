@@ -125,7 +125,7 @@ impl Learned {
                     Ok(Ok(artist)) => {
                         artists.insert(slug.to_string(), artist);
                     }
-                    Ok(Err(e)) => eprintln!("appris illisible ({}) : {e}", path.display()),
+                    Ok(Err(e)) => eprintln!("learned unreadable ({}): {e}", path.display()),
                     Err(_) => {}
                 }
             }
@@ -425,16 +425,16 @@ impl Learned {
         };
         let dir = self.root.join("artists");
         if let Err(e) = std::fs::create_dir_all(&dir) {
-            eprintln!("appris non enregistré ({e})");
+            eprintln!("learned not saved ({e})");
             return;
         }
         match toml::to_string_pretty(artist) {
             Ok(text) => {
                 if let Err(e) = std::fs::write(dir.join(format!("{slug}.toml")), text) {
-                    eprintln!("appris non enregistré ({e})");
+                    eprintln!("learned not saved ({e})");
                 }
             }
-            Err(e) => eprintln!("appris non sérialisable ({e})"),
+            Err(e) => eprintln!("learned not serializable ({e})"),
         }
     }
 }

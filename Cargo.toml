@@ -2,7 +2,7 @@
 name = "forkstify"
 version = "0.1.0"
 edition = "2021"
-description = "Lecteur de musique par branches — PoC : navigation à sec"
+description = "Branch music player for Linux, wired to Spotify"
 
 [dependencies]
 anyhow = "1"

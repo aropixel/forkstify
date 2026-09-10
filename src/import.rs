@@ -27,7 +27,7 @@ fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
         .arg(dir)
         .args(args)
         .output()
-        .map_err(|e| format!("git introuvable ({e})"))?;
+        .map_err(|e| format!("git not found ({e})"))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).to_string())
     } else {
@@ -49,19 +49,19 @@ fn remote_name(url: &str) -> String {
 
 pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     let remote = remote_name(url);
-    println!("catalogue : {}", dir.display());
-    println!("source    : {url}  (remote « {remote} »)");
+    println!("catalog: {}", dir.display());
+    println!("source:  {url}  (remote \"{remote}\")");
 
     // ajouter le remote est idempotent : on remet l'url au cas où
     let _ = git(dir, &["remote", "add", &remote, url]);
     git(dir, &["remote", "set-url", &remote, url])?;
-    println!("\n… récupération");
+    println!("\n… fetching");
     git(dir, &["fetch", "--quiet", &remote])?;
 
     let reference = [format!("{remote}/main"), format!("{remote}/master")]
         .into_iter()
         .find(|r| git(dir, &["rev-parse", "--verify", "--quiet", r]).is_ok())
-        .ok_or_else(|| format!("ni {remote}/main ni {remote}/master"))?;
+        .ok_or_else(|| format!("neither {remote}/main nor {remote}/master"))?;
 
     let theirs: HashSet<String> = git(dir, &["ls-tree", "--name-only", &reference, "cards/"])?
         .lines()
@@ -75,17 +75,17 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     let mut missing: Vec<&String> = theirs.difference(&ours).collect();
     missing.sort();
     if missing.is_empty() {
-        println!("\n✓ rien à prendre : ce catalogue a déjà tout ce que {remote} propose");
+        println!("\n✓ nothing to take: this catalog already has everything {remote} offers");
         return Ok(());
     }
 
-    println!("\n{} fiche(s) que ce catalogue n'a pas :", missing.len());
+    println!("\n{} card(s) this catalog lacks:", missing.len());
     for path in missing.iter().take(12) {
         let name = path.rsplit('/').next().unwrap_or(path).trim_end_matches(".toml");
         println!("  {name}");
     }
     if missing.len() > 12 {
-        println!("  … et {} de plus", missing.len() - 12);
+        println!("  … and {} more", missing.len() - 12);
     }
 
     let mut args: Vec<&str> = vec!["checkout", &reference, "--"];
@@ -97,8 +97,8 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
         Err(why) => Err(why.to_string()),
     };
     match &vectors {
-        Ok(n) => println!("✓ {n} vecteurs recalculés"),
-        Err(why) => println!("⏹ vecteurs non recalculés ({why}) — « forkstify vectors » les rattrapera"),
+        Ok(n) => println!("✓ {n} vectors recomputed"),
+        Err(why) => println!("⏹ vectors not recomputed ({why}) — \"forkstify vectors\" will catch up"),
     }
     git(dir, &["add", "cards/", "vectors/"])?;
     git(
@@ -112,7 +112,7 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
             &crate::sync::trailer("import"),
         ],
     )?;
-    println!("\n✓ {} fiche(s) reprises, en un commit", missing.len());
+    println!("\n✓ {} card(s) taken in, in one commit", missing.len());
     Ok(())
 }
 

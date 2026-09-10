@@ -350,6 +350,22 @@ plus les écrans. Règle consignée dans
 [`forme-de-l-application.md`](conception/forme-de-l-application.md) § « Tout
 se dit en toast », test `the_home_says_everything_in_a_toast`.
 
+## L'interface passe en anglais (10/09/2026)
+
+Joel veut publier une première version sous peu, utilisable par le plus
+grand nombre : **tout ce qui s'affiche est désormais en anglais**
+([0022](decisions/0022-interface-en-anglais.md)) — TUI, toasts, tables des
+touches, sorties de la ligne de commande, gabarit de `config.toml`, widget
+Omarchy et son `install.sh`, libellés du moteur (`liked` · `tail` ·
+`non-top` · `off-catalog`, `shared members`, `close to the branch's
+center`…). Les sous-commandes suivent : **`journey`** (ex-`parcours`) et
+**`listen`** (ex-`ecouter`). La section `[catalogue]` de la configuration
+devient `[catalog]`, l'ancien nom reste lu. Les notes écrites dans les
+fiches par `td`/`aL` sont en anglais (`set while listening, <date>`). Ne
+bougent pas : le texte vectorisé d'`embed.rs` (l'index en dépend), les
+spikes de `src/bin/`, les commentaires encore français du code (à traduire
+à l'occasion), et la doc, qui reste en français.
+
 ## L'agent : une IA qui pilote forkstify de l'extérieur (10/09/2026)
 
 Idée de Joel : une commande `:agent` qui transmet un prompt à une IA

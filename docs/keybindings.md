@@ -37,8 +37,8 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 
 | Marque | Sens |
 |---|---|
-| ✅ | Câblé, utilisable dans `ecouter` |
-| 📋 | Décidé (0015), **pas encore câblé** — la touche répond « pas encore câblé » au lieu de ne rien faire |
+| ✅ | Câblé, utilisable dans `listen` |
+| 📋 | Décidé (0015), **pas encore câblé** — la touche répond « not wired yet » au lieu de ne rien faire |
 
 ## `f` — la branche
 
@@ -284,7 +284,7 @@ alors que « retirer toute la profondeur » suppose un arbre manipulable.
 
 ## Comment la saisie fonctionne
 
-Depuis le 05/09/2026, `ecouter` lit le clavier en **mode brut** : chaque
+Depuis le 05/09/2026, `listen` (ex-`ecouter`) lit le clavier en **mode brut** : chaque
 touche agit sans Entrée (`src/keys.rs`, termios via `libc`, garde RAII qui
 rend le terminal même sur panique). `/` et `:` quittent le mode brut pour
 une ligne éditable, où une requête a sa place.

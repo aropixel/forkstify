@@ -1,11 +1,11 @@
 //! forkstify — branch music player, PoC.
 //!
-//!   forkstify parcours <graine> [catalogue]   navigate dry (no sound)
-//!   forkstify ecouter  <graine> [catalogue]   navigate and play (Spotify)
-//!   forkstify check    <artiste> [catalogue]  a card's neighbors in space
+//!   forkstify journey <seed> [catalog]     navigate dry (no sound)
+//!   forkstify listen  <seed> [catalog]     navigate and play (Spotify)
+//!   forkstify check   <artist> [catalog]   a card's neighbors in space
 //!
-//! `parcours` prints segments without playing — fast, for iterating on the
-//! engine. `ecouter` plays them through the embedded librespot device.
+//! `journey` prints segments without playing — fast, for iterating on the
+//! engine. `listen` plays them through the embedded librespot device.
 
 mod catalog;
 mod config;
@@ -41,7 +41,7 @@ fn catalog_path(arg: Option<&String>) -> PathBuf {
     if let Some(path) = arg {
         return PathBuf::from(path);
     }
-    let configured = config::Config::load().catalogue.path;
+    let configured = config::Config::load().catalog.path;
     if !configured.trim().is_empty() {
         return PathBuf::from(configured.trim());
     }
@@ -63,11 +63,11 @@ fn resolve(catalog: &Catalog, text: &str) -> Option<String> {
     match matches.as_slice() {
         [only] => Some((*only).clone()),
         [] => {
-            eprintln!("« {text} » : aucune fiche ne correspond.");
+            eprintln!("\"{text}\": no card matches.");
             None
         }
         several => {
-            eprintln!("« {text} » est ambigu :");
+            eprintln!("\"{text}\" is ambiguous:");
             for slug in several {
                 eprintln!("  {slug}");
             }
@@ -109,9 +109,9 @@ pub fn state_of(rounds: &[Round]) -> (Vec<String>, String, Vec<String>, HashSet<
 
 /// Print the branch menu (shared by both modes).
 pub fn show_branches(catalog: &Catalog, current: &str, branches: &[engine::Branch]) {
-    println!("\n── depuis {} ──", catalog.cards[current].name);
+    println!("\n── from {} ──", catalog.cards[current].name);
     if branches.is_empty() {
-        println!("Cul-de-sac : plus aucune branche. « u » pour revenir, « q » pour quitter.");
+        println!("Dead end: no branch left. u to go back, q to quit.");
     }
     for (i, branch) in branches.iter().enumerate() {
         println!("\n  {}  {}", i + 1, branch.label);
@@ -144,7 +144,7 @@ fn journey(
             );
         show_branches(catalog, &current, &branches);
 
-        print!("\n[1-{}, entrée = auto, e/<n>e = encore, b<n> = taille des branches, u = retour, q = quitter] > ", branches.len().max(1));
+        print!("\n[1-{}, enter = auto, e/<n>e = encore, b<n> = branch size, u = back, q = quit] > ", branches.len().max(1));
         std::io::stdout().flush().unwrap();
         let mut line = String::new();
         if std::io::stdin().read_line(&mut line).unwrap_or(0) == 0 {
@@ -163,7 +163,7 @@ fn journey(
                 if rounds.len() > 1 {
                     rounds.pop();
                 } else {
-                    println!("Déjà à la graine.");
+                    println!("Already at the seed.");
                 }
             }
             "" => {
@@ -180,23 +180,23 @@ fn journey(
                     match number.parse::<usize>() {
                         Ok(n) if (1..=9).contains(&n) => {
                             size = n;
-                            println!("Taille des branches : {n}");
+                            println!("Branch size: {n}");
                         }
-                        _ => println!("Taille incomprise : {text} (b1 à b9)"),
+                        _ => println!("Size not understood: {text} (b1 to b9)"),
                     }
                 } else if let Some(number) = text.strip_suffix('e') {
                     // `e` / `<n>e` — :encore. In the dry PoC there is no
                     // playing track, so it targets the segment's last artist.
                     let count = if number.is_empty() { size } else { number.parse().unwrap_or(0) };
                     if count == 0 || count > 9 {
-                        println!("Encore incompris : {text} (e, 2e … 9e)");
+                        println!("Encore not understood: {text} (e, 2e … 9e)");
                     } else {
                         let stops =
                             engine::encore(catalog, &current, learned, tail, comfort, &played, count, &mut rng);
                         if stops.is_empty() {
-                            println!("(plus de tops non joués chez {})", catalog.cards[&current].name);
+                            println!("(no unplayed tops left at {})", catalog.cards[&current].name);
                         } else {
-                            println!("Encore {} :", catalog.cards[&current].name);
+                            println!("Encore {}:", catalog.cards[&current].name);
                             for stop in &stops {
                                 println!("   {} {}", stop.source.mark(), stop.title);
                             }
@@ -211,7 +211,7 @@ fn journey(
                         Ok(n) if n >= 1 && n <= branches.len() => {
                             apply(&branches[n - 1], &mut rounds);
                         }
-                        _ => println!("Choix incompris : {text}"),
+                        _ => println!("Choice not understood: {text}"),
                     }
                 }
             }
@@ -223,7 +223,7 @@ fn journey(
         .flat_map(|round| round.artists.iter())
         .map(|slug| catalog.cards[slug].name.as_str())
         .collect();
-    println!("\nParcours : {}", path.join(" → "));
+    println!("\nJourney: {}", path.join(" → "));
 }
 
 /// `forkstify check`: a card's neighbors in the vector space, to judge its
@@ -234,9 +234,9 @@ fn check(catalog: &Catalog, slug: &str) {
         .into_iter()
         .map(|(neighbor, ..)| neighbor)
         .collect();
-    println!("{} est proche de :", catalog.cards[slug].name);
+    println!("{} is close to:", catalog.cards[slug].name);
     for (neighbor, score) in engine::vector_neighbors(catalog, slug, &none).iter().take(10) {
-        let mark = if linked.contains(neighbor) { "lié" } else { "   " };
+        let mark = if linked.contains(neighbor) { "lnk" } else { "   " };
         println!("  {score:.3}  {mark}  {}", catalog.cards[neighbor].name);
     }
 }
@@ -264,24 +264,24 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
             let _ = tui.draw_home(&tui::HomeView {
                 status: vec![
                     (
-                        if status.librespot { "✓ librespot" } else { "⏹ aucun son" }.into(),
+                        if status.librespot { "✓ librespot" } else { "⏹ no sound" }.into(),
                         status.librespot,
                     ),
                     (
-                        if status.web { "✓ api web" } else { "⏹ aucun titre résolu" }.into(),
+                        if status.web { "✓ api web" } else { "⏹ no track resolved" }.into(),
                         status.web,
                     ),
                     (
                         match &synced {
                             Ok(word) => format!("⇅ {word}"),
-                            Err(_) => "⇅ hors ligne".to_string(),
+                            Err(_) => "⇅ offline".to_string(),
                         },
                         synced.is_ok(),
                     ),
                 ],
                 census: String::new(),
                 rows: &rows,
-                prompt: "[en attente sur le réseau local (mdns) · q]".into(),
+                prompt: "[waiting on the local network (mdns) · q]".into(),
                 comfort: comfort.value(),
                 comfort_word: listen::comfort_word(comfort.value()),
                 collection: None,
@@ -313,7 +313,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
             (
                 match &synced {
                     Ok(word) => format!("⇅ {word}"),
-                    Err(_) => "⇅ hors ligne".to_string(),
+                    Err(_) => "⇅ offline".to_string(),
                 },
                 synced.is_ok(),
             ),
@@ -324,7 +324,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     // l'écran alterné rendu, on laisse le parcours derrière soi
     drop(tui);
     if !last_path.is_empty() {
-        println!("\nParcours : {}", last_path.join(" → "));
+        println!("\nJourney: {}", last_path.join(" → "));
     }
     Ok(())
 }
@@ -340,7 +340,7 @@ fn main() -> anyhow::Result<()> {
             return match sync::merge_learned(Path::new(base), Path::new(ours), Path::new(theirs)) {
                 Ok(()) => Ok(()),
                 Err(why) => {
-                    eprintln!("merge-learned : {why}");
+                    eprintln!("merge-learned: {why}");
                     std::process::exit(1);
                 }
             };
@@ -360,18 +360,18 @@ fn main() -> anyhow::Result<()> {
             }
             return match embed::regenerate(&catalog_path(path), &catalog.cards) {
                 Ok(n) => {
-                    println!("✓ {n} vecteurs écrits dans vectors/vectors.jsonl");
+                    println!("✓ {n} vectors written to vectors/vectors.jsonl");
                     Ok(())
                 }
                 Err(why) => {
-                    eprintln!("vectors : {why}");
+                    eprintln!("vectors: {why}");
                     std::process::exit(1);
                 }
             };
         }
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage : forkstify [parcours|ecouter|check <graine>] [catalogue]\n        forkstify import <url d'un catalogue> [catalogue]\n        forkstify vectors [catalogue] [--texts]\n        forkstify merge-learned <base> <ours> <theirs>   (pilote de fusion git)");
+            eprintln!("usage: forkstify [journey|listen|check <seed>] [catalog]\n       forkstify import <catalog url> [catalog]\n       forkstify vectors [catalog] [--texts]\n       forkstify merge-learned <base> <ours> <theirs>   (git merge driver)");
             std::process::exit(2);
         }
     };
@@ -388,18 +388,18 @@ fn main() -> anyhow::Result<()> {
     };
 
     match command {
-        "parcours" => journey(
+        "journey" => journey(
             &catalog,
             &slug,
             &learned,
             &discography::Tail::load(),
             engine::Comfort::new(config::Config::load().journey.comfort),
         ),
-        "ecouter" => {
+        "listen" => {
             sync::ensure_merge_driver(&catalog_path(path));
             match sync::pull(&catalog_path(path)) {
                 Ok(word) => println!("⇅ {word}"),
-                Err(why) => println!("⇅ hors ligne — {why}"),
+                Err(why) => println!("⇅ offline — {why}"),
             }
             let _raw = keys::RawMode::enable();
             let mut rx = home::reader();
@@ -415,11 +415,11 @@ fn main() -> anyhow::Result<()> {
                 vec![("✓ librespot".to_string(), true), ("✓ api web".to_string(), true)],
             )?;
             drop(tui);
-            println!("\nParcours : {}", path.join(" → "));
+            println!("\nJourney: {}", path.join(" → "));
         }
         "check" => check(&catalog, &slug),
         other => {
-            eprintln!("commande inconnue : {other}");
+            eprintln!("unknown command: {other}");
             std::process::exit(2);
         }
     }

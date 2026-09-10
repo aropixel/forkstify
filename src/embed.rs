@@ -166,7 +166,7 @@ fn model() -> Result<&'static Mutex<TextEmbedding>, String> {
             .with_max_length(MAX_LENGTH)
             .with_show_download_progress(false),
     )
-    .map_err(|e| format!("modèle indisponible ({e})"))?;
+    .map_err(|e| format!("model unavailable ({e})"))?;
     Ok(MODEL_INSTANCE.get_or_init(|| Mutex::new(loaded)))
 }
 
@@ -178,9 +178,9 @@ pub fn embed(texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
         return Ok(Vec::new());
     }
     let model = model()?;
-    let mut model = model.lock().map_err(|_| "modèle verrouillé".to_string())?;
+    let mut model = model.lock().map_err(|_| "model locked".to_string())?;
     let documents: Vec<&str> = texts.iter().map(String::as_str).collect();
-    model.embed(documents, Some(32)).map_err(|e| format!("vectorisation échouée ({e})"))
+    model.embed(documents, Some(32)).map_err(|e| format!("vectorization failed ({e})"))
 }
 
 fn index_path(dir: &Path) -> PathBuf {
@@ -218,7 +218,7 @@ pub fn write_vector(dir: &Path, slug: &str, vector: &[f32]) -> Result<PathBuf, S
     let existing = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<(String, String)> = Vec::new();
     for text in existing.lines().filter(|l| !l.trim().is_empty()) {
-        let parsed: Line = serde_json::from_str(text).map_err(|e| format!("vectors.jsonl illisible ({e})"))?;
+        let parsed: Line = serde_json::from_str(text).map_err(|e| format!("vectors.jsonl unreadable ({e})"))?;
         if parsed.slug != slug {
             lines.push((parsed.slug, text.to_string()));
         }
@@ -231,11 +231,11 @@ pub fn write_vector(dir: &Path, slug: &str, vector: &[f32]) -> Result<PathBuf, S
 
 fn write_index<'a>(path: &Path, lines: impl Iterator<Item = &'a str>) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("pas de dossier vectors/ ({e})"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("no vectors/ folder ({e})"))?;
     }
     let mut text = lines.collect::<Vec<_>>().join("\n");
     text.push('\n');
-    std::fs::write(path, text).map_err(|e| format!("vectors.jsonl non écrit ({e})"))
+    std::fs::write(path, text).map_err(|e| format!("vectors.jsonl not written ({e})"))
 }
 
 /// The whole index, from every card — `forkstify vectors`. Replaces
@@ -252,7 +252,7 @@ pub fn regenerate(dir: &Path, cards: &HashMap<String, Card>) -> Result<usize, St
         "model = \"{MODEL}\"\ndimensions = {DIMENSIONS}\npooling = \"mean\"\nmax_length = {MAX_LENGTH}\nnormalized = true\ncards = {}\n",
         slugs.len()
     );
-    std::fs::write(dir.join("vectors").join("meta.toml"), meta).map_err(|e| format!("meta.toml non écrit ({e})"))?;
+    std::fs::write(dir.join("vectors").join("meta.toml"), meta).map_err(|e| format!("meta.toml not written ({e})"))?;
     Ok(slugs.len())
 }
 

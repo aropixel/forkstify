@@ -112,7 +112,7 @@ impl Tail {
     /// Keep a harvest, on disk and in memory.
     pub fn keep(&mut self, slug: &str, tracks: Vec<TailTrack>) {
         if let Err(e) = std::fs::create_dir_all(&self.root) {
-            eprintln!("traîne non enregistrée ({e})");
+            eprintln!("tail not saved ({e})");
         } else if let Ok(text) = serde_json::to_string(&tracks) {
             let _ = std::fs::write(self.root.join(format!("{slug}.json")), text);
         }

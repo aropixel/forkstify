@@ -31,12 +31,12 @@ fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
         .env("GIT_SSH_COMMAND", "ssh -o ConnectTimeout=5 -o BatchMode=yes")
         .env("GIT_TERMINAL_PROMPT", "0")
         .output()
-        .map_err(|e| format!("git introuvable ({e})"))?;
+        .map_err(|e| format!("git not found ({e})"))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     } else {
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        Err(err.lines().last().unwrap_or("git a échoué").to_string())
+        Err(err.lines().last().unwrap_or("git failed").to_string())
     }
 }
 
@@ -83,10 +83,10 @@ pub fn pull(dir: &Path) -> Result<String, String> {
     git(dir, &["pull", "--rebase", "--quiet"])?;
     let after = git(dir, &["rev-parse", "HEAD"])?;
     Ok(match (committed, before == after) {
-        (true, true) => "appris commité, à jour".to_string(),
-        (true, false) => "appris commité, catalogue mis à jour".to_string(),
-        (false, true) => "à jour".to_string(),
-        (false, false) => "catalogue mis à jour".to_string(),
+        (true, true) => "learned committed, up to date".to_string(),
+        (true, false) => "learned committed, catalog updated".to_string(),
+        (false, true) => "up to date".to_string(),
+        (false, false) => "catalog updated".to_string(),
     })
 }
 
@@ -95,8 +95,8 @@ pub fn sync(dir: &Path) -> Result<String, String> {
     let committed = commit_learned(dir)?;
     push(dir)?;
     Ok(match committed {
-        Some(subject) => format!("appris poussé — {subject}"),
-        None => "rien de nouveau, tout est poussé".to_string(),
+        Some(subject) => format!("learned pushed — {subject}"),
+        None => "nothing new, all pushed".to_string(),
     })
 }
 
@@ -130,7 +130,7 @@ pub fn ensure_merge_driver(dir: &Path) {
 /// `forkstify merge-learned <base> <ours> <theirs>`: git's merge driver
 /// contract — the result goes into `ours`, a non-zero exit means conflict.
 pub fn merge_learned(base: &Path, ours: &Path, theirs: &Path) -> Result<(), String> {
-    let read = |p: &Path| std::fs::read_to_string(p).map_err(|e| format!("{} : {e}", p.display()));
+    let read = |p: &Path| std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
     let base_text = read(base).unwrap_or_default();
     let merged = crate::learned::merge_artist(
         if base_text.trim().is_empty() { None } else { Some(base_text.as_str()) },

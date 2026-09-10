@@ -78,31 +78,31 @@ async fn async_run(
     // grandir (0016), et elle doit donc en être propriétaire
     let catalog = Catalog::load(catalog_dir)?;
     let census = format!(
-        "appris : {} artiste(s) écouté(s), {} de familiarité de départ, {} discographie(s) en cache",
+        "learned: {} artist(s) played, {} with starting familiarity, {} discography(ies) cached",
         learned.known(),
         learned.seeded(),
         tail.known()
     );
-    let mut steps = vec![(census, true), ("connexion à spotify…".to_string(), false)];
+    let mut steps = vec![(census, true), ("connecting to spotify…".to_string(), false)];
     let _ = tui.splash(&steps);
     let config = crate::config::Config::load();
     let sound = Sound::connect().await?;
-    steps[1] = ("le son : librespot connecté".to_string(), true);
-    steps.push(("autorisation de l'api web — le navigateur s'ouvre si besoin…".to_string(), false));
+    steps[1] = ("sound: librespot connected".to_string(), true);
+    steps.push(("web api authorization — the browser opens if needed…".to_string(), false));
     let _ = tui.splash(&steps);
     let web = WebApi::new(config.playback.prefer_studio).await?;
-    steps[2] = ("les titres : api web autorisée".to_string(), true);
+    steps[2] = ("tracks: web api authorized".to_string(), true);
     let _ = tui.splash(&steps);
 
     // MPRIS: let the desktop's media keys (⏮ ⏭ ⏯) drive us
     let (ctrl_tx, mut ctrl_rx) = tokio::sync::mpsc::unbounded_channel::<Control>();
     let mpris = match mediakeys::start(ctrl_tx).await {
         Ok(player) => {
-            steps.push(("touches multimédia actives (mpris)".to_string(), true));
+            steps.push(("media keys active (mpris)".to_string(), true));
             Some(Rc::new(player))
         }
         Err(e) => {
-            steps.push((format!("mpris indisponible ({e}) — touches multimédia inactives"), true));
+            steps.push((format!("mpris unavailable ({e}) — media keys inactive"), true));
             None
         }
     };
@@ -247,7 +247,7 @@ async fn async_run(
     // temps qu'on le lise
     let report = match crate::sync::sync(&live.catalog_dir) {
         Ok(word) => (format!("✓ {word}"), true),
-        Err(why) => (format!("⏹ appris non poussé — {why} (au prochain lancement)"), false),
+        Err(why) => (format!("⏹ learned not pushed — {why} (next launch)"), false),
     };
     let _ = live.tui.splash(&[report]);
     std::thread::sleep(std::time::Duration::from_millis(900));
@@ -439,11 +439,11 @@ impl Progress {
 /// What a comfort value means, so the number is never alone on screen.
 pub fn comfort_word(value: u8) -> &'static str {
     match value {
-        5 => "cocon",
-        4 => "prudent",
-        3 => "équilibré",
-        2 => "curieux",
-        1 => "aventureux",
+        5 => "cocoon",
+        4 => "careful",
+        3 => "balanced",
+        2 => "curious",
+        1 => "adventurous",
         _ => "exploration",
     }
 }
@@ -581,7 +581,7 @@ impl Live<'_> {
         let tail = if unplayed < count {
             match self.harvest(&current) {
                 Ok(true) => None,
-                Ok(false) => Some("sa traîne arrive — refais e<n> dans un instant".to_string()),
+                Ok(false) => Some("its tail is coming — redo e<n> in a moment".to_string()),
                 Err(why) => Some(why),
             }
         } else {
@@ -607,12 +607,12 @@ impl Live<'_> {
             let name = &self.catalog.cards[&current].name;
             let why = match tail {
                 Some(why) => why,
-                None if self.comfort.value() == 5 => "la traîne est fermée au cocon (:comfort)".to_string(),
-                None => "sa traîne est épuisée".to_string(),
+                None if self.comfort.value() == 5 => "the tail is closed in cocoon (:comfort)".to_string(),
+                None => "its tail is exhausted".to_string(),
             };
             match stops.len() {
-                0 => say!(self, "(plus rien de non joué chez {name} — {why})"),
-                n => say!(self, "({n} seulement chez {name} — {why})"),
+                0 => say!(self, "(nothing unplayed left from {name} — {why})"),
+                n => say!(self, "(only {n} from {name} — {why})"),
             }
         }
         if stops.is_empty() {
@@ -769,7 +769,7 @@ impl Live<'_> {
                     let slug = crate::generate::slugify(&name);
                     self.generate(&slug, Some(&name), None, After::Explore);
                 } else if key != 'g' && !carded {
-                    self.tell(format!("({name} n'a pas de fiche)"));
+                    self.tell(format!("({name} has no card)"));
                 } else {
                     // ce qu'il dit passe déjà en toast par `notice`
                     self.artist_action(key, stop);
@@ -801,12 +801,12 @@ impl Live<'_> {
                     Load::Playing
                 }
                 Err(_) => {
-                    say!(self, "{heading} — uri illisible, on saute");
+                    say!(self, "{heading} — unreadable uri, skipping");
                     Load::Missing
                 }
             },
             Some(Resolved::Absent) => {
-                say!(self, "{heading} — introuvable sur Spotify, on saute");
+                say!(self, "{heading} — not found on Spotify, skipping");
                 Load::Missing
             }
             Some(Resolved::Failed(why)) => Load::Failed(stop, why),
@@ -848,13 +848,13 @@ impl Live<'_> {
                     Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
                         Ok(track) => self.sound.play(track),
                         Err(_) => {
-                            say!(self, "{heading} — uri illisible, on saute");
+                            say!(self, "{heading} — unreadable uri, skipping");
                             self.current = None;
                             self.next().await;
                         }
                     },
                     Resolved::Absent => {
-                        say!(self, "{heading} — introuvable sur Spotify, on saute");
+                        say!(self, "{heading} — not found on Spotify, skipping");
                         self.current = None;
                         self.next().await;
                     }
@@ -889,7 +889,7 @@ impl Live<'_> {
                                 let secs = hit.duration_ms / 1000;
                                 note.push(format!("{}:{:02}", secs / 60, secs % 60));
                             }
-                            note.push(if slug.is_some() { "branche ensuite" } else { "⏎ génère la fiche" }.to_string());
+                            note.push(if slug.is_some() { "branches next" } else { "⏎ generates the card" }.to_string());
                             Found {
                                 hit: Hit::Track { title: hit.title, artist: hit.artist, uri: hit.uri, slug },
                                 mark: '~',
@@ -908,15 +908,15 @@ impl Live<'_> {
                         self.tail.keep(&slug, tracks);
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
                             Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
-                            None => say!(self, "✓ discographie de {name} — {count} titres en cache"),
+                            None => say!(self, "✓ discography of {name} — {count} tracks cached"),
                         }
                     }
                     Err(why) => match self.explore.as_mut().filter(|s| s.slug == slug) {
                         Some(screen) => {
                             screen.loading = false;
-                            screen.notice = format!("⏹ discographie — {why}");
+                            screen.notice = format!("⏹ discography — {why}");
                         }
-                        None => say!(self, "⏹ discographie de {name} — {why}"),
+                        None => say!(self, "⏹ discography of {name} — {why}"),
                     },
                 }
             }
@@ -939,7 +939,7 @@ impl Live<'_> {
                     Err(_) => String::new(),
                 };
                 if !crate::embed::model_cached() {
-                    self.tell(format!("… vecteur de {} — premier calcul : le modèle se télécharge (241 Mo)", draft.name));
+                    self.tell(format!("… vector of {} — first run: the model is downloading (241 MB)", draft.name));
                 }
                 let tx = self.jobs_tx.clone();
                 let reported = slug.clone();
@@ -948,7 +948,7 @@ impl Live<'_> {
                         crate::embed::embed(&[text]).map(|mut v| v.remove(0))
                     })
                     .await
-                    .unwrap_or_else(|e| Err(format!("la vectorisation s'est interrompue ({e})")));
+                    .unwrap_or_else(|e| Err(format!("vectorization was interrupted ({e})")));
                     let _ = tx.send(Job::Vectorized { slug: reported, after, draft, vector });
                 });
             }
@@ -962,18 +962,18 @@ impl Live<'_> {
                 };
                 if let Err(why) = self.adopt(draft, vector) {
                     self.mark_pending();
-                    return self.tell(format!("⏹ fiche de {name} — {why}"));
+                    return self.tell(format!("⏹ card of {name} — {why}"));
                 }
                 // la fiche existe maintenant pour le moteur : le lien qui la
                 // réclamait n'est plus un creux
                 self.missing.retain(|m| m.slug != slug);
-                let mut done = format!("✓ {name} — fiche générée : {tops} top(s), {links} lien(s)");
+                let mut done = format!("✓ {name} — generated card: {tops} top(s), {links} link(s)");
                 if !caveats.is_empty() {
                     done.push_str(&format!(" ({caveats})"));
                 }
                 match no_vector {
-                    None => done.push_str(" · vecteur calculé"),
-                    Some(why) => done.push_str(&format!(" · sans vecteur ({why}) : navigation par le graphe")),
+                    None => done.push_str(" · vector computed"),
+                    Some(why) => done.push_str(&format!(" · no vector ({why}): navigating by the graph")),
                 }
                 self.tell(done);
                 // ce qui est déjà dans l'axe chez cet artiste — un titre
@@ -1022,7 +1022,7 @@ impl Live<'_> {
     /// quoi elle n'existerait qu'au prochain lancement.
     fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
-            .map_err(|e| format!("la fiche composée ne se relit pas ({e})"))?;
+            .map_err(|e| format!("the composed card does not read back ({e})"))?;
         let mut edit = crate::edit::create_card(
             &self.catalog_dir,
             &draft.slug,
@@ -1051,18 +1051,18 @@ impl Live<'_> {
         if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
             // rien à générer : ce qu'on voulait faire de lui se fait quand
             // même, par le même chemin que la fiche fraîche
-            self.tell(format!("({name} a déjà une fiche)"));
+            self.tell(format!("({name} already has a card)"));
             let _ = self.jobs_tx.send(Job::Existing { slug: slug.to_string(), after });
             return;
         }
         if !self.generating.insert(slug.to_string()) {
             let name = crate::generate::pretty(slug);
-            self.tell(format!("(la fiche de {name} est déjà en route)"));
+            self.tell(format!("(the card of {name} is already underway)"));
             return;
         }
         self.mark_pending();
         let name = hint.map(String::from).unwrap_or_else(|| crate::generate::pretty(slug));
-        self.tell(format!("… fiche de {name} — musicbrainz puis deezer, quelques secondes"));
+        self.tell(format!("… card of {name} — musicbrainz then deezer, a few seconds"));
         let known = crate::generate::Known::of(&self.catalog);
         let (asked, hint, mbid) = (slug.to_string(), hint.map(String::from), mbid.map(String::from));
         let reported = asked.clone();
@@ -1072,7 +1072,7 @@ impl Live<'_> {
                 crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), &known)
             })
             .await
-            .unwrap_or_else(|e| Err(format!("la génération s'est interrompue ({e})")));
+            .unwrap_or_else(|e| Err(format!("generation was interrupted ({e})")));
             let _ = tx.send(Job::Generated { slug: reported, after, result });
         });
     }
@@ -1088,7 +1088,7 @@ impl Live<'_> {
         };
         let name = words.join(" ");
         if name.is_empty() {
-            self.tell("usage : :generate <nom de l'artiste> [mbid]".to_string());
+            self.tell("usage: :generate <artist name> [mbid]".to_string());
             return;
         }
         let slug = crate::generate::slugify(&name);
@@ -1152,7 +1152,7 @@ impl Live<'_> {
                     &mut self.rng,
                 );
                 let Some(stop) = stops.pop() else {
-                    say!(self, "(rien à jouer chez {})", card.name);
+                    say!(self, "(nothing to play from {})", card.name);
                     return;
                 };
                 stop
@@ -1174,7 +1174,7 @@ impl Live<'_> {
             &mut self.rng,
         );
         if stops.is_empty() {
-            say!(self, "(rien à jouer chez {})", self.catalog.cards[slug].name);
+            say!(self, "(nothing to play from {})", self.catalog.cards[slug].name);
             return;
         }
         let branch = crate::engine::Branch {
@@ -1191,10 +1191,10 @@ impl Live<'_> {
     /// An outage stops the walk rather than turning every remaining track
     /// into a « introuvable ». Nothing is lost — the queue kept its head.
     fn blocked(&self, why: &str) {
-        say!(self, "\n⏹ lecture interrompue : {why}.");
-        say!(self, "   Le morceau reste en tête de file — « j » pour réessayer.");
-        say!(self, "   Si ça persiste : « q » puis relancer — l'autorisation");
-        say!(self, "   Spotify sera redemandée d'elle-même si elle a expiré.");
+        say!(self, "\n⏹ playback interrupted: {why}.");
+        say!(self, "   The track stays at the head of the queue — j to retry.");
+        say!(self, "   If it persists: q then relaunch — the Spotify");
+        say!(self, "   authorization is asked again by itself if it expired.");
     }
 
     /// Move to the next track (the current one falls into the past). No
@@ -1255,7 +1255,7 @@ impl Live<'_> {
                 },
                 None => {
                     self.current = interrupted;
-                    say!(self, "(déjà au premier morceau)");
+                    say!(self, "(already at the first track)");
                     return;
                 }
             }
@@ -1332,13 +1332,13 @@ impl Live<'_> {
     /// `fp` — le volet ne se cache plus, il est toujours à droite. La touche
     /// reste pour le dire plutôt que de ne rien faire.
     fn preview(&self) {
-        say!(self, "les branches sont affichées en permanence, à droite");
+        say!(self, "the branches are always shown, on the right");
     }
 
     /// Play an exact Spotify uri now (from `/` search), as a fresh segment.
     async fn play_uri(&mut self, round_artists: Vec<String>, stop: crate::engine::Stop, uri: &str) {
         let Ok(track) = SpotifyUri::from_uri(uri) else {
-            say!(self, "uri illisible, on ne joue pas");
+            say!(self, "unreadable uri, not playing");
             return;
         };
         if let Some(current) = self.current.take() {
@@ -1351,7 +1351,7 @@ impl Live<'_> {
         self.sound.play(track);
         self.current = Some(stop);
         if off_map {
-            say!(self, "(hors catalogue — les branches repartiront du dernier artiste connu)");
+            say!(self, "(off-catalog — the branches will start again from the last known artist)");
         }
         self.recompute();
         self.render();
@@ -1379,7 +1379,7 @@ impl Live<'_> {
                 // the Stopped event we just caused must not be read as a
                 // track ending (which would advance) — drop the current id
                 self.current_request_id = None;
-                say!(self, "\n⏹ arrêt");
+                say!(self, "\n⏹ stopped");
             }
         }
     }
@@ -1413,10 +1413,10 @@ impl Live<'_> {
             // un creux n'est pas une branche : il faut le réseau avant de
             // sonner, et le hasard ne fait pas attendre quelqu'un (0016)
             match self.missing.len() {
-                0 => say!(self, "\n(cul-de-sac — « u » pour revenir, « q » pour quitter)"),
+                0 => say!(self, "\n(dead end — u to go back, q to quit)"),
                 n => say!(
                     self,
-                    "\n(rien qui sonne tout de suite — {n} fiche(s) à générer, « f1 » à « f{n} »)"
+                    "\n(nothing to play right away — {n} card(s) to generate, f1 to f{n})"
                 ),
             }
             return;
@@ -1442,7 +1442,7 @@ impl Live<'_> {
             return;
         }
         if n == 0 || n > self.branches.len() {
-            say!(self, "choix incompris");
+            say!(self, "choice not understood");
             return;
         }
         let branch = self.branches.remove(n - 1);
@@ -1498,12 +1498,12 @@ impl Live<'_> {
     /// morceau. Ça se voit dans la numérotation, ça ne se dit pas.
     fn move_selected(&mut self, step: isize) {
         let Some(index) = self.selection else {
-            say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
+            say!(self, "(nothing selected — ↑↓ to choose)");
             return;
         };
         let ahead = self.past.len() + usize::from(self.current.is_some());
         if index < ahead {
-            say!(self, "(on ne déplace que ce qui est à suivre)");
+            say!(self, "(only what is up next can be moved)");
             return;
         }
         let from = index - ahead;
@@ -1517,11 +1517,11 @@ impl Live<'_> {
 
     fn drop_selected(&mut self) {
         let Some(index) = self.selection else {
-            say!(self, "(rien de sélectionné — ↑↓ pour choisir)");
+            say!(self, "(nothing selected — ↑↓ to choose)");
             return;
         };
         if !self.drop_line(index) {
-            say!(self, "(on ne retire que ce qui est à suivre)");
+            say!(self, "(only what is up next can be removed)");
         }
     }
 
@@ -1595,7 +1595,7 @@ impl Live<'_> {
             }
             Cmd::Unknown(seq) => {
                 self.typed.clear();
-                say!(self, "(inconnu : {seq})");
+                say!(self, "(unknown: {seq})");
                 return true;
             }
             _ => self.typed.clear(),
@@ -1631,7 +1631,7 @@ impl Live<'_> {
             Cmd::MoveUp => self.move_selected(-1),
             Cmd::ComfortMode => {
                 self.comfort_before = Some(self.comfort);
-                say!(self, "zone de confort — ↑↓ pour régler, entrée valide, échap annule");
+                say!(self, "comfort zone — ↑↓ to adjust, enter confirms, esc cancels");
             }
             // c<n> : la zone de confort d'un coup (Joel, 08/09/2026)
             Cmd::Comfort(n) => self.colon(&format!("comfort {n}")),
@@ -1642,7 +1642,7 @@ impl Live<'_> {
             Cmd::Peek => self.preview(),
             Cmd::Reroll => {
                 self.recompute();
-                say!(self, "\n\u{21bb} autres branches :");
+                say!(self, "\n\u{21bb} other branches:");
                 self.preview();
             }
             Cmd::ForkUndo => self.fork_undo().await,
@@ -1671,24 +1671,24 @@ impl Live<'_> {
 
             // « / » filtre une liste — la collection, la discographie ; ici
             // il n'y en a pas, et chercher se dit « :search » (Joel, 08/09/2026)
-            Cmd::Search(query) => say!(self, "(« / » filtre une liste — pour chercher : :search {query})"),
+            Cmd::Search(query) => say!(self, "(/ filters a list — to search: :search {query})"),
 
             // --- decided (0015), not wired yet ---
             Cmd::Track(k) => self.on_track_key(k).await,
             Cmd::Artist(k) => self.on_artist_key(k),
-            Cmd::Wander => self.not_yet("fw", "partir hors de l'univers courant"),
-            Cmd::Undo => self.not_yet("u", "annuler le dernier geste"),
-            Cmd::Repeat => self.not_yet(".", "r\u{e9}p\u{e9}ter le dernier geste"),
+            Cmd::Wander => self.not_yet("fw", "leave the current universe"),
+            Cmd::Undo => self.not_yet("u", "undo the last gesture"),
+            Cmd::Repeat => self.not_yet(".", "repeat the last gesture"),
             Cmd::Why => self.why(),
             // deux touches de l'accueil, sans emploi une fois qu'on écoute
-            Cmd::Resume => say!(self, "\n(« r » sert à l'accueil : ici, « fu » remonte d'une branche)"),
-            Cmd::Browse => say!(self, "\n(« b » sert à l'accueil : ici, le son est déjà là)"),
+            Cmd::Resume => say!(self, "\n(r is for the home: here, fu backs up one branch)"),
+            Cmd::Browse => say!(self, "\n(b is for the home: here, the sound is already on)"),
             // déjà traités plus haut : ils ne font qu'afficher
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
-            Cmd::Sort => say!(self, "(« s » trie la collection, à l'accueil)"),
+            Cmd::Sort => say!(self, "(s sorts the collection, at the home)"),
             // les touches d'une modale : hors d'elle, elles n'ont pas d'objet
             Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop => {
-                say!(self, "(« ad » ouvre la discographie : ces touches y servent)")
+                say!(self, "(ad opens the discography: these keys work there)")
             }
             Cmd::Colon(text) => {
                 self.colon(&text);
@@ -1699,8 +1699,8 @@ impl Live<'_> {
                     let (_, current, ..) = self.state();
                     let name = self.catalog.cards[&current].name.clone();
                     match self.harvest(&current) {
-                        Ok(true) => say!(self, "✓ discographie de {name} — {} titres déjà en cache", self.tail.of(&current).len()),
-                        Ok(false) => say!(self, "… discographie de {name} en cours de récolte"),
+                        Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&current).len()),
+                        Ok(false) => say!(self, "… discography of {name} being fetched"),
                         Err(why) => say!(self, "⏹ {why}"),
                     }
                 }
@@ -1720,32 +1720,32 @@ impl Live<'_> {
     /// the weight our own « plus / moins souvent » has set.
     fn why(&mut self) {
         let Some(stop) = self.current.clone() else {
-            say!(self, "(rien en cours)");
+            say!(self, "(nothing playing)");
             return;
         };
         let title = format!("{} — {}", stop.title, stop.artist);
         if stop.slug.is_empty() {
             self.overlay = Some((
                 title,
-                vec![" hors catalogue : joué depuis Spotify, sans fiche".into()],
+                vec![" off-catalog: played from Spotify, no card".into()],
             ));
             return;
         }
         let card = &self.catalog.cards[&stop.slug];
         let mut lines = Vec::new();
         if !card.tags.is_empty() {
-            lines.push(format!(" tags : {}", card.tags.join(", ")));
+            lines.push(format!(" tags: {}", card.tags.join(", ")));
         }
         lines.push(format!(
-            " familiarité {:.0} % · poids {:.2} · {} lien(s), {} top(s)",
+            " familiarity {:.0}% · weight {:.2} · {} link(s), {} top(s)",
             self.learned.familiarity01(&stop.slug, &card.name) * 100.0,
             self.learned.weight(&stop.slug),
             card.links.len(),
             card.tops.len()
         ));
         match self.branches.first() {
-            Some(branch) => lines.push(format!(" d'ici : {} ({})", branch.label, branch.reason)),
-            None => lines.push(" d'ici : rien de proposé pour l'instant".into()),
+            Some(branch) => lines.push(format!(" from here: {} ({})", branch.label, branch.reason)),
+            None => lines.push(" from here: nothing proposed for now".into()),
         }
         self.overlay = Some((title, lines));
     }
@@ -1810,7 +1810,7 @@ impl Live<'_> {
             Cmd::Auto => {
                 self.comfort_before = None;
                 self.recompute();
-                say!(self, "zone de confort : {} — {}", value, comfort_word(value));
+                say!(self, "comfort zone: {} — {}", value, comfort_word(value));
                 return true;
             }
             Cmd::Escape => {
@@ -1823,7 +1823,7 @@ impl Live<'_> {
             _ => {}
         }
         let value = self.comfort.value();
-        say!(self, "zone de confort — {} — {}   ↑↓ régler · entrée valider · échap annuler",
+        say!(self, "comfort zone — {} — {}   ↑↓ adjust · enter confirm · esc cancel",
              value, comfort_word(value));
         true
     }
@@ -1858,7 +1858,7 @@ impl Live<'_> {
         if self.loading {
             if let Some(stop) = &self.current {
                 return Some(crate::tui::Toast {
-                    text: format!("chargement — {} — {}", stop.title, stop.artist),
+                    text: format!("loading — {} — {}", stop.title, stop.artist),
                     tone: crate::tui::LOADING,
                     sticky: true,
                 });
@@ -1867,7 +1867,7 @@ impl Live<'_> {
         if let Some(slug) = self.harvesting.iter().next() {
             let name = self.catalog.cards.get(slug).map(|c| c.name.as_str()).unwrap_or(slug);
             return Some(crate::tui::Toast {
-                text: format!("discographie de {name} — en cours de chargement"),
+                text: format!("discography of {name} — loading"),
                 tone: crate::tui::LOADING,
                 sticky: true,
             });
@@ -1977,7 +1977,7 @@ impl Live<'_> {
             self.typed.clone()
         } else {
             format!(
-                "[1-{} branche · h/l · p · espace = les touches · q]",
+                "[1-{} branch · h/l · p · space = the keys · q]",
                 (self.branches.len() + self.missing.len()).max(1)
             )
         };
@@ -1996,8 +1996,8 @@ impl Live<'_> {
         let seed_facts = seed_card
             .map(|c| {
                 format!(
-                    "{} · {} lien{} · {} top{}",
-                    if c.generated { "fiche générée" } else { "fiche écrite" },
+                    "{} · {} link{} · {} top{}",
+                    if c.generated { "generated card" } else { "written card" },
                     c.links.len(),
                     if c.links.len() > 1 { "s" } else { "" },
                     c.tops.len(),
@@ -2006,8 +2006,8 @@ impl Live<'_> {
             })
             .unwrap_or_default();
         let seed_last = match self.learned.days_since(&seed) {
-            Some(days) => format!("dernière écoute {}", crate::home::age(Some(days))),
-            None => "jamais écouté".to_string(),
+            Some(days) => format!("last played {}", crate::home::age(Some(days))),
+            None => "never played".to_string(),
         };
         let view = View {
             path,
@@ -2053,13 +2053,13 @@ impl Live<'_> {
                 let tx = self.sync_tx.clone();
                 std::thread::spawn(move || {
                     let _ = tx.send(match crate::sync::push(&dir) {
-                        Ok(()) => Ok(format!("appris poussé — {subject}")),
-                        Err(why) => Err(format!("push refusé — {why} (au prochain pull)")),
+                        Ok(()) => Ok(format!("learned pushed — {subject}")),
+                        Err(why) => Err(format!("push refused — {why} (next pull)")),
                     });
                 });
             }
             Ok(None) => {}
-            Err(why) => say!(self, "⏹ commit de l'appris — {why}"),
+            Err(why) => say!(self, "⏹ learned commit — {why}"),
         }
     }
 
@@ -2116,7 +2116,7 @@ impl Live<'_> {
         if cat > 0 {
             lines.push(crate::tui::FinderLine::Header {
                 catalogue: true,
-                text: format!("catalogue  {cat} résultat{}", if cat > 1 { "s" } else { "" }),
+                text: format!("catalog  {cat} result{}", if cat > 1 { "s" } else { "" }),
             });
             for f in &finder.catalogue {
                 lines.push(found_line(f, true));
@@ -2125,13 +2125,13 @@ impl Live<'_> {
         let mut spotify_count: Option<usize> = None;
         if !finder.only_catalogue {
             match &finder.spotify {
-                None => lines.push(crate::tui::FinderLine::Info("[spotify] … interrogation".to_string())),
-                Some(Err(why)) => lines.push(crate::tui::FinderLine::Info(format!("[spotify] injoignable — {why}"))),
+                None => lines.push(crate::tui::FinderLine::Info("[spotify] … querying".to_string())),
+                Some(Err(why)) => lines.push(crate::tui::FinderLine::Info(format!("[spotify] unreachable — {why}"))),
                 Some(Ok(found)) if !found.is_empty() => {
                     spotify_count = Some(found.len());
                     lines.push(crate::tui::FinderLine::Header {
                         catalogue: false,
-                        text: format!("spotify  {} titres · hors catalogue sauf mention", found.len()),
+                        text: format!("spotify  {} tracks · off-catalog unless noted", found.len()),
                     });
                     for f in found {
                         lines.push(found_line(f, false));
@@ -2142,7 +2142,7 @@ impl Live<'_> {
         }
         if lines.is_empty() && !finder.query.trim().is_empty() {
             lines.push(crate::tui::FinderLine::Info(format!(
-                "(rien pour « {} » — ni catalogue, ni spotify)",
+                "(nothing for \"{}\" — neither catalog nor spotify)",
                 finder.query.trim()
             )));
         }
@@ -2154,9 +2154,9 @@ impl Live<'_> {
             };
             let after = self.queue.get(at).map(|s| s.title.clone());
             match (before, after) {
-                (Some(b), Some(a)) => format!("l'insertion tombe en {} — entre {b} et {a}", at + 2),
-                (Some(b), None) => format!("l'insertion tombe en {} — après {b}, en fin de file", at + 2),
-                _ => format!("l'insertion tombe en {}", at + 2),
+                (Some(b), Some(a)) => format!("insertion lands at {} — between {b} and {a}", at + 2),
+                (Some(b), None) => format!("insertion lands at {} — after {b}, at the end of the queue", at + 2),
+                _ => format!("insertion lands at {}", at + 2),
             }
         });
         crate::tui::FinderView {
@@ -2175,23 +2175,23 @@ impl Live<'_> {
     /// was skipped — or that it never did.
     fn note(&self, stop: &crate::engine::Stop) -> String {
         if stop.source == crate::engine::Source::Offmap {
-            return "hors catalogue".to_string();
+            return "off-catalog".to_string();
         }
         let mut parts: Vec<String> = Vec::new();
         match self.learned.track_stats(&stop.slug, &stop.title) {
             Some((plays, days, skipped)) => {
                 let n = plays.round().max(1.0) as u64;
                 if plays >= 0.5 {
-                    parts.push(format!("{n} écoute{}", if n > 1 { "s" } else { "" }));
+                    parts.push(format!("{n} play{}", if n > 1 { "s" } else { "" }));
                     parts.push(crate::home::age(days));
                 } else {
-                    parts.push("jamais joué".to_string());
+                    parts.push("never played".to_string());
                 }
                 if skipped > 0 {
-                    parts.push(format!("passé {skipped}×"));
+                    parts.push(format!("skipped {skipped}×"));
                 }
             }
-            None => parts.push("jamais joué".to_string()),
+            None => parts.push("never played".to_string()),
         }
         parts.join(" · ")
     }
@@ -2202,14 +2202,14 @@ impl Live<'_> {
     fn under_needle(&self) -> Option<crate::engine::Stop> {
         match self.target() {
             None => {
-                say!(self, "\n(rien en cours)");
+                say!(self, "\n(nothing playing)");
                 None
             }
             Some(stop) if stop.slug.is_empty() => {
                 if self.generating.contains(&crate::generate::slugify(&stop.artist)) {
-                    say!(self, "\n({} — sa fiche est en route, réessaie dans un instant)", stop.artist);
+                    say!(self, "\n({} — its card is underway, retry in a moment)", stop.artist);
                 } else {
-                    say!(self, "\n({} — hors catalogue, rien à apprendre)", stop.artist);
+                    say!(self, "\n({} — off-catalog, nothing to learn)", stop.artist);
                 }
                 None
             }
@@ -2295,8 +2295,8 @@ impl Live<'_> {
             for slug in self.catalog.search_names(&query, 4) {
                 let card = &self.catalog.cards[&slug];
                 let note = format!(
-                    "fiche {} · {} liens · {} tops",
-                    if card.generated { "générée" } else { "écrite" },
+                    "{} card · {} links · {} tops",
+                    if card.generated { "generated" } else { "written" },
                     card.links.len(),
                     card.tops.len()
                 );
@@ -2314,8 +2314,8 @@ impl Live<'_> {
                 }
                 let is_liked = liked.contains(&title);
                 let note = match self.learned.track_stats(slug, title) {
-                    Some((plays, _, _)) if plays >= 0.5 => format!("{} écoute{}", plays.round() as u64, if plays >= 1.5 { "s" } else { "" }),
-                    _ => "jamais joué".to_string(),
+                    Some((plays, _, _)) if plays >= 0.5 => format!("{} play{}", plays.round() as u64, if plays >= 1.5 { "s" } else { "" }),
+                    _ => "never played".to_string(),
                 };
                 titles.push(Found {
                     hit: Hit::Track {
@@ -2325,7 +2325,7 @@ impl Live<'_> {
                         slug: Some(slug.clone()),
                     },
                     mark: if is_liked { '♥' } else { '♪' },
-                    note: if is_liked { format!("♥ aimé · {note}") } else { note },
+                    note: if is_liked { format!("♥ liked · {note}") } else { note },
                 });
             }
         }
@@ -2446,10 +2446,10 @@ impl Live<'_> {
                 let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
-                    reason: "inséré (ti)".to_string(),
+                    reason: "inserted (ti)".to_string(),
                 });
                 let at = at.min(self.queue.len());
-                say!(self, "→ inséré en {} : {} — {}", at + 2, stop.title, stop.artist);
+                say!(self, "→ inserted at {}: {} — {}", at + 2, stop.title, stop.artist);
                 self.queue.insert(at, stop);
                 if slug.is_none() {
                     let slug = crate::generate::slugify(artist);
@@ -2463,15 +2463,15 @@ impl Live<'_> {
                     &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1, &mut self.rng,
                 );
                 let Some(mut stop) = stops.pop() else {
-                    say!(self, "(plus rien de non joué chez {})", self.catalog.cards[slug].name);
+                    say!(self, "(nothing unplayed left from {})", self.catalog.cards[slug].name);
                     return;
                 };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
-                    reason: "inséré (ti)".to_string(),
+                    reason: "inserted (ti)".to_string(),
                 });
                 let at = at.min(self.queue.len());
-                say!(self, "→ inséré en {} : {} — {}", at + 2, stop.title, stop.artist);
+                say!(self, "→ inserted at {}: {} — {}", at + 2, stop.title, stop.artist);
                 self.queue.insert(at, stop);
             }
             // :search sur un artiste : un segment chez lui, comme une branche
@@ -2532,36 +2532,36 @@ impl Live<'_> {
         match key {
             'l' => {
                 self.learned.like_track(&stop.slug, &stop.title);
-                say!(self, "\n♥ {} — plus souvent", stop.title);
+                say!(self, "\n♥ {} — more often", stop.title);
             }
             's' => {
                 self.learned.skip_track(&stop.slug, &stop.title);
                 if self.aims_at_playing() {
-                    say!(self, "\n↷ {} — moins souvent, passé", stop.title);
+                    say!(self, "\n↷ {} — less often, skipped", stop.title);
                     self.next().await;
                 } else if self.selection.is_some_and(|index| self.drop_line(index)) {
                     // « passer » un morceau à venir, c'est le sortir de la file
-                    say!(self, "\n↷ {} — moins souvent, retiré de la file", stop.title);
+                    say!(self, "\n↷ {} — less often, removed from the queue", stop.title);
                 } else {
-                    say!(self, "\n↷ {} — moins souvent", stop.title);
+                    say!(self, "\n↷ {} — less often", stop.title);
                 }
             }
             'b' => {
                 self.learned.ban_track(&stop.slug, &stop.title);
                 self.queue.retain(|s| s.title != stop.title);
                 self.clamp_selection();
-                say!(self, "\n⊘ {} — plus jamais", stop.title);
+                say!(self, "\n⊘ {} — never again", stop.title);
                 if self.aims_at_playing() {
                     self.next().await;
                 }
             }
             'm' => match self.learned.mark(&stop.artist, &stop.title) {
-                Ok(()) => say!(self, "\n⚑ {} — mis de côté", stop.title),
-                Err(e) => say!(self, "\n(récolte non écrite : {e})"),
+                Ok(()) => say!(self, "\n⚑ {} — set aside", stop.title),
+                Err(e) => say!(self, "\n(mark not written: {e})"),
             },
             // pas de « tt » / « tT » en écoute : un seul geste dit le goût,
             // « tl » ; les tops se corrigent dans la discographie (0018)
-            't' | 'T' => say!(self, "(les tops se corrigent dans la discographie : « ad » — ici, « tl » dit plus souvent)"),
+            't' | 'T' => say!(self, "(tops are fixed in the discography: ad — here, tl says more often)"),
             'd' => {
                 // 0011 : une door pointe vers des tags, la direction où l'on
                 // va — donc ceux de l'artiste suivant, sinon les siens
@@ -2599,7 +2599,7 @@ impl Live<'_> {
         // `ag` marche hors catalogue aussi : il ne lui faut qu'un nom
         let stop = if key == 'g' {
             let Some(stop) = self.target() else {
-                say!(self, "(rien en cours)");
+                say!(self, "(nothing playing)");
                 return;
             };
             stop
@@ -2628,20 +2628,20 @@ impl Live<'_> {
                 .stderr(std::process::Stdio::null())
                 .spawn()
             {
-                Ok(_) => say!(self, "→ {} — dans le navigateur", stop.artist),
-                Err(e) => say!(self, "⏹ navigateur introuvable (xdg-open : {e})"),
+                Ok(_) => say!(self, "→ {} — in the browser", stop.artist),
+                Err(e) => say!(self, "⏹ browser not found (xdg-open: {e})"),
             }
             return;
         }
         match key {
             'l' => {
                 let weight = self.learned.like_artist(&stop.slug);
-                say!(self, "\n↑ {} — plus souvent (poids {weight:.2})", stop.artist);
+                say!(self, "\n↑ {} — more often (weight {weight:.2})", stop.artist);
                 self.recompute();
             }
             's' => {
                 let weight = self.learned.skip_artist(&stop.slug);
-                say!(self, "\n↓ {} — moins souvent (poids {weight:.2})", stop.artist);
+                say!(self, "\n↓ {} — less often (weight {weight:.2})", stop.artist);
                 self.recompute();
             }
             'b' => {
@@ -2650,7 +2650,7 @@ impl Live<'_> {
                 self.queue.retain(|s| s.slug != stop.slug);
                 self.clamp_selection();
                 say!(self, 
-                    "\n⊘ {} — plus jamais ({} morceau(x) retiré(s) de la file)",
+                    "\n⊘ {} — never again ({} track(s) removed from the queue)",
                     stop.artist,
                     before - self.queue.len()
                 );
@@ -2662,7 +2662,7 @@ impl Live<'_> {
                 // volerait ses frappes. Ça attend une saisie interrogée
                 // plutôt qu'un fil bloqué.
                 let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
-                say!(self, "fiche : {} (l'ouvrir ici attend la refonte de la saisie)", path.display());
+                say!(self, "card: {} (opening it here waits for the input rework)", path.display());
             }
             'L' => {
                 // lier à l'artiste d'où l'on vient : c'est le lien qu'on a
@@ -2688,7 +2688,7 @@ impl Live<'_> {
                         );
                         self.report(done);
                     }
-                    None => say!(self, "(aucun artiste d'où venir — le lien attend un second)"),
+                    None => say!(self, "(no artist to come from — the link waits for a second one)"),
                 }
             }
             _ => {}
@@ -2712,7 +2712,7 @@ impl Live<'_> {
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
-            return Err(format!("{} n'a pas d'identifiant Spotify dans sa fiche", card.name));
+            return Err(format!("{} has no Spotify id in its card", card.name));
         };
         self.harvesting.insert(slug.to_string());
         let web = self.web.clone();
@@ -2724,7 +2724,7 @@ impl Live<'_> {
                 .await
                 .discography(&spotify_id)
                 .await
-                .map_err(|why| format!("injoignable ({why})"));
+                .map_err(|why| format!("unreachable ({why})"));
             let _ = tx.send(Job::Harvested { slug, result });
         });
         Ok(false)
@@ -2751,11 +2751,11 @@ impl Live<'_> {
     /// moment async de toute la modale.
     async fn open_explore(&mut self) {
         let Some(stop) = self.target() else {
-            say!(self, "(rien en cours)");
+            say!(self, "(nothing playing)");
             return;
         };
         if stop.slug.is_empty() {
-            say!(self, "({} — hors catalogue, pas de fiche à corriger)", stop.artist);
+            say!(self, "({} — off-catalog, no card to fix)", stop.artist);
             return;
         }
         self.open_explore_of(&stop.slug, &stop.artist).await;
@@ -2796,12 +2796,12 @@ impl Live<'_> {
             playing.as_deref(),
         );
         if screen.albums.is_empty() && !loading {
-            say!(self, "(rien à montrer chez {} — ni discographie ni tops)", stop.artist);
+            say!(self, "(nothing to show from {} — neither discography nor tops)", stop.artist);
             return;
         }
         if loading {
             screen.loading = true;
-            screen.notice = "… discographie en cours de chargement — les tops d'abord".to_string();
+            screen.notice = "… discography loading — tops first".to_string();
         }
         crate::keys::set_modal(true);
         self.explore = Some(screen);
@@ -2841,7 +2841,7 @@ impl Live<'_> {
                     Cmd::AlbumTop => screen.top_album(ALBUM_TOPS),
                     Cmd::Undo => screen.undo(),
                     Cmd::Search(query) => screen.search(&query),
-                    Cmd::Unknown(seq) => screen.notice = format!("({seq} ne fait rien ici)"),
+                    Cmd::Unknown(seq) => screen.notice = format!("({seq} does nothing here)"),
                     _ => {}
                 }
             }
@@ -2855,17 +2855,17 @@ impl Live<'_> {
     fn explore_measure(&mut self, like: bool) {
         let Some(mut screen) = self.explore.take() else { return };
         let Some(title) = screen.track().map(|track| track.title.clone()) else {
-            screen.notice = "(place-toi sur un morceau)".into();
+            screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
             return;
         };
         if like {
             self.learned.like_track(&screen.slug, &title);
-            screen.notice = format!("♥ {title} — aimé");
+            screen.notice = format!("♥ {title} — liked");
         } else {
             self.learned.ban_track(&screen.slug, &title);
             self.queue.retain(|stop| stop.title != title);
-            screen.notice = format!("⊘ {title} — plus jamais");
+            screen.notice = format!("⊘ {title} — never again");
         }
         screen.refresh(&self.learned);
         self.explore = Some(screen);
@@ -2888,7 +2888,7 @@ impl Live<'_> {
                 },
             )
         }) else {
-            screen.notice = "(place-toi sur un morceau)".into();
+            screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
             return;
         };
@@ -2901,7 +2901,7 @@ impl Live<'_> {
             // le glyphe ↻ de l'encore : c'est le même geste, la liste le dit
             encore: true,
         });
-        screen.notice = format!("↻ {title} — à la file ({} à venir)", self.queue.len());
+        screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
         self.explore = Some(screen);
     }
 
@@ -2911,7 +2911,7 @@ impl Live<'_> {
     fn explore_write(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
         if screen.pending.is_empty() {
-            screen.notice = "(rien à écrire — une mesure, elle, est déjà prise)".into();
+            screen.notice = "(nothing to write — a measure is already taken)".into();
             self.explore = Some(screen);
             return;
         }
@@ -2926,12 +2926,12 @@ impl Live<'_> {
             Ok(edit) => {
                 let summary = edit.summary.clone();
                 screen.notice = match crate::edit::commit(&self.catalog_dir, &edit) {
-                    Ok(()) => format!("✓ {summary} — commité (au moteur au prochain lancement)"),
-                    Err(why) => format!("✓ {summary} — écrit, mais pas commité ({why})"),
+                    Ok(()) => format!("✓ {summary} — committed (engine sees it next launch)"),
+                    Err(why) => format!("✓ {summary} — written, but not committed ({why})"),
                 };
                 screen.written();
             }
-            Err(why) => screen.notice = format!("(rien fait : {why})"),
+            Err(why) => screen.notice = format!("(nothing done: {why})"),
         }
         self.explore = Some(screen);
     }
@@ -2944,7 +2944,7 @@ impl Live<'_> {
         if !screen.pending.is_empty() && !screen.confirm_close {
             screen.confirm_close = true;
             screen.notice = format!(
-                "⚑ {} édition(s) non écrite(s) — ⏎ pour écrire, échap encore pour les jeter",
+                "⚑ {} unwritten edit(s) — ⏎ to write, esc again to discard them",
                 screen.pending.len()
             );
             self.explore = Some(screen);
@@ -2952,7 +2952,7 @@ impl Live<'_> {
         }
         crate::keys::set_modal(false);
         if !screen.pending.is_empty() {
-            say!(self, "(discographie fermée — {} édition(s) jetée(s))", screen.pending.len());
+            say!(self, "(discography closed — {} edit(s) discarded)", screen.pending.len());
         }
         self.tui.clear();
     }
@@ -2966,20 +2966,20 @@ impl Live<'_> {
             (Some("size"), Some(n)) => match n.parse::<usize>() {
                 Ok(n) if (1..=9).contains(&n) => {
                     self.size = n;
-                    say!(self, "Taille des branches : {n}");
+                    say!(self, "Branch size: {n}");
                 }
-                _ => say!(self, "Taille attendue entre 1 et 9."),
+                _ => say!(self, "Size expected between 1 and 9."),
             },
-            (Some("size"), None) => say!(self, "Taille des branches : {}", self.size),
+            (Some("size"), None) => say!(self, "Branch size: {}", self.size),
             (Some("comfort"), Some(n)) => match n.parse::<u8>() {
                 Ok(n) if n <= 5 => {
                     self.comfort = Comfort::new(n);
-                    say!(self, "Zone de confort : {n} — {}", comfort_word(n));
+                    say!(self, "Comfort zone: {n} — {}", comfort_word(n));
                     // the dial changes which branches make sense from here
                     self.recompute();
                     self.preview();
                 }
-                _ => say!(self, "Confort attendu entre 0 (cocon) et 5 (exploration)."),
+                _ => say!(self, "Comfort expected between 0 (exploration) and 5 (cocoon)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
             // `ad` en toutes lettres (0013 : toute touche est le raccourci
@@ -2999,22 +2999,22 @@ impl Live<'_> {
                 self.generate_asked(text.trim().trim_start_matches("generate"));
             }
             (Some("generate"), None) => {
-                say!(self, "usage : :generate <nom de l'artiste> [mbid]")
+                say!(self, "usage: :generate <artist name> [mbid]")
             }
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
             },
             (Some("mine"), _) => match crate::edit::mine(&self.catalog_dir) {
-                Ok(lines) => self.overlay = Some(("ce qui est à moi".into(), lines)),
-                Err(why) => say!(self, "(impossible de comparer à l'amont : {why})"),
+                Ok(lines) => self.overlay = Some(("what is mine".into(), lines)),
+                Err(why) => say!(self, "(cannot compare to upstream: {why})"),
             },
             (Some("comfort"), None) => say!(self, 
-                "Zone de confort : {} — {}",
+                "Comfort zone: {} — {}",
                 self.comfort.value(),
                 comfort_word(self.comfort.value())
             ),
-            (Some(other), _) => self.not_yet(&format!(":{other}"), "cette commande"),
+            (Some(other), _) => self.not_yet(&format!(":{other}"), "this command"),
             (None, _) => {}
         }
     }
@@ -3029,7 +3029,7 @@ impl Live<'_> {
             slug: stop.slug.clone(),
             name: stop.artist.clone(),
             title: stop.title.clone(),
-            at: "à l'instant".to_string(),
+            at: "just now".to_string(),
         });
     }
 
@@ -3040,21 +3040,21 @@ impl Live<'_> {
             Ok(edit) => {
                 let summary = edit.summary.clone();
                 match crate::edit::commit(&self.catalog_dir, &edit) {
-                    Ok(()) => say!(self, "✓ {summary} — commité"),
-                    Err(why) => say!(self, "✓ {summary} — écrit, mais pas commité ({why})"),
+                    Ok(()) => say!(self, "✓ {summary} — committed"),
+                    Err(why) => say!(self, "✓ {summary} — written, but not committed ({why})"),
                 }
                 // le catalogue en mémoire ne bouge pas : l'édition compte au
                 // prochain lancement, et il vaut mieux le dire
-                say!(self, "  (le moteur en tiendra compte au prochain lancement)");
+                say!(self, "  (the engine will take it into account next launch)");
             }
-            Err(why) => say!(self, "(rien fait : {why})"),
+            Err(why) => say!(self, "(nothing done: {why})"),
         }
     }
 
     /// A gesture the grammar accepts but the code does not serve yet. Saying
     /// so beats a silent no-op: the key is right, the wiring is missing.
     fn not_yet(&self, keys: &str, what: &str) {
-        say!(self, "\n\u{ab} {keys} \u{bb} \u{2014} {what} : d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}.");
+        say!(self, "\n{keys} — {what}: decided (0015), not wired yet.");
     }
 
     /// Space, the leader: what can I type from here? With a namespace
@@ -3067,89 +3067,89 @@ impl Live<'_> {
         let home = self.screen == Screen::Home;
         let rows: &[(&str, &str, bool)] = match namespace {
             Some('f') if !home => &[
-                ("f<n>", "branche n, en fin de branche", true),
-                ("fn<n>", "branche n, apr\u{e8}s le morceau", true),
-                ("f!<n>", "branche n, apr\u{e8}s le morceau, le reste retir\u{e9}", true),
-                ("fp", "peek \u{2014} pr\u{e9}voir les branches", true),
-                ("fr", "reroll \u{2014} en reproposer trois autres", true),
-                ("fu", "undo \u{2014} revenir \u{e0} la branche pr\u{e9}c\u{e9}dente", true),
-                ("fw", "wander \u{2014} partir hors de l'univers", false),
+                ("f<n>", "branch n, at the end of the branch", true),
+                ("fn<n>", "branch n, after the track", true),
+                ("f!<n>", "branch n, after the track, the rest dropped", true),
+                ("fp", "peek — preview the branches", true),
+                ("fr", "reroll — propose three others", true),
+                ("fu", "undo — back to the previous branch", true),
+                ("fw", "wander — leave the universe", false),
             ],
             Some('e') if !home => &[
-                ("e<n>", "n encores, en fin de branche", true),
-                ("en<n>", "n encores, apr\u{e8}s le morceau", true),
-                ("e!<n>", "n encores, le reste retir\u{e9}", true),
+                ("e<n>", "n encores, at the end of the branch", true),
+                ("en<n>", "n encores, after the track", true),
+                ("e!<n>", "n encores, the rest dropped", true),
             ],
             Some('t') if !home => &[
-                ("tl", "like \u{2014} plus souvent : j'aime ce morceau", true),
-                ("ts", "skip \u{2014} moins souvent : il ne m'int\u{e9}resse pas (et passe)", true),
-                ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
-                ("tm", "mark \u{2014} mettre de c\u{f4}t\u{e9}", true),
-                ("td", "door \u{2014} en faire une door (fiche, un commit)", true),
-                ("ti", "insert \u{2014} ins\u{e9}rer un titre ici, par la recherche", true),
-                ("tx", "remove \u{2014} retirer de la file la ligne surlign\u{e9}e (pas un ban)", true),
-                ("ad", "les tops se corrigent dans la discographie", true),
+                ("tl", "like — more often: I like this track", true),
+                ("ts", "skip — less often: not for me (and skips)", true),
+                ("tb", "ban — never again this one", true),
+                ("tm", "mark — set aside", true),
+                ("td", "door — make it a door (card, one commit)", true),
+                ("ti", "insert — insert a track here, via search", true),
+                ("tx", "remove — remove the highlighted line from the queue (not a ban)", true),
+                ("ad", "tops are fixed in the discography", true),
             ],
             Some('a') => &[
-                ("al", "like \u{2014} cet artiste, plus souvent", true),
-                ("as", "skip \u{2014} cet artiste, moins souvent", true),
-                ("ab", "ban \u{2014} plus jamais cet artiste", true),
-                ("ad", "discography \u{2014} sa discographie, par album", true),
-                ("ag", "google \u{2014} l'artiste dans le navigateur", true),
-                ("ae", "edit \u{2014} ouvrir la fiche", false),
-                ("aL", "link \u{2014} lier \u{e0} un autre artiste", true),
+                ("al", "like — this artist, more often", true),
+                ("as", "skip — this artist, less often", true),
+                ("ab", "ban — never again this artist", true),
+                ("ad", "discography — their discography, by album", true),
+                ("ag", "google — the artist in the browser", true),
+                ("ae", "edit — open the card", false),
+                ("aL", "link — link to another artist", true),
             ],
             _ if home => &[
-                ("1-9", "d\u{e9}marrer sur une entr\u{e9}e des blocs", true),
-                ("\u{2191}\u{2193} gg G", "surligner dans la collection", true),
-                ("entr\u{e9}e", "d\u{e9}marrer sur la ligne surlign\u{e9}e \u{b7} sinon au hasard", true),
-                ("a", "l'artiste surlign\u{e9} \u{2014} tape a pour ses touches", true),
-                ("s", "l'ordre : familiarit\u{e9} \u{2192} a-z \u{2192} derni\u{e8}re \u{e9}coute", true),
-                ("v", "la vue : aim\u{e9}s \u{21c4} tous", true),
-                ("/texte", "filtrer la collection \u{2014} \u{e9}chap efface", true),
-                (":search", "chercher \u{2014} la modale : catalogue puis Spotify, entr\u{e9}e d\u{e9}marre", true),
-                (":generate <nom> [mbid]", "faire entrer un artiste absent", true),
-                ("c<n>", "zone de confort, 5 cocon \u{2192} 0 exploration", true),
-                ("cc", "r\u{e9}gler le confort aux fl\u{e8}ches", true),
-                ("p", "pause / lecture", true),
-                ("r", "retour \u{e0} l'\u{e9}coute \u{b7} sinon reprendre le dernier parcours", true),
-                ("q", "quitter", true),
+                ("1-9", "start on an entry of the blocks", true),
+                ("\u{2191}\u{2193} gg G", "highlight in the collection", true),
+                ("enter", "start on the highlighted line · else random", true),
+                ("a", "the highlighted artist — type a for its keys", true),
+                ("s", "the order: familiarity → a-z → last played", true),
+                ("v", "the view: liked ⇄ all", true),
+                ("/text", "filter the collection — esc clears", true),
+                (":search", "search — the modal: catalog then Spotify, enter starts", true),
+                (":generate <name> [mbid]", "bring in a missing artist", true),
+                ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
+                ("cc", "adjust comfort with the arrows", true),
+                ("p", "pause / play", true),
+                ("r", "back to listening · else resume the last journey", true),
+                ("q", "quit", true),
             ],
             _ => &[
-                ("1-9", "prendre une branche", true),
-                ("f", "la branche \u{2014} tape f pour ses touches", true),
-                ("e", "encore \u{2014} tape e pour ses touches", true),
-                ("t", "le morceau \u{2014} tape t pour ses touches", true),
-                ("a", "l'artiste \u{2014} tape a pour ses touches", true),
-                ("entr\u{e9}e", "auto \u{2014} tirer parmi les branches", true),
-                ("h l \u{2190} \u{2192}", "morceau pr\u{e9}c\u{e9}dent / suivant", true),
-                ("J K", "d\u{e9}placer la ligne surlign\u{e9}e d'un cran", true),
-                ("p", "pause / lecture", true),
-                ("/texte", "filtrer une liste \u{2014} la collection, la discographie", true),
-                (":search", "chercher \u{2014} la modale : catalogue puis Spotify, entr\u{e9}e prend", true),
-                ("c<n>", "zone de confort, 5 cocon \u{2192} 0 exploration", true),
-                ("cc", "r\u{e9}gler le confort aux fl\u{e8}ches", true),
-                ("u", "annuler le dernier geste", false),
-                (".", "r\u{e9}p\u{e9}ter le dernier geste", false),
-                ("?", "pourquoi ce morceau", true),
-                (":size <n>", "taille des branches", true),
-                (":comfort <n>", "zone de confort, 5 cocon → 0 exploration", true),
-                (":warm", "récolter la discographie de l'artiste en cours", true),
-                (":discography", "sa discographie par album — raccourci « ad »", true),
-                (":generate <nom> [mbid]", "faire entrer un artiste absent — l'id à la main si le nom ne suffit pas", true),
-                (":mine", "ce que ce catalogue a de plus que l'amont", true),
-                (":sync", "commiter et pousser l'appris maintenant", true),
-                ("♪♥↳·+~", "top · aimé · door · traîne · hors tops · hors catalogue", true),
-                ("q", "quitter", true),
+                ("1-9", "take a branch", true),
+                ("f", "the branch — type f for its keys", true),
+                ("e", "encore — type e for its keys", true),
+                ("t", "the track — type t for its keys", true),
+                ("a", "the artist — type a for its keys", true),
+                ("enter", "auto — draw among the branches", true),
+                ("h l \u{2190} \u{2192}", "previous / next track", true),
+                ("J K", "move the highlighted line one step", true),
+                ("p", "pause / play", true),
+                ("/text", "filter a list — the collection, the discography", true),
+                (":search", "search — the modal: catalog then Spotify, enter takes", true),
+                ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
+                ("cc", "adjust comfort with the arrows", true),
+                ("u", "undo the last gesture", false),
+                (".", "repeat the last gesture", false),
+                ("?", "why this track", true),
+                (":size <n>", "branch size", true),
+                (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration", true),
+                (":warm", "fetch the current artist's discography", true),
+                (":discography", "their discography by album — shortcut ad", true),
+                (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough", true),
+                (":mine", "what this catalog has beyond upstream", true),
+                (":sync", "commit and push the learned now", true),
+                ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", true),
+                ("q", "quit", true),
             ],
         };
         let title = match namespace {
-            Some('f') if !home => "f \u{2014} la branche",
-            Some('e') if !home => "e \u{2014} encore",
-            Some('t') if !home => "t \u{2014} le morceau",
-            Some('a') => "a \u{2014} l'artiste",
-            _ if home => "les touches de l'accueil",
-            _ => "les touches",
+            Some('f') if !home => "f — the branch",
+            Some('e') if !home => "e — encore",
+            Some('t') if !home => "t — the track",
+            Some('a') => "a — the artist",
+            _ if home => "the home keys",
+            _ => "the keys",
         };
         // un bloc se pose sur l'écran ; il ne descend pas dans le journal,
         // dont le bas ne doit jamais bouger
@@ -3161,13 +3161,13 @@ impl Live<'_> {
             })
             .collect();
         if rows.iter().any(|(_, _, wired)| !wired) {
-            lines.push(" \u{b7} = d\u{e9}cid\u{e9} (0015), pas encore c\u{e2}bl\u{e9}".into());
+            lines.push(" · = decided (0015), not wired yet".into());
         }
         // c'est une aide à la saisie : la touche tapée ici fait l'action
         lines.push(String::new());
         lines.push(match namespace {
-            Some(_) => " une touche = l'action \u{b7} \u{232b} retour \u{b7} \u{e9}chap fermer".into(),
-            None => " une touche = l'action \u{b7} \u{e9}chap fermer".into(),
+            Some(_) => " one key = the action · ⌫ back · esc close".into(),
+            None => " one key = the action · esc close".into(),
         });
         self.overlay = Some((title.to_string(), lines));
     }
@@ -3185,7 +3185,7 @@ impl Live<'_> {
     /// on before it. Distinct from `u`, which undoes a *gesture* (0015).
     async fn fork_undo(&mut self) {
         if self.rounds.len() <= 1 {
-            say!(self, "\n(d\u{e9}j\u{e0} \u{e0} la graine)");
+            say!(self, "\n(already at the seed)");
             return;
         }
         self.rounds.pop();

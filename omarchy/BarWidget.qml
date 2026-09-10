@@ -96,8 +96,8 @@ BarWidget {
     }
     onExited: function(code) {
       root.installing = false
-      if (code === 0) { root.installed = true; root.installLog = "installé — « Lancer »" }
-      else root.installLog = root.installLog || ("échec (" + code + ")")
+      if (code === 0) { root.installed = true; root.installLog = "installed — \"Launch\"" }
+      else root.installLog = root.installLog || ("failed (" + code + ")")
     }
   }
 
@@ -139,7 +139,7 @@ BarWidget {
 
       Text {
         textFormat: Text.PlainText
-        text: root.running ? (root.title || "rien en cours") : (root.installed ? "forkstify ne tourne pas" : "forkstify n'est pas installé")
+        text: root.running ? (root.title || "nothing playing") : (root.installed ? "forkstify is not running" : "forkstify is not installed")
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.subtitle
@@ -190,7 +190,7 @@ BarWidget {
 
       Text {
         textFormat: Text.PlainText
-        text: root.next !== "" ? "à suivre : " + root.next : ""
+        text: root.next !== "" ? "up next: " + root.next : ""
         visible: text !== ""
         color: Qt.darker(root.bar.foreground, 1.3)
         font.family: root.bar.fontFamily
@@ -242,7 +242,7 @@ BarWidget {
         spacing: Style.space(6)
 
         Button {
-          text: root.installed ? "Lancer" : (root.installing ? "installation…" : "Installer")
+          text: root.installed ? "Launch" : (root.installing ? "installing…" : "Install")
           foreground: root.bar.foreground
           horizontalPadding: Style.spacing.controlPaddingX
           verticalPadding: Style.spacing.controlPaddingY

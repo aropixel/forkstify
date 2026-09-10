@@ -80,9 +80,9 @@ impl Sort {
     }
     fn label(self) -> &'static str {
         match self {
-            Sort::Familiarity => "familiarité",
+            Sort::Familiarity => "familiarity",
             Sort::Alphabetical => "a-z",
-            Sort::LastPlayed => "dernière écoute",
+            Sort::LastPlayed => "last played",
         }
     }
 }
@@ -105,8 +105,8 @@ impl Scope {
     }
     fn label(self) -> &'static str {
         match self {
-            Scope::Liked => "aimés",
-            Scope::All => "tous",
+            Scope::Liked => "liked",
+            Scope::All => "all",
         }
     }
 }
@@ -115,13 +115,13 @@ impl Scope {
 /// collection de l'accueil et aux notes de la liste de lecture.
 pub(crate) fn age(days: Option<i64>) -> String {
     match days {
-        None => "jamais".into(),
-        Some(0) => "auj.".into(),
-        Some(1) => "hier".into(),
-        Some(d) if d < 14 => format!("-{d}j"),
-        Some(d) if d < 60 => format!("-{}s", d / 7),
-        Some(d) if d < 365 => format!("-{}m", d / 30),
-        Some(d) => format!("-{}a", d / 365),
+        None => "never".into(),
+        Some(0) => "today".into(),
+        Some(1) => "yday".into(),
+        Some(d) if d < 14 => format!("-{d}d"),
+        Some(d) if d < 60 => format!("-{}w", d / 7),
+        Some(d) if d < 365 => format!("-{}mo", d / 30),
+        Some(d) => format!("-{}y", d / 365),
     }
 }
 
@@ -168,7 +168,7 @@ fn collection(
                 days: None,
                 name: name.clone(),
                 carded: false,
-                age: "jamais".into(),
+                age: "never".into(),
                 neglected: false,
             },
         ));
@@ -239,56 +239,56 @@ struct Entry {
 pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
     let mut rows = Vec::new();
     if !status.librespot && !status.web {
-        rows.push(Row::Rule("premier lancement".into()));
+        rows.push(Row::Rule("first launch".into()));
         rows.push(Row::Text(
-            "aucune autorisation encore donnée. il en faut deux, elles sont indépendantes.".into(),
+            "no authorization given yet. two are needed, and they are independent.".into(),
         ));
         rows.push(Row::Text(String::new()));
-        rows.push(Row::Text("  1 librespot — le son".into()));
+        rows.push(Row::Text("  1 librespot — sound".into()));
         rows.push(Row::Dim(
-            "     les identifiants arrivent du téléphone par zeroconf — rien à taper ici.".into(),
+            "     credentials come from the phone over zeroconf — nothing to type here.".into(),
         ));
         rows.push(Row::Text(format!(
-            "     ouvrez spotify sur le téléphone, « appareils disponibles »,\n     puis choisissez « {} » dans la liste.",
+            "     open spotify on the phone, \"available devices\",\n     then pick \"{}\" from the list.",
             crate::sound::DEVICE_NAME
         )));
         rows.push(Row::Text(String::new()));
-        rows.push(Row::Text("  2 l'api web — les titres".into()));
+        rows.push(Row::Text("  2 the web api — tracks".into()));
         rows.push(Row::Dim(
-            "     une autorisation oauth dans le navigateur (client id ncspot, cinq scopes).".into(),
+            "     an oauth authorization in the browser (ncspot client id, five scopes).".into(),
         ));
     } else {
-        rows.push(Row::Rule("autorisation incomplète".into()));
+        rows.push(Row::Rule("incomplete authorization".into()));
         if !status.librespot {
-            rows.push(Row::Text("il manque les identifiants du téléphone.".into()));
+            rows.push(Row::Text("the phone credentials are missing.".into()));
             rows.push(Row::Text(format!(
-                "sur spotify : « appareils disponibles », puis « {} ».",
+                "on spotify: \"available devices\", then \"{}\".",
                 crate::sound::DEVICE_NAME
             )));
         }
         if !status.web {
             rows.push(Row::Text(
-                "le jeton de l'api web a expiré — forkstify le redemandera d'elle-même.".into(),
+                "the web api token has expired — forkstify will ask for it again on its own.".into(),
             ));
             rows.push(Row::Dim(
-                "le son n'est pas coupé ; seuls les titres ne se résolvent plus.".into(),
+                "sound is not cut off; only tracks no longer resolve.".into(),
             ));
         }
     }
-    rows.push(Row::Rule("en attendant".into()));
+    rows.push(Row::Rule("meanwhile".into()));
     rows.push(Row::Dim(format!(
-        "le catalogue est local : {} fiches, leurs vecteurs et l'appris se lisent hors connexion.\ncet écran n'est pas un cul-de-sac.",
+        "the catalog is local: {} cards, their vectors and the learned read offline.\nthis screen is not a dead end.",
         catalog.cards.len()
     )));
     rows.push(Row::Key {
         key: "b".into(),
-        what: "parcourir à sec".into(),
-        note: "les branches s'affichent, rien ne sonne".into(),
+        what: "dry run".into(),
+        note: "branches show up, nothing plays".into(),
         wired: false,
     });
     rows.push(Row::Key {
         key: ":search".into(),
-        what: "chercher une fiche au catalogue seul".into(),
+        what: "search a card in the catalog only".into(),
         note: String::new(),
         wired: false,
     });
@@ -315,7 +315,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                 choice: Choice::Artist((*slug).clone()),
                 label: card.name.clone(),
                 artist: None,
-                reason: format!("familiarité {:.0} %", f * 100.0),
+                reason: format!("familiarity {:.0}%", f * 100.0),
                 preview: card
                     .tops
                     .iter()
@@ -340,7 +340,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                 label: title.clone(),
                 artist: Some(card.name.clone()),
                 reason: format!(
-                    "un morceau, pas un artiste : il se joue, puis les branches partent de {}",
+                    "a track, not an artist: it plays, then the branches fork from {}",
                     card.name
                 ),
                 preview: Vec::new(),
@@ -363,7 +363,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                     choice: Choice::Artist((*slug).clone()),
                     label: card.name.clone(),
                     artist: None,
-                    reason: "au catalogue, jamais écouté".to_string(),
+                    reason: "in the catalog, never played".to_string(),
                     preview: card
                         .tops
                         .iter()
@@ -373,7 +373,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                 }
             })
             .collect();
-        ("jamais écoutés", jamais)
+        ("never played", jamais)
     } else {
         let delaisses: Vec<Entry> = neglected
             .iter()
@@ -383,7 +383,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
                     choice: Choice::Artist(slug.clone()),
                     label: card.name.clone(),
                     artist: None,
-                    reason: format!("dernière écoute il y a {months} mois"),
+                    reason: format!("last played {months} months ago"),
                     preview: card
                         .tops
                         .iter()
@@ -394,11 +394,11 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
             })
             .take(2)
             .collect();
-        ("délaissés", delaisses)
+        ("neglected", delaisses)
     };
 
     let habitues_bloc = (
-        "vos habitués".to_string(),
+        "your regulars".to_string(),
         habitues,
     );
     let second_bloc = (second_title.to_string(), second);
@@ -417,39 +417,39 @@ fn rows_of(
 ) -> (Vec<Row>, usize) {
     let mut rows = Vec::new();
     if let Some(last) = recall() {
-        rows.push(Row::Rule("reprendre".into()));
+        rows.push(Row::Rule("resume".into()));
         // le titre devant, l'artiste derrière — partout pareil
         rows.push(Row::Key {
             key: "r".into(),
             what: format!("{} — {}", last.title, last.name),
-            note: format!("interrompu {}", last.at),
+            note: format!("interrupted {}", last.at),
             wired: true,
         });
     }
 
-    rows.push(Row::Rule("chercher".into()));
+    rows.push(Row::Rule("search".into()));
     rows.push(Row::Key {
         key: ":search".into(),
-        what: "un artiste ou un morceau".into(),
-        note: "catalogue et spotify".into(),
+        what: "an artist or a track".into(),
+        note: "catalog and spotify".into(),
         wired: true,
     });
     rows.push(Row::Key {
         key: "/".into(),
-        what: "filtrer la collection".into(),
-        note: "à droite ; échap efface".into(),
+        what: "filter the collection".into(),
+        note: "on the right; esc clears".into(),
         wired: true,
     });
     rows.push(Row::Dim(
-        "     entrée démarre un parcours sur ce qui est choisi : l'artiste,\n     ou le morceau puis les branches de son artiste.".into(),
+        "     enter starts a journey on what is chosen: the artist,\n     or the track, then the branches of its artist.".into(),
     ));
 
     let mut n = 0;
     for (title, block) in blocks {
         rows.push(Row::Rule(title.clone()));
-        if title == "délaissés" {
+        if title == "neglected" {
             rows.push(Row::Dim(
-                "     une familiarité qui fut haute et a décru — un rappel, pas une découverte."
+                "     a familiarity that was high and has faded — a reminder, not a discovery."
                     .into(),
             ));
         }
@@ -466,11 +466,11 @@ fn rows_of(
     }
     let _ = learned;
 
-    rows.push(Row::Rule("au hasard".into()));
+    rows.push(Row::Rule("random".into()));
     rows.push(Row::Key {
-        key: "entrée".into(),
-        what: "tirage pondéré par la zone de confort".into(),
-        note: "la porte qui ne demande pas de choisir".into(),
+        key: "enter".into(),
+        what: "weighted draw by the comfort zone".into(),
+        note: "the door that does not ask you to choose".into(),
         wired: true,
     });
     (rows, n)
@@ -570,7 +570,7 @@ impl Home {
         let _ = tui.draw_home(&HomeView {
             status: status.to_vec(),
             census: format!(
-                "catalogue local — {} fiches · {} artistes classés · {} discographie(s) en cache",
+                "local catalog — {} cards · {} ranked artists · {} discography(ies) cached",
                 catalog.cards.len(),
                 learned.seeded(),
                 tail.known()
@@ -580,17 +580,17 @@ impl Home {
                 self.typed.clone()
             } else if !self.filter.is_empty() {
                 format!(
-                    "[filtre « {} » — {} artiste(s) · ↑↓ entrée · échap efface · :search <texte> cherche]",
+                    "[filter \"{}\" — {} artist(s) · ↑↓ enter · esc clears · :search <text> searches]",
                     self.filter,
                     listing.len()
                 )
             } else if live {
                 format!(
-                    "[1-{count} pour démarrer · r retour à l'écoute · /filtre · :search · entrée au hasard · c<n> · q quitter]"
+                    "[1-{count} to start · r back to playing · /filter · :search · enter random · c<n> · q quit]"
                 )
             } else {
                 format!(
-                    "[1-{count} pour démarrer · r reprendre · /filtre · :search · entrée au hasard · c<n> · q]"
+                    "[1-{count} to start · r resume · /filter · :search · enter random · c<n> · q]"
                 )
             },
             comfort: comfort.value(),
@@ -633,7 +633,7 @@ impl Home {
             }
             Cmd::Unknown(seq) => {
                 self.typed.clear();
-                self.said = format!("(inconnu : {seq})");
+                self.said = format!("(unknown: {seq})");
                 return Outcome::Stay;
             }
             _ => {
@@ -653,7 +653,7 @@ impl Home {
             Cmd::Digit(n) => match flat.get(n - 1) {
                 Some(entry) => Outcome::Start(pick(entry)),
                 None => {
-                    self.said = format!("(pas d'entrée {n})");
+                    self.said = format!("(no entry {n})");
                     Outcome::Stay
                 }
             },
@@ -663,7 +663,7 @@ impl Home {
             Cmd::Resume => match recall() {
                 Some(last) => Outcome::Start(Choice::Track { slug: last.slug, title: last.title }),
                 None => {
-                    self.said = "(aucun parcours à reprendre)".into();
+                    self.said = "(no journey to resume)".into();
                     Outcome::Stay
                 }
             },
@@ -687,7 +687,7 @@ impl Home {
             // ad : la discographie de la ligne surlignée, si elle a une fiche
             Cmd::Artist('d') => {
                 let Some(index) = self.cursor else {
-                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    self.said = "(nothing highlighted — ↑↓ to choose)".into();
                     return Outcome::Stay;
                 };
                 match listing.get(index) {
@@ -699,7 +699,7 @@ impl Home {
             }
             Cmd::Artist(key) if !matches!(key, 'l' | 's' | 'b') => {
                 let Some(index) = self.cursor else {
-                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    self.said = "(nothing highlighted — ↑↓ to choose)".into();
                     return Outcome::Stay;
                 };
                 match listing.get(index) {
@@ -709,21 +709,21 @@ impl Home {
             }
             Cmd::Artist(key @ ('l' | 's' | 'b')) => {
                 let Some(index) = self.cursor else {
-                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    self.said = "(nothing highlighted — ↑↓ to choose)".into();
                     return Outcome::Stay;
                 };
                 let Some((slug, row)) = listing.get(index) else { return Outcome::Stay };
                 let slug = slug.clone().unwrap_or_else(|| crate::generate::slugify(&row.name));
                 let name = row.name.clone();
                 self.said = match key {
-                    'l' => format!("↑ {name} — plus souvent (poids {:.2})", learned.like_artist(&slug)),
+                    'l' => format!("↑ {name} — more often (weight {:.2})", learned.like_artist(&slug)),
                     's' => format!(
-                        "↓ {name} — moins souvent, hors des aimés (poids {:.2}) · al pour revenir",
+                        "↓ {name} — less often, out of the liked (weight {:.2}) · al to come back",
                         learned.skip_artist(&slug)
                     ),
                     _ => {
                         learned.ban_artist(&slug);
-                        format!("⊘ {name} — plus jamais")
+                        format!("⊘ {name} — never again")
                     }
                 };
                 // la ligne a pu quitter la vue : le curseur reste sur une ligne
@@ -743,7 +743,7 @@ impl Home {
             }
             Cmd::Comfort(n) => {
                 *comfort = Comfort::new(n);
-                self.said = format!("confort {n} — {}", crate::listen::comfort_word(n));
+                self.said = format!("comfort {n} — {}", crate::listen::comfort_word(n));
                 Outcome::Stay
             }
             Cmd::Colon(text) => {

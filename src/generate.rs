@@ -132,7 +132,7 @@ fn match_key(slug: &str) -> String {
 /// artist is not there); `Err` is the server still busy after half a
 /// minute, or unreachable — worth saying, and worth retrying later.
 fn get(url: &str) -> Result<Option<serde_json::Value>, String> {
-    let host = url.split('/').nth(2).unwrap_or("le serveur");
+    let host = url.split('/').nth(2).unwrap_or("the server");
     const ATTEMPTS: u64 = 6;
     for attempt in 1..=ATTEMPTS {
         match ureq::get(url).set("User-Agent", AGENT).call() {
@@ -141,14 +141,14 @@ fn get(url: &str) -> Result<Option<serde_json::Value>, String> {
                 std::thread::sleep(Duration::from_secs(2 * attempt));
             }
             Err(ureq::Error::Status(429 | 503, _)) => {
-                return Err(format!("{host} est occupé — réessaie dans un instant"));
+                return Err(format!("{host} is busy — try again in a moment"));
             }
             // 404 and the rest are answers: the artist is not there
             Err(ureq::Error::Status(..)) => return Ok(None),
-            Err(ureq::Error::Transport(e)) => return Err(format!("{host} injoignable ({e})")),
+            Err(ureq::Error::Transport(e)) => return Err(format!("{host} unreachable ({e})")),
         }
     }
-    Err(format!("{host} est occupé — réessaie dans un instant"))
+    Err(format!("{host} is busy — try again in a moment"))
 }
 
 fn musicbrainz(path: &str) -> Result<Option<serde_json::Value>, String> {
@@ -485,9 +485,9 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
         Some(mbid) => {
             let facts = match facts(mbid) {
                 Ok(Some(facts)) => facts,
-                Ok(None) => return Err(format!("MusicBrainz ne connaît pas l'identifiant {mbid}")),
+                Ok(None) => return Err(format!("MusicBrainz does not know the id {mbid}")),
                 Err(why) => {
-                    caveats.push(format!("{why} : fiche minimale, à relire"));
+                    caveats.push(format!("{why}: minimal card, to review"));
                     Facts {
                         name: asked.clone(),
                         kind: None,
@@ -506,10 +506,10 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
         }
         None => {
             let mbid = search_mbid(&asked)?.ok_or_else(|| {
-                format!("« {asked} » est introuvable sur MusicBrainz — :generate {asked} <mbid> avec l'identifiant trouvé à la main")
+                format!("\"{asked}\" not found on MusicBrainz — :generate {asked} <mbid> with an id found by hand")
             })?;
             let facts = facts(&mbid)?
-                .ok_or_else(|| format!("MusicBrainz ne connaît plus l'identifiant {mbid}"))?;
+                .ok_or_else(|| format!("MusicBrainz no longer knows the id {mbid}"))?;
             (mbid, facts)
         }
     };
@@ -531,7 +531,7 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
         None => (Vec::new(), Vec::new()),
     };
     if tops.is_empty() {
-        caveats.push("aucun top : Deezer ne connaît pas cet artiste".to_string());
+        caveats.push("no tops: Deezer does not know this artist".to_string());
     }
 
     let mut links: Vec<Link> = Vec::new();
@@ -545,7 +545,7 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
         let note = (relation.kind == "member").then(|| {
             let begin = relation.begin.as_deref().and_then(|d| d.get(..4)).unwrap_or("…");
             let end = relation.end.as_deref().and_then(|d| d.get(..4)).unwrap_or("…");
-            format!("membre ({begin}–{end})")
+            format!("member ({begin}–{end})")
         });
         links.push(Link { to: target.to_string(), kind: relation.kind.to_string(), note });
     }
@@ -561,7 +561,7 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
         links.push(Link { to: target, kind: "similar".to_string(), note: None });
     }
     if links.is_empty() {
-        caveats.push("aucun lien : cette fiche ne branchera que par ses tags".to_string());
+        caveats.push("no links: this card will only branch through its tags".to_string());
     }
 
     let tags = compose_tags(&facts);
@@ -656,7 +656,7 @@ mod tests {
         let facts = facts_of("The Cure");
         let tags = compose_tags(&facts);
         let links = vec![
-            Link { to: "siouxsie".into(), kind: "member".into(), note: Some("membre (1979–1980)".into()) },
+            Link { to: "siouxsie".into(), kind: "member".into(), note: Some("member (1979–1980)".into()) },
             Link { to: "joy-division".into(), kind: "similar".into(), note: None },
         ];
         let text = compose("The Cure", "abc", &facts, &tags, &["A Forest".into()], &links);

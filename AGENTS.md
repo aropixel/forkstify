@@ -93,12 +93,14 @@ Le détail est dans `docs/decisions/`. En résumé :
   `omarchy/` pour le widget, le plugin installe et lance le binaire ; et le
   lecteur publie de vraies métadonnées MPRIS, `forkstify:next` compris
   ([0021](docs/decisions/0021-le-depot-est-le-plugin-omarchy.md)).
-- **Langue** : français pour la prose (doc, commits humains, interface) ;
+- **Langue** : français pour la prose (doc, commits humains) ;
   **anglais pour tout ce qui est interface publique du dépôt — code
   (identifiants, commentaires), vocabulaire sur disque (chemins,
-  sous-dossiers, champs des formats) et messages des commits que
-  l'application produit** (visée open source, Joel les 03–04/09 et
-  07/09/2026). Le format de fiche est déjà en anglais ; `learned/` de même.
+  sous-dossiers, champs des formats), messages des commits que
+  l'application produit, et l'interface elle-même** (écrans, messages,
+  ligne de commande, widget) — visée open source, Joel les 03–04/09,
+  07/09 et 10/09/2026 ([0022](docs/decisions/0022-interface-en-anglais.md)).
+  Sous-commandes `journey` et `listen`.
 
 ## Ce qui reste à trancher
 

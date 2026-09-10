@@ -55,7 +55,7 @@ pub async fn discover() -> Result<String, Box<dyn std::error::Error>> {
     let credentials = discovery
         .next()
         .await
-        .ok_or("découverte interrompue sans identifiants")?;
+        .ok_or("discovery stopped without credentials")?;
     discovery.shutdown().await;
 
     // opening the session is what writes the credentials to the cache
@@ -75,12 +75,12 @@ impl Sound {
         let cache = Cache::new(Some(credentials_cache()), None, None, None)?;
         let credentials = cache
             .credentials()
-            .ok_or("pas d'identifiants librespot — l'accueil les demande au téléphone")?;
+            .ok_or("no librespot credentials — the home screen asks the phone for them")?;
 
         let session = Session::new(SessionConfig::default(), Some(cache));
         session.connect(credentials, true).await?;
 
-        let backend = audio_backend::find(None).ok_or("aucun backend audio")?;
+        let backend = audio_backend::find(None).ok_or("no audio backend")?;
         let player = Player::new(
             PlayerConfig::default(),
             session,

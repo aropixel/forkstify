@@ -34,15 +34,15 @@ pub enum Source {
 }
 
 impl Source {
-    /// The word behind the glyph — interface text, hence French.
+    /// The word behind the glyph — interface text.
     pub fn word(self) -> &'static str {
         match self {
             Source::Top => "top",
-            Source::Liked => "aimé",
+            Source::Liked => "liked",
             Source::Door => "door",
-            Source::Tail => "traîne",
-            Source::Outside => "hors tops",
-            Source::Offmap => "hors catalogue",
+            Source::Tail => "tail",
+            Source::Outside => "non-top",
+            Source::Offmap => "off-catalog",
         }
     }
 
@@ -94,13 +94,13 @@ pub struct Branch {
     pub weight: f32,
 }
 
-// Reason labels are interface text, hence in French.
+// Reason labels are interface text.
 const LABELS: [(&str, &str); 6] = [
-    ("member", "membres en commun"),
+    ("member", "shared members"),
     ("collab", "collaboration"),
-    ("similar", "similaires"),
-    ("family", "liens familiaux"),
-    ("scene", "même scène"),
+    ("similar", "similar"),
+    ("family", "family ties"),
+    ("scene", "same scene"),
     ("influence", "influence"),
 ];
 
@@ -147,7 +147,7 @@ fn reason(kind: &str, note: Option<&str>, a: &Card, b: &Card) -> String {
     }
     let shared = shared_tags(a, b);
     if !shared.is_empty() {
-        text.push_str(" · tags communs : ");
+        text.push_str(" · shared tags: ");
         text.push_str(&shared.join(", "));
     }
     text
@@ -244,7 +244,7 @@ pub fn missing_neighbors(
                 why.push_str(" — ");
                 why.push_str(note);
             }
-            why.push_str(&format!(" · chez {}", card.name));
+            why.push_str(&format!(" · around {}", card.name));
             let proximity = catalog.proximity(link);
             let entry = best
                 .entry(link.to.clone())
@@ -283,7 +283,7 @@ fn graph_neighbors_of(
             let why = if source == context.last().unwrap() {
                 why
             } else {
-                format!("via {} : {}", catalog.cards[source].name, why)
+                format!("via {}: {}", catalog.cards[source].name, why)
             };
             let entry = merged.entry(slug).or_insert((0, String::new(), 0));
             entry.2 += 1;
@@ -297,7 +297,7 @@ fn graph_neighbors_of(
         .into_iter()
         .map(|(slug, (proximity, mut why, count))| {
             if count > 1 {
-                why.push_str(&format!(" · lié à {count} artistes de la branche"));
+                why.push_str(&format!(" · linked to {count} artists of the branch"));
             }
             // half a point per extra artist of the branch backing it
             (slug, proximity as f32 + 0.5 * (count as f32 - 1.0), why)
@@ -737,7 +737,7 @@ fn stay(
         .join(" → ");
     Some(Branch {
         label,
-        reason: "rester dans l'univers du parcours".to_string(),
+        reason: "stay within the journey's universe".to_string(),
         artists,
         stops,
         weight: 4.0,
@@ -823,9 +823,9 @@ pub fn propose(
         let score = *outside_scores[&slug];
         let target = &catalog.cards[&slug];
         let shared = shared_tags(card, target);
-        let mut why = format!("proche du centre de la branche ({score:.2})");
+        let mut why = format!("close to the branch's center ({score:.2})");
         if !shared.is_empty() {
-            why.push_str(" · tags communs : ");
+            why.push_str(" · shared tags: ");
             why.push_str(&shared.join(", "));
         }
         heads.push((slug, why, score * 5.0));
@@ -904,7 +904,7 @@ mod tests {
         assert_eq!(missing[0].slug, "georges-moustaki");
         assert_eq!(missing[0].name, "Georges Moustaki");
         assert_eq!(missing[0].proximity, 4);
-        assert!(missing[0].why.contains("chez Jacques Brel"), "{}", missing[0].why);
+        assert!(missing[0].why.contains("around Jacques Brel"), "{}", missing[0].why);
         assert!(!missing[0].pending);
     }
 
