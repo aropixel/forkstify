@@ -71,7 +71,10 @@ pub struct Shown {
 /// Push a track and its state to the desktop. The D-Bus calls are async
 /// and the Player is single-thread: they run as a local task, off the
 /// caller's path. Errors are the desktop's problem, not the music's.
-pub fn publish(player: &Rc<Player>, shown: &Shown, track_changed: bool) {
+/// `Seeked` is how MPRIS says the needle jumped — a start, a resume, a
+/// new track: without it a desktop keeps the position it read at
+/// discovery, zero, and its bar never moves (Joel, 10/09/2026).
+pub fn publish(player: &Rc<Player>, shown: &Shown, track_changed: bool, position_ms: u32) {
     let player = player.clone();
     let shown = shown.clone();
     tokio::task::spawn_local(async move {
@@ -93,6 +96,9 @@ pub fn publish(player: &Rc<Player>, shown: &Shown, track_changed: bool) {
             None => PlaybackStatus::Stopped,
         };
         let _ = player.set_playback_status(status).await;
+        let position = Time::from_millis(i64::from(position_ms));
+        player.set_position(position);
+        let _ = player.seeked(position).await;
     });
 }
 
@@ -100,4 +106,16 @@ pub fn publish(player: &Rc<Player>, shown: &Shown, track_changed: bool) {
 /// desktop reads when it asks.
 pub fn position(player: &Rc<Player>, position_ms: u32) {
     player.set_position(Time::from_millis(i64::from(position_ms)));
+}
+
+/// The needle jumped without anything else changing — « h » restarting
+/// the track, a correction from librespot: say so, or the desktop's bar
+/// keeps counting from where it was.
+pub fn seeked(player: &Rc<Player>, position_ms: u32) {
+    let player = player.clone();
+    tokio::task::spawn_local(async move {
+        let position = Time::from_millis(i64::from(position_ms));
+        player.set_position(position);
+        let _ = player.seeked(position).await;
+    });
 }

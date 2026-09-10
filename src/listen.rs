@@ -157,6 +157,7 @@ async fn async_run(
         toast: std::cell::RefCell::new(None),
         mpris,
         mpris_shown: Shown::default(),
+        mpris_sampled: None,
     };
     let mut events = live.sound.events();
     // un tic par seconde fait avancer la barre de progression ; il ne
@@ -305,6 +306,9 @@ struct Live<'a> {
     /// — pushed from `paint`, like the screen (0021).
     mpris: Option<Rc<mpris_server::Player>>,
     mpris_shown: Shown,
+    /// When the needle was last sampled by librespot, as last told: a new
+    /// sample is a jump the desktop must hear about (`Seeked`).
+    mpris_sampled: Option<std::time::Instant>,
     /// L'axe s'affiche verticalement : les flèches y déplacent une sélection,
     /// et rien ne change tant qu'on n'a pas validé (Joel, 06/09/2026).
     /// Index dans l'axe : passé, puis le courant, puis la file.
@@ -1824,13 +1828,17 @@ impl Live<'_> {
             shown.serial += 1;
         }
         mediakeys::position(player, position_ms);
+        let sampled = self.progress.as_ref().map(|p| p.sampled);
         if shown != self.mpris_shown {
             let track_changed = !same_track
                 || shown.next != self.mpris_shown.next
                 || shown.length_ms != self.mpris_shown.length_ms;
-            mediakeys::publish(player, &shown, track_changed);
+            mediakeys::publish(player, &shown, track_changed, position_ms);
             self.mpris_shown = shown;
+        } else if sampled != self.mpris_sampled {
+            mediakeys::seeked(player, position_ms);
         }
+        self.mpris_sampled = sampled;
     }
 
     /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
