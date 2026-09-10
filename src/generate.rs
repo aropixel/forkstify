@@ -592,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn un_mbid_se_reconnait_a_sa_forme() {
+    fn an_mbid_is_recognized_by_its_shape() {
         assert!(is_mbid("db6107e1-f692-453a-ab0e-4566faaba298"));
         assert!(!is_mbid("Oai Star"));
         assert!(!is_mbid("db6107e1f692453aab0e4566faaba298"));
@@ -600,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn le_slug_suit_la_regle_du_catalogue() {
+    fn the_slug_follows_the_catalog_rule() {
         assert_eq!(slugify("Jacques Brel"), "jacques-brel");
         assert_eq!(slugify("Destiny's Child"), "destiny-s-child");
         assert_eq!(slugify("Hall & Oates"), "hall-and-oates");
@@ -611,7 +611,7 @@ mod tests {
     /// This key is what keeps an existing card from being duplicated under
     /// another spelling.
     #[test]
-    fn deux_orthographes_du_meme_artiste_ont_la_meme_cle() {
+    fn two_spellings_of_the_same_artist_share_a_key() {
         assert_eq!(match_key("the-gun-club"), match_key("gun-club"));
         assert_eq!(match_key("j-p-nataf"), match_key("jp-nataf"));
         assert_eq!(match_key(&slugify("Hall & Oates")), match_key(&slugify("Hall and Oates")));
@@ -619,7 +619,7 @@ mod tests {
     }
 
     #[test]
-    fn seul_le_suffixe_de_remasterisation_tombe() {
+    fn only_the_remaster_suffix_is_dropped() {
         assert_eq!(clean_top("Vesoul (2011 Remaster)"), "Vesoul");
         assert_eq!(clean_top("Heroes - 2017 Remaster"), "Heroes");
         assert_eq!(clean_top("Amsterdam (Live, Olympia / 1964)"), "Amsterdam (Live, Olympia / 1964)");
@@ -627,7 +627,7 @@ mod tests {
     }
 
     #[test]
-    fn la_decennie_est_celle_du_debut() {
+    fn the_decade_is_the_one_of_the_beginning() {
         assert_eq!(decade(Some("1977-06-01")).as_deref(), Some("70s"));
         assert_eq!(decade(Some("2004")).as_deref(), Some("2000s"));
         assert_eq!(decade(None), None);
@@ -652,7 +652,7 @@ mod tests {
     /// The real risk of writing by hand: producing TOML the catalog loader
     /// cannot read back.
     #[test]
-    fn la_fiche_composee_se_relit_comme_une_fiche() {
+    fn the_drafted_card_reads_back_as_a_card() {
         let facts = facts_of("The Cure");
         let tags = compose_tags(&facts);
         let links = vec![
@@ -671,7 +671,7 @@ mod tests {
 
     /// A title with quotes must not break the card — Deezer returns some.
     #[test]
-    fn un_titre_retors_ne_casse_pas_la_fiche() {
+    fn a_tricky_title_does_not_break_the_card() {
         let facts = facts_of("Nirvana");
         let text = compose("Nirvana", "abc", &facts, &[], &["Smells Like \"Teen\" Spirit".into()], &[]);
         let card: crate::catalog::Card = toml::from_str(&text).expect("lisible");
@@ -681,7 +681,7 @@ mod tests {
     /// A person has no formation decade: `begin` is their birth, and
     /// "Jacques Brel, 20s" would be wrong.
     #[test]
-    fn une_personne_n_a_pas_de_tag_de_decennie() {
+    fn a_person_has_no_decade_tag() {
         let mut facts = facts_of("Jacques Brel");
         facts.kind = Some("Person".to_string());
         facts.country = Some("BE".to_string());
@@ -702,10 +702,10 @@ mod tests {
         let draft = draft("jacques-brel", None, None, &known).expect("Jacques Brel");
         println!("{}", draft.toml);
         assert_eq!(draft.name, "Jacques Brel");
-        let card: crate::catalog::Card = toml::from_str(&draft.toml).expect("fiche lisible");
+        let card: crate::catalog::Card = toml::from_str(&draft.toml).expect("readable card");
         assert!(card.generated);
         assert_eq!(card.spotify.as_deref(), Some("4RN2vlFWepLa46qQIU2PHs"));
-        assert!(!card.tops.is_empty(), "des tops Deezer");
+        assert!(!card.tops.is_empty(), "Deezer tops");
         // the neighbour that has a card is targeted by its slug…
         assert!(card.links.iter().any(|l| l.to == "georges-brassens"), "{:?}", draft.toml);
         // …and the format reads back with its tags
@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    fn les_identifiants_se_lisent_dans_les_urls() {
+    fn ids_are_read_from_urls() {
         assert_eq!(
             id_after("https://open.spotify.com/artist/4RN2vlFWepLa46qQIU2PHs", "open.spotify.com/artist/", false),
             Some("4RN2vlFWepLa46qQIU2PHs".to_string())

@@ -599,7 +599,7 @@ mod taste_tests {
     /// never played, it keeps it whole; a week later, it has got more than
     /// half of it back.
     #[test]
-    fn le_cooldown_penalise_le_recent_et_s_efface_avec_le_temps() {
+    fn the_cooldown_penalizes_the_recent_and_fades_with_time() {
         let mut learned = Learned::blank();
         assert_eq!(learned.freshness("the-cure", "A Forest"), 1.0);
         learned.played("the-cure", "A Forest");
@@ -615,7 +615,7 @@ mod taste_tests {
     /// 0018: liking and skipping are the two gestures of taste, and one
     /// undoes the other.
     #[test]
-    fn le_geste_contraire_annule_le_precedent() {
+    fn the_opposite_gesture_cancels_the_previous_one() {
         let mut learned = Learned::blank();
         learned.skip_track("the-cure", "A Forest");
         learned.skip_track("the-cure", "A Forest");
@@ -635,7 +635,7 @@ mod merge_tests {
     const BASE: &str = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n";
 
     #[test]
-    fn les_ecoutes_de_deux_machines_s_additionnent() {
+    fn plays_from_two_machines_add_up() {
         let ours = "plays = 5.0\nlast = \"2026-09-07\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 2.0\nlast = \"2026-09-07\"\n\n[tops.Push]\nplays = 1.0\nlast = \"2026-09-07\"\n";
         let theirs = "plays = 4.0\nlast = \"2026-09-07\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n\n[tops.Lullaby]\nplays = 1.0\nlast = \"2026-09-07\"\nliked = true\n";
         let today = from_iso("2026-09-07").unwrap();
@@ -658,7 +658,7 @@ mod merge_tests {
     }
 
     #[test]
-    fn un_ban_d_un_cote_l_emporte_et_le_poids_suit_qui_a_bouge() {
+    fn a_ban_on_one_side_wins_and_the_weight_follows_who_moved() {
         let ours = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 0.7\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n";
         let theirs = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 1.0\nblacklisted = true\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\nblacklisted = true\n";
         let today = from_iso("2026-09-07").unwrap();
@@ -672,7 +672,7 @@ mod merge_tests {
     }
 
     #[test]
-    fn sans_ancetre_les_deux_cotes_s_additionnent() {
+    fn without_an_ancestor_both_sides_add_up() {
         let ours = "plays = 1.0\nlast = \"2026-09-07\"\nweight = 1.0\n";
         let theirs = "plays = 2.0\nlast = \"2026-09-07\"\nweight = 1.0\n";
         let today = from_iso("2026-09-07").unwrap();
@@ -703,7 +703,7 @@ mod tests {
     /// The home's default view: an artist is "liked" here by a ♥ on one
     /// of its tracks or a "more often" on itself; a skip undoes it.
     #[test]
-    fn aime_ici_par_un_titre_ou_par_l_artiste() {
+    fn liked_here_by_a_track_or_by_the_artist() {
         let mut learned = Learned::blank();
         assert!(!learned.liked("the-cure", "The Cure"));
         learned.like_track("the-cure", "A Forest");
@@ -724,7 +724,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn les_dates_font_l_aller_retour() {
+    fn dates_round_trip() {
         for day in [0, 1, 19_000, 20_700, 25_000, -1, -700] {
             assert_eq!(from_iso(&iso(day)), Some(day), "jour {day}");
         }
@@ -733,7 +733,7 @@ mod tests {
     }
 
     #[test]
-    fn la_demi_vie_est_de_six_mois() {
+    fn the_half_life_is_six_months() {
         let day = from_iso("2026-01-01").unwrap();
         // same day: nothing has decayed
         assert!((decay(8.0, Some("2026-01-01"), day) - 8.0).abs() < 1e-9);
@@ -750,13 +750,13 @@ mod tests {
     /// The on-disk shape is a public interface (0014): it must survive a
     /// round trip, and stay readable by hand.
     #[test]
-    fn le_format_sur_disque_fait_l_aller_retour() {
+    fn the_on_disk_format_round_trips() {
         let mut artist = Artist { plays: 12.4, last: Some("2026-09-04".into()), weight: 0.8, ..Default::default() };
         artist.tops.insert(
             "A Forest".into(),
             Top { plays: 5.0, last: Some("2026-09-04".into()), liked: true, skipped: 2, blacklisted: false },
         );
-        let text = toml::to_string_pretty(&artist).expect("sérialisable");
+        let text = toml::to_string_pretty(&artist).expect("serializable");
         assert!(text.contains("plays = 12.4"), "{text}");
         assert!(text.contains("[tops.\"A Forest\"]"), "{text}");
         // default values do not clutter the file
@@ -769,13 +769,13 @@ mod tests {
         assert!(back.tops["A Forest"].liked);
 
         // an empty file is still a neutral artist, not an error
-        let neuf: Artist = toml::from_str("").expect("vide relisible");
+        let neuf: Artist = toml::from_str("").expect("empty reads back");
         assert_eq!(neuf.weight, 1.0);
         assert!(!neuf.blacklisted);
     }
 
     #[test]
-    fn le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change() {
+    fn the_seed_is_found_by_slug_when_the_name_changed() {
         // "Kanye West" in the Spotify library, "Ye" on the `kanye-west`
         // card: same artist, same familiarity (Joel, 10/09/2026)
         let mut seed = HashMap::new();
@@ -799,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn les_poids_restent_dans_leurs_bornes() {
+    fn weights_stay_within_bounds() {
         let mut learned =
             Learned { root: PathBuf::from("/nonexistent"), artists: HashMap::new(),
                       seed: HashMap::new(), seed_max: 1.0,

@@ -875,7 +875,7 @@ mod tests {
     /// itself. That is what was missing on 09/09/2026 — Brel pointed at
     /// three artists, and the engine saw none of them.
     #[test]
-    fn un_lien_sans_fiche_devient_une_proposition() {
+    fn a_link_without_a_card_becomes_a_proposal() {
         let mut brel = the_cure();
         brel.name = "Jacques Brel".into();
         brel.links = vec![
@@ -910,7 +910,7 @@ mod tests {
 
     /// An artist already visited does not come back as a card to generate.
     #[test]
-    fn un_creux_exclu_ne_se_propose_pas() {
+    fn an_excluded_gap_is_not_proposed() {
         let mut brel = the_cure();
         brel.links = vec![Link {
             to: "georges-moustaki".into(),
@@ -933,7 +933,7 @@ mod tests {
 
     /// 0012 §1: the top is a weight, not a closed list.
     #[test]
-    fn le_reservoir_cumule_les_sources() {
+    fn the_pool_accumulates_the_sources() {
         let card = the_cure();
         let mut learned = Learned::blank();
         learned.like_track("the-cure", "Killing an Arab");
@@ -951,13 +951,13 @@ mod tests {
     /// a liked top takes the like's weight and its mark, and in the cocoon
     /// a like weighs ten tops.
     #[test]
-    fn l_aime_prime_sur_le_top() {
+    fn liked_beats_top() {
         let card = the_cure();
         let mut learned = Learned::blank();
         learned.like_track("the-cure", "A Forest");
         let cocon = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(5), &HashSet::new(), &[]);
         let forest = cocon.iter().find(|(t, ..)| t == "A Forest").unwrap();
-        assert_eq!(forest.2, Source::Liked, "un top aimé porte ♥");
+        assert_eq!(forest.2, Source::Liked, "a liked top wears ♥");
         assert!((forest.1 - 10.0 * W_TOP).abs() < 1e-6, "{}", forest.1);
         assert_eq!(weight_of(&cocon, "Boys Don't Cry"), W_TOP);
         // wide open, a like still weighs two tops: never less
@@ -968,7 +968,7 @@ mod tests {
     /// 0011: a door is an additional criterion, never the main one — its
     /// bonus only lands when the direction overlaps its tags.
     #[test]
-    fn la_door_ne_gagne_que_vers_sa_direction() {
+    fn a_door_only_wins_toward_its_direction() {
         let card = the_cure();
         let learned = Learned::blank();
 
@@ -986,13 +986,13 @@ mod tests {
         );
         assert_eq!(weight_of(&vers, "A Forest"), W_TOP * DOOR_BONUS);
         let door = vers.iter().find(|(t, ..)| t == "A Forest").unwrap();
-        assert_eq!(door.2, Source::Door, "la provenance doit se voir à l'affichage");
+        assert_eq!(door.2, Source::Door, "the source must show on screen");
         // and the bonus stays local: the other top does not move
         assert_eq!(weight_of(&vers, "Boys Don't Cry"), W_TOP);
     }
 
     #[test]
-    fn un_banni_sort_et_un_passe_recule() {
+    fn a_banned_one_leaves_and_a_skipped_one_steps_back() {
         let card = the_cure();
         let mut learned = Learned::blank();
         learned.ban_track("the-cure", "Boys Don't Cry");
@@ -1000,7 +1000,7 @@ mod tests {
         learned.skip_track("the-cure", "A Forest");
         let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
 
-        assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
+        assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banned: out of the draw");
         // two skips: the weight is divided by three, never down to zero
         assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
     }
@@ -1008,7 +1008,7 @@ mod tests {
     /// 0012 §2: a track played yesterday steps back, even liked — that is
     /// the cooldown, and it does not exclude it.
     #[test]
-    fn un_joue_recemment_recule() {
+    fn a_recently_played_one_steps_back() {
         let card = the_cure();
         let mut learned = Learned::blank();
         learned.like_track("the-cure", "A Forest");
@@ -1016,15 +1016,15 @@ mod tests {
         let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(3), &HashSet::new(), &[]);
         let forest = weight_of(&pool, "A Forest");
         let liked = liked_weight(Comfort::new(3));
-        assert!(forest < liked / 5.0, "joué aujourd'hui : {forest} contre {liked} à neuf");
-        assert!(forest > 0.0, "reculé, pas exclu");
-        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP, "jamais joué : intact");
+        assert!(forest < liked / 5.0, "played today: {forest} against {liked} fresh");
+        assert!(forest > 0.0, "stepped back, not excluded");
+        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP, "never played: intact");
     }
 
     /// 0001: comfort *is* familiarity — and the scale's polarity is the
     /// trap of that decision (see the doc of `Comfort`).
     #[test]
-    fn le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu() {
+    fn the_cocoon_leans_to_the_known_and_exploration_to_the_unknown() {
         // 5 = cocoon, 0 = exploration (turned round on 06/09/2026)
         let cocon = Comfort::new(5);
         let milieu = Comfort::new(3);
@@ -1058,7 +1058,7 @@ mod tests {
     /// 0012 §4: comfort sets the depth of the draw. In the cocoon the tail
     /// weighs nothing; wide open, it takes over.
     #[test]
-    fn la_traine_ne_pese_que_quand_on_ouvre() {
+    fn the_tail_only_weighs_when_opening_up() {
         let card = the_cure();
         let learned = Learned::blank();
         let mut tail = Tail::blank();
@@ -1090,20 +1090,20 @@ mod tests {
 
         // 5 = cocoon since 06/09/2026
         let cocon = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &[]);
-        assert!(!cocon.iter().any(|(_, _, s)| *s == Source::Tail), "au cocon, pas de traîne");
-        assert_eq!(cocon.len(), 2, "les deux tops, rien d'autre");
+        assert!(!cocon.iter().any(|(_, _, s)| *s == Source::Tail), "in the cocoon, no tail");
+        assert_eq!(cocon.len(), 2, "the two tops, nothing else");
 
         let ouvert = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(0), &HashSet::new(), &[]);
         let traine: Vec<&(String, f32, Source)> =
             ouvert.iter().filter(|(_, _, s)| *s == Source::Tail).collect();
-        assert_eq!(traine.len(), 1, "une seule fois Killing an Arab : {ouvert:?}");
+        assert_eq!(traine.len(), 1, "Killing an Arab only once: {ouvert:?}");
         assert_eq!(traine[0].0, "Killing an Arab");
-        assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "moins qu'un top, mais présente");
+        assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "less than a top, but present");
     }
 
     /// What a journey already played does not come back (0012 §3).
     #[test]
-    fn le_deja_joue_ne_revient_pas() {
+    fn the_already_played_does_not_come_back() {
         let card = the_cure();
         let learned = Learned::blank();
         let played: HashSet<String> = ["A Forest".to_string()].into_iter().collect();

@@ -704,7 +704,7 @@ mod tests {
         let mut card: Card = toml::from_str(
             "format = 1\nname = \"Cat Power\"\nmbid = \"x\"\ntops = [\"Cross Bones Style\", \"Song to Bobby\"]\n",
         )
-        .expect("fiche");
+        .expect("card");
         card.generated = false;
         card
     }
@@ -714,7 +714,7 @@ mod tests {
     }
 
     #[test]
-    fn une_chanson_ne_parait_qu_une_fois() {
+    fn a_song_appears_only_once() {
         let screen = screen();
         let titles: Vec<&str> =
             screen.albums.iter().flat_map(|a| a.tracks.iter()).map(|t| t.title.as_str()).collect();
@@ -724,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    fn les_albums_sont_dans_l_ordre_et_les_tops_marques() {
+    fn albums_are_in_order_and_tops_marked() {
         let screen = screen();
         let order = screen.order();
         assert_eq!(screen.albums[order[0]].title, "Moon Pix");
@@ -737,15 +737,15 @@ mod tests {
     /// A top of the card Spotify does not return does not vanish: that is
     /// exactly what we came here for.
     #[test]
-    fn un_top_hors_discographie_tombe_en_fin_de_liste() {
+    fn a_top_outside_the_discography_falls_at_the_end() {
         let screen = screen();
-        let last = screen.albums.last().expect("un album");
+        let last = screen.albums.last().expect("an album");
         assert!(last.orphan);
         assert_eq!(last.tracks[0].title, "Song to Bobby");
     }
 
     #[test]
-    fn ce_qui_est_ecrit_devient_vrai_a_l_ecran() {
+    fn what_is_written_becomes_true_on_screen() {
         // `A` only promotes what was played: one play of Metal Heart
         let mut learned = Learned::blank();
         learned.played("cat-power", "Metal Heart");
@@ -756,7 +756,7 @@ mod tests {
         assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);
         assert_eq!(screen.commit_line(), "Cat Power — tops: +1 −0");
         screen.undo();
-        assert!(screen.pending.is_empty(), "u défait, gratuitement");
+        assert!(screen.pending.is_empty(), "u undoes, for free");
         screen.top_album(1);
         screen.written();
         assert!(screen.pending.is_empty());
@@ -765,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn le_filtre_ne_garde_que_les_tops() {
+    fn the_filter_keeps_only_the_tops() {
         let mut screen = screen();
         screen.cycle_filter();
         assert_eq!(screen.filter, Filter::Tops);
@@ -779,23 +779,23 @@ mod tests {
 
     /// The cursor is an identity: folding must not lose it.
     #[test]
-    fn le_curseur_survit_au_pliage() {
+    fn the_cursor_survives_folding() {
         let mut screen = screen();
         screen.move_by(1);
         assert_eq!(screen.cursor.track, Some(0));
         screen.fold();
         assert_eq!(screen.cursor.track, None);
-        assert_eq!(screen.rows().len(), screen.order().len(), "tout est plié");
+        assert_eq!(screen.rows().len(), screen.order().len(), "everything folded");
         screen.unfold();
         assert!(screen.rows().len() > screen.order().len());
     }
 
     #[test]
-    fn l_ecran_dit_ou_vont_les_ecoutes() {
+    fn the_screen_says_where_the_plays_go() {
         let screen = screen();
         let summary = screen.summary();
         assert_eq!(summary.albums, 2);
-        assert_eq!(summary.tops, 2, "un top d'album et un orphelin");
-        assert_eq!(summary.titles, 5, "quatre titres et le top orphelin");
+        assert_eq!(summary.tops, 2, "an album top and an orphan");
+        assert_eq!(summary.titles, 5, "four tracks and the orphan top");
     }
 }

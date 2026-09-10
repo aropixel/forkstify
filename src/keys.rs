@@ -572,7 +572,7 @@ mod tests {
     }
 
     #[test]
-    fn les_trois_variantes() {
+    fn the_three_variants() {
         assert_eq!(parse("3").done(), Some(Cmd::Digit(3)));
         assert_eq!(
             parse("f3").done(),
@@ -601,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn namespaces_et_clavier_nu() {
+    fn namespaces_and_bare_keys() {
         assert_eq!(parse("tl").done(), Some(Cmd::Track('l')));
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));

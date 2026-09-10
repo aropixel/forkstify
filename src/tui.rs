@@ -1539,7 +1539,7 @@ mod tests {
     /// 0016: a link to a missing card is proposed instead of discarded,
     /// numbered **after** the branches — otherwise the numbers would lie.
     #[test]
-    fn les_creux_se_numerotent_apres_les_branches() {
+    fn gaps_are_numbered_after_the_branches() {
         let current = stop("Ne me quitte pas", "Jacques Brel");
         let rows =
             playlist(100, 38, &branches(), &[], Some(&current), &[], &[missing(false)]);
@@ -1554,7 +1554,7 @@ mod tests {
     /// A generation takes a few seconds: the column must say so, otherwise
     /// "f3" looks like it did nothing.
     #[test]
-    fn un_creux_en_cours_de_generation_le_dit() {
+    fn a_gap_being_generated_says_so() {
         let current = stop("Ne me quitte pas", "Jacques Brel");
         let rows = playlist(100, 30, &[], &[], Some(&current), &[], &[missing(true)]);
         let text = rows.join("\n");
@@ -1614,11 +1614,11 @@ mod tests {
     /// The discography modal: the albums folded, the cursor's one open, and
     /// the batch waiting for its commit (mockup 1a).
     #[test]
-    fn la_discographie_plie_les_albums_et_dit_ce_qui_attend() {
+    fn the_discography_folds_albums_and_says_what_is_pending() {
         let card: crate::catalog::Card = toml::from_str(
             "format = 1\nname = \"Cat Power\"\nmbid = \"x\"\ntops = [\"Cross Bones Style\"]\n",
         )
-        .expect("fiche");
+        .expect("card");
         let track = |title: &str, album: &str, year: &str, number: u32| {
             crate::discography::TailTrack {
                 title: title.into(),
@@ -1928,7 +1928,7 @@ mod tests {
         assert!(rows[4].contains("── catalog  2 results"), "{}", rows[4]);
         assert!(rows[5].contains(" 1 [catalog] ♪ Nothing But Time"), "{}", rows[5]);
         assert!(rows[6].contains(" 2 [catalog] ♥ Nothing Compares 2 U"), "{}", rows[6]);
-        assert_eq!(buffer[(4, 6)].style().bg, Some(Color::Yellow), "le curseur surligne la ligne 2");
+        assert_eq!(buffer[(4, 6)].style().bg, Some(Color::Yellow), "the cursor highlights line 2");
         assert!(rows[7].contains("[spotify] … querying"), "{}", rows[7]);
         assert!(rows[9].contains("enter insert here"), "{}", rows[9]);
         assert!(rows[10].starts_with("└─ esc closes without inserting"), "{}", rows[10]);

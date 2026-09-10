@@ -160,7 +160,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn le_titre_ecrit_dans_la_fiche_reste_lisible() {
+    fn the_title_written_in_the_card_stays_readable() {
         assert_eq!(clean_title("Metal Heart - 2015 Remaster"), "Metal Heart");
         assert_eq!(clean_title("Colors and the Kids (Live)"), "Colors and the Kids");
         assert_eq!(clean_title("(I Can't Get No) Satisfaction"), "(I Can't Get No) Satisfaction");
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn les_variantes_d_un_meme_titre_se_confondent() {
+    fn variants_of_the_same_title_merge() {
         let a = normalize("A Forest");
         assert_eq!(a, normalize("A Forest - 2005 Remaster"));
         assert_eq!(a, normalize("A Forest (Remastered)"));

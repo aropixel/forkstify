@@ -292,7 +292,7 @@ mod tests {
     /// The rest of the card must survive intact: it is a public interface,
     /// not a data structure of ours.
     #[test]
-    fn une_insertion_ne_touche_a_rien_d_autre() {
+    fn an_insertion_touches_nothing_else() {
         let out = insert_into_array(CARD, "tops", "  \"Push\",");
         assert!(out.contains("format = 1"));
         assert!(out.contains("mbid = \"abc\""));
@@ -302,14 +302,14 @@ mod tests {
     }
 
     #[test]
-    fn un_tableau_absent_se_cree_en_fin_de_fiche() {
+    fn a_missing_array_is_created_at_the_end_of_the_card() {
         let out = insert_into_array(CARD, "doors", "  { track = \"A Forest\" },");
         assert!(out.trim_end().ends_with("doors = [\n  { track = \"A Forest\" },\n]"));
         assert!(out.contains("tops = ["));
     }
 
     #[test]
-    fn les_bornes_du_bon_tableau() {
+    fn the_bounds_of_the_right_array() {
         let (from, to) = array_span(CARD, "tops").expect("tops");
         assert!(CARD[from..to].contains("A Forest"));
         assert!(!CARD[from..to].contains("joy-division"));
@@ -318,7 +318,7 @@ mod tests {
     /// The real risk of a textual patch: producing a TOML nobody can read
     /// back. After every insertion, the card must still load as a card.
     #[test]
-    fn la_fiche_reste_lisible_apres_chaque_edition() {
+    fn the_card_stays_readable_after_each_edit() {
         let mut text = CARD.to_string();
         text = insert_into_array(&text, "tops", "  \"Push\",");
         text = insert_into_array(
@@ -329,7 +329,7 @@ mod tests {
         text = insert_into_array(&text, "links", &link_line("siouxsie", "member"));
 
         let card: crate::catalog::Card =
-            toml::from_str(&text).expect("la fiche doit encore se lire");
+            toml::from_str(&text).expect("the card must still parse");
         assert_eq!(card.name, "The Cure");
         assert!(card.tops.contains(&"Push".to_string()));
         assert!(card.tops.contains(&"A Forest".to_string()));
@@ -342,14 +342,14 @@ mod tests {
 
     /// A title with quotes or an apostrophe must not break the card.
     #[test]
-    fn un_titre_retors_passe_quand_meme() {
+    fn a_tricky_title_still_goes_through() {
         let text = insert_into_array(CARD, "tops", &format!("  {},", quoted("L'\"autre\" titre")));
         let card: crate::catalog::Card = toml::from_str(&text).expect("lisible");
         assert!(card.tops.contains(&"L'\"autre\" titre".to_string()));
     }
 
     #[test]
-    fn les_guillemets_sont_echappes() {
+    fn quotes_are_escaped() {
         assert_eq!(quoted("A \"Forest\""), "\"A \\\"Forest\\\"\"");
     }
 }

@@ -365,8 +365,8 @@ fiches par `td`/`aL` sont en anglais (`set while listening, <date>`). Ne
 bougent pas : le texte vectorisé d'`embed.rs` (l'index en dépend), les
 spikes de `src/bin/`, et la doc, qui reste en français. Dans la foulée,
 **tous les commentaires du code sont traduits** (~1 000 lignes, seuls des
-commentaires ont bougé, tests verts) ; restent français les noms de tests
-et les sorties des spikes.
+commentaires ont bougé, tests verts), puis les **51 noms de tests** et
+leurs messages d'assertion ; ne restent français que les sorties des spikes.
 
 ## L'agent : une IA qui pilote forkstify de l'extérieur (10/09/2026)
 

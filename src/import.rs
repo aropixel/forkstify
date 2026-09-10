@@ -120,7 +120,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn le_remote_prend_le_nom_du_propietaire() {
+    fn the_remote_takes_the_owners_name() {
         assert_eq!(remote_name("git@github.com:untel/forkstify-catalog.git"), "untel");
         assert_eq!(remote_name("https://github.com/untel/forkstify-catalog"), "untel");
         assert_eq!(remote_name("https://github.com/untel/forkstify-catalog.git/"), "untel");
