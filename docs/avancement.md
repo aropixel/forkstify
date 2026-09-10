@@ -1456,6 +1456,13 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
     rejouable — connexion, import de la bibliothèque (artistes, albums,
     titres), playlists à cocher, classement calculé par l'application, les
     scripts Python retirés. **Attend la maquette Claude Design de Joel.**
+14. **La barre Omarchy** (Joel, 10/09/2026) : l'animation `▂▄▆` dans la
+    barre, et au clic une popover titre / artiste / progression / prochain
+    morceau. Deux étages proposés dans
+    [barre-omarchy.md](conception/barre-omarchy.md) : forkstify publie
+    d'abord de vraies métadonnées MPRIS (portable), puis un petit plugin
+    Omarchy les montre. **Attend l'arbitrage de Joel** sur les questions
+    de la note.
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
    `cargo clean` efface aujourd'hui l'authentification.
 10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
