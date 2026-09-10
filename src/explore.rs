@@ -1,38 +1,38 @@
-//! L'écran de la **discographie** (`ad`, `:discography`) — maquette 1a de
-//! `Discographie.dc.html`, arbitrée par Joel le 07/09/2026.
+//! The **discography** screen (`ad`, `:discography`) — mockup 1a of
+//! `Discographie.dc.html`, decided by Joel on 07/09/2026.
 //!
-//! Il naît d'un constat : les éditions (0013) ne s'exercent que sur le
-//! morceau qui sonne, si bien que redresser les tops d'un artiste
-//! demanderait de le poncer en entier. Ici on voit tout d'un coup — et
-//! surtout **quel album porte les écoutes**, qui est la vraie question
-//! quand on n'aime qu'un disque sur douze.
+//! It comes from an observation: edits (0013) only apply to the track that
+//! is playing, so straightening an artist's tops would mean sanding it down
+//! in full. Here everything is seen at once — and above all **which album
+//! carries the plays**, the real question when you only like one record
+//! out of twelve.
 //!
-//! Trois choix de forme, qui expliquent le code :
+//! Three choices of form, which explain the code:
 //!
-//! * **Les albums sont pliés.** Cent quatre-vingt-sept titres deviennent
-//!   douze lignes, et seul l'album sous le curseur s'ouvre. Une
-//!   discographie ne se lit pas, elle se survole.
-//! * **Les éditions s'accumulent et partent en un seul commit** (⏎). On en
-//!   fait cinq d'affilée : cinq commits pour une seule pensée ne se
-//!   relisent pas. C'est l'inverse d'une mesure (`tl`, `tb`), qui est
-//!   silencieuse, immédiate, et que 0017 balaie toute seule.
-//! * **Rien n'est réécrit ici** : l'écran prépare, `edit::set_tops` écrit.
-//!   Le module ne connaît ni le disque ni git.
+//! * **Albums are folded.** A hundred and eighty-seven tracks become twelve
+//!   lines, and only the album under the cursor opens. A discography is not
+//!   read, it is skimmed.
+//! * **Edits accumulate and leave in a single commit** (⏎). Five in a row
+//!   happen: five commits for a single thought do not read well. It is the
+//!   opposite of a measure (`tl`, `tb`), which is silent, immediate, and
+//!   swept up by 0017 on its own.
+//! * **Nothing is rewritten here**: the screen prepares, `edit::set_tops`
+//!   writes. The module knows neither the disk nor git.
 
 use crate::catalog::Card;
 use crate::discography::{clean_title, normalize, TailTrack};
 use crate::learned::Learned;
 
-/// L'ordre des albums. Le chronologique est celui de la mémoire ; l'autre
-/// répond à « où vont mes écoutes », qui est la question qu'on vient poser.
+/// The album order. Chronological is the order of memory; the other answers
+/// "where do my plays go", which is the question we came to ask.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Sort {
     Chrono,
     Plays,
 }
 
-/// Le filtre de provenance — une touche, pas un menu : corriger les tops se
-/// fait sur neuf lignes, pas sur cent quatre-vingt-sept.
+/// The provenance filter — one key, not a menu: correcting the tops happens
+/// on nine lines, not a hundred and eighty-seven.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Filter {
     All,
@@ -62,12 +62,12 @@ impl Filter {
 }
 
 pub struct Track {
-    /// Le titre lisible — celui de Spotify, ou celui de la fiche pour un top
-    /// que la discographie ne rend pas.
+    /// The readable title — Spotify's, or the card's for a top the
+    /// discography does not return.
     pub title: String,
-    /// La chaîne **exacte** de la fiche quand ce morceau y est un top. Elle
-    /// n'est pas toujours celle de Spotify, et c'est elle qu'un retrait doit
-    /// viser — sinon `remove_top` ne trouve rien alors que le ♪ s'affiche.
+    /// The **exact** string of the card when this track is a top there. It
+    /// is not always Spotify's, and it is the one a removal must target —
+    /// otherwise `remove_top` finds nothing while the ♪ shows.
     pub card_top: Option<String>,
     pub number: u32,
     pub duration_ms: u32,
@@ -87,8 +87,8 @@ pub struct Album {
     pub title: String,
     pub year: Option<u16>,
     pub single: bool,
-    /// Un top de la fiche que la discographie ne contient pas : coquille,
-    /// live, titre de compilation. C'est la moitié « audit » de l'écran.
+    /// A top of the card the discography does not contain: typo, live
+    /// version, compilation title. This is the "audit" half of the screen.
     pub orphan: bool,
     pub tracks: Vec<Track>,
 }
@@ -111,17 +111,17 @@ impl Album {
     }
 }
 
-/// Une édition préparée, pas encore écrite.
+/// A prepared edit, not yet written.
 pub struct Pending {
     pub add: bool,
-    /// La chaîne à écrire dans la fiche, ou à en retirer.
+    /// The string to write in the card, or to remove from it.
     pub title: String,
-    /// Ce qui la justifie, en trois mots — elle s'affiche à côté.
+    /// What justifies it, in three words — shown next to it.
     pub why: String,
 }
 
-/// Où l'on est. Une **identité**, pas un numéro de ligne : plier un album
-/// change le nombre de lignes au-dessus, et un index y survivrait mal.
+/// Where we are. An **identity**, not a line number: folding an album
+/// changes the number of lines above, and an index would not survive it.
 #[derive(Clone, Copy, PartialEq)]
 pub struct Cursor {
     pub album: usize,
@@ -142,7 +142,7 @@ pub struct Summary {
     pub banned: usize,
     pub tail: usize,
     pub plays: f64,
-    /// Combien d'albums portent la majorité des écoutes, et quelle part.
+    /// How many albums carry the majority of plays, and what share.
     pub carrying: usize,
     pub carrying_pct: u32,
     pub never: usize,
@@ -152,8 +152,8 @@ pub struct Explore {
     pub slug: String,
     pub name: String,
     pub generated: bool,
-    /// La matière première, gardée pour pouvoir tout reconstruire après une
-    /// écriture ou une mesure : le catalogue en mémoire, lui, ne bouge pas.
+    /// The raw material, kept to rebuild everything after a write or a
+    /// measure: the in-memory catalog, for its part, does not move.
     raw: Vec<TailTrack>,
     tops: Vec<String>,
     stats: Vec<(String, f64, Option<i64>, bool, bool)>,
@@ -163,16 +163,16 @@ pub struct Explore {
     pub filter: Filter,
     pub query: String,
     pub cursor: Cursor,
-    /// L'album sous le curseur est ouvert, sauf si l'on a tout replié (`h`).
+    /// The album under the cursor is open, unless everything was folded (`h`).
     pub folded: bool,
     pub pending: Vec<Pending>,
-    /// Ce que l'écran vient de dire — la ligne de notice, en bas.
+    /// What the screen just said — the notice line, at the bottom.
     pub notice: String,
-    /// Échap une première fois avec des éditions en attente ne ferme pas :
-    /// il prévient. C'est le garde-fou que 1a se doit d'avoir.
+    /// A first esc with pending edits does not close: it warns. That is the
+    /// safeguard 1a has to have.
     pub confirm_close: bool,
-    /// La discographie arrive : l'écran s'est ouvert sur les tops, le reste
-    /// se charge derrière (Joel, 08/09/2026).
+    /// The discography is coming: the screen opened on the tops, the rest
+    /// loads behind (Joel, 08/09/2026).
     pub loading: bool,
 }
 
@@ -207,9 +207,9 @@ impl Explore {
         screen
     }
 
-    /// La discographie est arrivée : on reconstruit sur la nouvelle matière
-    /// sans perdre ce que l'utilisateur a déjà fait ici (tri, filtre,
-    /// éditions en attente, curseur — borné par `build`).
+    /// The discography has arrived: rebuild on the new material without
+    /// losing what the user already did here (sort, filter, pending edits,
+    /// cursor — bounded by `build`).
     pub fn reload(&mut self, tail: &[TailTrack], learned: &Learned) {
         self.raw = tail.to_vec();
         self.stats = learned.track_table(&self.slug);
@@ -218,20 +218,20 @@ impl Explore {
         self.build();
     }
 
-    /// Reconstruire les albums depuis la matière première. Appelé à
-    /// l'ouverture, après une mesure, et après une écriture.
+    /// Rebuild the albums from the raw material. Called on opening, after a
+    /// measure, and after a write.
     fn build(&mut self) {
-        // un morceau par titre normalisé : Spotify livre la même chanson
-        // cinq fois (album, single, réédition). On garde la plus ancienne
-        // occurrence d'album — c'est celle dont on se souvient.
+        // one track per normalized title: Spotify delivers the same song
+        // five times (album, single, reissue). We keep the oldest album
+        // occurrence — the one we remember.
         let mut kept: Vec<&TailTrack> = Vec::new();
         for track in &self.raw {
             let key = normalize(&track.title);
             match kept.iter().position(|k| normalize(&k.title) == key) {
                 None => kept.push(track),
                 Some(index) => {
-                    // un album plutôt qu'un single, et la plus ancienne
-                    // parution : c'est la version dont on se souvient
+                    // an album rather than a single, and the oldest release:
+                    // the version we remember
                     let rank = |t: &TailTrack| (t.single, t.year().unwrap_or(u16::MAX));
                     if rank(track) < rank(kept[index]) {
                         kept[index] = track;
@@ -284,8 +284,8 @@ impl Explore {
             }
         }
 
-        // les tops que la discographie ne rend pas : ils tombent en fin de
-        // liste plutôt que de disparaître — c'est là qu'on voit les coquilles
+        // the tops the discography does not return: they fall at the end of
+        // the list rather than vanish — that is where typos show
         let orphans: Vec<&String> =
             self.tops.iter().filter(|top| !claimed.contains(top)).collect();
         if !orphans.is_empty() {
@@ -318,13 +318,13 @@ impl Explore {
         self.clamp();
     }
 
-    /// Reprendre ce que l'appris sait, après une mesure faite ici.
+    /// Pick up what the learned knows, after a measure made here.
     pub fn refresh(&mut self, learned: &Learned) {
         self.stats = learned.track_table(&self.slug);
         self.build();
     }
 
-    /// Ce qui sonne a changé.
+    /// What is playing has changed.
     pub fn now_playing(&mut self, title: Option<&str>) {
         self.playing = title.map(normalize);
     }
@@ -333,7 +333,7 @@ impl Explore {
         self.playing.as_deref() == Some(normalize(&track.title).as_str())
     }
 
-    // --- ce qui se voit -----------------------------------------------------
+    // --- what is shown ------------------------------------------------------
 
     fn visible_track(&self, track: &Track) -> bool {
         let passes = match self.filter {
@@ -347,7 +347,7 @@ impl Explore {
 
     fn visible_album(&self, index: usize) -> bool {
         let album = &self.albums[index];
-        // un album dont le nom répond à la recherche s'ouvre en entier
+        // an album whose name matches the search opens in full
         if !self.query.is_empty() && contains(&album.title, &self.query) {
             return album.tracks.iter().any(|t| match self.filter {
                 Filter::All => true,
@@ -359,7 +359,7 @@ impl Explore {
         album.tracks.iter().any(|t| self.visible_track(t))
     }
 
-    /// Les indices des morceaux affichés d'un album, dans l'ordre courant.
+    /// The indices of an album's shown tracks, in the current order.
     pub fn tracks_of(&self, index: usize) -> Vec<usize> {
         let album = &self.albums[index];
         let named = !self.query.is_empty() && contains(&album.title, &self.query);
@@ -390,8 +390,8 @@ impl Explore {
         rows
     }
 
-    /// L'ordre des albums : chronologique, ou par écoutes. Les singles et
-    /// les orphelins ferment la marche dans les deux cas.
+    /// The album order: chronological, or by plays. Singles and orphans
+    /// close the line in both cases.
     pub fn order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.albums.len()).filter(|i| self.visible_album(*i)).collect();
         match self.sort {
@@ -410,8 +410,8 @@ impl Explore {
         order
     }
 
-    /// Les lignes de l'écran, dans l'ordre : les albums, et les morceaux de
-    /// celui qui est ouvert.
+    /// The screen lines, in order: the albums, and the tracks of the open
+    /// one.
     pub fn rows(&self) -> Vec<Row> {
         let mut rows = Vec::new();
         for index in self.order() {
@@ -443,8 +443,8 @@ impl Explore {
         };
     }
 
-    /// Le curseur reste sur quelque chose qui existe — après un filtre, un
-    /// tri, une reconstruction.
+    /// The cursor stays on something that exists — after a filter, a sort,
+    /// a rebuild.
     fn clamp(&mut self) {
         let rows = self.rows();
         if rows.is_empty() {
@@ -469,8 +469,8 @@ impl Explore {
         let here = self.position() as isize;
         let next = (here + step).clamp(0, rows.len() as isize - 1) as usize;
         self.adopt(rows[next]);
-        // descendre sur un album l'ouvre : c'est ce qui fait qu'on parcourt
-        // douze lignes au lieu de deux cents
+        // moving down onto an album opens it: that is what makes twelve
+        // lines browsable instead of two hundred
         self.clamp();
     }
 
@@ -486,7 +486,7 @@ impl Explore {
         }
     }
 
-    /// `h` replie tout, `l` rouvre l'album sous le curseur.
+    /// `h` folds everything, `l` reopens the album under the cursor.
     pub fn fold(&mut self) {
         self.folded = true;
         self.cursor.track = None;
@@ -531,7 +531,7 @@ impl Explore {
         }
     }
 
-    // --- ce qu'on prépare ---------------------------------------------------
+    // --- what is prepared ---------------------------------------------------
 
     pub fn track(&self) -> Option<&Track> {
         let album = self.albums.get(self.cursor.album)?;
@@ -556,15 +556,15 @@ impl Explore {
         }
     }
 
-    /// Une édition déjà préparée sur ce titre — pour ne pas en empiler deux.
+    /// An edit already prepared on this title — so as not to stack two.
     fn pending_on(&self, title: &str) -> Option<usize> {
         let key = normalize(title);
         self.pending.iter().position(|p| normalize(&p.title) == key)
     }
 
-    /// `A` — promouvoir l'album : ses titres les plus écoutés qui ne sont pas
-    /// encore des tops. C'est le grain du problème (« je n'aime que cet
-    /// album »), et le geste qui n'existe nulle part ailleurs.
+    /// `A` — promote the album: its most played tracks that are not tops
+    /// yet. This is the grain of the problem ("I only like this album"),
+    /// and the gesture that exists nowhere else.
     pub fn top_album(&mut self, most: usize) {
         let Some(album) = self.albums.get(self.cursor.album) else { return };
         let name = album.title.clone();
@@ -591,8 +591,8 @@ impl Explore {
         self.notice = format!("♪+ {written} track(s) from {name} — pending");
     }
 
-    /// `u` — défaire la dernière édition préparée. Ici l'annulation est
-    /// gratuite : rien n'est écrit tant qu'on n'a pas validé.
+    /// `u` — undo the last prepared edit. Undo is free here: nothing is
+    /// written until validated.
     pub fn undo(&mut self) {
         match self.pending.pop() {
             Some(edit) => {
@@ -611,15 +611,15 @@ impl Explore {
         self.pending.iter().filter(|p| !p.add).map(|p| p.title.clone()).collect()
     }
 
-    /// Ce que la fournée deviendra dans la fiche — affiché avant d'appuyer,
-    /// et c'est le sujet du commit.
+    /// What the batch will become in the card — shown before pressing, and
+    /// it is the commit subject.
     pub fn commit_line(&self) -> String {
         format!("{} — tops: +{} −{}", self.name, self.adds().len(), self.removes().len())
     }
 
-    /// Les éditions ont été écrites : l'écran adopte les tops qu'il vient de
-    /// poser, sans relire le catalogue — celui-ci ne rechargera qu'au
-    /// prochain lancement, et l'écran, lui, doit dire vrai tout de suite.
+    /// The edits have been written: the screen adopts the tops it just set,
+    /// without rereading the catalog — that one only reloads on the next
+    /// launch, and the screen has to tell the truth right away.
     pub fn written(&mut self) {
         for edit in &self.pending {
             let key = normalize(&edit.title);
@@ -636,7 +636,7 @@ impl Explore {
         self.build();
     }
 
-    // --- l'en-tête ----------------------------------------------------------
+    // --- the header ---------------------------------------------------------
 
     pub fn summary(&self) -> Summary {
         let tracks: Vec<&Track> = self.albums.iter().flat_map(|a| a.tracks.iter()).collect();
@@ -693,8 +693,8 @@ mod tests {
             track("Cross Bones Style", "Moon Pix", "1998-09-22", 1, false),
             track("Metal Heart", "Moon Pix", "1998-09-22", 2, false),
             track("Colors and the Kids", "Moon Pix", "1998-09-22", 4, false),
-            // la même chanson, en single et remasterisée : elle ne doit pas
-            // faire deux lignes
+            // the same song, as a single and remastered: it must not make
+            // two lines
             track("Metal Heart - 2015 Remaster", "Metal Heart", "2015", 1, true),
             track("Sea Of Love", "The Covers Record", "2000", 1, false),
         ]
@@ -719,7 +719,7 @@ mod tests {
         let titles: Vec<&str> =
             screen.albums.iter().flat_map(|a| a.tracks.iter()).map(|t| t.title.as_str()).collect();
         assert_eq!(titles.iter().filter(|t| t.starts_with("Metal Heart")).count(), 1);
-        // et c'est la version d'album qui est gardée, pas le single
+        // and the album version is kept, not the single
         assert!(titles.contains(&"Metal Heart"));
     }
 
@@ -734,8 +734,8 @@ mod tests {
         assert!(!moon.tracks.iter().find(|t| t.title == "Metal Heart").unwrap().is_top());
     }
 
-    /// Un top de la fiche que Spotify ne rend pas ne disparaît pas : c'est
-    /// exactement ce qu'on vient chercher ici.
+    /// A top of the card Spotify does not return does not vanish: that is
+    /// exactly what we came here for.
     #[test]
     fn un_top_hors_discographie_tombe_en_fin_de_liste() {
         let screen = screen();
@@ -746,11 +746,11 @@ mod tests {
 
     #[test]
     fn ce_qui_est_ecrit_devient_vrai_a_l_ecran() {
-        // « A » ne promeut que ce qui a été écouté : une écoute de Metal Heart
+        // `A` only promotes what was played: one play of Metal Heart
         let mut learned = Learned::blank();
         learned.played("cat-power", "Metal Heart");
         let mut screen = Explore::open("cat-power", &card(), &tail(), &learned, Some("Metal Heart"));
-        // « A » sur Moon Pix, un seul titre : le plus écouté hors tops
+        // `A` on Moon Pix, a single track: the most played non-top
         screen.cursor = Cursor { album: 0, track: Some(1) };
         screen.top_album(1);
         assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);
@@ -777,7 +777,7 @@ mod tests {
         }
     }
 
-    /// Le curseur est une identité : replier ne doit pas le perdre.
+    /// The cursor is an identity: folding must not lose it.
     #[test]
     fn le_curseur_survit_au_pliage() {
         let mut screen = screen();

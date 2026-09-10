@@ -43,25 +43,25 @@ pub enum Cmd {
     Artist(char),
     Prev,
     Next,
-    /// L'axe s'affiche verticalement : les flèches verticales y déplacent une
-    /// **sélection**, elles ne jouent rien. C'est « entrée » qui joue
+    /// The axis is shown vertically: the vertical arrows move a
+    /// **selection**, they play nothing. Enter is what plays
     /// (Joel, 06/09/2026).
     Up,
     Down,
-    /// Échap — annule la sélection, ferme un volet, sort d'un mode.
+    /// Esc — cancels the selection, closes a pane, leaves a mode.
     Escape,
-    /// `cc` — comfort : ouvre le réglage, les flèches le bougent, entrée valide.
+    /// `cc` — comfort: opens the setting, arrows move it, enter validates.
     ComfortMode,
-    /// `c<n>` — la zone de confort, d'un coup (Joel, 08/09/2026).
+    /// `c<n>` — the comfort zone, in one go (Joel, 08/09/2026).
     Comfort(u8),
-    /// `s` — sort : change l'ordre de la collection, à l'accueil.
+    /// `s` — sort: changes the collection order, on home.
     Sort,
-    /// `gg` et `G` — les deux bouts d'une liste, comme dans vim. `g` seul
-    /// n'est rien : il attend son second (Joel, 06/09/2026).
+    /// `gg` and `G` — both ends of a list, as in vim. `g` alone is nothing:
+    /// it waits for its second (Joel, 06/09/2026).
     Top,
     Bottom,
-    /// `J` / `K` — déplacer la ligne surlignée d'un cran dans la file, tout
-    /// de suite (Joel, 08/09/2026). La touche contraire annule.
+    /// `J` / `K` — move the highlighted line one step in the queue, right
+    /// away (Joel, 08/09/2026). The opposite key undoes.
     MoveDown,
     MoveUp,
     PlayPause,
@@ -73,50 +73,49 @@ pub enum Cmd {
     Help(Option<char>),
     Undo,
     Repeat,
-    /// `r` — resume: reprendre le dernier parcours (accueil).
+    /// `r` — resume: resume the last journey (home).
     Resume,
-    /// `b` — browse: parcourir à sec, sans son (écrans non connectés).
+    /// `b` — browse: dry run, no sound (not-connected screens).
     Browse,
     Why,
     Quit,
     Search(String),
     Colon(String),
-    /// La séquence à moitié tapée, ou vide quand elle se referme. Le lecteur
-    /// **n'imprime plus rien** : l'écran appartient à la TUI, et un octet
-    /// écrit derrière son dos y laisse des restes qu'elle ne sait pas
-    /// effacer (relevé par Joel le 06/09/2026).
+    /// The half-typed sequence, or empty when it closes. The reader **no
+    /// longer prints anything**: the screen belongs to the TUI, and a byte
+    /// written behind its back leaves remains it cannot erase (noticed by
+    /// Joel on 06/09/2026).
     Pending(String),
-    /// Une ligne en cours de frappe (`/` ou `:`), préfixe compris.
+    /// A line being typed (`/` or `:`), prefix included.
     Typing(Option<String>),
-    /// Une séquence qui ne veut rien dire.
+    /// A sequence that means nothing.
     Unknown(String),
 
-    // — les touches d'une modale, qui a sa propre table —
-    /// `e` — mettre à la file le morceau sous le curseur, sans fermer :
-    /// une édition ne sonne qu'au prochain lancement, la file, elle, sonne
-    /// ce soir.
+    // — the keys of a modal, which has its own table —
+    /// `e` — queue the track under the cursor, without closing: an edit
+    /// only plays on the next launch, the queue plays tonight.
     Enqueue,
-    /// `v` — la vue : cycler le filtre de provenance.
+    /// `v` — the view: cycle the provenance filter.
     Filter,
-    /// `A` — promouvoir l'album entier, au grain du problème.
+    /// `A` — promote the whole album, at the grain of the problem.
     AlbumTop,
 }
 
-/// Une modale prend le clavier et lui donne **sa** table — `keybindings.md`
-/// le prévoit depuis le début (« un mode à part, avec sa propre table »).
-/// Le lecteur de touches vit dans un fil et ne connaît pas l'état de
-/// l'écran : c'est donc un atomique, posé à l'ouverture et rendu à la
-/// fermeture. La séquence en cours est oubliée au changement, sans quoi un
-/// `t` tapé d'un côté se compléterait de l'autre.
+/// A modal takes the keyboard and gives it **its** table — `keybindings.md`
+/// has planned for it from the start ("a separate mode, with its own
+/// table"). The key reader lives in a thread and does not know the screen
+/// state: so it is an atomic, set on opening and given back on closing. The
+/// pending sequence is forgotten on the switch, otherwise a `t` typed on
+/// one side would complete on the other.
 static MODAL: AtomicBool = AtomicBool::new(false);
 /// Text mode (Joel, 08/09/2026): the search modal owns the keyboard — every
 /// printable key is typed, arrows move, enter takes, escape closes, tab
-/// toggles the scope. No grammar, or « cros » would fire c, r, o, s.
+/// toggles the scope. No grammar, or "cros" would fire c, r, o, s.
 static TEXT: AtomicBool = AtomicBool::new(false);
 
-/// Ce que la ligne du mode texte contient à l'ouverture — `:search bowie`
-/// ouvre la modale déjà remplie, et la frappe suivante doit **continuer**
-/// ce mot, pas l'effacer (Joel, 09/09/2026).
+/// What the text-mode line contains on opening — `:search bowie` opens the
+/// modal already filled, and the next keystroke must **continue** that
+/// word, not erase it (Joel, 09/09/2026).
 static TEXT_LINE: Mutex<String> = Mutex::new(String::new());
 
 pub fn set_text(on: bool, start: &str) {
@@ -150,10 +149,10 @@ pub enum Parse {
 // tops are corrected; the listening session itself refuses them (0018)
 const TRACK_KEYS: [char; 9] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
-/// Dans la modale de la discographie, `t` ne sert qu'à ce qui a un sens sur
-/// une ligne de liste : les deux éditions et les deux mesures.
-// plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : la modale aime,
-// bannit, met à la file — et `A` promeut un album d'un coup
+/// In the discography modal, `t` only serves what makes sense on a list
+/// line: the two edits and the two measures.
+// no more `tt` / `tT` here either (Joel, 08/09/2026): the modal likes,
+// bans, queues — and `A` promotes an album in one go
 const MODAL_TRACK_KEYS: [char; 2] = ['l', 'b'];
 
 /// Match the pending buffer against the grammar of 0015.
@@ -212,14 +211,15 @@ pub fn parse(buf: &str) -> Parse {
         ['p'] => Parse::Done(Cmd::PlayPause),
         ['r'] => Parse::Done(Cmd::Resume),
         ['b'] => Parse::Done(Cmd::Browse),
-        // c est un namespace depuis le 08/09/2026 : c<n> règle, cc ouvre la
-        // jauge — c seul ne peut plus être complet sans casser la grammaire
+        // c has been a namespace since 08/09/2026: c<n> sets, cc opens the
+        // gauge — a lone c can no longer be complete without breaking the
+        // grammar
         ['c'] => Parse::Pending,
         ['c', 'c'] => Parse::Done(Cmd::ComfortMode),
         ['c', d] if ('0'..='5').contains(d) => Parse::Done(Cmd::Comfort(*d as u8 - b'0')),
         ['s'] => Parse::Done(Cmd::Sort),
-        // la vue de la collection, aimés ⇄ tous — le même mot que dans la
-        // discographie (Joel, 09/09/2026)
+        // the collection view, liked ⇄ all — the same word as in the
+        // discography (Joel, 09/09/2026)
         ['v'] => Parse::Done(Cmd::Filter),
         ['g'] => Parse::Pending,
         ['g', 'g'] => Parse::Done(Cmd::Top),
@@ -236,10 +236,10 @@ pub fn parse(buf: &str) -> Parse {
     }
 }
 
-/// La table de la modale de la discographie (maquette 1a). Elle est
-/// **sans préfixe** comme l'autre, et elle emprunte à vim ce que la
-/// grammaire de l'écoute laisse libre : `j`/`k` descendent et montent,
-/// `h`/`l` plient et déplient — un axe vertical, cette fois.
+/// The table of the discography modal (mockup 1a). It is **prefix-free**
+/// like the other, and borrows from vim what the listening grammar leaves
+/// free: `j`/`k` go down and up, `h`/`l` fold and unfold — a vertical axis,
+/// this time.
 pub fn parse_modal(buf: &str) -> Parse {
     let c: Vec<char> = buf.chars().collect();
     match c.as_slice() {
@@ -303,8 +303,8 @@ impl Drop for RawMode {
 }
 
 /// One byte from the terminal, straight from the descriptor: std's stdin
-/// buffers, and a buffered « ESC [ A » would hide its tail from `poll` —
-/// the escape would then look alone, and « [ » « A » would be typed.
+/// buffers, and a buffered "ESC [ A" would hide its tail from `poll` —
+/// the escape would then look alone, and "[" "A" would be typed.
 fn raw_byte() -> Option<u8> {
     let mut byte = 0u8;
     let got = unsafe { libc::read(libc::STDIN_FILENO, &mut byte as *mut u8 as *mut libc::c_void, 1) };
@@ -317,11 +317,11 @@ fn input_pending(ms: i32) -> bool {
     unsafe { libc::poll(&mut fd, 1, ms) > 0 }
 }
 
-/// After an ESC: the tail of an escape sequence (« [ A » for ↑, or « O A »
+/// After an ESC: the tail of an escape sequence ("[ A" for ↑, or "O A"
 /// in application mode) if it is already there, `None` for the Escape key
 /// alone. The reader used to wait for two more bytes whatever happened, so
-/// a lone escape needed two more keystrokes to pass — « je dois souvent
-/// appuyer plusieurs fois » (Joel, 08/09/2026). A terminal delivers a
+/// a lone escape needed two more keystrokes to pass — "I often have to
+/// press several times" (Joel, 08/09/2026). A terminal delivers a
 /// sequence in one go; twenty milliseconds is plenty to tell them apart.
 fn escape_sequence() -> Option<[u8; 2]> {
     if !input_pending(20) {
@@ -345,7 +345,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
     std::thread::spawn(move || {
         let mut pending = String::new();
         let mut was_modal = modal();
-        // la ligne du mode texte : elle vit ici, l'écran n'en voit que l'état
+        // the text-mode line: it lives here, the screen only sees its state
         let mut line = String::new();
         let mut was_text = text();
 
@@ -389,8 +389,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                 continue;
             }
 
-            // l'écran a changé de table sous nos pieds : la séquence en
-            // cours appartenait à l'autre
+            // the screen switched tables under our feet: the pending
+            // sequence belonged to the other one
             if modal() != was_modal {
                 was_modal = !was_modal;
                 clear_pending(&mut pending, &tx);
@@ -461,8 +461,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                 continue;
             }
 
-            // les octets de contrôle ne sont pas des touches : un NUL ou un
-            // ^C arrivé du pty ne doit pas devenir « (inconnu) »
+            // control bytes are not keys: a NUL or a ^C coming from the pty
+            // must not become "(unknown)"
             if byte[0] < 0x20 && byte[0] != b'\r' && byte[0] != b'\n' {
                 continue;
             }
@@ -481,8 +481,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     }
                 }
                 Parse::Pending => {
-                    // montrer ce qu'on attend, comme vim montre une commande
-                    // à moitié tapée — mais c'est la TUI qui l'affiche
+                    // show what is expected, as vim shows a half-typed
+                    // command — but the TUI is what displays it
                     if tx.send(Cmd::Pending(pending.clone())).is_err() {
                         return;
                     }
@@ -499,7 +499,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
     });
 }
 
-/// Oublier la séquence en cours, et le dire à l'écran.
+/// Forget the pending sequence, and tell the screen.
 fn clear_pending(pending: &mut String, tx: &UnboundedSender<Cmd>) {
     if !pending.is_empty() {
         let _ = tx.send(Cmd::Pending(String::new()));
@@ -507,16 +507,16 @@ fn clear_pending(pending: &mut String, tx: &UnboundedSender<Cmd>) {
     pending.clear();
 }
 
-/// Lire une ligne : la frappe remonte à l'écran au lieu de s'écrire dessus.
-/// Entrée envoie, échap annule.
+/// Read a line: keystrokes go up to the screen instead of being written on
+/// it. Enter sends, esc cancels.
 fn read_line(prefix: char, tx: &UnboundedSender<Cmd>) -> Option<String> {
     let mut text = String::new();
     let _ = tx.send(Cmd::Typing(Some(prefix.to_string())));
     while let Some(b) = raw_byte() {
         match b {
             b'\r' | b'\n' => return Some(text),
-            // une flèche dans une ligne ne fait rien, mais ses octets ne
-            // doivent pas retomber dans la grammaire
+            // an arrow inside a line does nothing, but its bytes must not
+            // fall back into the grammar
             0x1b => {
                 if escape_sequence().is_none() {
                     return None;
@@ -626,8 +626,8 @@ mod tests {
         assert_eq!(parse("fu").done(), Some(Cmd::ForkUndo));
         assert!(matches!(parse("t"), Parse::Pending));
         assert!(matches!(parse("tz"), Parse::Unknown));
-        // 0018 : « tt » se lit encore — la discographie s'en sert — mais
-        // c'est la session qui le refuse en écoute
+        // 0018: `tt` still parses — the discography uses it — but the
+        // session is what refuses it when listening
         assert_eq!(parse("tt").done(), Some(Cmd::Track('t')));
         assert!(matches!(parse("e"), Parse::Pending));
         assert!(matches!(parse("e0"), Parse::Unknown));

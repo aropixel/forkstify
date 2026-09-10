@@ -9,7 +9,7 @@ import qs.Commons
 // still — the same staircase, dimmed — when it is paused or not running:
 // flat bars looked like a bug (Joel, 10/09/2026). One click opens
 // the card: the track, its progress, what comes next, and the three
-// controls — or « Lancer » / « Installer » when there is nothing to show.
+// controls — or "Launch" / "Install" when there is nothing to show.
 // Only the `forkstify` player is watched: the rest belongs to omarchy.media.
 BarWidget {
   id: root

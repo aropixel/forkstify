@@ -1,15 +1,15 @@
-//! La TUI (décision [0006] : ratatui). Variantes **1a** puis **2b** des
-//! maquettes (`Lecture.dc.html`, Joel le 07/09/2026) : deux volets
-//! permanents — la liste de lecture à gauche, les branches à droite,
-//! chacune dépliée avec ses morceaux —, la graine en bloc au-dessus, et un
-//! pied qui dit ce qui sonne et ce qui suit.
+//! The TUI (decision [0006]: ratatui). Variants **1a** then **2b** of the
+//! mockups (`Lecture.dc.html`, Joel on 07/09/2026): two permanent panes —
+//! the playlist on the left, the branches on the right, each unfolded with
+//! its tracks —, the seed as a block above, and a foot that says what is
+//! playing and what comes next.
 //!
-//! Elle n'emprunte à ratatui que le **dessin**. La saisie reste celle de
-//! `keys.rs` — termios brut, grammaire sans préfixe — parce qu'elle est
-//! déjà éprouvée et que ratatui n'a pas besoin de posséder l'entrée.
+//! It borrows only the **drawing** from ratatui. Input stays the one of
+//! `keys.rs` — raw termios, prefix-free grammar — because it is already
+//! proven and ratatui has no need to own the input.
 //!
-//! Les couleurs sont des **rôles**, jamais des hex : forkstify emprunte la
-//! palette du terminal, si bien que changer de thème Omarchy le rethème.
+//! Colors are **roles**, never hex values: forkstify borrows the terminal
+//! palette, so switching the Omarchy theme rethemes it.
 
 use crate::engine::{Branch, Head, Source, Stop};
 use ratatui::backend::CrosstermBackend;
@@ -20,7 +20,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Terminal;
 use std::io::{Stdout, Write};
 
-// Les rôles du design system, sur la palette ANSI du terminal.
+// The design system roles, on the terminal's ANSI palette.
 const BRANCH: Color = Color::LightMagenta;
 const PLAYING: Color = Color::Green;
 const CATALOG: Color = Color::Blue;
@@ -28,19 +28,19 @@ const VECTOR: Color = Color::Cyan;
 const DOOR: Color = Color::LightRed;
 const EDIT: Color = Color::Yellow;
 const DANGER: Color = Color::Red;
-/// Ce qui charge : la couleur des vecteurs, celle de l'attente réseau.
+/// What is loading: the color of the vectors, and of network waits.
 pub const LOADING: Color = Color::Cyan;
 const MUTED: Color = Color::Gray;
 
-/// La part de largeur donnée à la colonne de gauche — les propositions à
-/// l'accueil, l'axe en écoute : **même disposition sur les deux écrans**
-/// (Joel, 07/09/2026). 60 laisse à la droite de quoi montrer un nom long
-/// sans couper ; 50 la rend plus présente. Une seule valeur à changer.
+/// The share of width given to the left column — the proposals at home,
+/// the axis while listening: **same layout on both screens** (Joel,
+/// 07/09/2026). 60 leaves the right enough room to show a long name
+/// without cutting; 50 makes it more present. A single value to change.
 const LEFT_SHARE: u16 = 60;
 const DIM: Color = Color::DarkGray;
 
-/// Sous cette largeur, la colonne de droite s'efface : mieux vaut une
-/// colonne lisible que deux illisibles.
+/// Below this width the right column disappears: one readable column
+/// beats two unreadable ones.
 const SPLIT_MIN: u16 = 60;
 
 fn role_of(source: Source) -> Color {
@@ -53,93 +53,92 @@ fn role_of(source: Source) -> Color {
     }
 }
 
-/// Tout ce que l'écran a besoin de savoir. La session le remplit, la TUI ne
-/// décide de rien : le moteur produit, l'affichage montre.
+/// Everything the screen needs to know. The session fills it, the TUI
+/// decides nothing: the engine produces, the display shows.
 pub struct View<'a> {
-    /// Les artistes traversés — comptés dans le bloc de la graine, plus
-    /// affichés en en-tête : la liste jouée le dit déjà (maquette 2b).
+    /// The artists walked through — counted in the seed block, no longer
+    /// shown in the head: the played list already says it (mockup 2b).
     pub path: Vec<String>,
     pub seed: &'a str,
     pub seed_name: &'a str,
-    /// « fiche écrite · 41 liens · 12 tops »
+    /// "written card · 41 links · 12 tops"
     pub seed_facts: &'a str,
-    /// « dernière écoute -3s », ou « jamais écouté »
+    /// "last played -3s", or "never played"
     pub seed_last: &'a str,
-    /// Les embranchements pris depuis la graine.
+    /// The forks taken since the seed.
     pub forks: usize,
     pub segment: usize,
     pub past: &'a [Stop],
     pub current: Option<&'a Stop>,
     pub paused: bool,
-    /// Le morceau courant est affiché mais pas encore résolu : Spotify
-    /// cherche son adresse derrière l'écran.
+    /// The current track is shown but not resolved yet: Spotify is looking
+    /// up its address behind the screen.
     pub loading: bool,
     pub queue: &'a [Stop],
     pub branches: &'a [Branch],
-    /// Les liens qui pointent vers une fiche absente (0016) : des directions
-    /// que le catalogue nomme mais ne sait pas encore marcher. Elles se
-    /// numérotent **à la suite** des branches, et les prendre génère la
-    /// fiche au lieu de jouer tout de suite.
+    /// Links pointing to a missing card (0016): directions the catalog names
+    /// but cannot walk yet. They are numbered **after** the branches, and
+    /// taking one generates the card instead of playing right away.
     pub missing: &'a [crate::engine::Missing],
-    /// Le volet des branches est **toujours là** (Joel, 06/09/2026) : on ne
-    /// veut pas attendre l'embranchement pour savoir où l'on peut aller.
-    /// Il a donc sa place réservée à droite plutôt que d'être posé sur
-    /// l'axe — sinon il masquerait en permanence le bas de la file.
+    /// The branches pane is **always there** (Joel, 06/09/2026): we don't
+    /// want to wait for the fork to know where we can go. So it has its
+    /// reserved place on the right rather than being laid over the axis —
+    /// otherwise it would permanently hide the bottom of the queue.
     pub panel: bool,
 
-    /// Une note grise par morceau de l'axe (passé, courant, file), dans le
-    /// même ordre : ce que l'écoute en sait (maquette 3a).
+    /// One grey note per track of the axis (past, current, queue), in the
+    /// same order: what the plays know about it (mockup 3a).
     pub notes: &'a [String],
-    /// La ligne de l'axe sous la sélection — surlignée, mais pas jouée.
+    /// The axis line under the selection — highlighted, but not played.
     pub selection: Option<usize>,
-    /// Un bloc posé sur l'écran, qui ne descend pas dans le journal : le bas
-    /// de l'écran ne doit jamais bouger (Joel, 06/09/2026).
+    /// A block laid over the screen, which does not go down into the log:
+    /// the bottom of the screen must never move (Joel, 06/09/2026).
     pub overlay: Option<(&'a str, &'a [String])>,
     pub comfort_mode: bool,
     pub comfort: u8,
     pub comfort_word: &'a str,
-    /// (position, durée) en millisecondes du morceau qui sonne — `None`
-    /// tant que librespot n'a rien dit.
+    /// (position, duration) in milliseconds of the playing track — `None`
+    /// as long as librespot has said nothing.
     pub progress: Option<(u32, u32)>,
-    /// Le cartouche en bas à droite : ce qui charge, ou la dernière chose
-    /// dite, en couleur (Joel, 08/09/2026).
+    /// The box at the bottom right: what is loading, or the last thing
+    /// said, in color (Joel, 08/09/2026).
     pub toast: Option<Toast>,
-    /// La modale de recherche, quand elle est ouverte.
+    /// The search modal, when open.
     pub finder: Option<FinderView>,
-    /// La modale de la discographie (`ad`), posée sur l'écoute : elle prend
-    /// le corps de l'écran, l'en-tête et le pied restent — « la lecture n'a
-    /// pas cessé » (maquette 1a).
+    /// The discography modal (`ad`), laid over the listening screen: it
+    /// takes the body, the head and the foot stay — "playback has not
+    /// stopped" (mockup 1a).
     pub explore: Option<&'a crate::explore::Explore>,
     pub prompt: String,
 }
 
-/// Le pied de lecture : ce qui sonne, sa progression, ce qui suit, la
-/// dernière chose dite. Le même sous la session et sous l'accueil (Joel,
-/// 08/09/2026) — l'écoute continue quand on change d'écran.
+/// The playback foot: what is playing, its progress, what comes next, the
+/// last thing said. The same under the session and under home (Joel,
+/// 08/09/2026) — listening goes on when switching screens.
 pub struct Bar<'a> {
     pub current: Option<&'a Stop>,
     pub paused: bool,
     pub loading: bool,
     pub progress: Option<(u32, u32)>,
-    /// (rang du courant, total) dans la liste de lecture
+    /// (rank of the current one, total) in the playlist
     pub position: (usize, usize),
     pub next: Option<&'a Stop>,
     pub ahead: usize,
 }
 
-/// La modale de recherche (maquette `Recherche.dc.html`, Joel 08/09/2026) :
-/// une ligne de saisie, une règle qui coupe et compte, le catalogue avant
-/// Spotify, jamais mêlés.
+/// The search modal (mockup `Recherche.dc.html`, Joel 08/09/2026): one
+/// input line, a rule that cuts and counts, the catalog before Spotify,
+/// never mixed.
 pub struct FinderView {
-    /// `ti` plutôt que `:search` : le titre change, et l'ancre s'affiche.
+    /// `ti` rather than `:search`: the title changes, and the anchor shows.
     pub insert: bool,
     pub anchor: Option<String>,
     pub query: String,
-    /// (catalogue, spotify, spotify en cours d'interrogation)
+    /// (catalog, spotify, spotify being queried)
     pub counts: (usize, Option<usize>, bool),
     pub only_catalogue: bool,
     pub lines: Vec<FinderLine>,
-    /// L'index, parmi les `Row` seulement.
+    /// The index, among the `Row`s only.
     pub cursor: usize,
 }
 
@@ -149,7 +148,7 @@ pub enum FinderLine {
     Info(String),
 }
 
-/// Un toast : un texte, sa couleur, et s'il reste tant que ça charge.
+/// A toast: a text, its color, and whether it stays while loading.
 pub struct Toast {
     pub text: String,
     pub tone: Color,
@@ -161,8 +160,8 @@ pub struct Tui {
 }
 
 impl Tui {
-    /// Écran alterné, curseur caché. Les séquences sont écrites à la main :
-    /// ratatui ne sert qu'à dessiner, pas à tenir le terminal.
+    /// Alternate screen, hidden cursor. The sequences are written by hand:
+    /// ratatui only draws, it does not hold the terminal.
     pub fn enter() -> std::io::Result<Tui> {
         let mut out = std::io::stdout();
         write!(out, "\x1b[?1049h\x1b[?25l")?;
@@ -185,13 +184,13 @@ impl Drop for Tui {
     }
 }
 
-/// La ligne d'une notification, mise en forme par sa nature — lue au
-/// glyphe qui l'ouvre, comme le composant Notice du design system : ✓ en
-/// vert, ⏹ et ⊘ en rouge, ↻ ⚑ en jaune (une édition), → en magenta, une
-/// parenthèse en gris, « pas encore câblé » en italique estompé. Ce qui
-/// suit un « — » ou une parenthèse finale est le détail, estompé.
-/// La couleur d'un message, lue au glyphe qui l'ouvre — la même pour la
-/// ligne du pied et pour le toast.
+/// A notification line, styled by its nature — read from the glyph that
+/// opens it, like the design system's Notice component: ✓ in green, ⏹ and
+/// ⊘ in red, ↻ ⚑ in yellow (an edit), → in magenta, a parenthesis in grey,
+/// "not wired yet" in dimmed italics. What follows a "—" or a final
+/// parenthesis is the detail, dimmed.
+/// The color of a message, read from the glyph that opens it — the same
+/// for the foot line and for the toast.
 pub fn tone_of(text: &str) -> Color {
     let text = text.trim();
     let not_wired = text.contains("not wired yet");
@@ -222,7 +221,7 @@ fn notice_line(text: &str) -> Line<'static> {
     } else {
         Style::default().fg(tone)
     };
-    // le détail — après « — » ou dans une parenthèse finale — s'estompe
+    // the detail — after "—" or in a final parenthesis — is dimmed
     let split = if first == '(' {
         None
     } else {
@@ -237,14 +236,14 @@ fn notice_line(text: &str) -> Line<'static> {
     }
 }
 
-/// « m:ss », comme un lecteur l'écrit.
+/// "m:ss", as a player writes it.
 fn clock(ms: u32) -> String {
     let seconds = ms / 1000;
     format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
-/// Une ligne à deux bouts : la gauche, puis la droite au bord. Faute de
-/// justification en cellules, l'écart est calculé depuis la largeur.
+/// A line with two ends: the left, then the right at the edge. With no
+/// cell justification, the gap is computed from the width.
 fn justified(left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) -> Line<'static> {
     let count = |spans: &[Span]| spans.iter().map(|s| s.content.chars().count()).sum::<usize>();
     let gap = width.saturating_sub(count(&left) + count(&right)).max(2);
@@ -254,7 +253,7 @@ fn justified(left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) 
     Line::from(spans)
 }
 
-/// Coupe un texte à `max` caractères, avec une ellipse : une liste se coupe.
+/// Cuts a text at `max` characters, with an ellipsis: a list gets cut.
 fn fit(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         return text.to_string();
@@ -264,7 +263,7 @@ fn fit(text: &str, max: usize) -> String {
     cut
 }
 
-/// Où en est un morceau de la liste de lecture.
+/// Where a playlist track stands.
 #[derive(Clone, Copy, PartialEq)]
 enum Slot {
     Played,
@@ -272,14 +271,14 @@ enum Slot {
     Ahead { n: usize },
 }
 
-/// La ligne d'un morceau, sur la grille de la maquette 3a : le numéro et
-/// la flèche, le morceau, la raison de la branche qu'il ouvre en gris — en
-/// cyan quand elle vient des vecteurs —, et à droite ce que l'écoute en
-/// sait. Ce qui a sonné n'est pas numéroté et s'estompe ; ce qui sonne
-/// porte « ▶ » ; ce qui vient est compté à partir de lui.
+/// A track line, on the grid of mockup 3a: the number and the arrow, the
+/// track, the reason of the branch it opens in grey — in cyan when it comes
+/// from the vectors —, and on the right what the plays know about it. What
+/// has played is not numbered and is dimmed; what is playing carries "▶";
+/// what comes is counted from it.
 fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
-    // le numéro en gris, la flèche seule en couleur (maquette 2b)
+    // the number in grey, only the arrow in color (mockup 2b)
     let prefix: Vec<Span> = match slot {
         Slot::Played => vec![Span::raw("      ")],
         Slot::Playing { n, paused } => vec![
@@ -289,8 +288,8 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
                 Style::default().fg(PLAYING).add_modifier(Modifier::BOLD),
             ),
         ],
-        // un encore se reconnaît à son « ↻ » : c'est ainsi que le geste se
-        // vérifie, sans notification (Joel, 07/09/2026)
+        // a replay is recognized by its "↻": that is how the gesture is
+        // checked, without a notification (Joel, 07/09/2026)
         Slot::Ahead { n } if stop.encore => vec![
             Span::styled(format!("{n:>2} "), Style::default().fg(DIM)),
             Span::styled("↻  ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
@@ -302,7 +301,7 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
     let body: Vec<Span> = match slot {
-        // inversé, comme partout où quelque chose est actif
+        // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
             format!(" {body_text} "),
             Style::default().fg(Color::Black).bg(PLAYING).add_modifier(Modifier::BOLD),
@@ -325,13 +324,13 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
             ]
         }
     };
-    // le préfixe fait 6 cellules, le corps inversé en prend deux de plus
+    // the prefix is 6 cells, the reversed body takes two more
     let body_width = body_text.chars().count() + usize::from(matches!(slot, Slot::Playing { .. })) * 2;
     let used = 6 + body_width + 2 + 2;
-    // une note qui ne tient pas ne s'affiche pas : on ne coupe pas un mot
+    // a note that does not fit is not shown: we don't cut a word
     let note = if used - 2 + note.chars().count() <= width { note } else { "" };
     let room = width.saturating_sub(used + note.chars().count() + 2);
-    // une raison réduite à un moignon ne dit rien : sous 14 cellules, rien
+    // a reason reduced to a stump says nothing: under 14 cells, nothing
     let (middle, middle_tone) = match opening {
         Some(reason) if room >= 14 => {
             let tone = if reason.starts_with("close to") { VECTOR } else { MUTED };
@@ -353,11 +352,11 @@ fn track_row(stop: &Stop, slot: Slot, opening: Option<&str>, note: &str, width: 
 
 fn render(frame: &mut ratatui::Frame, view: &View) {
     let area = frame.area();
-    // maquette 2b : une ligne d'en-tête, le bloc de la graine, le corps qui
-    // prend le reste, puis un pied de trois lignes et l'invite — le bas ne
-    // bouge jamais, quoi que forkstify dise
-    // plus de ligne de statut sous « à suivre » : tout se dit en toast, et
-    // les touches suivent directement (Joel, 08/09/2026)
+    // mockup 2b: a head line, the seed block, the body that takes the rest,
+    // then a three-line foot and the prompt — the bottom never moves,
+    // whatever forkstify says
+    // no status line under "up next" anymore: everything is said in a
+    // toast, and the keys follow directly (Joel, 08/09/2026)
     let [head, seed_block, body, now, bar, next, prompt] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length(4),
@@ -370,9 +369,8 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     .areas(area);
     let full = area.width as usize;
 
-    // l'axe à gauche, les branches à droite sur toute la hauteur (1a), en
-    // 60/40 comme l'accueil — leur place est réservée, elles ne recouvrent
-    // rien
+    // the axis on the left, the branches on the right over the full height
+    // (1a), 60/40 like home — their place is reserved, they cover nothing
     let (axis, panel_column) = if view.panel && body.width >= SPLIT_MIN {
         let [left, right] = Layout::horizontal([
             Constraint::Percentage(LEFT_SHARE),
@@ -384,7 +382,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         (body, None)
     };
 
-    // — l'en-tête, sur une ligne : la commande à gauche, l'état à droite
+    // — the head, on one line: the command on the left, the state on the right
     let tracks = view.past.len() + usize::from(view.current.is_some()) + view.queue.len();
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
     let comfort_style = if view.comfort_mode {
@@ -416,7 +414,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         head,
     );
 
-    // — la graine, en bloc : c'est d'elle que tout descend
+    // — the seed, as a block: everything descends from it
     let forks = match view.forks {
         0 => "no fork yet".to_string(),
         1 => "1 fork so far".to_string(),
@@ -451,11 +449,11 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         seed_block,
     );
 
-    // — l'axe : ce qui a sonné, ce qui sonne, ce qui suit. Il s'affiche
-    // verticalement, donc c'est verticalement qu'on s'y déplace.
+    // — the axis: what has played, what is playing, what comes next. It is
+    // shown vertically, so it is walked vertically.
     let mut lines: Vec<Line> = Vec::new();
     let mut index = 0usize;
-    // la sélection surligne, elle ne joue pas : c'est entrée qui joue
+    // selecting highlights, it does not play: enter plays
     fn push(line: Line<'static>, i: usize, selection: Option<usize>, lines: &mut Vec<Line<'static>>) {
         if selection == Some(i) {
             let text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
@@ -467,12 +465,12 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             lines.push(line);
         }
     }
-    // la liste de lecture sur la grille de la maquette 3a (Joel, 07/09/2026) :
-    // ce qui sonne et ce qui vient sont numérotés et séparés d'un filet, la
-    // raison de chaque branche se lit en gris à côté du morceau qui l'ouvre,
-    // et ce que l'écoute sait du morceau se lit à droite. Tout ce qui a été
-    // joué reste à l'écran, compact et estompé : c'est la playlist en train
-    // de se faire, pas un historique à oublier (Joel, 06/09/2026).
+    // the playlist on the grid of mockup 3a (Joel, 07/09/2026): what is
+    // playing and what comes are numbered and separated by a rule, the
+    // reason of each branch reads in grey next to the track that opens it,
+    // and what the plays know about the track reads on the right. Everything
+    // that has played stays on screen, compact and dimmed: it is the
+    // playlist in the making, not a history to forget (Joel, 06/09/2026).
     let width = axis.width.saturating_sub(1) as usize;
     let mut playing_line = 0usize;
     let past_len = view.past.len();
@@ -512,7 +510,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         index += 1;
     }
     if !all.is_empty() {
-        // l'horizon : rien de tiré au-delà, la suite est dans la colonne
+        // the horizon: nothing drawn beyond, the rest is in the column
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             fit(
@@ -525,15 +523,15 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             Style::default().fg(DIM),
         )));
     }
-    // pas de retour à la ligne : une liste se coupe, elle ne se replie pas —
-    // et on suit ce qui joue plutôt que le début de la soirée
+    // no line wrapping: a list gets cut, it does not fold — and we follow
+    // what is playing rather than the start of the evening
     let height = axis.height as usize;
     let offset = playing_line
         .saturating_sub(height / 2)
         .min(lines.len().saturating_sub(height));
     frame.render_widget(Paragraph::new(lines).scroll((offset as u16, 0)), axis);
 
-    // — le pied (maquette 2b), partagé avec l'accueil
+    // — the foot (mockup 2b), shared with home
     render_bar(
         frame,
         [now, bar, next],
@@ -548,7 +546,7 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
         },
     );
 
-    // — l'invite : toujours la dernière ligne, avec son curseur
+    // — the prompt: always the last line, with its cursor
     let prompt_line = Line::from(vec![
         Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
         Span::raw(" "),
@@ -556,44 +554,44 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     ]);
     frame.render_widget(Paragraph::new(prompt_line), prompt);
 
-    // — les branches, dans leur colonne : toujours visibles
+    // — the branches, in their column: always visible
     if let Some(column) = panel_column {
         render_panel(frame, column, view);
     }
 
-    // — la discographie prend le corps de l'écran, jamais le pied
+    // — the discography takes the body of the screen, never the foot
     if let Some(screen) = view.explore {
         render_explore(frame, body, screen);
     }
 
-    // — la recherche prend le corps, comme la discographie
+    // — search takes the body, like the discography
     if let Some(finder) = &view.finder {
         render_finder(frame, body, finder);
     }
 
-    // — le toast, en bas à droite du corps, par-dessus la colonne ou la
-    // modale : ce qui charge, ou ce qui vient d'être dit
+    // — the toast, at the bottom right of the body, over the column or the
+    // modal: what is loading, or what was just said
     if let Some(toast) = &view.toast {
         render_toast(frame, body, toast);
     }
 
-    // — et ce qui se pose par-dessus tout : un bloc demandé (le leader, « ? »)
+    // — and what sits over everything: a requested block (the leader, "?")
     if let Some((title, body)) = view.overlay {
         render_block(frame, area, title, body);
     }
 }
 
-/// La modale de recherche : le même filet léger que la discographie, une
-/// seule ligne de frappe « ⟩ », la règle qui coupe la saisie des résultats
-/// et porte le décompte, puis les deux groupes — bleu écrit par un humain,
-/// cyan deviné.
+/// The search modal: the same light rule as the discography, a single
+/// typing line "⟩", the rule that separates the input from the results and
+/// carries the count, then the two groups — blue written by a human, cyan
+/// guessed.
 fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     frame.render_widget(Clear, area);
     let width = area.width as usize;
     let rule = |text: &str| Span::styled(text.to_string(), Style::default().fg(DIM));
     let mut lines: Vec<Line> = Vec::new();
 
-    // — le titre porte la touche, comme partout
+    // — the title carries the key, as everywhere
     lines.push(ruled(
         vec![
             rule("┌─ "),
@@ -617,7 +615,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
             Span::styled(anchor.clone(), Style::default().fg(MUTED)),
         ]));
     }
-    // — la seule zone de frappe
+    // — the only typing area
     let mut input = vec![
         rule("│ "),
         Span::styled("⟩ ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
@@ -628,7 +626,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         input.push(Span::styled("   a track, an artist, or a card slug", Style::default().fg(DIM)));
     }
     lines.push(Line::from(input));
-    // — la règle qui coupe, et compte
+    // — the rule that separates, and counts
     let (cat, spot, asking) = view.counts;
     let mut counts = vec![
         rule("│ "),
@@ -645,7 +643,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     counts.push(rule(" ──"));
     lines.push(Line::from(counts));
 
-    // — les résultats, groupés
+    // — the results, grouped
     let cursor_style = Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD);
     let mut row_index = 0usize;
     for line in &view.lines {
@@ -689,7 +687,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         }
     }
 
-    // — les touches, et la fermeture
+    // — the keys, and closing
     lines.push(Line::from(rule("│")));
     lines.push(Line::from(vec![
         rule("│ "),
@@ -717,9 +715,9 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     frame.render_widget(Paragraph::new(lines), area);
 }
 
-/// Le cartouche d'un toast : un cadre de la couleur du message, le texte
-/// en gras dedans, posé en bas à droite du corps au-dessus des touches de
-/// la colonne. Collant tant que ça charge, sinon quatre secondes.
+/// A toast's box: a frame in the message's color, the text in bold inside,
+/// laid at the bottom right of the body above the column's keys. Sticky
+/// while loading, otherwise four seconds.
 fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
     let width = 48.min(body.width.saturating_sub(2));
     if width < 12 || body.height < 6 {
@@ -748,10 +746,10 @@ fn render_toast(frame: &mut ratatui::Frame, body: Rect, toast: &Toast) {
     frame.render_widget(Paragraph::new(text).block(block), rect);
 }
 
-/// Le pied de lecture (maquette 2b) : ce qui sonne et sa provenance, sa
-/// progression, puis ce qui suit et à combien de morceaux se trouve
-/// l'embranchement — ce que la liste ne dit plus quand elle a défilé —, et
-/// la dernière chose dite.
+/// The playback foot (mockup 2b): what is playing and where it comes from,
+/// its progress, then what comes next and how many tracks away the fork is
+/// — what the list no longer says once it has scrolled —, and the last
+/// thing said.
 fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Bar) {
     let full = now.width as usize;
     let (rank, tracks) = view.position;
@@ -782,7 +780,7 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
                     ),
                     Span::styled(stop.source.word().to_string(), Style::default().fg(MUTED)),
                 ];
-                // les temps, dès que librespot les a dits
+                // the times, as soon as librespot has said them
                 if let Some((position, duration)) = view.progress {
                     right.push(Span::styled(" │ ", Style::default().fg(DIM)));
                     right.push(Span::styled(clock(position), Style::default().fg(MUTED)));
@@ -800,7 +798,7 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
         None => Line::from(Span::styled("⏹ nothing playing", Style::default().fg(MUTED))),
     };
     frame.render_widget(Paragraph::new(now_line), now);
-    // la progression, pleine largeur, comme le module media de waybar
+    // the progress, full width, like waybar's media module
     let bar_line = match view.progress {
         Some((position, duration)) if duration > 0 => {
             let filled = (position as u64 * full as u64 / duration as u64) as usize;
@@ -838,9 +836,9 @@ fn render_bar(frame: &mut ratatui::Frame, [now, bar, next]: [Rect; 3], view: &Ba
     frame.render_widget(Paragraph::new(next_line), next);
 }
 
-/// Coupe un texte en lignes d'au plus `width` caractères, sur les espaces.
-/// Une raison se replie (c'est de la prose), un morceau se coupe (c'est une
-/// liste) : c'est pourquoi le volet ne confie pas le repli à ratatui.
+/// Wraps a text into lines of at most `width` characters, on spaces. A
+/// reason folds (it is prose), a track gets cut (it is a list): that is why
+/// the pane does not leave wrapping to ratatui.
 fn wrap_words(text: &str, width: usize) -> Vec<String> {
     let width = width.max(8);
     let mut lines = Vec::new();
@@ -863,19 +861,19 @@ fn wrap_words(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
-/// Ce que la jauge de proximité affiche sous une branche : le mot du lien
-/// pour le graphe, le cosinus pour l'espace vectoriel — deux natures, deux
-/// couleurs, comme partout ailleurs.
+/// What the proximity gauge shows under a branch: the link word for the
+/// graph, the cosine for the vector space — two natures, two colors, as
+/// everywhere else.
 fn proximity_of(branch: &Branch) -> (Color, String, Option<String>) {
     let cells: String = (0..5)
         .map(|i| if (i as f32) < branch.weight.round() { '█' } else { '░' })
         .collect();
     if branch.reason.starts_with("close to") {
-        // la branche aventureuse : le moteur a mis le cosinus sur l'échelle 1–5
+        // the adventurous branch: the engine put the cosine on the 1–5 scale
         let cosine = branch.weight / 5.0;
         (VECTOR, cells, Some(format!("{cosine:.2}")))
     } else {
-        // le graphe : le lien typé est le premier mot de la raison
+        // the graph: the typed link is the first word of the reason
         let kind = branch
             .reason
             .split(" — ")
@@ -887,12 +885,12 @@ fn proximity_of(branch: &Branch) -> (Color, String, Option<String>) {
     }
 }
 
-/// La colonne des branches (1a) : toujours là, sur toute la hauteur, chaque
-/// branche dépliée avec ses morceaux — ils sont déjà tirés, autant les
-/// montrer pour qu'on choisisse en connaissance de cause (Joel, 07/09/2026).
-/// Un filet à gauche la sépare de l'axe ; c'est la seule règle qu'elle trace.
+/// The branches column (1a): always there, over the full height, each
+/// branch unfolded with its tracks — they are already drawn, might as well
+/// show them so one chooses knowingly (Joel, 07/09/2026). A rule on the
+/// left separates it from the axis; it is the only rule it draws.
 fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
-    // le filet, puis une cellule de marge : le contenu commence à x + 2
+    // the rule, then one cell of margin: content starts at x + 2
     let rule: Vec<Line> = (0..column.height)
         .map(|_| Line::from(Span::styled("│", Style::default().fg(DIM))))
         .collect();
@@ -910,7 +908,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
         Span::styled("── ", Style::default().fg(BRANCH)),
         Span::styled("branches", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
         Span::styled(format!(" {}", view.branches.len()), Style::default().fg(DIM)),
-        // les creux se comptent à part : ils ne sonnent pas encore
+        // the gaps are counted apart: they don't play yet
         Span::styled(
             if view.missing.is_empty() {
                 String::new()
@@ -928,7 +926,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
         )));
     }
     for (i, branch) in view.branches.iter().enumerate() {
-        // « 1  label » — 2 cellules d'indentation, comme le PoC l'imprime
+        // "1  label" — 2 cells of indentation, as the PoC prints it
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {}  ", i + 1),
@@ -940,8 +938,8 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             ),
         ]));
         let (tone, cells, word) = proximity_of(branch);
-        // la raison, repliée à 5 cellules ; quand elle n'est que le mot du
-        // lien (« rester dans l'univers »), la jauge ne la redit pas
+        // the reason, wrapped at 5 cells; when it is only the link word
+        // ("stay within the universe"), the gauge does not repeat it
         let bare = word.as_deref() == Some(branch.reason.as_str());
         let word = if bare { None } else { word };
         if !branch.reason.is_empty() {
@@ -952,7 +950,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 )));
             }
         }
-        // les morceaux, tels qu'ils sonneront : on choisit ce qu'on entendra
+        // the tracks, as they will play: we choose what we will hear
         for stop in &branch.stops {
             lines.push(Line::from(vec![
                 Span::styled("     ", Style::default()),
@@ -970,8 +968,8 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             Span::styled("     ", Style::default()),
             Span::styled(cells, Style::default().fg(tone)),
         ];
-        // la raison est grise, son mot sous la jauge aussi (Joel, 07/09/2026) :
-        // seules les cellules disent la nature du lien
+        // the reason is grey, its word under the gauge too (Joel, 07/09/2026):
+        // only the cells tell the nature of the link
         if let Some(word) = word {
             gauge.push(Span::styled(format!(" {word}"), Style::default().fg(MUTED)));
         }
@@ -979,9 +977,9 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
         lines.push(Line::from(""));
     }
 
-    // les creux : un lien du catalogue vers une fiche qui n'existe pas
-    // encore. Ils se numérotent à la suite, en gris, et le cercle vide dit
-    // qu'il faudra les générer avant de les marcher (0016).
+    // the gaps: a catalog link to a card that does not exist yet. They are
+    // numbered after the others, in grey, and the empty circle says they
+    // must be generated before being walked (0016).
     for (i, missing) in view.missing.iter().enumerate() {
         lines.push(Line::from(vec![
             Span::styled(
@@ -996,8 +994,8 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 Style::default().fg(DIM),
             )));
         }
-        // la même jauge que les branches, en gris : la proximité du lien est
-        // connue, c'est la fiche qui manque
+        // the same gauge as the branches, in grey: the link's proximity is
+        // known, it is the card that is missing
         let cells: String =
             (0..5).map(|i| if i < missing.proximity { '█' } else { '░' }).collect();
         lines.push(Line::from(vec![
@@ -1015,7 +1013,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
         lines.push(Line::from(""));
     }
 
-    // les touches, au pied de la colonne — deux lignes qui ne bougent pas
+    // the keys, at the foot of the column — two lines that never move
     let hints = [
         Line::from(vec![
             Span::styled("1-3", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
@@ -1043,16 +1041,16 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
     }
 }
 
-/// Une ligne de l'accueil. L'accueil décide **quoi** dire, la TUI **comment**
-/// — c'est la même séparation qu'entre le moteur et le son.
+/// A home line. Home decides **what** to say, the TUI **how** — the same
+/// separation as between the engine and the sound.
 pub enum Row {
     Rule(String),
     Text(String),
     Dim(String),
-    /// Une porte d'entrée numérotée : la numérotation court à travers les
-    /// blocs, si bien que choisir une graine est le geste qui choisit une
-    /// branche. `artist` n'est rempli que si la graine est un **morceau** —
-    /// le titre passe devant, l'artiste derrière, comme partout ailleurs.
+    /// A numbered door: numbering runs across the blocks, so choosing a
+    /// seed is the gesture that chooses a branch. `artist` is only filled
+    /// when the seed is a **track** — the title goes first, the artist
+    /// behind, as everywhere else.
     Entry {
         n: usize,
         label: String,
@@ -1060,35 +1058,35 @@ pub enum Row {
         reason: String,
         tracks: Vec<(String, String)>,
     },
-    /// Une touche et ce qu'elle fait ; `wired` faux la montre estompée,
-    /// jamais comme si elle marchait.
+    /// A key and what it does; `wired` false shows it dimmed, never as if
+    /// it worked.
     Key { key: String, what: String, note: String, wired: bool },
 }
 
 pub struct HomeView<'a> {
-    /// Le nom à gauche, l'état des autorisations à droite, sur **une seule
-    /// ligne** (Joel, 06/09/2026).
+    /// The name on the left, the authorizations state on the right, on
+    /// **a single line** (Joel, 06/09/2026).
     pub status: Vec<(String, bool)>,
     pub census: String,
     pub rows: &'a [Row],
     pub prompt: String,
     pub comfort: u8,
     pub comfort_word: &'a str,
-    /// La colonne de droite. Elle ne propose rien, elle liste.
+    /// The right column. It proposes nothing, it lists.
     pub collection: Option<Collection<'a>>,
-    /// Le pied de lecture, quand une session joue sous l'accueil.
+    /// The playback foot, when a session plays under home.
     pub bar: Option<Bar<'a>>,
-    /// La modale de recherche, quand elle est ouverte : `:search` s'ouvre
-    /// aussi de l'accueil (Joel, 09/09/2026).
+    /// The search modal, when open: `:search` also opens from home (Joel,
+    /// 09/09/2026).
     pub finder: Option<FinderView>,
-    /// La discographie, quand `ad` l'a ouverte depuis la collection
+    /// The discography, when `ad` opened it from the collection
     /// (Joel, 10/09/2026).
     pub explore: Option<&'a crate::explore::Explore>,
-    /// L'aide à la saisie (espace), posée par-dessus tout.
+    /// The input help (space), laid over everything.
     pub overlay: Option<(&'a str, &'a [String])>,
-    /// Le toast : **toute notification s'affiche en toast**, sous l'accueil
-    /// comme en écoute (Joel, 10/09/2026) — plus rien ne se dit sur la
-    /// ligne du bas.
+    /// The toast: **every notification shows as a toast**, under home as
+    /// while listening (Joel, 10/09/2026) — nothing is said on the bottom
+    /// line anymore.
     pub toast: Option<Toast>,
 }
 
@@ -1101,7 +1099,7 @@ impl Tui {
 
 fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let area = frame.area();
-    // le pied de lecture prend ses quatre lignes quand une session joue
+    // the playback foot takes its four lines when a session plays
     let foot = if view.bar.is_some() { 3 } else { 0 };
     let [head, whole, foot_area, prompt] = Layout::vertical([
         Constraint::Length(2),
@@ -1120,10 +1118,10 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         render_bar(frame, [now, progress, next], bar);
     }
 
-    // à gauche ce que forkstify propose, à droite ce qu'il possède. Le
-    // partage est proportionnel (Joel, 06/09/2026) : la gauche porte des
-    // raisons et des morceaux, la droite une liste — d'où 60/40 plutôt que
-    // moitié-moitié. Sous `SPLIT_MIN`, la liste s'efface.
+    // on the left what forkstify proposes, on the right what it owns. The
+    // split is proportional (Joel, 06/09/2026): the left carries reasons
+    // and tracks, the right a list — hence 60/40 rather than half-half.
+    // Below `SPLIT_MIN`, the list disappears.
     let (body, collection) = match (&view.collection, whole.width >= SPLIT_MIN) {
         (Some(_), true) => {
             let [left, right] = Layout::horizontal([
@@ -1136,8 +1134,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         _ => (whole, None),
     };
 
-    // le mot-marque à gauche, l'état à droite, sur la même ligne : le blanc
-    // entre les deux est calculé, faute de justification en cellules
+    // the wordmark on the left, the state on the right, on the same line:
+    // the blank between them is computed, with no cell justification
     let status_width: usize = view
         .status
         .iter()
@@ -1174,8 +1172,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     let mut lines: Vec<Line> = Vec::new();
     for row in view.rows {
         match row {
-            // le liseré court jusqu'au bout de la mesure : c'est lui qui
-            // sépare les blocs, puisqu'il n'y a pas de cartes
+            // the border runs to the end of the measure: it is what
+            // separates the blocks, since there are no cards
             Row::Rule(title) => {
                 let width = (body.width as usize).min(66);
                 let filled = 3 + title.chars().count() + 1;
@@ -1210,8 +1208,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
                         Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
                     ),
                 ];
-                // la graine est un morceau : le titre devant, l'artiste
-                // derrière, comme sur toutes les lignes de forkstify
+                // the seed is a track: the title first, the artist behind,
+                // as on every forkstify line
                 if let Some(name) = artist {
                     head.push(Span::styled(" — ", Style::default().fg(DIM)));
                     head.push(Span::styled(name.clone(), Style::default().fg(CATALOG)));
@@ -1262,12 +1260,12 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         render_collection(frame, area, list);
     }
 
-    // — la recherche prend tout le corps de l'accueil, collection comprise :
-    // c'est elle qu'on regarde tant qu'elle est ouverte
+    // — search takes the whole body of home, collection included: it is
+    // what we look at while it is open
     if let Some(finder) = &view.finder {
         render_finder(frame, whole, finder);
     }
-    // — la discographie, de même
+    // — the discography, likewise
     if let Some(screen) = view.explore {
         render_explore(frame, whole, screen);
     }
@@ -1286,21 +1284,20 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         prompt,
     );
 
-    // — le toast, en bas à droite du corps, par-dessus la collection ou la
-    // modale : la même règle qu'en écoute, tout se dit en toast
+    // — the toast, at the bottom right of the body, over the collection or
+    // the modal: the same rule as while listening, everything is a toast
     if let Some(toast) = &view.toast {
         render_toast(frame, whole, toast);
     }
 
-    // — et ce qui se pose par-dessus tout : l'aide à la saisie
+    // — and what sits over everything: the input help
     if let Some((title, body)) = view.overlay {
         render_block(frame, area, title, body);
     }
 }
 
-/// Un bloc posé sur l'écran — le menu du leader, « ? ». Il remplace le
-/// journal qui s'allongeait vers le bas : ce qui est long se montre, ce qui
-/// est court se dit.
+/// A block laid over the screen — the leader menu, "?". It replaces the
+/// log that grew downwards: what is long is shown, what is short is said.
 fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String]) {
     let width = 64.min(area.width.saturating_sub(4));
     let height = (body.len() as u16 + 2).min(area.height.saturating_sub(2));
@@ -1326,10 +1323,9 @@ fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[Str
 }
 
 impl Tui {
-    /// Un écran d'attente : ce que forkstify est en train de faire, pendant
-    /// qu'il le fait. Rien ne doit s'imprimer hors de la TUI — l'écran
-    /// alterné est à elle, et un `println!` y laisse des restes qu'elle ne
-    /// sait pas effacer.
+    /// A waiting screen: what forkstify is doing, while it does it. Nothing
+    /// must print outside the TUI — the alternate screen is its own, and a
+    /// `println!` leaves leftovers there it cannot erase.
     pub fn splash(&mut self, steps: &[(String, bool)]) -> std::io::Result<()> {
         self.terminal.draw(|frame| {
             let area = frame.area();
@@ -1357,27 +1353,27 @@ impl Tui {
         Ok(())
     }
 
-    /// Repartir d'un écran vide. À appeler quand on change de vue : ratatui
-    /// ne redessine que ce qu'il croit avoir changé.
+    /// Start over from a blank screen. Call it when switching views:
+    /// ratatui only redraws what it believes has changed.
     pub fn clear(&mut self) {
         let _ = self.terminal.clear();
     }
 }
 
-/// Une ligne de la collection : la jauge de familiarité, le nom, ce qu'on en
-/// sait, et depuis quand il n'a pas sonné.
+/// A collection line: the familiarity gauge, the name, what we know about
+/// it, and how long since it last played.
 #[derive(Clone)]
 pub struct CollectionRow {
     pub familiarity: u8,
-    /// Depuis combien de jours il n'a pas sonné — sert au tri, pas à
-    /// l'affichage, qui montre `age`.
+    /// How many days since it last played — used for sorting, not for
+    /// display, which shows `age`.
     pub days: Option<i64>,
     pub name: String,
-    /// Vrai si l'artiste a une fiche — c'est ce qui décide s'il peut servir
-    /// de graine, puisque les branches viennent de la fiche.
+    /// True if the artist has a card — that is what decides whether it can
+    /// be a seed, since the branches come from the card.
     pub carded: bool,
     pub age: String,
-    /// Une écoute ancienne se signale : c'est un délaissé.
+    /// An old play stands out: it is a neglected one.
     pub neglected: bool,
 }
 
@@ -1387,12 +1383,12 @@ pub struct Collection<'a> {
     pub carded: usize,
     pub cursor: Option<usize>,
     pub sort: &'a str,
-    /// « aimés » ou « tous » — ce que la liste montre
+    /// "liked" or "all" — what the list shows
     pub scope: &'a str,
 }
 
-/// La colonne de droite : elle **ne propose rien, elle liste**. C'est la
-/// contrepartie des portes d'entrée — pour qui veut choisir lui-même.
+/// The right column: it **proposes nothing, it lists**. It is the
+/// counterpart of the doors — for whoever wants to choose themselves.
 fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) {
     let [head, body, foot] = Layout::vertical([
         Constraint::Length(2),
@@ -1425,7 +1421,7 @@ fn render_collection(frame: &mut ratatui::Frame, area: Rect, view: &Collection) 
         head,
     );
 
-    // on suit le curseur plutôt que le début de la liste
+    // we follow the cursor rather than the start of the list
     let height = body.height as usize;
     let cursor = view.cursor.unwrap_or(0);
     let offset = cursor.saturating_sub(height / 2).min(view.rows.len().saturating_sub(height));
@@ -1540,8 +1536,8 @@ mod tests {
         }
     }
 
-    /// 0016 : un lien vers une fiche absente se propose au lieu d'être jeté,
-    /// numéroté **à la suite** des branches — sinon les chiffres mentiraient.
+    /// 0016: a link to a missing card is proposed instead of discarded,
+    /// numbered **after** the branches — otherwise the numbers would lie.
     #[test]
     fn les_creux_se_numerotent_apres_les_branches() {
         let current = stop("Ne me quitte pas", "Jacques Brel");
@@ -1555,8 +1551,8 @@ mod tests {
         assert!(text.contains("████░ similar · ○ no card yet"), "{text}");
     }
 
-    /// Une génération dure quelques secondes : la colonne doit le dire, sinon
-    /// « f3 » a l'air de n'avoir rien fait.
+    /// A generation takes a few seconds: the column must say so, otherwise
+    /// "f3" looks like it did nothing.
     #[test]
     fn un_creux_en_cours_de_generation_le_dit() {
         let current = stop("Ne me quitte pas", "Jacques Brel");
@@ -1615,8 +1611,8 @@ mod tests {
             .collect()
     }
 
-    /// La modale de la discographie : les albums pliés, celui du curseur
-    /// ouvert, et la fournée qui attend son commit (maquette 1a).
+    /// The discography modal: the albums folded, the cursor's one open, and
+    /// the batch waiting for its commit (mockup 1a).
     #[test]
     fn la_discographie_plie_les_albums_et_dit_ce_qui_attend() {
         let card: crate::catalog::Card = toml::from_str(
@@ -1648,8 +1644,8 @@ mod tests {
             &learned,
             Some("Metal Heart"),
         );
-        // premier album ouvert, curseur sur son deuxième morceau ; « A »
-        // promeut le titre le plus écouté de l'album hors tops
+        // first album open, cursor on its second track; "A" promotes the
+        // most played non-top track of the album
         screen.move_by(2);
         screen.top_album(1);
         assert_eq!(screen.pending.len(), 1);
@@ -1663,13 +1659,14 @@ mod tests {
             .collect();
 
         assert!(lines[0].contains("discography") && lines[0].contains("Cat Power"));
-        // les deux albums tiennent, et seul celui du curseur est déplié
+        // both albums fit, and only the cursor's one is unfolded
         assert!(lines.iter().any(|l| l.contains("▾") && l.contains("Moon Pix")));
         assert!(lines.iter().any(|l| l.contains("▸") && l.contains("The Covers Record")));
         assert!(lines.iter().any(|l| l.contains("Metal Heart") && l.contains("▶ playing")));
-        // ce qui attend se voit, et le commit s'annonce avant d'appuyer
+        // what is pending is visible, and the commit is announced before
+        // pressing
         assert!(lines.iter().any(|l| l.contains("pending") && l.contains("1 edit")));
-        // le sujet du commit se lit avant d'appuyer
+        // the commit subject reads before pressing
         assert!(lines.iter().any(|l| l.contains("cards/cat-power.toml") && l.contains("+1 −0")));
         assert!(lines.iter().any(|l| l.contains("⏎ write")));
     }
@@ -1699,8 +1696,8 @@ mod tests {
         let mut around = branches();
         around[0].reason = "stay within the journey's universe".to_string();
         around[0].weight = 4.0;
-        // 110 colonnes : la raison (34 cellules) doit tenir sur une ligne de
-        // la colonne, sinon elle se replie et se lit en deux morceaux
+        // 110 columns: the reason (34 cells) must fit on one line of the
+        // column, otherwise it folds and reads in two pieces
         let text = screen(110, 30, &around).join("\n");
         assert_eq!(text.matches("stay within the journey's universe").count(), 1, "{text}");
         assert!(text.contains("████░ \n") || text.contains("████░  "), "{text}");
@@ -1727,35 +1724,36 @@ mod tests {
             let row = rows.iter().find(|r| r.contains(needle)).unwrap();
             row.chars().take(95).collect::<String>().trim_end().to_string()
         };
-        // le passé n'est pas numéroté, la graine se lit à côté du premier
+        // the past is not numbered, the seed reads next to the first one
         assert!(text.contains("      ♪ A Forest — The Cure  seed: the-cure"), "{text}");
         assert!(axis("A Forest").ends_with("1 play · yesterday"), "{}", axis("A Forest"));
-        // ce qui sonne est le 1, ce qui vient compte à partir de lui
+        // what is playing is 1, what comes counts from it
         assert!(text.contains(" 1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   family ties"), "{text}");
         assert!(axis("Cities in Dust").ends_with("never played"), "{}", axis("Cities in Dust"));
-        // un encore porte « ↻ » à la place de la flèche
+        // a replay carries "↻" instead of the arrow
         assert!(text.contains(" 2 ↻  ♪ Israel — Siouxsie and the Banshees"), "{text}");
         assert!(text.contains(" 3 →  ♪ Right Now — The Creatures  shared members"), "{text}");
         assert!(text.contains(" 4 →  ♪ Alison — Slowdive  close to the branch's center (0.74)"), "{text}");
         assert!(axis("Alison").ends_with("never played"), "{}", axis("Alison"));
         assert!(text.contains(" 5    horizon  nothing drawn beyond"), "{text}");
-        // plus de filet (Joel, 07/09/2026) : les morceaux se suivent, seul
-        // l'horizon prend un blanc
+        // no more rule (Joel, 07/09/2026): the tracks follow each other, only
+        // the horizon takes a blank
         assert!(!text.contains('╵') && !text.contains(" │ ♪"), "{text}");
         let horizon = rows.iter().position(|r| r.contains("horizon")).unwrap();
         assert!(rows[horizon - 1].chars().take(95).all(|c| c == ' '), "{text}");
         assert!(rows[horizon - 2].contains("Alison"), "{text}");
-        // l'en-tête et le bloc de la graine (2b)
+        // the head and the seed block (2b)
         assert!(rows[0].starts_with("forkstify listen the-cure"), "{}", rows[0]);
         assert!(rows[0].trim_end().ends_with("segment 2 · 6 tracks · 3 ahead · comfort 3 ███░░ balanced"), "{}", rows[0]);
         assert!(rows[2].starts_with("── seed ─"), "{}", rows[2]);
         assert!(rows[3].starts_with("The Cure  [catalog]  written card · 41 links · 12 tops  last played -3s"), "{}", rows[3]);
         assert!(rows[4].starts_with("1 fork so far — 2 artists traversed"), "{}", rows[4]);
-        // le pied : ce qui sonne et sa provenance, ce qui suit et l'embranchement
+        // the foot: what is playing and where from, what comes next and the
+        // fork
         let now = &rows[rows.len() - 4];
         assert!(now.starts_with("▶ Cities in Dust — Siouxsie and the Banshees  (3 / 6)"), "{now}");
         assert!(now.trim_end().ends_with("♪ top │ 2:34 / 3:47 -1:13"), "{now}");
-        // la barre : 154 s sur 227, soit 108 cellules pleines sur 160
+        // the bar: 154 s out of 227, i.e. 108 full cells out of 160
         let bar = &rows[rows.len() - 3];
         assert_eq!(bar.chars().filter(|c| *c == '█').count(), 108, "{bar}");
         assert_eq!(bar.chars().filter(|c| *c == '░').count(), 52, "{bar}");
@@ -1781,9 +1779,9 @@ mod tests {
         assert_eq!(plain(notice_line("")), "");
     }
 
-    /// L'accueil garde le pied de lecture quand une session joue en dessous
-    /// (Joel, 08/09/2026) : ce qui sonne, sa barre, ce qui suit, sur les
-    /// quatre lignes au-dessus de l'invite.
+    /// Home keeps the playback foot when a session plays underneath (Joel,
+    /// 08/09/2026): what is playing, its bar, what comes next, on the four
+    /// lines above the prompt.
     #[test]
     fn the_home_keeps_the_playback_foot() {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
@@ -1819,18 +1817,18 @@ mod tests {
         assert_eq!(rows[17].chars().filter(|c| *c == '█').count(), 25, "{}", rows[17]);
         assert!(rows[18].starts_with("up next  Israel — Siouxsie and the Banshees"), "{}", rows[18]);
         assert!(rows[18].trim_end().ends_with("→ fork in 3 tracks"), "{}", rows[18]);
-        // et les touches suivent « à suivre » sans rien entre les deux
+        // and the keys follow "up next" with nothing in between
         assert!(rows[19].starts_with("[1-3 to start · r back to listening"), "{}", rows[19]);
     }
 
-    /// `:search` s'ouvre aussi de l'accueil (Joel, 09/09/2026) : la modale
-    /// couvre le corps — la collection comprise — et laisse le pied de
-    /// lecture et l'invite.
+    /// `:search` also opens from home (Joel, 09/09/2026): the modal covers
+    /// the body — collection included — and leaves the playback foot and
+    /// the prompt.
     #[test]
     fn the_home_says_everything_in_a_toast() {
-        // « toutes les notifications doivent apparaître en toast » (Joel,
-        // 10/09/2026) : sous l'accueil aussi, ce qui se dit se pose en
-        // cartouche sur le corps, et la ligne du bas garde ses touches
+        // "every notification must show as a toast" (Joel, 10/09/2026):
+        // under home too, what is said sits in a box over the body, and the
+        // bottom line keeps its keys
         let rows_of_home = [Row::Rule("search".into())];
         let view = HomeView {
             status: vec![("✓ librespot".to_string(), true)],
@@ -1891,17 +1889,17 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let rows: Vec<String> =
             (0..20).map(|y| (0..100).map(|x| buffer[(x, y)].symbol()).collect::<String>()).collect();
-        // le corps est à la modale : plus de « chercher » de l'accueil dessous
+        // the body belongs to the modal: no more home "search" underneath
         assert!(rows[2].starts_with("┌─ search ── :search"), "{}", rows[2]);
         assert!(rows[3].starts_with("│ ⟩ siou"), "{}", rows[3]);
         assert!(rows.iter().any(|row| row.contains("Cities in Dust")), "{rows:?}");
         assert!(!rows.iter().any(|row| row.contains("── search")), "{rows:?}");
-        // l'invite reste, elle, avec sa jauge de confort
+        // the prompt stays, with its comfort gauge
         assert!(rows[19].starts_with("[1-3 to start · q]"), "{}", rows[19]);
     }
 
-    /// La modale de recherche : la saisie, la règle qui compte, les deux
-    /// groupes jamais mêlés, le curseur, et l'ancre de « ti ».
+    /// The search modal: the input, the rule that counts, the two groups
+    /// never mixed, the cursor, and the "ti" anchor.
     #[test]
     fn the_finder_cuts_the_input_from_the_results() {
         let view = FinderView {
@@ -1944,11 +1942,11 @@ mod tests {
     }
 }
 
-// --- la modale de la discographie (`ad`, maquette 1a) -----------------------
+// --- the discography modal (`ad`, mockup 1a) --------------------------------
 
-/// Le filet léger : c'est la seule boîte que forkstify dessine (le menu du
-/// leader, « ? »), et une modale en est le troisième cas. Une ligne d'en-tête
-/// se ferme par un trait qui court jusqu'au bord.
+/// The light rule: it is the only box forkstify draws (the leader menu,
+/// "?"), and a modal is its third case. A head line closes with a stroke
+/// that runs to the edge.
 fn ruled(mut spans: Vec<Span<'static>>, width: usize) -> Line<'static> {
     let used: usize = spans.iter().map(|span| span.content.chars().count()).sum();
     if width > used + 1 {
@@ -1981,7 +1979,7 @@ fn clock_ms(ms: u32) -> String {
     format!("{}:{:02}", seconds / 60, seconds % 60)
 }
 
-/// « 14 écoutes », « — » quand il n'a jamais sonné.
+/// "14 plays", "—" when it never played.
 fn plays_of(plays: f64) -> String {
     if plays < 0.5 {
         "—".to_string()
@@ -1998,7 +1996,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
     let cursor = Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD);
     let rule = |text: &str| Span::styled(text.to_string(), Style::default().fg(DIM));
 
-    // — l'en-tête : ce que la fiche et l'appris disent de l'artiste
+    // — the head: what the card and the learned say about the artist
     let mut head = vec![
         ruled(
             vec![
@@ -2046,7 +2044,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
             Span::styled(format!("· {} in the tail", summary.tail), Style::default().fg(VECTOR)),
         ]),
     ];
-    // la question qu'on vient poser : quel album porte les écoutes
+    // the question we came to ask: which album carries the plays
     head.push(Line::from(vec![
         rule("│ "),
         Span::styled("your plays  ", Style::default().fg(MUTED)),
@@ -2086,7 +2084,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         ),
     ]));
 
-    // — le pied : ce qui attend d'être écrit, puis les touches
+    // — the foot: what is waiting to be written, then the keys
     let mut foot: Vec<Line> = Vec::new();
     if !screen.pending.is_empty() {
         foot.push(ruled(
@@ -2128,7 +2126,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                 rule(&format!("↓ {} more", screen.pending.len() - 4)),
             ]));
         }
-        // ce que l'utilisateur lit est ce que git retiendra (edit.rs)
+        // what the user reads is what git will keep (edit.rs)
         foot.push(Line::from(vec![
             rule("│ "),
             Span::styled(format!("cards/{}.toml ", screen.slug), Style::default().fg(CATALOG)),
@@ -2172,11 +2170,11 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         width,
     ));
 
-    // — le corps : les albums pliés, celui du curseur ouvert
+    // — the body: the albums folded, the cursor's one open
     let rows = screen.rows();
     let room = (area.height as usize).saturating_sub(head.len() + foot.len()).max(1);
     let here = rows.iter().position(|row| screen.at(*row)).unwrap_or(0);
-    // la fenêtre suit le curseur sans le coller au bord
+    // the window follows the cursor without sticking it to the edge
     let start = here.saturating_sub(room / 2).min(rows.len().saturating_sub(room));
     let mut lines = head;
     for row in rows.iter().skip(start).take(room) {
@@ -2200,8 +2198,8 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                     }
                     said.join(" · ")
                 };
-                // ▾ dit ce qui est ouvert, pas ce qui est surligné : le
-                // curseur peut être descendu dans les morceaux de l'album
+                // ▾ says what is open, not what is highlighted: the cursor
+                // may have gone down into the album's tracks
                 let open = screen.cursor.album == index && !screen.folded;
                 let text = format!(
                     "{} {:<5}{:<34}{:>3}  {:<16}{:>6}  {}",
@@ -2256,8 +2254,8 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                     plays_of(track.plays),
                     last,
                 );
-                // la couleur dit la nature, jamais l'importance : le glyphe
-                // seul la porte, le reste de la ligne est du texte
+                // color says the nature, never the importance: the glyph
+                // alone carries it, the rest of the line is text
                 let (text_style, glyph_style) = if selected {
                     (cursor, cursor)
                 } else {
@@ -2275,8 +2273,8 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
             }
         });
     }
-    // le filet descend jusqu'au pied : le bas de l'écran ne bouge pas d'un
-    // album à l'autre
+    // the rule runs down to the foot: the bottom of the screen does not
+    // move from one album to the next
     while lines.len() + foot.len() < area.height as usize {
         lines.push(Line::from(rule("│")));
     }

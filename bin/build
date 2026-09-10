@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Compile forkstify dans son conteneur (le PHP/Rust de la machine ne sert
-# pas aux projets : tout est dockerisé). L'image se construit au premier
-# appel ; le registre cargo vit dans le volume forkstify-cargo.
+# Build forkstify in its container (the machine's PHP/Rust is not for
+# projects: everything is dockerized). The image is built on first call;
+# the cargo registry lives in the forkstify-cargo volume.
 #   bin/build          → cargo build --release
-#   bin/build <args…>  → cargo <args…>   (ex. bin/build test --release)
+#   bin/build <args…>  → cargo <args…>   (e.g. bin/build test --release)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 docker image inspect forkstify-build >/dev/null 2>&1 || docker build -q -t forkstify-build .

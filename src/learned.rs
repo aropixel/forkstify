@@ -21,14 +21,14 @@ const HALF_LIFE: f64 = 182.5;
 
 /// The cooldown (0012 §2): a track played today keeps this share of its
 /// weight, and gets it back with a one-week half-life — a week later 55 %,
-/// two weeks 78 %, a month 94 %. Both are « à régler au fil du PoC ».
+/// two weeks 78 %, a month 94 %. Both are "to be tuned as the PoC goes".
 const COOLDOWN_FLOOR: f32 = 0.1;
 const COOLDOWN_HALF_LIFE: f32 = 7.0;
 
-/// « moins souvent » multiplies the weight by this, down to the floor.
+/// "less often" multiplies the weight by this, down to the floor.
 const LESS_OFTEN: f32 = 0.7;
 const WEIGHT_FLOOR: f32 = 0.1;
-/// « plus souvent » is its mirror, capped so one key cannot run away.
+/// "more often" is its mirror, capped so one key cannot run away.
 const MORE_OFTEN: f32 = 1.0 / LESS_OFTEN;
 const WEIGHT_CEILING: f32 = 3.0;
 
@@ -60,7 +60,7 @@ pub struct Artist {
     pub weight: f32,
     #[serde(default, skip_serializing_if = "is_false")]
     pub blacklisted: bool,
-    /// « Not one of my liked » — set by `as`, cleared by `al`. Explicit,
+    /// "Not one of my liked" — set by `as`, cleared by `al`. Explicit,
     /// because the Spotify seed says otherwise and would come back with
     /// the next harvest (a son's likes, Joel, 09/09/2026); the weight alone
     /// would not do, it climbs back.
@@ -93,8 +93,8 @@ pub struct Learned {
     /// The best seed score, to bring the ranking onto the same 0–1 scale as
     /// our own plays — they are counts, it is a composite score.
     seed_max: f64,
-    /// Le nom tel qu'il est écrit dans le classement — la clé est en
-    /// minuscules pour comparer, mais la collection s'affiche telle quelle.
+    /// The name as written in the ranking — the key is lowercased to
+    /// compare, but the collection shows it as is.
     seed_names: HashMap<String, String>,
     /// `classement.json`: the familiarity an artist starts with, before any
     /// listening of our own (0014). Keyed by slug of the name — the seed file
@@ -138,12 +138,12 @@ impl Learned {
             if let Ok(rows) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
                 for row in rows {
                     // the seed file still has its French keys (0014: to be
-                    // translated with the outillage scripts)
+                    // translated along with the tooling scripts)
                     if let (Some(name), Some(score)) =
                         (row["nom"].as_str(), row["score"].as_f64())
                     {
                         // keyed by slug, so that a card whose name moved on
-                        // (« Ye », at `kanye-west`) still meets the seed
+                        // ("Ye", at `kanye-west`) still meets the seed
                         // row Spotify keeps under the old name (Joel,
                         // 10/09/2026)
                         let key = crate::generate::slugify(name);
@@ -168,7 +168,7 @@ impl Learned {
         self.artists.len()
     }
 
-    /// Liked, here or on Spotify: the artist itself (« plus souvent »,
+    /// Liked, here or on Spotify: the artist itself ("more often",
     /// a follow), or one of its tracks (♥ here, a liked track or album
     /// there). What the home's collection shows by default (Joel,
     /// 09/09/2026).
@@ -202,16 +202,16 @@ impl Learned {
             let plays = decay(artist.plays, artist.last.as_deref(), self.today);
             1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
         });
-        // le plus fort des deux, jamais le dernier connu : une première
-        // écoute ne doit pas *remplacer* une bibliothèque entière. Sans ça,
-        // jouer une fois son artiste préféré le faisait tomber de 100 % à
-        // 13 % (relevé le 06/09/2026 sur l'accueil).
+        // the stronger of the two, never the latest known: a first play
+        // must not *replace* a whole library. Without this, playing one's
+        // favourite artist once dropped it from 100 % to 13 % (seen on the
+        // home, 06/09/2026).
         seeded.max(ours).clamp(0.0, 1.0) as f32
     }
 
     /// Artists we used to play and no longer do — the count stored at the
     /// last listen was high, and that listen is old. 0014's decay is what
-    /// makes this readable: « vous les aimiez, vous ne les écoutez plus ».
+    /// makes this readable: "you loved them, you no longer play them".
     /// Returns (slug, months since the last listen), oldest neglect first.
     pub fn neglected(&self, min_plays: f64, min_days: i64) -> Vec<(String, i64)> {
         let mut out: Vec<(String, i64)> = self
@@ -228,8 +228,7 @@ impl Learned {
     }
 
     /// The tracks this listener liked anywhere — a seed that is a track
-    /// rather than an artist (arbitrage du 05/09 : la graine peut être les
-    /// deux).
+    /// rather than an artist (ruling of 05/09: the seed can be either).
     pub fn liked_anywhere(&self) -> Vec<(String, String)> {
         self.artists
             .iter()
@@ -246,13 +245,13 @@ impl Learned {
         self.artists.get(slug).is_some_and(|a| a.blacklisted)
     }
 
-    /// Tous les noms du classement, tels qu'ils y sont écrits.
+    /// Every name in the ranking, as written there.
     pub fn ranked_names(&self) -> impl Iterator<Item = &String> {
         self.seed_names.values()
     }
 
-    /// Depuis combien de jours cet artiste n'a-t-il pas sonné ? `None` s'il
-    /// n'a jamais sonné du tout.
+    /// How many days since this artist last played? `None` if it never
+    /// played at all.
     pub fn days_since(&self, slug: &str) -> Option<i64> {
         let artist = self.artists.get(slug)?;
         Some((self.today - from_iso(artist.last.as_deref()?)?).max(0))
@@ -279,10 +278,10 @@ impl Learned {
         COOLDOWN_FLOOR + (1.0 - COOLDOWN_FLOOR) * recovered
     }
 
-    /// Ce que l'écoute sait de **chaque** morceau d'un artiste : titre tel
-    /// qu'il a été joué, écoutes décrues au jour, jours depuis la dernière,
-    /// aimé, banni. L'écran de la discographie apparie ensuite par titre
-    /// normalisé — Spotify et les fiches ne les écrivent pas toujours pareil.
+    /// What listening knows of **every** track of an artist: title as it
+    /// was played, plays decayed to today, days since the last one, liked,
+    /// banned. The discography screen then matches by normalized title —
+    /// Spotify and the cards do not always spell them the same.
     pub fn track_table(&self, slug: &str) -> Vec<(String, f64, Option<i64>, bool, bool)> {
         let Some(artist) = self.artists.get(slug) else { return Vec::new() };
         artist
@@ -351,7 +350,7 @@ impl Learned {
         self.save(slug);
     }
 
-    /// « Plus souvent » — the one gesture of taste (0018). It also forgives
+    /// "More often" — the one gesture of taste (0018). It also forgives
     /// the skips: the opposite gesture cancels the previous one.
     pub fn like_track(&mut self, slug: &str, title: &str) {
         let top = self.entry(slug).tops.entry(title.to_string()).or_default();
@@ -360,7 +359,7 @@ impl Learned {
         self.save(slug);
     }
 
-    /// « Moins souvent » — this one does not interest me. Each skip pushes
+    /// "Less often" — this one does not interest me. Each skip pushes
     /// the track further back, and takes the like away.
     pub fn skip_track(&mut self, slug: &str, title: &str) {
         let top = self.entry(slug).tops.entry(title.to_string()).or_default();
@@ -553,8 +552,8 @@ fn today() -> i64 {
     secs / 86_400
 }
 
-/// La date du jour, en ISO. Une édition la porte dans sa note : c'est ce
-/// qui permet, plus tard, de savoir d'où vient une ligne d'une fiche.
+/// Today's date, in ISO. An edit carries it in its note: that is what
+/// later tells where a line of a card came from.
 pub fn today_iso() -> String {
     iso(today())
 }
@@ -596,16 +595,16 @@ fn from_iso(text: &str) -> Option<i64> {
 mod taste_tests {
     use super::*;
 
-    /// 0012 §2 : joué aujourd'hui, un morceau ne garde qu'un dixième de son
-    /// poids ; jamais joué, il le garde entier ; une semaine plus tard, il en
-    /// a retrouvé plus de la moitié.
+    /// 0012 §2: played today, a track keeps only a tenth of its weight;
+    /// never played, it keeps it whole; a week later, it has got more than
+    /// half of it back.
     #[test]
     fn le_cooldown_penalise_le_recent_et_s_efface_avec_le_temps() {
         let mut learned = Learned::blank();
         assert_eq!(learned.freshness("the-cure", "A Forest"), 1.0);
         learned.played("the-cure", "A Forest");
         assert!((learned.freshness("the-cure", "A Forest") - COOLDOWN_FLOOR).abs() < 1e-6);
-        // une semaine plus tard
+        // a week later
         learned.today += 7;
         let week = learned.freshness("the-cure", "A Forest");
         assert!((week - 0.55).abs() < 0.01, "{week}");
@@ -613,8 +612,8 @@ mod taste_tests {
         assert!(learned.freshness("the-cure", "A Forest") > 0.9);
     }
 
-    /// 0018 : aimer et passer sont les deux gestes du goût, et l'un défait
-    /// l'autre.
+    /// 0018: liking and skipping are the two gestures of taste, and one
+    /// undoes the other.
     #[test]
     fn le_geste_contraire_annule_le_precedent() {
         let mut learned = Learned::blank();
@@ -642,16 +641,16 @@ mod merge_tests {
         let today = from_iso("2026-09-07").unwrap();
         let merged = merge_artist_at(Some(BASE), ours, theirs, today).unwrap();
         let artist: Artist = toml::from_str(&merged).unwrap();
-        // 5 + 4 − 3 (décru d'un jour) : chaque côté a compté deux écoutes
+        // 5 + 4 − 3 (decayed one day): each side counted two plays
         assert!((artist.plays - 6.0).abs() < 0.02, "{}", artist.plays);
         assert_eq!(artist.last.as_deref(), Some("2026-09-07"));
-        // un côté n'a pas touché A Forest : l'autre l'emporte tel quel
+        // one side did not touch A Forest: the other wins as is
         assert_eq!(artist.tops["A Forest"].plays, 2.0);
-        // un top nouveau de chaque côté entre tel quel
+        // a top new on each side comes in as is
         assert_eq!(artist.tops["Push"].plays, 1.0);
         assert_eq!(artist.tops["Lullaby"].plays, 1.0);
         assert!(artist.tops["Lullaby"].liked);
-        // et le fichier sort trié, comme tous les autres
+        // and the file comes out sorted, like every other
         let a = merged.find("A Forest").unwrap();
         let l = merged.find("Lullaby").unwrap();
         let p = merged.find("Push").unwrap();
@@ -668,7 +667,7 @@ mod merge_tests {
         assert!(artist.blacklisted);
         assert!(artist.tops["A Forest"].blacklisted);
         assert!((artist.weight - 0.7).abs() < 1e-6);
-        // rien n'a été écouté de plus : le compte ne bouge pas
+        // nothing more was played: the count does not move
         assert_eq!(artist.plays, 3.0);
     }
 
@@ -701,8 +700,8 @@ impl Learned {
 
 #[cfg(test)]
 mod tests {
-    /// The home's default view: an artist is « liked » here by a ♥ on one
-    /// of its tracks or a « plus souvent » on itself; a skip undoes it.
+    /// The home's default view: an artist is "liked" here by a ♥ on one
+    /// of its tracks or a "more often" on itself; a skip undoes it.
     #[test]
     fn aime_ici_par_un_titre_ou_par_l_artiste() {
         let mut learned = Learned::blank();
@@ -713,8 +712,8 @@ mod tests {
         assert!(!learned.liked("the-cure", "The Cure"));
         learned.like_artist("the-cure");
         assert!(learned.liked("the-cure", "The Cure"));
-        // « moins souvent » takes the artist out of the liked, even with
-        // a ♥ on a track; « plus souvent » brings it back
+        // "less often" takes the artist out of the liked, even with
+        // a ♥ on a track; "more often" brings it back
         learned.like_track("the-cure", "A Forest");
         learned.skip_artist("the-cure");
         assert!(!learned.liked("the-cure", "The Cure"));
@@ -760,7 +759,7 @@ mod tests {
         let text = toml::to_string_pretty(&artist).expect("sérialisable");
         assert!(text.contains("plays = 12.4"), "{text}");
         assert!(text.contains("[tops.\"A Forest\"]"), "{text}");
-        // les valeurs par défaut ne salissent pas le fichier
+        // default values do not clutter the file
         assert!(!text.contains("blacklisted"), "{text}");
 
         let back: Artist = toml::from_str(&text).expect("relisible");
@@ -769,7 +768,7 @@ mod tests {
         assert_eq!(back.tops["A Forest"].skipped, 2);
         assert!(back.tops["A Forest"].liked);
 
-        // un fichier vide reste un artiste neutre, pas une erreur
+        // an empty file is still a neutral artist, not an error
         let neuf: Artist = toml::from_str("").expect("vide relisible");
         assert_eq!(neuf.weight, 1.0);
         assert!(!neuf.blacklisted);
@@ -777,8 +776,8 @@ mod tests {
 
     #[test]
     fn le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change() {
-        // « Kanye West » dans la bibliothèque Spotify, « Ye » sur la fiche
-        // `kanye-west` : même artiste, même familiarité (Joel, 10/09/2026)
+        // "Kanye West" in the Spotify library, "Ye" on the `kanye-west`
+        // card: same artist, same familiarity (Joel, 10/09/2026)
         let mut seed = HashMap::new();
         seed.insert("kanye-west".to_string(), 10.0);
         let mut seed_liked = HashSet::new();

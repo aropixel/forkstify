@@ -1,16 +1,16 @@
-//! L'écran d'accueil — ce que `forkstify` montre quand on le lance sans rien.
+//! The home screen — what `forkstify` shows when launched with nothing.
 //!
-//! Deux états, comme les maquettes le tranchent : un écran **non connecté**
-//! tant qu'il manque une autorisation, et l'**accueil** ensuite. L'accueil ne
-//! se dégrade pas, il n'existe qu'une fois les autorisations en place.
+//! Two states, as the mockups decide: a **not connected** screen as long as
+//! an authorization is missing, and **home** afterwards. Home does not
+//! degrade; it only exists once the authorizations are in place.
 //!
-//! Il se rend **avant toute connexion** : le catalogue et l'appris sont
-//! locaux, donc l'écran s'affiche tout de suite et le réseau n'entre en jeu
-//! qu'au moment de jouer.
+//! It renders **before any connection**: the catalog and the learned are
+//! local, so the screen shows up right away and the network only comes into
+//! play when playing.
 //!
-//! Chaque bloc porte sa raison en une ligne (règle de marque : toute décision
-//! automatique s'explique). La numérotation court **à travers** les blocs, si
-//! bien que choisir une graine est le même geste que choisir une branche.
+//! Every block carries its reason in one line (brand rule: every automatic
+//! decision explains itself). Numbering runs **across** the blocks, so that
+//! picking a seed is the same gesture as picking a branch.
 
 use crate::catalog::Catalog;
 use crate::discography::Tail;
@@ -21,16 +21,16 @@ use crate::tui::{Collection, CollectionRow, HomeView, Row, Tui};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Ce qu'on a choisi de démarrer. La graine peut être les deux (arbitrage de
-/// Joel, 05/09/2026) : un artiste démarre un segment sur lui, un morceau se
-/// joue puis branche depuis son artiste.
+/// What was chosen to start. The seed can be either (Joel's call,
+/// 05/09/2026): an artist starts a segment on itself, a track plays then
+/// branches from its artist.
 pub enum Choice {
     Artist(String),
     Track { slug: String, title: String },
 }
 
-/// Le dernier parcours, pour « reprendre ». Vit dans le cache, pas dans le
-/// catalogue : c'est de la session, pas de la connaissance.
+/// The last journey, to "resume". Lives in the cache, not in the catalog:
+/// it is session, not knowledge.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LastSession {
     pub slug: String,
@@ -60,9 +60,9 @@ fn recall() -> Option<LastSession> {
     serde_json::from_str(&std::fs::read_to_string(last_path()).ok()?).ok()
 }
 
-/// Comment la collection est triée. Trois lectures d'une même liste : ce
-/// qu'on connaît le mieux, l'ordre alphabétique, et ce qu'on n'a pas joué
-/// depuis longtemps.
+/// How the collection is sorted. Three readings of the same list: what we
+/// know best, alphabetical order, and what has not been played for a long
+/// time.
 #[derive(Clone, Copy, PartialEq)]
 enum Sort {
     Familiarity,
@@ -87,9 +87,9 @@ impl Sort {
     }
 }
 
-/// Ce que la collection montre : par défaut **les aimés** — ici (« plus
-/// souvent », un ♥) ou sur Spotify (titre, album, suivi) — ou bien tout le
-/// catalogue (Joel, 09/09/2026). `v`, la vue, comme dans la discographie.
+/// What the collection shows: by default **the liked** — here ("more
+/// often", a ♥) or on Spotify (track, album, followed) — or the whole
+/// catalog (Joel, 09/09/2026). `v`, the view, as in the discography.
 #[derive(Clone, Copy, PartialEq)]
 enum Scope {
     Liked,
@@ -111,8 +111,8 @@ impl Scope {
     }
 }
 
-/// « il y a n jours » en deux caractères, comme une TUI le dit. Sert à la
-/// collection de l'accueil et aux notes de la liste de lecture.
+/// "n days ago" in two characters, the way a TUI says it. Used by the home
+/// collection and by the playlist notes.
 pub(crate) fn age(days: Option<i64>) -> String {
     match days {
         None => "never".into(),
@@ -125,9 +125,9 @@ pub(crate) fn age(days: Option<i64>) -> String {
     }
 }
 
-/// La collection entière : le catalogue **et** le classement, réunis. Un
-/// artiste sans fiche y figure, mais il ne peut pas servir de graine — les
-/// branches viennent de la fiche, et le dire vaut mieux que le cacher.
+/// The whole collection: the catalog **and** the ranking, together. An
+/// artist without a card is listed, but cannot serve as a seed — branches
+/// come from the card, and saying so beats hiding it.
 fn collection(
     catalog: &Catalog,
     learned: &Learned,
@@ -155,8 +155,8 @@ fn collection(
         ));
     }
     for name in learned.ranked_names() {
-        // by name, or by slug : Spotify still says « Kanye West » where the
-        // card, at `kanye-west`, is named « Ye » — one row, not two (Joel,
+        // by name, or by slug: Spotify still says "Kanye West" where the
+        // card, at `kanye-west`, is named "Ye" — one row, not two (Joel,
         // 10/09/2026)
         if seen.contains(&name.to_lowercase()) || seen.contains(&crate::generate::slugify(name)) {
             continue;
@@ -179,8 +179,8 @@ fn collection(
             b.1.familiarity.cmp(&a.1.familiarity).then_with(|| a.1.name.cmp(&b.1.name))
         }),
         Sort::Alphabetical => rows.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase())),
-        // le plus récemment joué d'abord ; ceux qui n'ont jamais sonné
-        // ferment la marche, puisqu'ils n'ont pas de dernière écoute
+        // most recently played first; those that never played close the
+        // line, since they have no last play
         Sort::LastPlayed => rows.sort_by(|a, b| {
             match (a.1.days, b.1.days) {
                 (Some(x), Some(y)) => x.cmp(&y),
@@ -206,7 +206,7 @@ fn collection(
     rows
 }
 
-/// Ce qui est autorisé, lu sur disque sans rien ouvrir.
+/// What is authorized, read from disk without opening anything.
 pub struct Status {
     pub librespot: bool,
     pub web: bool,
@@ -221,21 +221,21 @@ impl Status {
     }
 }
 
-/// Une porte d'entrée : une graine, et la phrase qui dit pourquoi elle est là.
+/// A door in: a seed, and the sentence saying why it is there.
 struct Entry {
     choice: Choice,
     label: String,
-    /// Rempli seulement quand la graine est un **morceau** : le titre passe
-    /// devant, l'artiste derrière.
+    /// Filled only when the seed is a **track**: the title goes first, the
+    /// artist behind.
     artist: Option<String>,
     reason: String,
     preview: Vec<(String, String)>,
 }
 
 
-/// L'écran non connecté. Deux situations qui ne se ressemblent pas : jamais
-/// autorisé, où il faut expliquer les deux gestes ; autorisation perdue, qui
-/// est un passage et non un mur.
+/// The not-connected screen. Two situations that look nothing alike: never
+/// authorized, where both gestures need explaining; authorization lost,
+/// which is a passage, not a wall.
 pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
     let mut rows = Vec::new();
     if !status.librespot && !status.web {
@@ -295,7 +295,7 @@ pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
     rows
 }
 
-/// Les portes de l'accueil, dans l'ordre que le confort décide.
+/// The home doors, in the order comfort decides.
 fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(String, Vec<Entry>)> {
     let mut familiar: Vec<(&String, f32)> = catalog
         .cards
@@ -326,8 +326,8 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
         })
         .collect();
 
-    // une graine qui est un morceau, pas un artiste — un titre aimé s'il y en
-    // a, sinon un top de l'artiste le plus familier
+    // a seed that is a track, not an artist — a liked track if there is one,
+    // else a top of the most familiar artist
     let track = learned.liked_anywhere().into_iter().next().or_else(|| {
         familiar.first().and_then(|(slug, _)| {
             catalog.cards[*slug].tops.first().map(|t| ((*slug).clone(), t.clone()))
@@ -348,8 +348,8 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
         }
     }
 
-    // les délaissés n'existent qu'avec de l'usage ; le premier jour, ce sont
-    // les fiches que rien n'a jamais touchées
+    // the neglected only exist with usage; on day one, they are the cards
+    // nothing has ever touched
     let neglected = learned.neglected(3.0, 90);
     let (second_title, second) = if neglected.is_empty() {
         let jamais: Vec<Entry> = familiar
@@ -403,7 +403,7 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
     );
     let second_bloc = (second_title.to_string(), second);
 
-    // 0012 §4 : c'est le confort qui décide, il n'y a pas d'autre réglage
+    // 0012 §4: comfort decides, there is no other setting
     if comfort.value() >= 4 {
         vec![second_bloc, habitues_bloc]
     } else {
@@ -418,7 +418,7 @@ fn rows_of(
     let mut rows = Vec::new();
     if let Some(last) = recall() {
         rows.push(Row::Rule("resume".into()));
-        // le titre devant, l'artiste derrière — partout pareil
+        // the title first, the artist behind — the same everywhere
         rows.push(Row::Key {
             key: "r".into(),
             what: format!("{} — {}", last.title, last.name),
@@ -476,45 +476,44 @@ fn rows_of(
     (rows, n)
 }
 
-/// L'accueil. Rend, lit une touche, et dit ce qu'il faut démarrer.
-/// Ce que l'accueil répond à une touche.
+/// Home. Renders, reads a key, and says what to start.
+/// What home answers to a key.
 pub enum Outcome {
     Stay,
-    /// Démarrer un parcours — il remplace celui qui joue, s'il y en a un.
+    /// Start a journey — it replaces the one playing, if any.
     Start(Choice),
-    /// Revenir à l'écran de la session en cours, sans rien changer.
+    /// Go back to the current session screen, changing nothing.
     Back,
-    /// Ouvrir la modale de recherche, vide ou déjà remplie — elle vit sur
-    /// l'écran de la session, qui la tient pour les deux écrans (Joel,
-    /// 09/09/2026).
+    /// Open the search modal, empty or already filled — it lives on the
+    /// session screen, which holds it for both screens (Joel, 09/09/2026).
     Find(String),
-    /// `:generate <nom>` — faire entrer un artiste absent du catalogue, puis
-    /// partir de chez lui ([0016]).
+    /// `:generate <name>` — bring in an artist missing from the catalog, then
+    /// start from them ([0016]).
     Generate(String),
-    /// `ad` sur la ligne surlignée : sa discographie, en modale sur
-    /// l'accueil (Joel, 10/09/2026).
+    /// `ad` on the highlighted line: its discography, as a modal over home
+    /// (Joel, 10/09/2026).
     Explore { slug: String, name: String },
-    /// Un autre geste `a` sur la ligne surlignée (`ag`, `ae`, `aL`) : la
-    /// session le fait, avec le même code qu'en écoute. `slug` manque quand
-    /// l'artiste n'a pas de fiche.
+    /// Any other `a` gesture on the highlighted line (`ag`, `ae`, `aL`): the
+    /// session does it, with the same code as when listening. `slug` is
+    /// missing when the artist has no card.
     Artist { key: char, slug: Option<String>, name: String },
     Quit,
 }
 
-/// L'accueil est un **écran de la session**, pas une boucle à part (Joel,
-/// 08/09/2026) : on y revient de l'écoute par `q`, l'écoute continue en
-/// dessous, et `r` ou échap ramènent à l'écran de session. Cet état est ce
-/// qui bouge à l'accueil entre deux touches.
+/// Home is a **session screen**, not a separate loop (Joel, 08/09/2026):
+/// `q` comes back to it from listening, listening goes on underneath, and
+/// `r` or esc return to the session screen. This state is what moves on
+/// home between two keys.
 pub struct Home {
-    /// ce qui est en train d'être tapé : la seule chose qui bouge en bas
+    /// what is being typed: the only thing that moves at the bottom
     typed: String,
     said: String,
     sort: Sort,
     scope: Scope,
-    /// le curseur de la collection : tant qu'il n'existe pas, entrée garde
-    /// son sens de toujours — « choisis pour moi »
+    /// the collection cursor: as long as it does not exist, enter keeps its
+    /// usual meaning — "choose for me"
     cursor: Option<usize>,
-    /// `/texte` filtre la collection (Joel, 08/09/2026) ; échap l'efface.
+    /// `/text` filters the collection (Joel, 08/09/2026); esc clears it.
     filter: String,
 }
 
@@ -532,10 +531,10 @@ impl Default for Home {
 }
 
 impl Home {
-    /// Ce que l'accueil a à dire après une touche. La session le relève
-    /// après chaque geste et le pose en toast : **toute notification
-    /// s'affiche en toast** (Joel, 10/09/2026), la ligne du bas ne porte
-    /// que la saisie et les touches.
+    /// What home has to say after a key. The session picks it up after
+    /// every gesture and shows it as a toast: **every notification is a
+    /// toast** (Joel, 10/09/2026), the bottom line only carries the input
+    /// and the keys.
     pub fn take_said(&mut self) -> Option<String> {
         if self.said.is_empty() {
             None
@@ -544,8 +543,8 @@ impl Home {
         }
     }
 
-    /// Dessine l'accueil. `bar` est le pied de lecture, quand une session
-    /// joue en dessous ; `live` dit s'il y a une session où retourner.
+    /// Draw home. `bar` is the playback footer, when a session plays
+    /// underneath; `live` says whether there is a session to go back to.
     #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
@@ -611,9 +610,8 @@ impl Home {
         });
     }
 
-    /// Une touche à l'accueil. Les listes se recalculent à chaque touche :
-    /// elles sont petites, et c'est ce qui garantit qu'on choisit dans ce
-    /// qui est affiché.
+    /// A key on home. The lists are recomputed on every key: they are
+    /// small, and that is what guarantees we choose among what is shown.
     pub fn on_cmd(
         &mut self,
         cmd: Cmd,
@@ -657,8 +655,8 @@ impl Home {
                     Outcome::Stay
                 }
             },
-            // « r » ramène à l'écoute en cours ; sans écoute, il reprend la
-            // dernière session
+            // `r` goes back to the current listening; without one, it resumes
+            // the last session
             Cmd::Resume if live => Outcome::Back,
             Cmd::Resume => match recall() {
                 Some(last) => Outcome::Start(Choice::Track { slug: last.slug, title: last.title }),
@@ -667,24 +665,24 @@ impl Home {
                     Outcome::Stay
                 }
             },
-            // le curseur de la collection prend le pas : entrée démarre ce
-            // qui est sous lui, sinon elle garde son sens de toujours
+            // the collection cursor takes precedence: enter starts what is
+            // under it, otherwise it keeps its usual meaning
             Cmd::Auto if self.cursor.is_some() => {
                 let index = self.cursor.unwrap();
                 match listing.get(index) {
                     Some((Some(slug), _)) => Outcome::Start(Choice::Artist(slug.clone())),
-                    // sans fiche : la session la génère, puis part de chez
-                    // lui — arriver chez un artiste, c'est lui faire une
-                    // fiche (0016 ; Joel, 10/09/2026, sur Kanye West)
+                    // no card: the session generates it, then starts from the
+                    // artist — landing on an artist means making them a card
+                    // (0016; Joel, 10/09/2026, on Kanye West)
                     Some((None, row)) => Outcome::Generate(row.name.clone()),
                     None => Outcome::Stay,
                 }
             }
-            // al / as / ab sur la ligne surlignée — 0020 : à l'accueil, la
-            // ligne surlignée, ou rien. « as » sort l'artiste des aimés et
-            // l'écrit dans learned/, où il prime sur Spotify (Joel,
-            // 09/09/2026)
-            // ad : la discographie de la ligne surlignée, si elle a une fiche
+            // al / as / ab on the highlighted line — 0020: on home, the
+            // highlighted line, or nothing. `as` takes the artist out of the
+            // liked and writes it in learned/, where it overrides Spotify
+            // (Joel, 09/09/2026)
+            // ad: the discography of the highlighted line, if it has a card
             Cmd::Artist('d') => {
                 let Some(index) = self.cursor else {
                     self.said = "(nothing highlighted — ↑↓ to choose)".into();
@@ -692,7 +690,7 @@ impl Home {
                 };
                 match listing.get(index) {
                     Some((Some(slug), row)) => Outcome::Explore { slug: slug.clone(), name: row.name.clone() },
-                    // sans fiche : la session la génère, puis ouvre (0016)
+                    // no card: the session generates it, then opens (0016)
                     Some((None, row)) => Outcome::Artist { key: 'd', slug: None, name: row.name.clone() },
                     None => Outcome::Stay,
                 }
@@ -726,7 +724,7 @@ impl Home {
                         format!("⊘ {name} — never again")
                     }
                 };
-                // la ligne a pu quitter la vue : le curseur reste sur une ligne
+                // the line may have left the view: the cursor stays on a line
                 let left = collection(catalog, learned, self.sort, self.scope, &self.filter).len();
                 self.cursor = (left > 0).then(|| index.min(left - 1));
                 Outcome::Stay
@@ -735,7 +733,7 @@ impl Home {
                 Some(entry) => Outcome::Start(pick(entry)),
                 None => Outcome::Stay,
             },
-            // « / » filtre la collection ; chercher, c'est « :search »
+            // `/` filters the collection; searching is `:search`
             Cmd::Search(query) => {
                 self.filter = query.trim().to_string();
                 self.cursor = if self.filter.is_empty() { None } else { Some(0) };
@@ -757,9 +755,9 @@ impl Home {
                         }
                         Outcome::Stay
                     }
-                    // la même modale qu'en écoute, ouverte depuis l'accueil :
-                    // « :search » seul l'ouvre vide, « :search <texte> » la
-                    // remplit (Joel, 09/09/2026)
+                    // the same modal as when listening, opened from home:
+                    // `:search` alone opens it empty, `:search <text>` fills
+                    // it (Joel, 09/09/2026)
                     (Some("search"), _) => {
                         Outcome::Find(text.trim().trim_start_matches("search").trim().to_string())
                     }
@@ -779,7 +777,7 @@ impl Home {
                 self.cursor = Some(here.min(listing.len().saturating_sub(1)));
                 Outcome::Stay
             }
-            // les deux bouts, comme dans vim
+            // both ends, as in vim
             Cmd::Top => {
                 self.cursor = Some(0);
                 Outcome::Stay
@@ -788,8 +786,8 @@ impl Home {
                 self.cursor = Some(listing.len().saturating_sub(1));
                 Outcome::Stay
             }
-            // échap efface le filtre, puis rend le curseur ; sans l'un ni
-            // l'autre, il rend l'écran de session
+            // esc clears the filter, then gives up the cursor; with neither,
+            // it gives back the session screen
             Cmd::Escape if !self.filter.is_empty() => {
                 self.filter.clear();
                 self.cursor = None;
@@ -814,7 +812,7 @@ impl Home {
     }
 }
 
-/// La boucle de découverte, montrée pendant que l'écran non connecté attend.
+/// The discovery loop, shown while the not-connected screen waits.
 pub fn ask_phone() -> Result<String, Box<dyn std::error::Error>> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     rt.block_on(crate::sound::discover())

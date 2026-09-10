@@ -18,9 +18,9 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct Catalogue {
-    /// Le catalogue actif : un clone du dépôt de référence, ou de son fork
-    /// ([0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md) :
-    /// importer, c'est cloner). Vide = `~/Work/forkstify-catalog`.
+    /// The active catalog: a clone of the reference repository, or of its
+    /// fork ([0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md):
+    /// importing is cloning). Empty = `~/Work/forkstify-catalog`.
     #[serde(default)]
     pub path: String,
 }
@@ -33,7 +33,7 @@ impl Default for Catalogue {
 
 #[derive(Deserialize)]
 pub struct Journey {
-    /// Comfort zone (0001): 5 = cocon, 0 = exploration. Set at opening,
+    /// Comfort zone (0001): 5 = cocoon, 0 = exploration. Set at opening,
     /// adjustable in the journey with `:comfort`.
     #[serde(default = "three")]
     pub comfort: u8,

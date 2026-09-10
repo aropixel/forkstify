@@ -98,8 +98,8 @@ fn fold(c: char) -> char {
     }
 }
 
-/// A slug spelled back out for the screen: « georges-moustaki » becomes
-/// « Georges Moustaki ». It is all anyone knows of an artist without a card,
+/// A slug spelled back out for the screen: "georges-moustaki" becomes
+/// "Georges Moustaki". It is all anyone knows of an artist without a card,
 /// and it is also what MusicBrainz gets asked for.
 pub fn pretty(slug: &str) -> String {
     slug.split('-')
@@ -125,7 +125,7 @@ fn match_key(slug: &str) -> String {
     words.concat()
 }
 
-/// A GET that tells **« no »** from **« not now »**. MusicBrainz answers
+/// A GET that tells **"no"** from **"not now"**. MusicBrainz answers
 /// 503 as soon as it is pressed — often, for a minute at a time — and
 /// Deezer 429: that is not an absence, and giving up at once would fail a
 /// generation that is perfectly possible. `Ok(None)` is an answer (404: the
@@ -176,7 +176,7 @@ pub fn is_mbid(text: &str) -> bool {
 }
 
 /// Find the artist by name. A slug spelled back out lost its apostrophes
-/// and accents — « Lojo » for Lo’Jo — and MusicBrainz's search does not
+/// and accents — "Lojo" for Lo’Jo — and MusicBrainz's search does not
 /// bridge that gap; Deezer's does, so when the first try finds nobody it
 /// lends the real spelling, checked against the same key (Joel,
 /// 09/09/2026). `Err` is a server that would not answer.
@@ -327,7 +327,7 @@ fn deezer_id_by_name(name: &str) -> Option<String> {
     None
 }
 
-/// « Vesoul (2011 Remaster) » is still Vesoul. Only the remastering suffix
+/// "Vesoul (2011 Remaster)" is still Vesoul. Only the remastering suffix
 /// goes — a live or a version is a different recording and keeps its name.
 fn clean_top(title: &str) -> String {
     let lower = title.to_lowercase();
@@ -580,8 +580,8 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
 mod tests {
     use super::*;
 
-    /// Network: « lojo » is a slug spelled back out, and MusicBrainz alone
-    /// answers « Lojo Russo »; Deezer lends « Lo'jo ».
+    /// Network: "lojo" is a slug spelled back out, and MusicBrainz alone
+    /// answers "Lojo Russo"; Deezer lends "Lo'jo".
     #[test]
     #[ignore]
     fn un_slug_sans_apostrophe_se_retrouve_par_deezer() {
@@ -608,8 +608,8 @@ mod tests {
         assert_eq!(slugify("Sigur Rós"), "sigur-ros");
     }
 
-    /// C'est cette clé qui empêche de créer un doublon d'une fiche existante
-    /// sous une autre orthographe.
+    /// This key is what keeps an existing card from being duplicated under
+    /// another spelling.
     #[test]
     fn deux_orthographes_du_meme_artiste_ont_la_meme_cle() {
         assert_eq!(match_key("the-gun-club"), match_key("gun-club"));
@@ -649,8 +649,8 @@ mod tests {
         }
     }
 
-    /// Le vrai risque d'une écriture à la main : produire un TOML que le
-    /// chargeur du catalogue ne relit pas.
+    /// The real risk of writing by hand: producing TOML the catalog loader
+    /// cannot read back.
     #[test]
     fn la_fiche_composee_se_relit_comme_une_fiche() {
         let facts = facts_of("The Cure");
@@ -669,7 +669,7 @@ mod tests {
         assert_eq!(card.tags, vec!["post-punk", "new-wave", "uk", "70s"]);
     }
 
-    /// Un titre à guillemets ne doit pas casser la fiche — Deezer en rend.
+    /// A title with quotes must not break the card — Deezer returns some.
     #[test]
     fn un_titre_retors_ne_casse_pas_la_fiche() {
         let facts = facts_of("Nirvana");
@@ -678,8 +678,8 @@ mod tests {
         assert_eq!(card.tops, vec!["Smells Like \"Teen\" Spirit"]);
     }
 
-    /// Une personne n'a pas de décennie de formation : `begin` est sa
-    /// naissance, et « Jacques Brel, 20s » serait faux.
+    /// A person has no formation decade: `begin` is their birth, and
+    /// "Jacques Brel, 20s" would be wrong.
     #[test]
     fn une_personne_n_a_pas_de_tag_de_decennie() {
         let mut facts = facts_of("Jacques Brel");
@@ -689,8 +689,8 @@ mod tests {
         assert_eq!(compose_tags(&facts), vec!["post-punk", "new-wave", "be"]);
     }
 
-    /// Le pipeline en entier, contre les deux vraies sources. Ignoré par
-    /// défaut — il demande le réseau et quelques secondes :
+    /// The whole pipeline, against the two real sources. Ignored by
+    /// default — it needs the network and a few seconds:
     /// `bin/test -- --ignored --nocapture le_pipeline`
     #[test]
     #[ignore]
@@ -706,9 +706,9 @@ mod tests {
         assert!(card.generated);
         assert_eq!(card.spotify.as_deref(), Some("4RN2vlFWepLa46qQIU2PHs"));
         assert!(!card.tops.is_empty(), "des tops Deezer");
-        // le voisin qui a une fiche est visé par son slug…
+        // the neighbour that has a card is targeted by its slug…
         assert!(card.links.iter().any(|l| l.to == "georges-brassens"), "{:?}", draft.toml);
-        // …et le format se relit avec ses tags
+        // …and the format reads back with its tags
         assert!(card.tags.contains(&"be".to_string()), "{:?}", card.tags);
     }
 

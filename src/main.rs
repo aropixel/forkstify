@@ -33,9 +33,9 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Le catalogue actif : l'argument s'il y en a un, sinon le réglage, sinon
-/// l'emplacement par défaut. Un réglage plutôt qu'un chemin en dur, parce
-/// qu'on peut avoir importé plusieurs catalogues et basculer
+/// The active catalog: the argument if any, else the setting, else the
+/// default location. A setting rather than a hard-coded path, because one
+/// may have imported several catalogs and switch between them
 /// ([0004](docs/decisions/0004-deux-depots-catalogue-ciblable.md)).
 fn catalog_path(arg: Option<&String>) -> PathBuf {
     if let Some(path) = arg {
@@ -241,13 +241,13 @@ fn check(catalog: &Catalog, slug: &str) {
     }
 }
 
-/// `forkstify` sans rien : l'accueil, puis une session, puis l'accueil de
-/// nouveau. L'écran se rend **avant** toute connexion — catalogue et appris
-/// sont locaux — et le réseau n'entre en jeu qu'au moment de jouer.
+/// Bare `forkstify`: home, then a session, then home again. The screen
+/// renders **before** any connection — catalog and learned are local — and
+/// the network only comes in when playing.
 fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let dir = catalog_path(path);
-    // 0017 : ce que l'autre machine a appris arrive avant qu'on lise quoi
-    // que ce soit — et ce qu'on a appris ici part d'abord
+    // 0017: what the other machine learned arrives before we read anything
+    // — and what was learned here leaves first
     sync::ensure_merge_driver(&dir);
     let synced = sync::pull(&dir);
     let catalog = Catalog::load(&dir)?;
@@ -292,19 +292,19 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 toast: None,
             });
             if !status.librespot {
-                // l'application s'annonce elle-même : brancher le téléphone
-                // fait partie du produit, ce n'est plus une mise en route
+                // the app announces itself: connecting the phone is part of
+                // the product, not a setup step anymore
                 if home::ask_phone().is_err() {
                     return Ok(());
                 }
                 continue;
             }
-            // le jeton web se redemande tout seul à l'ouverture de la session
+            // the web token is requested again on its own when the session opens
         }
 
-        // connecté : l'accueil est désormais un écran de la session, qui
-        // tient le son, l'API et l'appris jusqu'à ce qu'on quitte pour de
-        // bon (Joel, 08/09/2026)
+        // connected: home is now a screen of the session, which holds the
+        // sound, the API and the learned until we quit for good
+        // (Joel, 08/09/2026)
         let learned = learned::Learned::load(&dir);
         let tail = discography::Tail::load();
         let status = vec![
@@ -321,7 +321,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
         break listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
     };
 
-    // l'écran alterné rendu, on laisse le parcours derrière soi
+    // alternate screen handed back, the journey is left behind
     drop(tui);
     if !last_path.is_empty() {
         println!("\nJourney: {}", last_path.join(" → "));
@@ -331,8 +331,8 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    // sans argument, forkstify ouvre son accueil — les sous-commandes sont
-    // vouées à disparaître (Joel, 05/09/2026)
+    // with no argument, forkstify opens its home — the subcommands are
+    // bound to disappear (Joel, 05/09/2026)
     let (command, target, path) = match args.as_slice() {
         [] => return accueil(None),
         // git's merge driver for learned/ (0017): base, ours, theirs
@@ -376,7 +376,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    // l'import ne charge pas le catalogue : il le modifie
+    // import does not load the catalog: it modifies it
     if command == "import" {
         return import::run(&catalog_path(path), target).map_err(|e| anyhow::anyhow!(e));
     }

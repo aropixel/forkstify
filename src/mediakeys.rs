@@ -30,7 +30,7 @@ pub async fn start(tx: UnboundedSender<Control>) -> Result<Player, Box<dyn std::
         .can_go_next(true)
         .can_go_previous(true)
         .can_control(true)
-        // nothing on air until the mirror says so — declared « playing »
+        // nothing on air until the mirror says so — declared "playing"
         // here, the bar danced during a :search (Joel, 10/09/2026)
         .playback_status(PlaybackStatus::Stopped)
         .build()
@@ -54,7 +54,7 @@ pub async fn start(tx: UnboundedSender<Control>) -> Result<Player, Box<dyn std::
 
 /// What the desktop is told about the track (0021): the same state the
 /// screen draws, pushed by the listen loop whenever it changes. `next` is
-/// « title — artist » of the queue's head, the one thing MPRIS has no word
+/// "title — artist" of the queue's head, the one thing MPRIS has no word
 /// for — it travels as the custom key `forkstify:next`.
 #[derive(Clone, PartialEq, Default)]
 pub struct Shown {
@@ -108,7 +108,7 @@ pub fn position(player: &Rc<Player>, position_ms: u32) {
     player.set_position(Time::from_millis(i64::from(position_ms)));
 }
 
-/// The needle jumped without anything else changing — « h » restarting
+/// The needle jumped without anything else changing — `h` restarting
 /// the track, a correction from librespot: say so, or the desktop's bar
 /// keeps counting from where it was.
 pub fn seeked(player: &Rc<Player>, position_ms: u32) {

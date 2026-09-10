@@ -1,21 +1,20 @@
-//! `forkstify import <url>` — reprendre les fiches d'un autre catalogue.
+//! `forkstify import <url>` — take over the cards of another catalog.
 //!
-//! [0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md) fait de
-//! l'import un geste explicite ; [0010] rend `cards/` **plat, une fiche par
-//! artiste**, si bien que reprendre « le jazz de quelqu'un » est une affaire
-//! de **fichiers**, pas de commits. On prend l'*état* de ses fiches, jamais
-//! son histoire.
+//! [0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md) makes
+//! the import an explicit gesture; [0010] makes `cards/` **flat, one card
+//! per artist**, so taking over "someone's jazz" is a matter of **files**,
+//! not commits. We take the *state* of their cards, never their history.
 //!
-//! Deux règles de prudence :
+//! Two rules of caution:
 //!
-//! - **On n'écrase jamais une fiche qu'on a déjà.** Ses corrections sur nos
-//!   artistes ne nous intéressent pas ici ; c'est le rôle d'une PR, où l'on
-//!   discute. L'import n'ajoute que ce qui manque.
-//! - **Les vecteurs se régénèrent dans le même commit** (0019), sinon les
-//!   fiches reprises ne seraient atteignables que par le graphe —
-//!   `vector_neighbors` ne travaille que sur ce que `vectors.jsonl` contient.
-//!   Et elles ne seraient pas seules : les vecteurs d'une fiche citent ses
-//!   voisins, un nouveau voisin change le texte de ceux qui le pointent.
+//! - **A card we already have is never overwritten.** Their corrections to
+//!   our artists are not of interest here; that is what a PR is for, where
+//!   things get discussed. The import only adds what is missing.
+//! - **Vectors are regenerated in the same commit** (0019), otherwise the
+//!   imported cards would only be reachable through the graph —
+//!   `vector_neighbors` works only on what `vectors.jsonl` holds. And they
+//!   would not be alone: a card's vectors cite its neighbours, so a new
+//!   neighbour changes the text of those pointing at it.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -35,7 +34,7 @@ fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     }
 }
 
-/// Un nom de remote tiré de l'URL : `…/untel/forkstify-catalog.git` → `untel`.
+/// A remote name taken from the URL: `…/untel/forkstify-catalog.git` → `untel`.
 fn remote_name(url: &str) -> String {
     let trimmed = url.trim_end_matches('/').trim_end_matches(".git");
     let mut parts = trimmed.rsplit(['/', ':']);
@@ -52,7 +51,7 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     println!("catalog: {}", dir.display());
     println!("source:  {url}  (remote \"{remote}\")");
 
-    // ajouter le remote est idempotent : on remet l'url au cas où
+    // adding the remote is idempotent: the url is reset just in case
     let _ = git(dir, &["remote", "add", &remote, url]);
     git(dir, &["remote", "set-url", &remote, url])?;
     println!("\n… fetching");
@@ -91,7 +90,7 @@ pub fn run(dir: &Path, url: &str) -> Result<(), String> {
     let mut args: Vec<&str> = vec!["checkout", &reference, "--"];
     args.extend(missing.iter().map(|p| p.as_str()));
     git(dir, &args)?;
-    // tout l'index, pas seulement les nouvelles : leurs voisines les citent
+    // the whole index, not just the new ones: their neighbours cite them
     let vectors = match crate::catalog::Catalog::load(dir) {
         Ok(catalog) => crate::embed::regenerate(dir, &catalog.cards),
         Err(why) => Err(why.to_string()),
@@ -125,7 +124,7 @@ mod tests {
         assert_eq!(remote_name("git@github.com:untel/forkstify-catalog.git"), "untel");
         assert_eq!(remote_name("https://github.com/untel/forkstify-catalog"), "untel");
         assert_eq!(remote_name("https://github.com/untel/forkstify-catalog.git/"), "untel");
-        // un nom impossible ne doit pas produire un remote invalide
+        // an impossible name must not produce an invalid remote
         assert_eq!(remote_name("truc"), "autre");
     }
 }

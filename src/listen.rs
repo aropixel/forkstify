@@ -1,5 +1,5 @@
-//! `forkstify ecouter` — the dry navigator, but it plays. Same engine and
-//! menus as `parcours`; here the segments actually sound, track by track,
+//! `forkstify listen` — the dry navigator, but it plays. Same engine and
+//! menus as `journey`; here the segments actually sound, track by track,
 //! and the keys act on the ongoing playback. The engine stays untouched:
 //! it produces stops, this module resolves and plays them.
 //!
@@ -12,8 +12,8 @@ use crate::catalog::Catalog;
 use crate::keys::{self, Cmd, When};
 use crate::tui::{Tui, View};
 
-/// Ce que la session dit à l'écran. Une ligne de journal, pas un print :
-/// depuis la TUI, il n'y a plus de flux où écrire — il y a une zone.
+/// What the session says on screen. A log line, not a print: from the
+/// TUI there is no stream left to write to — there is an area.
 macro_rules! say {
     ($self:ident, $($arg:tt)*) => {
         $self.notice(format!($($arg)*))
@@ -71,11 +71,11 @@ async fn async_run(
     catalog_dir: &std::path::Path,
     status: Vec<(String, bool)>,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    // l'écran alterné appartient à la TUI : les étapes s'y dessinent, elles
-    // ne s'impriment pas
+    // the alternate screen belongs to the TUI: the steps are drawn on it,
+    // not printed
     tui.clear();
-    // chargé ici, et non plus prêté par l'appelant : la session le fera
-    // grandir (0016), et elle doit donc en être propriétaire
+    // loaded here, no longer lent by the caller: the session will make it
+    // grow (0016), so it must own it
     let catalog = Catalog::load(catalog_dir)?;
     let census = format!(
         "learned: {} artist(s) played, {} with starting familiarity, {} discography(ies) cached",
@@ -108,8 +108,8 @@ async fn async_run(
     };
     let _ = tui.splash(&steps);
 
-    // 0017 : l'appris se commite tout seul — toutes les dix minutes s'il a
-    // bougé, à la sortie, et sur « :sync » ; le push se fait en fond
+    // 0017: the learned commits itself — every ten minutes if it moved, on
+    // exit, and on `:sync`; the push happens in the background
     let (sync_tx, mut sync_rx) = tokio::sync::mpsc::unbounded_channel::<Result<String, String>>();
     let (jobs_tx, mut jobs_rx) = tokio::sync::mpsc::unbounded_channel::<Job>();
     let mut autosave = tokio::time::interval(std::time::Duration::from_secs(600));
@@ -160,15 +160,15 @@ async fn async_run(
         mpris_sampled: None,
     };
     let mut events = live.sound.events();
-    // un tic par seconde fait avancer la barre de progression ; il ne
-    // redessine que si quelque chose sonne
+    // one tick per second moves the progress bar; it only repaints when
+    // something is playing
     let mut tick = tokio::time::interval(std::time::Duration::from_secs(1));
 
-    // le lecteur de touches est celui de l'accueil : deux threads sur stdin
-    // se voleraient les octets
+    // the key reader is the home's: two threads on stdin would steal each
+    // other's bytes
 
-    // une graine donnée démarre tout de suite ; sinon l'accueil, la session
-    // en dessous prête à jouer (Joel, 08/09/2026)
+    // a given seed starts right away; otherwise the home, with the session
+    // underneath ready to play (Joel, 08/09/2026)
     match choice {
         Some(choice) => live.start_journey(choice).await,
         None => live.tui.clear(),
@@ -243,8 +243,8 @@ async fn async_run(
     }
 
     live.sound.stop();
-    // ce qui a été appris part avec la session (0017) — dit à l'écran le
-    // temps qu'on le lise
+    // what was learned leaves with the session (0017) — said on screen
+    // long enough to be read
     let report = match crate::sync::sync(&live.catalog_dir) {
         Ok(word) => (format!("✓ {word}"), true),
         Err(why) => (format!("⏹ learned not pushed — {why} (next launch)"), false),
@@ -257,34 +257,34 @@ async fn async_run(
         .flat_map(|round| round.artists.iter())
         .filter_map(|slug| live.catalog.cards.get(slug).map(|c| c.name.clone()))
         .collect();
-    // l'écran alterné appartient à l'application entière : le parcours
-    // remonte à l'accueil au lieu de s'imprimer sur un écran qui disparaît
+    // the alternate screen belongs to the whole application: the journey
+    // goes back up to the home instead of printing on a vanishing screen
     Ok(path)
 }
 
-/// Passé ce point du morceau, « précédent » le recommence au lieu de
-/// remonter — trois secondes, comme les lecteurs ont appris à le faire.
+/// Past this point of the track, "previous" restarts it instead of going
+/// back — three seconds, as players have learned to do.
 const RESTART_AFTER_MS: u32 = 3_000;
 
-/// `A` — combien de titres d'un album on promeut d'un coup. Quatre : un
-/// album qui porte les écoutes en a rarement plus qui comptent, et au-delà
-/// on ne relit plus ce qu'on vient de faire.
+/// `A` — how many tracks of an album get promoted at once. Four: an album
+/// that carries the plays rarely has more that matter, and beyond that
+/// nobody reads back what they just did.
 const ALBUM_TOPS: usize = 4;
 
 struct Live<'a> {
-    /// **La session possède son catalogue** depuis le 09/09/2026 : une fiche
-    /// générée doit exister pour le moteur tout de suite, pas au prochain
-    /// lancement (`docs/conception/generation-a-la-volee.md`). Il était
-    /// prêté en lecture seule jusque-là.
+    /// **The session owns its catalog** since 09/09/2026: a generated card
+    /// must exist for the engine at once, not at the next launch
+    /// (`docs/conception/generation-a-la-volee.md`). It was lent read-only
+    /// until then.
     catalog: Catalog,
-    /// Où vivent les fiches : une édition les modifie et les commite (0013).
+    /// Where the cards live: an edit modifies and commits them (0013).
     catalog_dir: std::path::PathBuf,
     learned: Learned,
     /// The long tail, harvested on demand (0012 §1, fourth source).
     tail: Tail,
     sound: Sound,
-    /// L'API web, partagée avec les tâches de fond : un verrou sérialise
-    /// les appels, ce qui est aussi ce que le quota de Spotify demande.
+    /// The web API, shared with the background tasks: a lock serializes
+    /// the calls, which is also what Spotify's quota asks for.
     web: Arc<Mutex<WebApi>>,
     rng: ThreadRng,
     rounds: Vec<Round>,
@@ -298,8 +298,8 @@ struct Live<'a> {
     paused: bool,
     /// The comfort dial (0001), from the config, adjustable with `:comfort`.
     comfort: Comfort,
-    /// Ce que forkstify vient de dire — vidé à chaque commande, pour qu'un
-    /// bloc (le leader, « ? ») s'affiche seul et en entier.
+    /// What forkstify just said — cleared at every command, so a block (the
+    /// leader, `?`) shows alone and whole.
     notices: std::cell::RefCell<Vec<String>>,
     tui: &'a mut Tui,
     /// The desktop's view of the player (MPRIS), and what it was last told
@@ -309,31 +309,31 @@ struct Live<'a> {
     /// When the needle was last sampled by librespot, as last told: a new
     /// sample is a jump the desktop must hear about (`Seeked`).
     mpris_sampled: Option<std::time::Instant>,
-    /// L'axe s'affiche verticalement : les flèches y déplacent une sélection,
-    /// et rien ne change tant qu'on n'a pas validé (Joel, 06/09/2026).
-    /// Index dans l'axe : passé, puis le courant, puis la file.
+    /// The axis is shown vertically: the arrows move a selection along it,
+    /// and nothing changes until confirmed (Joel, 06/09/2026).
+    /// Index in the axis: past, then the current track, then the queue.
     selection: Option<usize>,
-    /// « c » ouvre le réglage du confort ; on garde la valeur d'avant pour
-    /// qu'échap la rende.
+    /// `c` opens the comfort dial; the previous value is kept so esc can
+    /// give it back.
     comfort_before: Option<Comfort>,
-    /// Ce qui est en train d'être tapé : une séquence à moitié faite, ou une
-    /// ligne après « / » ou « : ». C'est la seule chose qui bouge en bas.
+    /// What is being typed: a half-done sequence, or a line after `/` or
+    /// `:`. It is the only thing that moves at the bottom.
     typed: String,
-    /// Un bloc posé sur l'écran — le menu du leader, « ? ». Il ne descend pas
-    /// dans le journal : le bas de l'écran ne doit pas bouger.
+    /// A block laid over the screen — the leader menu, `?`. It does not go
+    /// down into the log: the bottom of the screen must not move.
     overlay: Option<(String, Vec<String>)>,
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
-    /// `:search <texte>` asked for a search; same reason, same turn.
+    /// `:search <text>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
-    /// Les liens de l'entourage qui pointent vers une fiche absente (0016) :
-    /// des directions que le catalogue nomme mais ne sait pas encore
-    /// marcher. Elles se numérotent à la suite des branches.
+    /// The neighborhood links that point to a missing card (0016):
+    /// directions the catalog names but cannot walk yet. They are numbered
+    /// after the branches.
     missing: Vec<crate::engine::Missing>,
-    /// Les fiches en cours de génération, pour qu'un second `f<n>` ne relance
-    /// pas le même travail — comme `harvesting` pour les discographies.
+    /// The cards being generated, so a second `f<n>` does not launch the
+    /// same job again — like `harvesting` for the discographies.
     generating: HashSet<String>,
     /// The search modal, when open.
     finder: Option<Finder>,
@@ -344,12 +344,12 @@ struct Live<'a> {
     /// The key helper is open: it follows the pending sequence level by
     /// level, and the key that completes a command closes it.
     help_open: bool,
-    /// `ad` — la discographie de l'artiste, posée sur l'écoute. Elle prend
-    /// le clavier tant qu'elle est ouverte : c'est une modale, pas un
-    /// écran (arbitrage de Joel, 07/09/2026, maquette 1a).
+    /// `ad` — the artist's discography, laid over the listening. It takes
+    /// the keyboard while open: it is a modal, not a screen (Joel's call,
+    /// 07/09/2026, maquette 1a).
     explore: Option<crate::explore::Explore>,
-    /// L'ouverture peut demander une récolte, et le clavier n'est pas async :
-    /// la boucle s'en charge au tour suivant, comme pour `:warm`.
+    /// Opening may ask for a harvest, and the keyboard is not async: the
+    /// loop takes care of it on the next turn, as for `:warm`.
     explore_requested: bool,
     /// Where a background push reports (0017): the loop says the result.
     sync_tx: tokio::sync::mpsc::UnboundedSender<Result<String, String>>,
@@ -368,14 +368,14 @@ struct Live<'a> {
     /// 08/09/2026).
     screen: Screen,
     home: Home,
-    /// Les autorisations et la synchronisation, pour l'en-tête de l'accueil.
+    /// The authorizations and the sync, for the home's header.
     status: Vec<(String, bool)>,
-    /// La dernière chose dite qui mérite un toast, et quand : le cartouche
-    /// coloré en bas à droite, quatre secondes (Joel, 08/09/2026).
+    /// The last thing said that deserves a toast, and when: the colored
+    /// box at the bottom right, four seconds (Joel, 08/09/2026).
     toast: std::cell::RefCell<Option<(String, std::time::Instant)>>,
 }
 
-/// Combien de temps un toast reste — puis il s'efface de lui-même au tic.
+/// How long a toast stays — then it fades by itself on the tick.
 const TOAST_SECONDS: u64 = 4;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -391,29 +391,28 @@ enum Job {
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
     /// The card asked for already exists: nothing to generate, but what
-    /// was meant for the artist still happens (Joel, 10/09/2026 — entrée
-    /// on « Kanye West » answered « Ye a déjà une fiche » and stopped).
+    /// was meant for the artist still happens (Joel, 10/09/2026 — enter
+    /// on "Kanye West" answered "Ye already has a card" and stopped).
     Existing { slug: String, after: After },
     /// The fresh card's vector (0019) — or why there is none; the card is
     /// adopted either way.
     Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
 }
 
-/// Ce qu'on voulait faire de l'artiste **une fois qu'il a une fiche**. La
-/// génération dure quelques secondes ; l'intention se garde avec elle,
-/// sinon le geste se perdrait en route.
+/// What was meant for the artist **once it has a card**. Generation takes
+/// a few seconds; the intent is kept with it, or the gesture would get
+/// lost on the way.
 enum After {
-    /// La recherche : on part de chez lui, avec ce morceau en ouverture
-    /// s'il y en avait un.
+    /// The search: start from the artist, with this track as the opening
+    /// if there was one.
     Play { title: Option<String>, uri: Option<String> },
-    /// Une branche en creux : elle se prend comme les autres, là où la
-    /// touche l'a demandé.
+    /// A gap branch: taken like the others, where the key asked for it.
     Branch { when: When, reason: String },
-    /// La fiche seule : le morceau est déjà dans la file (`ti` sur un
-    /// titre hors catalogue), il n'attend rien — il sera rattaché.
+    /// The card alone: the track is already in the queue (`ti` on an
+    /// off-catalog track), it waits for nothing — it will be attached.
     Card,
-    /// `ad` sur un artiste sans fiche : la fiche d'abord, sa discographie
-    /// dès qu'elle est là (Joel, 10/09/2026).
+    /// `ad` on an artist without a card: the card first, its discography
+    /// as soon as it is there (Joel, 10/09/2026).
     Explore,
 }
 
@@ -467,7 +466,7 @@ struct Found {
 /// The search modal (Joel, 08/09/2026, maquette `Recherche.dc.html`) —
 /// `:search` alone, or `ti` anchored to a position of the list. The
 /// catalogue answers at every keystroke; Spotify answers behind, and its
-/// group says « … interrogation » until it does.
+/// group says "… querying" until it does.
 struct Finder {
     /// `Some(at)` = `ti`, insert at index `at` of the queue.
     insert: Option<usize>,
@@ -540,8 +539,8 @@ impl Live<'_> {
         } else {
             self.rounds.push(Round { artists, tracks });
         }
-        // « now » keeps what was queued behind the new segment; the plain
-        // and « force » forms replace it (0015)
+        // `now` keeps what was queued behind the new segment; the plain
+        // and `force` forms replace it (0015)
         if keep_queue {
             for stop in stops.into_iter().rev() {
                 self.queue.push_front(stop);
@@ -601,8 +600,8 @@ impl Live<'_> {
         for stop in &mut stops {
             stop.encore = true;
         }
-        // la liste montre ce qui a été ajouté (« ↻ ») : on ne parle que si
-        // la demande n'est pas servie, et on dit pourquoi
+        // the list shows what was added (↻): only speak when the request
+        // is not served, and say why
         if stops.len() < count {
             let name = &self.catalog.cards[&current].name;
             let why = match tail {
@@ -619,7 +618,7 @@ impl Live<'_> {
             return;
         }
         self.rounds.push(Round { artists: Vec::new(), tracks: stops.iter().map(|s| s.title.clone()).collect() });
-        // « now » lands behind the highlighted line when it is still to
+        // `now` lands behind the highlighted line when it is still to
         // come (Joel, 09/09/2026), right after what plays otherwise
         let before = self.past.len() + usize::from(self.current.is_some());
         let at = self
@@ -663,7 +662,7 @@ impl Live<'_> {
         self.notices.borrow_mut().clear();
         self.rounds = vec![Round { artists: vec![seed.clone()], tracks: Vec::new() }];
         // opening: the chosen track first if the seed was one, then the
-        // seed's own tops (arbitrage du 05/09 : la graine peut être les deux)
+        // seed's own tops (Joel's call, 05/09: the seed can be both)
         let mut opening = crate::engine::encore(
             &self.catalog,
             &seed,
@@ -693,16 +692,16 @@ impl Live<'_> {
         self.start_segment(vec![seed], opening, true, false).await;
     }
 
-    /// Une touche à l'accueil : le son continue en dessous, `p` le tient,
-    /// le reste est la grammaire de l'accueil.
+    /// A key at the home: the sound goes on underneath, `p` holds it, the
+    /// rest is the home's grammar.
     async fn on_home_cmd(&mut self, cmd: Cmd) -> bool {
         if matches!(cmd, Cmd::PlayPause) {
             self.toggle_pause();
             return true;
         }
-        // l'aide à la saisie, comme en écoute (Joel, 10/09/2026) : espace
-        // l'ouvre, elle suit la séquence, se referme au niveau d'entrée,
-        // à échap, ou au geste suivant
+        // the key helper, as when listening (Joel, 10/09/2026): space opens
+        // it, it follows the sequence, closes at the entry level, on esc,
+        // or at the next gesture
         let was_help = self.help_open;
         let keeps_overlay = match &cmd {
             Cmd::Pending(_) | Cmd::Help(_) => true,
@@ -725,16 +724,16 @@ impl Live<'_> {
                 return true;
             }
             Cmd::Pending(seq) if self.help_open => self.help(seq.chars().next()),
-            // échap ferme l'aide, et rien d'autre
+            // esc closes the help, and nothing else
             Cmd::Escape if was_help => return true,
             _ => {}
         }
         let live = !self.rounds.is_empty();
-        // une mesure d'artiste faite à l'accueil change les branches de la
-        // session qui joue dessous
+        // an artist measure taken at the home changes the branches of the
+        // session playing underneath
         let measured = matches!(cmd, Cmd::Artist(_));
         let outcome = self.home.on_cmd(cmd, &self.catalog, &mut self.learned, &mut self.comfort, live);
-        // ce que l'accueil a à dire se pose en toast, comme en écoute
+        // what the home has to say goes in a toast, as when listening
         if let Some(said) = self.home.take_said() {
             say!(self, "{said}");
         }
@@ -749,11 +748,12 @@ impl Live<'_> {
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
             Outcome::Find(query) => self.open_finder(None, &query),
-            // `ad` sur la ligne surlignée de la collection : la même modale,
-            // posée sur l'accueil
+            // `ad` on the highlighted line of the collection: the same
+            // modal, laid over the home
             Outcome::Explore { slug, name } => self.open_explore_of(&slug, &name).await,
-            // le reste du namespace `a`, sur la ligne surlignée : le même
-            // code que l'écoute, ce qu'il dit remonte sur la ligne de l'accueil
+            // the rest of the `a` namespace, on the highlighted line: the
+            // same code as when listening, what it says goes up to the
+            // home's line
             Outcome::Artist { key, slug, name } => {
                 let carded = slug.is_some();
                 let stop = crate::engine::Stop {
@@ -765,18 +765,18 @@ impl Live<'_> {
                     encore: false,
                 };
                 if key == 'd' && !carded {
-                    // 0016 : arriver chez lui, c'est lui faire une fiche
+                    // 0016: arriving at an artist means making them a card
                     let slug = crate::generate::slugify(&name);
                     self.generate(&slug, Some(&name), None, After::Explore);
                 } else if key != 'g' && !carded {
                     self.tell(format!("({name} has no card)"));
                 } else {
-                    // ce qu'il dit passe déjà en toast par `notice`
+                    // what it says already goes in a toast through `notice`
                     self.artist_action(key, stop);
                 }
             }
-            // la même lecture qu'en écoute : le MBID en dernier mot compte
-            // aussi depuis l'accueil (Joel, 09/09/2026)
+            // read the same way as when listening: a MBID as the last word
+            // counts from the home too (Joel, 09/09/2026)
             Outcome::Generate(asked) => self.generate_asked(&asked),
             Outcome::Quit => return false,
         }
@@ -793,8 +793,9 @@ impl Live<'_> {
         match known {
             Some(Resolved::Track(uri)) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
-                    // rien à dire : le pied de l'écran annonce déjà ce qui
-                    // sonne, le redire en faisait un doublon (Joel, 07/09/2026)
+                    // nothing to say: the screen's footer already announces
+                    // what plays, saying it again made a duplicate (Joel,
+                    // 07/09/2026)
                     self.sound.play(track);
                     self.current = Some(stop);
                     self.loading = false;
@@ -964,8 +965,8 @@ impl Live<'_> {
                     self.mark_pending();
                     return self.tell(format!("⏹ card of {name} — {why}"));
                 }
-                // la fiche existe maintenant pour le moteur : le lien qui la
-                // réclamait n'est plus un creux
+                // the card now exists for the engine: the link that asked
+                // for it is no longer a gap
                 self.missing.retain(|m| m.slug != slug);
                 let mut done = format!("✓ {name} — generated card: {tops} top(s), {links} link(s)");
                 if !caveats.is_empty() {
@@ -976,9 +977,9 @@ impl Live<'_> {
                     Some(why) => done.push_str(&format!(" · no vector ({why}): navigating by the graph")),
                 }
                 self.tell(done);
-                // ce qui est déjà dans l'axe chez cet artiste — un titre
-                // inséré hors catalogue, en train de jouer peut-être —
-                // rejoint sa fiche : les mesures y ont enfin où écrire
+                // what is already on the axis for this artist — a track
+                // inserted off-catalog, maybe playing right now — joins its
+                // card: the measures finally have somewhere to write
                 self.attach_stops(&slug);
                 self.after_card(&slug, &name, after).await;
             }
@@ -1000,26 +1001,26 @@ impl Live<'_> {
         }
     }
 
-    /// Dire quelque chose, quel que soit l'écran : **tout se dit en toast**,
-    /// sous l'accueil comme en écoute (Joel, 10/09/2026). Un travail de
-    /// fond peut finir sur l'un ou l'autre — la génération dure quelques
-    /// secondes, et on a pu changer d'écran entre-temps.
+    /// Say something, whatever the screen: **everything is said in a
+    /// toast**, under the home as when listening (Joel, 10/09/2026). A
+    /// background job may finish on either — generation takes a few
+    /// seconds, and the screen may have changed meanwhile.
     fn tell(&mut self, what: String) {
-        // sous l'accueil comme en écoute : en toast (Joel, 10/09/2026)
+        // under the home as when listening: a toast (Joel, 10/09/2026)
         say!(self, "{what}");
     }
 
-    /// Reporter sur les creux affichés ce que la session est en train de
-    /// générer, pour que la colonne le dise au lieu de rester muette.
+    /// Carry over to the shown gaps what the session is generating, so the
+    /// column says it instead of staying mute.
     fn mark_pending(&mut self) {
         for missing in &mut self.missing {
             missing.pending = self.generating.contains(&missing.slug);
         }
     }
 
-    /// Faire entrer une fiche fraîche dans la session : le disque, le commit
-    /// — c'est une édition (0013) — puis le catalogue **en mémoire**, sans
-    /// quoi elle n'existerait qu'au prochain lancement.
+    /// Bring a fresh card into the session: the disk, the commit — it is an
+    /// edit (0013) — then the catalog **in memory**, without which it would
+    /// only exist at the next launch.
     fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
             .map_err(|e| format!("the composed card does not read back ({e})"))?;
@@ -1044,13 +1045,13 @@ impl Live<'_> {
         Ok(())
     }
 
-    /// Demander la fiche d'un artiste qui n'en a pas. Quatre appels réseau et
-    /// la seconde d'écart qu'exige MusicBrainz : c'est du fond, comme une
-    /// récolte de discographie, et l'écran ne l'attend pas.
+    /// Ask for the card of an artist who has none. Four network calls and
+    /// the one-second gap MusicBrainz demands: it runs in the background,
+    /// like a discography harvest, and the screen does not wait for it.
     fn generate(&mut self, slug: &str, hint: Option<&str>, mbid: Option<&str>, after: After) {
         if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
-            // rien à générer : ce qu'on voulait faire de lui se fait quand
-            // même, par le même chemin que la fiche fraîche
+            // nothing to generate: what was meant for the artist still
+            // happens, by the same path as a fresh card
             self.tell(format!("({name} already has a card)"));
             let _ = self.jobs_tx.send(Job::Existing { slug: slug.to_string(), after });
             return;
@@ -1077,7 +1078,7 @@ impl Live<'_> {
         });
     }
 
-    /// `:generate <nom> [mbid]`, from either screen: the name as typed, and
+    /// `:generate <name> [mbid]`, from either screen: the name as typed, and
     /// a last word shaped like a MusicBrainz id in place of the search by
     /// name. An artist proposed as a gap takes its branch instead of a jump.
     fn generate_asked(&mut self, asked: &str) {
@@ -1101,8 +1102,8 @@ impl Live<'_> {
 
     /// Give the stops of an artist who just got a card their slug: they
     /// were inserted from a Spotify search, off the map, under the name the
-    /// card was asked for (Joel, 10/09/2026 — « tl » said « rien à
-    /// apprendre » on a track that was playing).
+    /// card was asked for (Joel, 10/09/2026 — `tl` said "nothing to learn"
+    /// on a track that was playing).
     fn attach_stops(&mut self, slug: &str) {
         let Some(card) = self.catalog.cards.get(slug) else { return };
         let tops = card.tops.clone();
@@ -1119,9 +1120,9 @@ impl Live<'_> {
         }
     }
 
-    /// Une fiche vient de naître et on voulait l'écouter : de l'accueil le
-    /// parcours démarre chez elle, en session elle sonne tout de suite —
-    /// c'est ce que `:search` fait déjà d'un artiste du catalogue.
+    /// A card was just born and we wanted to hear it: from the home the
+    /// journey starts there, in session it plays right away — which is what
+    /// `:search` already does with a catalog artist.
     async fn play_fresh(&mut self, slug: &str, title: Option<String>, uri: Option<String>) {
         if self.screen == Screen::Home {
             let choice = match title {
@@ -1165,8 +1166,8 @@ impl Live<'_> {
         }
     }
 
-    /// Une branche en creux vient de recevoir sa fiche : elle se prend
-    /// désormais comme n'importe quelle autre.
+    /// A gap branch just got its card: from now on it is taken like any
+    /// other.
     async fn branch_to(&mut self, slug: &str, when: When, reason: String) {
         let (_, _, _, _, played) = self.state();
         let stops = crate::engine::encore(
@@ -1189,7 +1190,7 @@ impl Live<'_> {
     }
 
     /// An outage stops the walk rather than turning every remaining track
-    /// into a « introuvable ». Nothing is lost — the queue kept its head.
+    /// into a "not found". Nothing is lost — the queue kept its head.
     fn blocked(&self, why: &str) {
         say!(self, "\n⏹ playback interrupted: {why}.");
         say!(self, "   The track stays at the head of the queue — j to retry.");
@@ -1202,7 +1203,7 @@ impl Live<'_> {
     /// the async futures sized).
     async fn advance(&mut self) -> Advance {
         if let Some(current) = self.current.take() {
-            // un morceau qui n'a jamais sonné n'entre pas dans le passé
+            // a track that never played does not enter the past
             if !self.loading {
                 self.past.push(current);
             }
@@ -1223,12 +1224,12 @@ impl Live<'_> {
         Advance::Exhausted
     }
 
-    /// Step back to the previous track, like a player's « précédent ». The
+    /// Step back to the previous track, like a player's "previous". The
     /// current track goes back to the front of the queue so `j` returns to it.
     async fn back(&mut self) {
-        // comme tout lecteur : « précédent » recommence d'abord le morceau
-        // en cours, et ne remonte au précédent qu'une seconde fois — ou
-        // quand on est encore à son début (Joel, 08/09/2026)
+        // like any player: "previous" first restarts the current track,
+        // and only goes back to the previous one a second time — or when
+        // still at its start (Joel, 08/09/2026)
         let position = self.progress.as_ref().map_or(0, |p| p.now().0);
         if self.current.is_some() && !self.loading && position > RESTART_AFTER_MS {
             self.sound.restart();
@@ -1265,12 +1266,12 @@ impl Live<'_> {
     /// Move on from the current track: a branch chosen during it starts now
     /// (this is where a deferred choice fires); otherwise the segment plays
     /// its next track, and when it runs out the music auto-advances.
-    /// Depuis que choisir une branche l'**ajoute** à la file, il n'y a plus
-    /// de branche « en attente » : tout ce qui est décidé est dans la file.
+    /// Since choosing a branch **adds** it to the queue, there is no
+    /// "pending" branch anymore: everything decided is in the queue.
     async fn next(&mut self) {
         match self.advance().await {
             Advance::Playing => {}
-            // rien devant et rien de préparé : on tire
+            // nothing ahead and nothing prepared: draw
             Advance::Exhausted => self.auto_advance().await,
             Advance::Blocked(why) => self.blocked(&why),
         }
@@ -1305,10 +1306,9 @@ impl Live<'_> {
     }
 
     /// Show what plays now and what comes next; on the segment's last track,
-    /// show the branches instead of an empty « à suivre » (Joel, 04/09/2026).
-    /// L'axe et le volet se dessinent depuis l'état : il n'y a plus rien à
-    /// imprimer ici. La méthode reste comme point d'accroche des appels
-    /// existants.
+    /// show the branches instead of an empty "up next" (Joel, 04/09/2026).
+    /// The axis and the panel are drawn from the state: nothing is left to
+    /// print here. The method stays as an anchor for the existing calls.
     fn render(&self) {}
 
     /// Resolve the *next* track's uri ahead of time so the transition is
@@ -1320,7 +1320,7 @@ impl Live<'_> {
     async fn prefetch_next(&mut self) {
         let Some(stop) = self.queue.front() else { return };
         let (title, artist) = (stop.title.clone(), stop.artist.clone());
-        // déjà connu, ou verrou pris par un appel en cours : rien à lancer
+        // already known, or lock held by a call in flight: nothing to launch
         let known = self.web.try_lock().map(|web| web.cached(&title, &artist).is_some()).unwrap_or(true);
         if !known {
             self.spawn_resolve(&title, &artist);
@@ -1328,9 +1328,9 @@ impl Live<'_> {
     }
 
     /// See the branches on demand, wherever we are in the segment (`p`).
-    /// A richer « preview then pick ahead » belongs to the future GUI.
-    /// `fp` — le volet ne se cache plus, il est toujours à droite. La touche
-    /// reste pour le dire plutôt que de ne rien faire.
+    /// A richer "preview then pick ahead" belongs to the future GUI.
+    /// `fp` — the panel no longer hides, it is always on the right. The key
+    /// stays to say so rather than do nothing.
     fn preview(&self) {
         say!(self, "the branches are always shown, on the right");
     }
@@ -1390,15 +1390,15 @@ impl Live<'_> {
             &self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort, &visited,
             &played, self.size, &mut self.rng,
         );
-        // « moins souvent » / « plus souvent » ride on the branches that
+        // "less often" / "more often" ride on the branches that
         // start with the artist concerned (0014)
         for branch in &mut self.branches {
             if let Some(first) = branch.artists.first() {
                 branch.weight *= self.learned.weight(first);
             }
         }
-        // les liens qui ne mènent nulle part : ils ne sont plus jetés, ils
-        // se proposent (0016 — la génération à la volée)
+        // the links that lead nowhere: no longer thrown away, they are
+        // proposed (0016 — on-the-fly generation)
         self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
         self.missing.truncate(3);
         self.mark_pending();
@@ -1407,11 +1407,11 @@ impl Live<'_> {
 
     /// Take a branch (by weight) and start playing it. The draw is over the
     /// branches *on show*: proposing three then playing a fourth made
-    /// « entrée » unreadable (Joel, 05/09/2026).
+    /// "enter" unreadable (Joel, 05/09/2026).
     async fn auto_advance(&mut self) {
         if self.branches.is_empty() {
-            // un creux n'est pas une branche : il faut le réseau avant de
-            // sonner, et le hasard ne fait pas attendre quelqu'un (0016)
+            // a gap is not a branch: it needs the network before it can
+            // play, and a random draw does not keep anyone waiting (0016)
             match self.missing.len() {
                 0 => say!(self, "\n(dead end — u to go back, q to quit)"),
                 n => say!(
@@ -1427,14 +1427,14 @@ impl Live<'_> {
         self.start_branch(branch, When::EndOfBranch).await;
     }
 
-    /// Choisir une branche **l'ajoute à ce qui est déjà décidé** au lieu de
-    /// le remplacer (Joel, 06/09/2026) : on enchaîne quelques choix et la
-    /// suite de la soirée est faite. Les branches suivantes se proposent
-    /// alors depuis le **bout** de la file, pas depuis ce qui sonne — c'est
-    /// la « chaîne » des maquettes.
+    /// Choosing a branch **adds it to what is already decided** instead of
+    /// replacing it (Joel, 06/09/2026): chain a few choices and the rest of
+    /// the evening is set. The next branches are then proposed from the
+    /// **end** of the queue, not from what plays — the "chain" of the
+    /// mockups.
     async fn choose(&mut self, n: usize, when: When) {
-        // les creux se numérotent après les branches : choisir l'un d'eux
-        // demande sa fiche, et la branche se prend quand elle arrive
+        // gaps are numbered after the branches: choosing one asks for its
+        // card, and the branch is taken when it arrives
         if n > self.branches.len() && n <= self.branches.len() + self.missing.len() {
             let missing = &self.missing[n - self.branches.len() - 1];
             let (slug, reason) = (missing.slug.clone(), missing.why.clone());
@@ -1449,9 +1449,9 @@ impl Live<'_> {
         self.take_branch(branch, when).await;
     }
 
-    /// Poser une branche dans la file, là où la touche l'a demandée. Séparé
-    /// de `choose` parce qu'une fiche générée arrive par le même chemin,
-    /// plusieurs secondes après la frappe.
+    /// Put a branch in the queue, where the key asked for it. Separate from
+    /// `choose` because a generated card comes by the same path, several
+    /// seconds after the keystroke.
     async fn take_branch(&mut self, branch: crate::engine::Branch, when: When) {
         if self.current.is_none() {
             self.start_branch(branch, when).await;
@@ -1459,15 +1459,15 @@ impl Live<'_> {
         }
         let mut stops = branch.stops;
         if let Some(first) = stops.first_mut() {
-            // seul le premier morceau porte le nom : c'est lui qui ouvre la
-            // branche à l'écran
+            // only the first track carries the name: it is the one that
+            // opens the branch on screen
             first.head = Some(crate::engine::Head {
                 label: branch.label.clone(),
                 reason: branch.reason.clone(),
             });
         }
-        // rien à dire : la branche apparaît dans la liste avec sa raison
-        // (Joel, 07/09/2026 — le pied ne grandit jamais)
+        // nothing to say: the branch shows in the list with its reason
+        // (Joel, 07/09/2026 — the footer never grows)
         self.rounds.push(Round {
             artists: branch.artists,
             tracks: stops.iter().map(|s| s.title.clone()).collect(),
@@ -1486,16 +1486,16 @@ impl Live<'_> {
                 self.queue.extend(stops);
             }
         }
-        // les prochaines directions partent de là où la file s'arrête
+        // the next directions start from where the queue ends
         self.recompute();
     }
 
-    /// `x` — retirer de la file le morceau sous la sélection. Il reste
-    /// proposable : ce n'est pas un ban, c'est un « pas dans cette soirée ».
-    /// `J` / `K` — la ligne surlignée descend ou monte d'un cran dans la
-    /// file. Seul ce qui est à venir bouge : le passé est une histoire, le
-    /// morceau en cours est cloué. Le nom de branche voyage avec son
-    /// morceau. Ça se voit dans la numérotation, ça ne se dit pas.
+    /// `x` — remove the track under the selection from the queue. It can
+    /// still be proposed: not a ban, a "not tonight".
+    /// `J` / `K` — the highlighted line moves one step down or up the
+    /// queue. Only what is up next moves: the past is a story, the current
+    /// track is nailed. The branch name travels with its track. It shows
+    /// in the numbering, it is not said.
     fn move_selected(&mut self, step: isize) {
         let Some(index) = self.selection else {
             say!(self, "(nothing selected — ↑↓ to choose)");
@@ -1535,7 +1535,7 @@ impl Live<'_> {
         }
         let ahead = index - before;
         let Some(stop) = self.queue.remove(ahead) else { return false };
-        // si c'était la tête d'une branche, la suivante en prend le nom
+        // if it was the head of a branch, the next one takes its name
         if let Some(head) = stop.head {
             if let Some(next) = self.queue.get_mut(ahead) {
                 if next.head.is_none() {
@@ -1549,13 +1549,13 @@ impl Live<'_> {
 
     /// One parsed command (0015). Returns false to quit.
     async fn on_cmd(&mut self, cmd: Cmd) -> bool {
-        // la modale de recherche prend le clavier des deux écrans : elle
-        // s'ouvre aussi de l'accueil (Joel, 09/09/2026)
+        // the search modal takes the keyboard on both screens: it opens
+        // from the home too (Joel, 09/09/2026)
         if self.finder.is_some() {
             return self.on_finder_key(cmd).await;
         }
-        // la modale de la discographie aussi : elle a sa table (keys.rs),
-        // et s'ouvre de l'accueil comme de l'écoute (Joel, 10/09/2026)
+        // the discography modal too: it has its own table (keys.rs), and
+        // opens from the home as from the listening (Joel, 10/09/2026)
         if self.explore.is_some() && self.comfort_before.is_none() {
             return self.on_explore_key(cmd);
         }
@@ -1563,12 +1563,13 @@ impl Live<'_> {
             return self.on_home_cmd(cmd).await;
         }
         self.notices.borrow_mut().clear();
-        // le réglage du confort prend la main sur tout le reste
+        // the comfort dial takes over everything else
         if self.comfort_before.is_some() {
             return self.on_comfort_key(cmd);
         }
-        // un bloc posé sur l'écran tombe au geste suivant — sauf l'aide à la
-        // saisie, qui suit la séquence en cours jusqu'à ce qu'elle aboutisse
+        // a block laid over the screen falls at the next gesture — except
+        // the key helper, which follows the pending sequence until it
+        // completes
         let keeps_overlay = match &cmd {
             Cmd::Pending(_) | Cmd::Help(_) => true,
             Cmd::Up | Cmd::Down | Cmd::Auto => !self.help_open,
@@ -1578,13 +1579,13 @@ impl Live<'_> {
             self.overlay = None;
             self.help_open = false;
         }
-        // ce qui se tape ne fait que s'afficher : aucune action
+        // what is typed is only displayed: no action
         match &cmd {
             Cmd::Pending(seq) => {
                 self.typed = seq.clone();
                 if self.help_open {
-                    // l'aide suit la frappe : « e » ouvre le niveau de e,
-                    // ⌫ remonte (Joel, 07/09/2026)
+                    // the help follows the typing: `e` opens the e level,
+                    // ⌫ goes back up (Joel, 07/09/2026)
                     self.help(seq.chars().next());
                 }
                 return true;
@@ -1603,22 +1604,22 @@ impl Live<'_> {
         // while `/` results are on screen, a digit picks one of them rather
         // than a branch; anything else dismisses them
         match cmd {
-            // « q » ne quitte plus : il rend l'accueil, l'écoute continue en
-            // dessous et « r » y ramène (Joel, 08/09/2026)
+            // `q` no longer quits: it gives the home back, the listening
+            // goes on underneath and `r` brings it back (Joel, 08/09/2026)
             Cmd::Quit => {
                 self.remember();
                 self.screen = Screen::Home;
                 self.tui.clear();
             }
-            // entrée joue ce qui est sélectionné ; sans sélection, elle garde
-            // son sens de toujours — « choisis pour moi »
+            // enter plays what is selected; without a selection it keeps
+            // its usual meaning — "choose for me"
             Cmd::Auto => match self.selection.take() {
                 Some(index) => self.play_at(index).await,
                 None => self.auto_advance().await,
             },
             Cmd::Up => self.move_selection(-1),
-            // les deux bouts de l'axe : le début de la soirée, ou le bout de
-            // ce qui est décidé
+            // both ends of the axis: the start of the evening, or the end
+            // of what is decided
             Cmd::Top => self.selection = Some(0),
             Cmd::Bottom => self.selection = Some(self.axis_len().saturating_sub(1)),
             Cmd::Down => self.move_selection(1),
@@ -1633,7 +1634,7 @@ impl Live<'_> {
                 self.comfort_before = Some(self.comfort);
                 say!(self, "comfort zone — ↑↓ to adjust, enter confirms, esc cancels");
             }
-            // c<n> : la zone de confort d'un coup (Joel, 08/09/2026)
+            // c<n>: the comfort zone in one go (Joel, 08/09/2026)
             Cmd::Comfort(n) => self.colon(&format!("comfort {n}")),
 
             // --- f, the branch namespace ---
@@ -1658,8 +1659,8 @@ impl Live<'_> {
             }
             Cmd::PlayPause => self.toggle_pause(),
             Cmd::Help(namespace) => {
-                // espace ouvre l'aide, et la referme au niveau d'entrée ;
-                // échap la ferme de partout
+                // space opens the help, and closes it at the entry level;
+                // esc closes it from anywhere
                 if self.help_open && namespace.is_none() {
                     self.overlay = None;
                     self.help_open = false;
@@ -1669,8 +1670,8 @@ impl Live<'_> {
                 }
             }
 
-            // « / » filtre une liste — la collection, la discographie ; ici
-            // il n'y en a pas, et chercher se dit « :search » (Joel, 08/09/2026)
+            // `/` filters a list — the collection, the discography; there
+            // is none here, and searching is `:search` (Joel, 08/09/2026)
             Cmd::Search(query) => say!(self, "(/ filters a list — to search: :search {query})"),
 
             // --- decided (0015), not wired yet ---
@@ -1680,13 +1681,13 @@ impl Live<'_> {
             Cmd::Undo => self.not_yet("u", "undo the last gesture"),
             Cmd::Repeat => self.not_yet(".", "repeat the last gesture"),
             Cmd::Why => self.why(),
-            // deux touches de l'accueil, sans emploi une fois qu'on écoute
+            // two home keys, with no use once listening
             Cmd::Resume => say!(self, "\n(r is for the home: here, fu backs up one branch)"),
             Cmd::Browse => say!(self, "\n(b is for the home: here, the sound is already on)"),
-            // déjà traités plus haut : ils ne font qu'afficher
+            // already handled above: they only display
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
             Cmd::Sort => say!(self, "(s sorts the collection, at the home)"),
-            // les touches d'une modale : hors d'elle, elles n'ont pas d'objet
+            // a modal's keys: outside of it, they have no purpose
             Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop => {
                 say!(self, "(ad opens the discography: these keys work there)")
             }
@@ -1706,8 +1707,8 @@ impl Live<'_> {
                 }
             }
         }
-        // `ad` et `:discography` demandent la traîne avant d'ouvrir : le
-        // clavier n'est pas async, la boucle l'est
+        // `ad` and `:discography` ask for the tail before opening: the
+        // keyboard is not async, the loop is
         if std::mem::take(&mut self.explore_requested) {
             self.open_explore().await;
         }
@@ -1717,7 +1718,7 @@ impl Live<'_> {
     /// `?` — why this track. Says what the catalogue knows of the artist
     /// and what the listening has learned of them: familiarity (our own
     /// decayed plays, or the seed ranking before we ever played them) and
-    /// the weight our own « plus / moins souvent » has set.
+    /// the weight our own "more / less often" has set.
     fn why(&mut self) {
         let Some(stop) = self.current.clone() else {
             say!(self, "(nothing playing)");
@@ -1750,13 +1751,14 @@ impl Live<'_> {
         self.overlay = Some((title, lines));
     }
 
-    /// Le nombre de lignes de l'axe : le passé, le morceau en cours, la file.
+    /// The number of lines on the axis: the past, the current track, the
+    /// queue.
     fn axis_len(&self) -> usize {
         self.past.len() + usize::from(self.current.is_some()) + self.queue.len()
     }
 
-    /// Déplacer la sélection. Elle démarre sur le morceau en cours, parce que
-    /// c'est de là qu'on regarde.
+    /// Move the selection. It starts on the current track, because that is
+    /// where we look from.
     fn move_selection(&mut self, step: isize) {
         let len = self.axis_len();
         if len == 0 {
@@ -1767,8 +1769,8 @@ impl Live<'_> {
         self.selection = Some(next);
     }
 
-    /// Jouer la ligne sélectionnée. Ce qui la précédait dans la file passe au
-    /// passé : on saute *vers* un morceau, on ne le sort pas de l'ordre.
+    /// Play the selected line. What preceded it in the queue goes to the
+    /// past: we jump *to* a track, we do not pull it out of order.
     async fn play_at(&mut self, index: usize) {
         let past_len = self.past.len();
         if index == past_len && self.current.is_some() {
@@ -1800,8 +1802,8 @@ impl Live<'_> {
         }
     }
 
-    /// Le mode « c » : les flèches bougent la jauge, entrée valide, échap rend
-    /// la valeur d'avant. Rien n'est appliqué tant qu'on n'a pas validé.
+    /// The `c` mode: the arrows move the gauge, enter confirms, esc gives
+    /// the previous value back. Nothing is applied until confirmed.
     fn on_comfort_key(&mut self, cmd: Cmd) -> bool {
         let value = self.comfort.value();
         match cmd {
@@ -1828,7 +1830,7 @@ impl Live<'_> {
         true
     }
 
-    /// Une ligne de plus dans le journal de l'écran.
+    /// One more line in the screen's log.
     fn notice(&self, line: String) {
         let mut notices = self.notices.borrow_mut();
         for part in line.split('\n') {
@@ -1836,15 +1838,15 @@ impl Live<'_> {
         }
         let excess = notices.len().saturating_sub(14);
         notices.drain(..excess);
-        // tout ce qui se dit se pose en toast : il n'y a plus de ligne de
-        // statut sous « à suivre » (Joel, 08/09/2026)
+        // everything said goes in a toast: there is no status line under
+        // "up next" anymore (Joel, 08/09/2026)
         let first = line.trim().to_string();
         if !first.is_empty() {
             *self.toast.borrow_mut() = Some((first, std::time::Instant::now()));
         }
     }
 
-    /// Un toast est à l'écran, ou vient de s'effacer : il faut redessiner.
+    /// A toast is on screen, or just faded: a repaint is needed.
     fn toast_active(&self) -> bool {
         self.toast
             .borrow()
@@ -1852,8 +1854,8 @@ impl Live<'_> {
             .is_some_and(|(_, at)| at.elapsed().as_secs_f32() < TOAST_SECONDS as f32 + 1.5)
     }
 
-    /// Le toast du moment : ce qui charge, collant tant que ça charge ;
-    /// sinon la dernière chose dite, quatre secondes.
+    /// The toast of the moment: what is loading, sticky while it loads;
+    /// otherwise the last thing said, four seconds.
     fn toast(&self) -> Option<crate::tui::Toast> {
         if self.loading {
             if let Some(stop) = &self.current {
@@ -1919,14 +1921,14 @@ impl Live<'_> {
         self.mpris_sampled = sampled;
     }
 
-    /// Redessine. Tout passe par là : la TUI ne montre que l'état, elle ne
-    /// décide de rien.
+    /// Repaint. Everything goes through here: the TUI only shows the state,
+    /// it decides nothing.
     fn paint(&mut self) {
         self.mirror();
         if self.screen == Screen::Home {
             let live = !self.rounds.is_empty();
-            // le pied se construit champ par champ : l'écran a besoin de
-            // `tui` en exclusif pendant que le reste est lu
+            // the footer is built field by field: the screen needs `tui`
+            // exclusively while the rest is read
             let tracks = self.past.len() + usize::from(self.current.is_some()) + self.queue.len();
             let bar = live.then(|| crate::tui::Bar {
                 current: self.current.as_ref(),
@@ -1937,8 +1939,8 @@ impl Live<'_> {
                 next: self.queue.front(),
                 ahead: self.queue.len(),
             });
-            // la modale de recherche se pose sur l'accueil comme sur
-            // l'écoute — c'est la même, ouverte d'ailleurs
+            // the search modal lays over the home as over the listening —
+            // it is the same one, opened from elsewhere
             let finder = self.finder.as_ref().map(|finder| self.finder_view(finder));
             self.home.draw(
                 &self.catalog,
@@ -1961,8 +1963,8 @@ impl Live<'_> {
         // just taken vanished, or came back a few tracks later, once the
         // head had turned around (Joel, 09/09/2026). Straighten it first.
         self.queue.make_contiguous();
-        // la modale dit « ▶ sonne » sur la bonne ligne, même quand le
-        // morceau change pendant qu'elle est ouverte
+        // the modal says "▶ playing" on the right line, even when the
+        // track changes while it is open
         let playing = self.current.as_ref().map(|stop| stop.title.clone());
         if let Some(screen) = self.explore.as_mut() {
             screen.now_playing(playing.as_deref());
@@ -1981,8 +1983,8 @@ impl Live<'_> {
                 (self.branches.len() + self.missing.len()).max(1)
             )
         };
-        // 1a : la colonne des branches est toujours là, chaque branche
-        // dépliée avec ses morceaux (Joel, 07/09/2026)
+        // 1a: the branch column is always there, each branch unfolded
+        // with its tracks (Joel, 07/09/2026)
         let notes: Vec<String> = self
             .past
             .iter()
@@ -1990,7 +1992,7 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| self.note(stop))
             .collect();
-        // le bloc de la graine (maquette 2b) : d'elle tout descend
+        // the seed block (maquette 2b): everything descends from it
         let seed_card = self.catalog.cards.get(&seed);
         let seed_name = seed_card.map(|c| c.name.clone()).unwrap_or_else(|| seed.clone());
         let seed_facts = seed_card
@@ -2109,7 +2111,7 @@ impl Live<'_> {
         }
     }
 
-    /// Ce que la TUI dessine de la modale de recherche.
+    /// What the TUI draws of the search modal.
     fn finder_view(&self, finder: &Finder) -> crate::tui::FinderView {
         let mut lines: Vec<crate::tui::FinderLine> = Vec::new();
         let cat = finder.catalogue.len();
@@ -2219,7 +2221,7 @@ impl Live<'_> {
 
     /// Whether a gesture aims at what plays (no selection, or the
     /// highlighted line is the current track): that is the only case where
-    /// « skip » and « ban » also move the music on.
+    /// "skip" and "ban" also move the music on.
     fn aims_at_playing(&self) -> bool {
         self.current.is_some() && self.selection.map_or(true, |i| i == self.past.len())
     }
@@ -2235,9 +2237,9 @@ impl Live<'_> {
     /// `t` — the current track. Measures write to `learned/` at once and
     /// without asking (0013); the editions still wait for the layer that
     /// writes cards and commits them.
-    /// `ti` — track insert : la modale de recherche, ancrée là où l'on est
-    /// dans la liste — avant la ligne surlignée si elle est à venir, sinon
-    /// juste après ce qui sonne (Joel, 08/09/2026).
+    /// `ti` — track insert: the search modal, anchored where we are in the
+    /// list — before the highlighted line if it is up next, right after
+    /// what plays otherwise (Joel, 08/09/2026).
     fn open_insert(&mut self) {
         let ahead = self.past.len() + usize::from(self.current.is_some());
         let at = self
@@ -2348,8 +2350,8 @@ impl Live<'_> {
         }
     }
 
-    /// Les touches de la modale de recherche : tout est frappe, sauf les
-    /// flèches, entrée, tab et échap.
+    /// The search modal's keys: everything is typing, except the arrows,
+    /// enter, tab and esc.
     async fn on_finder_key(&mut self, cmd: Cmd) -> bool {
         match cmd {
             Cmd::Typing(line) => {
@@ -2391,10 +2393,10 @@ impl Live<'_> {
         };
         let insert = finder.insert;
         self.close_finder();
-        // depuis l'accueil, choisir **démarre un parcours** — c'est la règle
-        // de l'accueil, un chiffre y fait déjà la même chose (Joel,
-        // 09/09/2026). Un titre sans fiche n'a rien d'où brancher : il se
-        // joue depuis l'écoute, pas depuis l'accueil.
+        // from the home, choosing **starts a journey** — that is the home's
+        // rule, a digit already does the same there (Joel, 09/09/2026). A
+        // track without a card has nothing to branch from: it plays from
+        // the listening, not from the home.
         if self.screen == Screen::Home {
             match &found.hit {
                 Hit::Artist(slug) => self.start_journey(Choice::Artist(slug.clone())).await,
@@ -2402,8 +2404,8 @@ impl Live<'_> {
                     self.start_journey(Choice::Track { slug: slug.clone(), title: title.clone() })
                         .await
                 }
-                // hors catalogue : on le fait entrer (0016). C'est le geste
-                // du 09/09/2026 — « j'ai envie d'écouter Jacques Brel ».
+                // off-catalog: bring it in (0016). This is the gesture of
+                // 09/09/2026 — "I feel like listening to Jacques Brel".
                 Hit::Track { title, artist, uri, .. } => {
                     let slug = crate::generate::slugify(artist);
                     let after = After::Play {
@@ -2439,9 +2441,9 @@ impl Live<'_> {
             }
         };
         match (insert, &found.hit) {
-            // ti : le titre entre dans la file à l'ancre, marqué. Hors
-            // catalogue, sa fiche se génère derrière (0016) sans le faire
-            // attendre : il sera rattaché quand elle arrive
+            // ti: the track enters the queue at the anchor, marked. Off
+            // catalog, its card is generated behind (0016) without making
+            // it wait: it will be attached when it arrives
             (Some(at), Hit::Track { artist, slug, .. }) => {
                 let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
                 stop.head = Some(crate::engine::Head {
@@ -2456,7 +2458,7 @@ impl Live<'_> {
                     self.generate(&slug, Some(artist), None, After::Card);
                 }
             }
-            // ti sur un artiste : son meilleur morceau non joué
+            // ti on an artist: their best unplayed track
             (Some(at), Hit::Artist(slug)) => {
                 let (_, _, _, _, played) = self.state();
                 let mut stops = crate::engine::encore(
@@ -2474,7 +2476,7 @@ impl Live<'_> {
                 say!(self, "→ inserted at {}: {} — {}", at + 2, stop.title, stop.artist);
                 self.queue.insert(at, stop);
             }
-            // :search sur un artiste : un segment chez lui, comme une branche
+            // :search on an artist: a segment from them, like a branch
             (None, Hit::Artist(slug)) => {
                 let (_, _, _, _, played) = self.state();
                 let stops = crate::engine::encore(
@@ -2483,17 +2485,17 @@ impl Live<'_> {
                 say!(self, "→ {} — via :search", self.catalog.cards[slug].name);
                 self.start_segment(vec![slug.clone()], stops, false, false).await;
             }
-            // :search sur un titre hors catalogue : sa fiche se génère, et
-            // il sonne dès qu'elle est là — sans quoi les branches
-            // repartiraient de nulle part (0016)
+            // :search on an off-catalog track: its card is generated, and
+            // it plays as soon as it is there — otherwise the branches
+            // would start again from nowhere (0016)
             (None, Hit::Track { title, artist, uri, slug: None }) => {
                 let slug = crate::generate::slugify(artist);
                 let after =
                     After::Play { title: Some(title.clone()), uri: Some(uri.clone()) };
                 self.generate(&slug, Some(artist), None, after);
             }
-            // :search sur un titre : il sonne maintenant, les branches
-            // repartent de son artiste
+            // :search on a track: it plays now, the branches start again
+            // from its artist
             (None, Hit::Track { .. }) => {
                 let Some((stop, uri)) = stop_of(&found.hit, &self.catalog) else { return };
                 let round_artists: Vec<String> =
@@ -2523,7 +2525,7 @@ impl Live<'_> {
     }
 
     async fn on_track_key(&mut self, key: char) {
-        // `ti` n'a pas besoin de morceau sous l'aiguille : il vise une place
+        // `ti` needs no track under the needle: it aims at a slot
         if key == 'i' {
             self.open_insert();
             return;
@@ -2540,7 +2542,8 @@ impl Live<'_> {
                     say!(self, "\n↷ {} — less often, skipped", stop.title);
                     self.next().await;
                 } else if self.selection.is_some_and(|index| self.drop_line(index)) {
-                    // « passer » un morceau à venir, c'est le sortir de la file
+                    // "skipping" a track still to come takes it out of the
+                    // queue
                     say!(self, "\n↷ {} — less often, removed from the queue", stop.title);
                 } else {
                     say!(self, "\n↷ {} — less often", stop.title);
@@ -2559,12 +2562,12 @@ impl Live<'_> {
                 Ok(()) => say!(self, "\n⚑ {} — set aside", stop.title),
                 Err(e) => say!(self, "\n(mark not written: {e})"),
             },
-            // pas de « tt » / « tT » en écoute : un seul geste dit le goût,
-            // « tl » ; les tops se corrigent dans la discographie (0018)
+            // no `tt` / `tT` when listening: one gesture says the taste,
+            // `tl`; tops are fixed in the discography (0018)
             't' | 'T' => say!(self, "(tops are fixed in the discography: ad — here, tl says more often)"),
             'd' => {
-                // 0011 : une door pointe vers des tags, la direction où l'on
-                // va — donc ceux de l'artiste suivant, sinon les siens
+                // 0011: a door points to tags, the direction we are going
+                // — so the next artist's, else its own
                 let towards: Vec<String> = self
                     .queue
                     .iter()
@@ -2589,14 +2592,15 @@ impl Live<'_> {
     /// `a` — the artist under the needle. The three verbs are one scale:
     /// more often, less often, never again.
     fn on_artist_key(&mut self, key: char) {
-        // `ad` vise ce qui est **surligné**, sinon ce qui sonne : la
-        // sélection se voit et ne joue rien, et la modale nomme l'artiste
-        // qu'elle ouvre — le doute est levé à l'écran, pas dans les doigts
+        // `ad` aims at what is **highlighted**, else at what plays: the
+        // selection is visible and plays nothing, and the modal names the
+        // artist it opens — the doubt is cleared on screen, not in the
+        // fingers
         if key == 'd' {
             self.explore_requested = true;
             return;
         }
-        // `ag` marche hors catalogue aussi : il ne lui faut qu'un nom
+        // `ag` works off-catalog too: it only needs a name
         let stop = if key == 'g' {
             let Some(stop) = self.target() else {
                 say!(self, "(nothing playing)");
@@ -2611,10 +2615,10 @@ impl Live<'_> {
     }
 
     /// One `a` verb on one artist — from the axis, or from the home's
-    /// collection (Joel, 10/09/2026 : « toutes les commandes artistes
-    /// depuis l'accueil »).
+    /// collection (Joel, 10/09/2026: "every artist command from the
+    /// home").
     fn artist_action(&mut self, key: char, stop: crate::engine::Stop) {
-        // `ag` — google : l'artiste visé dans le navigateur par défaut
+        // `ag` — google: the targeted artist in the default browser
         // (Joel, 08/09/2026)
         if key == 'g' {
             let url = format!(
@@ -2657,16 +2661,16 @@ impl Live<'_> {
                 self.recompute();
             }
             'e' => {
-                // $EDITOR demanderait de rendre l'entrée au terminal, or le
-                // lecteur de touches tient stdin en permanence — il lui
-                // volerait ses frappes. Ça attend une saisie interrogée
-                // plutôt qu'un fil bloqué.
+                // $EDITOR would need the input given back to the terminal,
+                // but the key reader holds stdin permanently — it would
+                // steal its keystrokes. This waits for polled input rather
+                // than a blocking thread.
                 let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
                 say!(self, "card: {} (opening it here waits for the input rework)", path.display());
             }
             'L' => {
-                // lier à l'artiste d'où l'on vient : c'est le lien qu'on a
-                // sous les yeux au moment où l'on veut l'écrire
+                // link to the artist we came from: that is the link before
+                // our eyes at the moment we want to write it
                 let from = self
                     .rounds
                     .iter()
@@ -2730,11 +2734,11 @@ impl Live<'_> {
         Ok(false)
     }
 
-    // --- la modale de la discographie (`ad`) --------------------------------
+    // --- the discography modal (`ad`) ---------------------------------------
 
-    /// Ce qu'un geste vise : la ligne **surlignée** s'il y en a une, le
-    /// morceau en cours sinon. La sélection ne joue rien, elle se voit ;
-    /// c'est donc elle qui commande quand elle existe.
+    /// What a gesture aims at: the **highlighted** line if there is one,
+    /// the current track otherwise. The selection plays nothing, it is
+    /// visible; so it is in charge when it exists.
     fn target(&self) -> Option<crate::engine::Stop> {
         if let Some(index) = self.selection {
             let stop =
@@ -2746,9 +2750,9 @@ impl Live<'_> {
         self.current.clone()
     }
 
-    /// Ouvrir la discographie. La traîne est déjà en cache le plus souvent
-    /// (`:warm`, un encore) ; sinon on la récolte ici, ce qui est le seul
-    /// moment async de toute la modale.
+    /// Open the discography. The tail is usually cached already (`:warm`,
+    /// an encore); otherwise it is harvested here, the only async moment
+    /// of the whole modal.
     async fn open_explore(&mut self) {
         let Some(stop) = self.target() else {
             say!(self, "(nothing playing)");
@@ -2772,14 +2776,14 @@ impl Live<'_> {
             head: None,
             encore: false,
         };
-        // une récolte d'avant les dates ne sait pas faire un album : le
-        // cache est régénérable et hors dépôt, on le refait plutôt que de
-        // l'afficher de travers
+        // a harvest from before the dates cannot make an album: the cache
+        // is regenerable and outside the repo, redo it rather than show it
+        // wrong
         if self.tail.has(&stop.slug) && !self.tail.dated(&stop.slug) {
             self.tail.forget(&stop.slug);
         }
-        // l'écran s'ouvre sur ce qu'on a — les tops, l'appris — et la
-        // discographie arrive derrière, en le disant (Joel, 08/09/2026)
+        // the screen opens on what we have — the tops, the learned — and
+        // the discography comes behind, saying so (Joel, 08/09/2026)
         let loading = match self.harvest(&stop.slug) {
             Ok(known) => !known,
             Err(why) => {
@@ -2807,10 +2811,10 @@ impl Live<'_> {
         self.explore = Some(screen);
     }
 
-    /// Les touches de la modale (`keys::parse_modal`). Elle ne rend jamais
-    /// `false` : on ne quitte pas forkstify depuis une liste de morceaux.
+    /// The modal's keys (`keys::parse_modal`). It never returns `false`:
+    /// forkstify is not quit from a list of tracks.
     fn on_explore_key(&mut self, cmd: Cmd) -> bool {
-        // le garde-fou de la fermeture ne vaut que pour l'échap qui suit
+        // the close guard only holds for the esc that follows
         if !matches!(cmd, Cmd::Escape) {
             if let Some(screen) = self.explore.as_mut() {
                 screen.confirm_close = false;
@@ -2826,8 +2830,8 @@ impl Live<'_> {
             Cmd::Pending(seq) => self.typed = seq,
             other => {
                 let Some(screen) = self.explore.as_mut() else { return true };
-                // ce qui se voit ne se dit pas : seul un geste sans effet
-                // visible laisse une ligne
+                // what is visible is not said: only a gesture with no
+                // visible effect leaves a line
                 screen.notice.clear();
                 match other {
                     Cmd::Up => screen.move_by(-1),
@@ -2849,9 +2853,9 @@ impl Live<'_> {
         true
     }
 
-    /// `tl` / `tb` dans la modale : ce sont des **mesures**, elles écrivent
-    /// dans `learned/` tout de suite et sans rien demander (0013) — 0017 les
-    /// commitera avec le reste. Rien à voir avec la fournée des tops.
+    /// `tl` / `tb` in the modal: these are **measures**, they write to
+    /// `learned/` at once and without asking (0013) — 0017 will commit them
+    /// with the rest. Nothing to do with the batch of tops.
     fn explore_measure(&mut self, like: bool) {
         let Some(mut screen) = self.explore.take() else { return };
         let Some(title) = screen.track().map(|track| track.title.clone()) else {
@@ -2871,9 +2875,9 @@ impl Live<'_> {
         self.explore = Some(screen);
     }
 
-    /// `e` — mettre le morceau à la file sans fermer. Une édition ne compte
-    /// pour le moteur qu'au prochain lancement ; la file, elle, sonne ce
-    /// soir, et c'est par là qu'on repart de la discographie.
+    /// `e` — queue the track without closing. An edit only counts for the
+    /// engine at the next launch; the queue plays tonight, and that is how
+    /// we leave the discography.
     fn explore_enqueue(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
         let Some((title, source)) = screen.track().map(|track| {
@@ -2898,16 +2902,16 @@ impl Live<'_> {
             title: title.clone(),
             source,
             head: None,
-            // le glyphe ↻ de l'encore : c'est le même geste, la liste le dit
+            // the encore's ↻ glyph: it is the same gesture, the list says so
             encore: true,
         });
         screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
         self.explore = Some(screen);
     }
 
-    /// ⏎ — écrire la fournée : **une lecture, une écriture, un commit**.
-    /// C'est la raison d'être de l'état en attente (maquette 1a) : on
-    /// corrige cinq tops d'une même pensée, elle ne fait qu'un commit.
+    /// ⏎ — write the batch: **one read, one write, one commit**. That is
+    /// the point of the pending state (maquette 1a): fix five tops in one
+    /// thought, it makes a single commit.
     fn explore_write(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
         if screen.pending.is_empty() {
@@ -2936,9 +2940,9 @@ impl Live<'_> {
         self.explore = Some(screen);
     }
 
-    /// échap — fermer. Avec des éditions en attente, le premier échap
-    /// prévient : elles ne sont pas écrites, et rien à l'écran ne le dirait
-    /// une fois la modale fermée.
+    /// esc — close. With pending edits, the first esc warns: they are not
+    /// written, and nothing on screen would say so once the modal is
+    /// closed.
     fn close_explore(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
         if !screen.pending.is_empty() && !screen.confirm_close {
@@ -2982,19 +2986,19 @@ impl Live<'_> {
                 _ => say!(self, "Comfort expected between 0 (exploration) and 5 (cocoon)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
-            // `ad` en toutes lettres (0013 : toute touche est le raccourci
-            // d'une commande)
+            // `ad` spelled out (0013: every key is the shortcut of a
+            // command)
             (Some("discography"), _) => self.explore_requested = true,
-            // la surcouche personnelle se calcule, elle ne se stocke pas
-            // :search ouvre la modale — vide, ou déjà remplie du texte donné
+            // the personal overlay is computed, not stored
+            // :search opens the modal — empty, or prefilled with the text
             (Some("search"), _) => {
                 self.search_requested = Some(text.trim().trim_start_matches("search").trim().to_string());
             }
-            // :generate — faire entrer un artiste absent, puis partir de
-            // chez lui (0016). La fiche arrive en quelques secondes. Un
-            // dernier mot en forme de MBID remplace la recherche par le
-            // nom (Joel, 09/09/2026) ; et si l'artiste était proposé en
-            // creux, c'est sa branche qui se prend, pas un saut chez lui.
+            // :generate — bring in a missing artist, then start from them
+            // (0016). The card comes in a few seconds. A last word shaped
+            // like a MBID replaces the search by name (Joel, 09/09/2026);
+            // and if the artist was proposed as a gap, its branch is
+            // taken, not a jump to them.
             (Some("generate"), Some(_)) => {
                 self.generate_asked(text.trim().trim_start_matches("generate"));
             }
@@ -3033,8 +3037,8 @@ impl Live<'_> {
         });
     }
 
-    /// Dire ce qu'une édition a fait, et la commiter. Une édition qui ne
-    /// laisse pas de trace relisible n'en est pas une (0013).
+    /// Say what an edit did, and commit it. An edit that leaves no
+    /// readable trace is not one (0013).
     fn report(&self, done: Result<crate::edit::Edit, String>) {
         match done {
             Ok(edit) => {
@@ -3043,8 +3047,8 @@ impl Live<'_> {
                     Ok(()) => say!(self, "✓ {summary} — committed"),
                     Err(why) => say!(self, "✓ {summary} — written, but not committed ({why})"),
                 }
-                // le catalogue en mémoire ne bouge pas : l'édition compte au
-                // prochain lancement, et il vaut mieux le dire
+                // the catalog in memory does not move: the edit counts at
+                // the next launch, and it is better said
                 say!(self, "  (the engine will take it into account next launch)");
             }
             Err(why) => say!(self, "(nothing done: {why})"),
@@ -3062,7 +3066,7 @@ impl Live<'_> {
     /// line says whether the gesture is wired, so the menu never promises
     /// what the code does not do.
     fn help(&mut self, namespace: Option<char>) {
-        // l'accueil a sa propre table d'entrée ; seul `a` y a un niveau
+        // the home has its own entry table; only `a` has a level there
         // (Joel, 10/09/2026)
         let home = self.screen == Screen::Home;
         let rows: &[(&str, &str, bool)] = match namespace {
@@ -3151,8 +3155,8 @@ impl Live<'_> {
             _ if home => "the home keys",
             _ => "the keys",
         };
-        // un bloc se pose sur l'écran ; il ne descend pas dans le journal,
-        // dont le bas ne doit jamais bouger
+        // a block lays over the screen; it does not go down into the log,
+        // whose bottom must never move
         let mut lines: Vec<String> = rows
             .iter()
             .map(|(keys, what, wired)| {
@@ -3163,7 +3167,7 @@ impl Live<'_> {
         if rows.iter().any(|(_, _, wired)| !wired) {
             lines.push(" · = decided (0015), not wired yet".into());
         }
-        // c'est une aide à la saisie : la touche tapée ici fait l'action
+        // it is a key helper: the key typed here performs the action
         lines.push(String::new());
         lines.push(match namespace {
             Some(_) => " one key = the action · ⌫ back · esc close".into(),

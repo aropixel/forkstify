@@ -15,8 +15,8 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-/// Where a track came from — 0012 §1: « le top est un poids, pas une liste
-/// fermée ». The reservoir of an artist cumulates several sources, and the
+/// Where a track came from — 0012 §1: "the top is a weight, not a closed
+/// list". The reservoir of an artist cumulates several sources, and the
 /// display says which one won, so a journey stays explainable.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Source {
@@ -65,14 +65,14 @@ pub struct Stop {
     pub artist: String,
     pub title: String,
     pub source: Source,
-    /// Posé sur le **premier** morceau d'une branche ajoutée à la file : son
-    /// nom et sa raison. C'est ce qui permet de voir, dans la liste de
-    /// lecture, où une branche commence et pourquoi — la file en enchaîne
-    /// plusieurs (Joel, 06/09/2026), et chaque maillon dit sa raison à
-    /// droite (maquette 3a, 07/09/2026).
+    /// Set on the **first** track of a branch added to the queue: its name
+    /// and its reason. That is what shows, in the playlist, where a branch
+    /// starts and why — the queue chains several of them (Joel,
+    /// 06/09/2026), and each link says its reason on the right (mockup 3a,
+    /// 07/09/2026).
     pub head: Option<Head>,
-    /// Added by an encore (`e<n>`): the list shows it with « ↻ » instead of
-    /// « → », which is how the gesture is verified — no notice needed
+    /// Added by an encore (`e<n>`): the list shows it with "↻" instead of
+    /// "→", which is how the gesture is verified — no notice needed
     /// (Joel, 07/09/2026).
     pub encore: bool,
 }
@@ -115,7 +115,7 @@ fn label(kind: &str) -> &str {
 /// Below this cosine, the vector space is not trusted for an adventurous
 /// jump. A constant for now — meant to be driven by the comfort zone
 /// (decision 0001) once it enters the navigation.
-/// The adventurous floor, at the cocon and wide open. The old fixed 0.72
+/// The adventurous floor, at the cocoon and wide open. The old fixed 0.72
 /// and 0.80 sit at comfort 2 — today's tuning becomes the middle of the
 /// dial rather than a constant.
 const FLOOR_COCON: f32 = 0.80;
@@ -221,8 +221,8 @@ pub struct Missing {
     pub kind: String,
     pub proximity: u8,
     pub why: String,
-    /// La génération est en route : la colonne le dit plutôt que de laisser
-    /// croire qu'un `f<n>` n'a rien fait.
+    /// Generation is underway: the column says so rather than letting one
+    /// think an `f<n>` did nothing.
     pub pending: bool,
 }
 
@@ -362,13 +362,13 @@ pub fn vector_neighbors(
     scores
 }
 
-/// The comfort dial (0001): **5 = cocon, 0 = exploration**.
+/// The comfort dial (0001): **5 = cocoon, 0 = exploration**.
 ///
 /// **The scale was turned round on 06/09/2026**, at Joel's first real use:
-/// « si je veux le cocon, je devrais mettre le confort à 5 — le confort,
-/// c'est ce qu'on connaît bien ». He is right, and the repository was the
-/// odd one out: [0012](../decisions/0012-rotation-des-morceaux.md) §4 says
-/// « confort haut : tirage serré sur les tops », which now reads literally.
+/// "if I want the cocoon, I should set comfort to 5 — comfort is what we
+/// know well". He is right, and the repository was the odd one out:
+/// [0012](../decisions/0012-rotation-des-morceaux.md) §4 says "high
+/// comfort: a tight draw on the tops", which now reads literally.
 /// Only `zone-de-confort.md` said the opposite, and a conception note gives
 /// way to use.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -383,15 +383,15 @@ impl Comfort {
         self.0
     }
 
-    /// 0.0 in the cocon, 1.0 wide open. The dial counts the other way —
+    /// 0.0 in the cocoon, 1.0 wide open. The dial counts the other way —
     /// comfort *is* familiarity — so openness is its mirror.
     fn openness(self) -> f32 {
         1.0 - self.0 as f32 / 5.0
     }
 
     /// How far the adventurous branch may leap. The floor drops as the dial
-    /// opens — the constants avancement.md already flagged as « à piloter
-    /// par le confort ».
+    /// opens — the constants avancement.md already flagged as "to be driven
+    /// by comfort".
     fn floor(self) -> f32 {
         FLOOR_COCON + (FLOOR_OPEN - FLOOR_COCON) * self.openness()
     }
@@ -401,16 +401,16 @@ impl Comfort {
     }
 
     /// The pull of what we already know (0001: comfort *is* familiarity):
-    /// +1 in the cocon, 0 in the middle, −1 wide open, where the unknown is
+    /// +1 in the cocoon, 0 in the middle, −1 wide open, where the unknown is
     /// what we are after.
     fn pull(self) -> f32 {
         1.0 - 2.0 * self.openness()
     }
 
-    /// The share the long tail gets in the reservoir — 0012 §4: « confort
-    /// haut : tirage serré sur les tops ; confort bas : la longue traîne
-    /// pèse davantage ». Read with the polarity above, that means **zero in
-    /// the cocon** and full weight wide open.
+    /// The share the long tail gets in the reservoir — 0012 §4: "high
+    /// comfort: a tight draw on the tops; low comfort: the long tail weighs
+    /// more". Read with the polarity above, that means **zero in the
+    /// cocoon** and full weight wide open.
     fn tail_share(self) -> f32 {
         self.openness()
     }
@@ -429,8 +429,8 @@ impl Comfort {
 /// a rule: it is what the weighted draw is given to chew on.
 const W_TOP: f32 = 1.0;
 /// A liked track outweighs a top — the like is the listener's one gesture
-/// for « more of this », the tops are only the entry points of a blank
-/// fork (0018). How much it outweighs follows the dial: ×10 in the cocon,
+/// for "more of this", the tops are only the entry points of a blank
+/// fork (0018). How much it outweighs follows the dial: ×10 in the cocoon,
 /// ×2 wide open, where the unknown is what we are after.
 const LIKE_COCON: f32 = 10.0;
 const LIKE_OPEN: f32 = 2.0;
@@ -441,8 +441,8 @@ const DOOR_BONUS: f32 = 2.5;
 /// cumulatively it takes over as the dial opens, which is what 0012 §4 asks.
 const W_TAIL: f32 = 0.25;
 
-/// The reservoir of one artist — 0012 §1, « le top est un poids, pas une
-/// liste fermée ». Cumulates the tops, the tracks this listener liked here,
+/// The reservoir of one artist — 0012 §1, "the top is a weight, not a
+/// closed list". Cumulates the tops, the tracks this listener liked here,
 /// and the doors, each with its weight; a door only gets its bonus when
 /// `towards` (the direction the branch is heading) meets its tags (0011).
 /// The long tail of the discography — the fourth source — needs an API
@@ -494,7 +494,7 @@ fn reservoir(
             )),
         }
     }
-    // the long tail, scaled by the dial: nothing at the cocon, plenty open
+    // the long tail, scaled by the dial: nothing at the cocoon, plenty open
     let share = comfort.tail_share();
     if share > 0.0 {
         let known: HashSet<String> =
@@ -796,8 +796,8 @@ pub fn propose(
         .map(|(slug, weight, why)| (slug, (weight, why)))
         .collect();
     let mut heads: Vec<(String, String, f32)> = Vec::new();
-    // 0001 : le confort *est* la familiarité. Il ne filtre pas, il penche —
-    // vers ce qu'on connaît au cocon, vers ce qu'on ne connaît pas ouvert.
+    // 0001: comfort *is* familiarity. It does not filter, it leans —
+    // towards what we know in the cocoon, towards what we don't wide open.
     let favours = |slug: &String| {
         comfort.favours(learned.familiarity01(slug, &catalog.cards[slug].name))
     };
@@ -846,7 +846,7 @@ mod tests {
     use crate::catalog::{Door, Link};
 
     /// A blank tail: the tests that predate it must keep meaning the same
-    /// thing, and a cocon draws none of it anyway.
+    /// thing, and a cocoon draws none of it anyway.
     fn no_tail() -> Tail {
         Tail::blank()
     }
@@ -871,9 +871,9 @@ mod tests {
         }
     }
 
-    /// 0016 : un lien vers une fiche absente n'est plus jeté, il se propose.
-    /// C'est ce qui a manqué le 09/09/2026 — Brel pointait vers trois
-    /// artistes, et le moteur n'en voyait aucun.
+    /// 0016: a link to a missing card is no longer dropped, it proposes
+    /// itself. That is what was missing on 09/09/2026 — Brel pointed at
+    /// three artists, and the engine saw none of them.
     #[test]
     fn un_lien_sans_fiche_devient_une_proposition() {
         let mut brel = the_cure();
@@ -892,12 +892,12 @@ mod tests {
             vectors: HashMap::new(),
         };
 
-        // le voisin qui a une fiche reste une vraie branche…
+        // the neighbor that has a card stays a real branch…
         let walkable = graph_neighbors(&catalog, "jacques-brel", &HashSet::new());
         assert_eq!(walkable.len(), 1);
         assert_eq!(walkable[0].0, "georges-brassens");
 
-        // …et celui qui n'en a pas devient un creux, nommé et pesé
+        // …and the one without becomes a gap, named and weighted
         let missing =
             missing_neighbors(&catalog, &["jacques-brel".to_string()], &HashSet::new());
         assert_eq!(missing.len(), 1);
@@ -908,7 +908,7 @@ mod tests {
         assert!(!missing[0].pending);
     }
 
-    /// Un artiste déjà visité ne redevient pas une proposition à générer.
+    /// An artist already visited does not come back as a card to generate.
     #[test]
     fn un_creux_exclu_ne_se_propose_pas() {
         let mut brel = the_cure();
@@ -931,7 +931,7 @@ mod tests {
         pool.iter().find(|(t, ..)| t == title).map(|(_, w, _)| *w).expect(title)
     }
 
-    /// 0012 §1 : le top est un poids, pas une liste fermée.
+    /// 0012 §1: the top is a weight, not a closed list.
     #[test]
     fn le_reservoir_cumule_les_sources() {
         let card = the_cure();
@@ -939,7 +939,7 @@ mod tests {
         learned.like_track("the-cure", "Killing an Arab");
         let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
 
-        // les deux tops, plus le titre aimé qui n'en est pas un
+        // the two tops, plus the liked track that is not one
         assert_eq!(pool.len(), 3, "{pool:?}");
         assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP);
         assert_eq!(weight_of(&pool, "Killing an Arab"), liked_weight(Comfort::new(0)));
@@ -947,9 +947,9 @@ mod tests {
         assert_eq!(liked.2, Source::Liked);
     }
 
-    /// 0018 : aimer est le seul geste du goût, et il prime sur les tops —
-    /// un top aimé prend le poids de l'aimé et sa marque, et au cocon un
-    /// aimé pèse dix tops.
+    /// 0018: liking is the one gesture of taste, and it outranks the tops —
+    /// a liked top takes the like's weight and its mark, and in the cocoon
+    /// a like weighs ten tops.
     #[test]
     fn l_aime_prime_sur_le_top() {
         let card = the_cure();
@@ -960,13 +960,13 @@ mod tests {
         assert_eq!(forest.2, Source::Liked, "un top aimé porte ♥");
         assert!((forest.1 - 10.0 * W_TOP).abs() < 1e-6, "{}", forest.1);
         assert_eq!(weight_of(&cocon, "Boys Don't Cry"), W_TOP);
-        // grand ouvert, l'aimé pèse encore deux tops : jamais moins
+        // wide open, a like still weighs two tops: never less
         let ouvert = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
         assert!((weight_of(&ouvert, "A Forest") - 2.0 * W_TOP).abs() < 1e-6);
     }
 
-    /// 0011 : une door est un critère additionnel, jamais principal — son
-    /// bonus ne tombe que si la direction recoupe ses tags.
+    /// 0011: a door is an additional criterion, never the main one — its
+    /// bonus only lands when the direction overlaps its tags.
     #[test]
     fn la_door_ne_gagne_que_vers_sa_direction() {
         let card = the_cure();
@@ -987,7 +987,7 @@ mod tests {
         assert_eq!(weight_of(&vers, "A Forest"), W_TOP * DOOR_BONUS);
         let door = vers.iter().find(|(t, ..)| t == "A Forest").unwrap();
         assert_eq!(door.2, Source::Door, "la provenance doit se voir à l'affichage");
-        // et le bonus reste local : l'autre top ne bouge pas
+        // and the bonus stays local: the other top does not move
         assert_eq!(weight_of(&vers, "Boys Don't Cry"), W_TOP);
     }
 
@@ -1001,12 +1001,12 @@ mod tests {
         let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
 
         assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banni : hors du tirage");
-        // deux sauts : le poids est divisé par trois, sans jamais s'annuler
+        // two skips: the weight is divided by three, never down to zero
         assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
     }
 
-    /// 0012 §2 : un morceau joué hier recule, même aimé — c'est le cooldown,
-    /// et il ne l'exclut pas.
+    /// 0012 §2: a track played yesterday steps back, even liked — that is
+    /// the cooldown, and it does not exclude it.
     #[test]
     fn un_joue_recemment_recule() {
         let card = the_cure();
@@ -1021,42 +1021,42 @@ mod tests {
         assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP, "jamais joué : intact");
     }
 
-    /// 0001 : le confort *est* la familiarité — et la polarité de l'échelle
-    /// est le piège de cette décision (voir la doc de `Comfort`).
+    /// 0001: comfort *is* familiarity — and the scale's polarity is the
+    /// trap of that decision (see the doc of `Comfort`).
     #[test]
     fn le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu() {
-        // 5 = cocon, 0 = exploration (retourné le 06/09/2026)
+        // 5 = cocoon, 0 = exploration (turned round on 06/09/2026)
         let cocon = Comfort::new(5);
         let milieu = Comfort::new(3);
         let ouvert = Comfort::new(0);
 
-        // au cocon, un artiste familier passe devant un inconnu
+        // in the cocoon, a familiar artist goes ahead of an unknown one
         assert!(cocon.favours(1.0) > cocon.favours(0.0));
-        // ouvert, c'est l'inverse — sinon le curseur ne sert à rien
+        // wide open, the reverse — otherwise the dial is useless
         assert!(ouvert.favours(0.0) > ouvert.favours(1.0));
-        // et jamais une exclusion : on décourage, on n'interdit pas
+        // and never an exclusion: we discourage, we don't forbid
         assert!(cocon.favours(0.0) >= 0.25 && ouvert.favours(1.0) >= 0.25);
 
-        // le plancher de l'aventureuse s'abaisse quand on ouvre
+        // the adventurous floor drops as the dial opens
         assert!(cocon.floor() > milieu.floor());
         assert!(milieu.floor() > ouvert.floor());
-        // le confort 3 reproduit le réglage fixe d'avant le curseur
+        // comfort 3 reproduces the fixed tuning from before the dial
         let trois_ = Comfort::new(3);
         assert!((trois_.floor() - 0.72).abs() < 1e-6, "{}", trois_.floor());
         assert!((trois_.trust() - 0.796).abs() < 1e-3, "{}", trois_.trust());
 
-        // six valeurs entières : il n'y a pas de milieu exact. 3 penche
-        // encore vers le connu, 2 déjà vers l'inconnu — la bascule tombe
-        // entre les deux, et c'est une propriété, pas un défaut.
+        // six integer values: there is no exact middle. 3 still leans
+        // towards the known, 2 already towards the unknown — the tipping
+        // point falls between them, and that is a property, not a flaw.
         assert!(milieu.favours(1.0) > milieu.favours(0.0));
         let deux = Comfort::new(2);
         assert!(deux.favours(0.0) > deux.favours(1.0));
-        // et la valeur est bornée
+        // and the value is clamped
         assert_eq!(Comfort::new(9).value(), 5);
     }
 
-    /// 0012 §4 : c'est le confort qui règle la profondeur du tirage. Au
-    /// cocon la traîne ne pèse rien ; ouvert, elle prend le dessus.
+    /// 0012 §4: comfort sets the depth of the draw. In the cocoon the tail
+    /// weighs nothing; wide open, it takes over.
     #[test]
     fn la_traine_ne_pese_que_quand_on_ouvre() {
         let card = the_cure();
@@ -1071,14 +1071,14 @@ mod tests {
                     album: "Three Imaginary Boys".into(),
                     ..Default::default()
                 },
-                // la même chanson, remasterisée : elle ne doit pas compter deux fois
+                // the same song, remastered: it must not count twice
                 crate::discography::TailTrack {
                     title: "Killing an Arab - 2004 Remaster".into(),
                     uri: "spotify:track:y".into(),
                     album: "Boys Don't Cry".into(),
                     ..Default::default()
                 },
-                // et un titre déjà dans les tops n'entre pas dans la traîne
+                // and a track already in the tops does not enter the tail
                 crate::discography::TailTrack {
                     title: "A Forest (Remastered)".into(),
                     uri: "spotify:track:z".into(),
@@ -1088,7 +1088,7 @@ mod tests {
             ],
         );
 
-        // 5 = cocon depuis le 06/09/2026
+        // 5 = cocoon since 06/09/2026
         let cocon = reservoir(&card, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &[]);
         assert!(!cocon.iter().any(|(_, _, s)| *s == Source::Tail), "au cocon, pas de traîne");
         assert_eq!(cocon.len(), 2, "les deux tops, rien d'autre");
@@ -1101,7 +1101,7 @@ mod tests {
         assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "moins qu'un top, mais présente");
     }
 
-    /// Ce qu'un parcours a déjà joué ne revient pas (0012 §3).
+    /// What a journey already played does not come back (0012 §3).
     #[test]
     fn le_deja_joue_ne_revient_pas() {
         let card = the_cure();

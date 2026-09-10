@@ -1,15 +1,14 @@
-//! Les **éditions** (0013) : elles modifient une fiche et produisent un
-//! commit lisible. C'est ce qui les sépare des mesures — celles-ci écrivent
-//! dans `learned/` sans rien dire, celles-là laissent une trace relisible et
-//! annulable, « le fork est la surcouche » ([0008]) pris au mot.
+//! The **edits** (0013): they change a card and produce a readable commit.
+//! That is what sets them apart from measures — those write to `learned/`
+//! without a word, these leave a trace that can be reread and undone,
+//! "the fork is the overlay" ([0008]) taken at its word.
 //!
-//! **Les fiches sont retouchées textuellement, jamais réécrites.** Une
-//! relecture par serde perdrait tout ce que le code ne modélise pas —
-//! `format`, `generated`, `mbid`, `spotify`, `begin`, `origin`,
-//! `description`, l'ordre des clés et les guillemets choisis à la main. Une
-//! fiche est un fichier qu'un humain lit et corrige ([0002] : « le format
-//! des fiches est une interface publique ») ; on y insère une ligne, on n'en
-//! régénère pas le tout.
+//! **Cards are patched textually, never rewritten.** A round trip through
+//! serde would lose everything the code does not model — `format`,
+//! `generated`, `mbid`, `spotify`, `begin`, `origin`, `description`, the
+//! key order and the quotes chosen by hand. A card is a file a human reads
+//! and corrects ([0002]: "the card format is a public interface"); a line
+//! is inserted into it, the whole is not regenerated.
 
 use std::path::{Path, PathBuf};
 
@@ -17,12 +16,12 @@ pub fn card_path(catalog_dir: &Path, slug: &str) -> PathBuf {
     catalog_dir.join("cards").join(format!("{slug}.toml"))
 }
 
-/// Échapper une valeur pour une chaîne TOML de base.
+/// Escape a value for a basic TOML string.
 fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
-/// Trouver le tableau `<clé> = [` … `]` et rendre les bornes de son contenu.
+/// Find the array `<key> = [` … `]` and return the bounds of its content.
 fn array_span(text: &str, key: &str) -> Option<(usize, usize)> {
     let head = format!("\n{key} = [");
     let start = if text.starts_with(&format!("{key} = [")) {
@@ -35,8 +34,8 @@ fn array_span(text: &str, key: &str) -> Option<(usize, usize)> {
     Some((open + 1, close))
 }
 
-/// Insérer une ligne juste avant la fermeture d'un tableau. Si le tableau
-/// n'existe pas, il est créé à la fin de la fiche.
+/// Insert a line just before an array closes. If the array does not
+/// exist, it is created at the end of the card.
 fn insert_into_array(text: &str, key: &str, line: &str) -> String {
     match array_span(text, key) {
         Some((_, close)) => format!("{}{line}\n{}", &text[..close], &text[close..]),
@@ -48,10 +47,10 @@ fn insert_into_array(text: &str, key: &str, line: &str) -> String {
     }
 }
 
-/// La note dit **d'où vient la ligne**, et depuis quand. 0010 veut qu'une
-/// note explique le lien ; une ligne écrite pendant une écoute ne peut pas
-/// prétendre à une explication savante, mais elle peut dire son origine —
-/// ce qui permet à qui relit, plus tard ou en amont, de la peser.
+/// The note says **where the line comes from**, and since when. 0010 wants
+/// a note to explain the link; a line written during a listen cannot claim
+/// a learned explanation, but it can state its origin — which lets whoever
+/// rereads it, later or upstream, weigh it.
 fn provenance(what: &str) -> String {
     quoted(&format!("{what} while listening, {}", crate::learned::today_iso()))
 }
@@ -75,18 +74,18 @@ fn link_line(to_slug: &str, kind: &str) -> String {
     )
 }
 
-/// Ce qu'une édition a changé, dit en une phrase — c'est le message de commit
-/// et c'est aussi ce qui s'affiche à l'écran. Une seule formulation pour les
-/// deux : ce que l'utilisateur lit est ce que git retiendra.
+/// What an edit changed, said in one sentence — it is the commit message
+/// and also what shows on screen. One wording for both: what the user reads
+/// is what git will keep.
 pub struct Edit {
     pub summary: String,
-    /// Le détail, quand une édition en porte plusieurs : le corps du commit
-    /// dit ce que le sujet compte. Une fournée de tops en a un, un geste
-    /// isolé n'en a pas besoin.
+    /// The detail, when an edit carries several: the commit body says what
+    /// the subject counts. A batch of tops has one, a lone gesture does not
+    /// need it.
     pub body: Option<String>,
     pub path: PathBuf,
     /// What else the same edit touched — the index, when a card comes with
-    /// its vector (0019) : one thought, one commit.
+    /// its vector (0019): one thought, one commit.
     pub also: Vec<PathBuf>,
 }
 
@@ -98,8 +97,8 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("card not written ({e})"))
 }
 
-/// `td` — faire d'un morceau une **door** vers une direction ([0011] : `to`
-/// pointe vers des tags, jamais vers un artiste).
+/// `td` — make a track a **door** towards a direction ([0011]: `to` points
+/// to tags, never to an artist).
 pub fn add_door(
     dir: &Path,
     slug: &str,
@@ -127,7 +126,7 @@ pub fn add_door(
     })
 }
 
-/// `aL` — lier deux artistes ([0010] : un type fermé, une note qui explique).
+/// `aL` — link two artists ([0010]: a closed type, a note that explains).
 pub fn add_link(
     dir: &Path,
     slug: &str,
@@ -151,13 +150,13 @@ pub fn add_link(
     Ok(Edit { summary: format!("{name} — link: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
 }
 
-/// La **fournée** de l'écran de la discographie (maquette 1a, 07/09/2026) :
-/// on y corrige cinq tops d'affilée, et cinq commits pour une seule pensée
-/// ne se relisent pas. Une lecture, une écriture, un commit — et le message
-/// dit le compte, le corps dit les titres.
+/// The **batch** of the discography screen (mockup 1a, 07/09/2026): five
+/// tops get fixed in a row there, and five commits for a single thought do
+/// not reread well. One read, one write, one commit — and the message says
+/// the count, the body says the titles.
 ///
-/// Les retraits passent avant les ajouts : promouvoir puis retirer le même
-/// titre dans la même fournée doit le laisser dehors, pas dedans.
+/// Removals go before additions: promoting then removing the same title in
+/// the same batch must leave it out, not in.
 pub fn set_tops(
     dir: &Path,
     slug: &str,
@@ -217,14 +216,14 @@ pub fn set_tops(
     })
 }
 
-/// La **génération d'une fiche** ([0016]) : la seule édition qui *crée* un
-/// fichier au lieu d'en retoucher un. Le texte vient de `generate`, qui le
-/// compose comme les 316 fiches de la référence — on ne le sérialise pas ici
-/// pour la même raison que rien n'est réécrit ailleurs.
+/// **Generating a card** ([0016]): the only edit that *creates* a file
+/// instead of patching one. The text comes from `generate`, which composes
+/// it like the 316 reference cards — it is not serialized here, for the
+/// same reason nothing is rewritten elsewhere.
 ///
-/// Elle refuse d'écraser une fiche existante : une génération est un ajout,
-/// jamais un remplacement. Ce qui existe se corrige à la main ou par les
-/// autres éditions.
+/// It refuses to overwrite an existing card: a generation is an addition,
+/// never a replacement. What exists is fixed by hand or by the other
+/// edits.
 pub fn create_card(
     dir: &Path,
     slug: &str,
@@ -251,8 +250,8 @@ pub fn create_card(
     })
 }
 
-/// Le commit. Une édition qui ne laisse pas de trace relisible n'en est pas
-/// une (0013) ; on ne pousse pas, en revanche — c'est l'affaire de `:sync`.
+/// The commit. An edit that leaves no readable trace is not one (0013);
+/// no push, though — that is `:sync`'s business.
 pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
     let relative = |path: &Path| -> String {
         path.strip_prefix(dir).unwrap_or(path).to_string_lossy().to_string()
@@ -290,15 +289,15 @@ mod tests {
 
     const CARD: &str = "format = 1\nname = \"The Cure\"\nmbid = \"abc\"\n\ntags = [\"post-punk\"]\n\ntops = [\n  \"A Forest\",\n  \"Lullaby\",\n]\n\nlinks = [\n  { to = \"joy-division\", type = \"scene\" },\n]\n";
 
-    /// Le reste de la fiche doit survivre intact : c'est une interface
-    /// publique, pas une structure de données à nous.
+    /// The rest of the card must survive intact: it is a public interface,
+    /// not a data structure of ours.
     #[test]
     fn une_insertion_ne_touche_a_rien_d_autre() {
         let out = insert_into_array(CARD, "tops", "  \"Push\",");
         assert!(out.contains("format = 1"));
         assert!(out.contains("mbid = \"abc\""));
         assert!(out.contains("  \"A Forest\",\n  \"Lullaby\",\n  \"Push\",\n]"));
-        // et les autres tableaux ne bougent pas
+        // and the other arrays do not move
         assert!(out.contains("{ to = \"joy-division\", type = \"scene\" },"));
     }
 
@@ -316,9 +315,8 @@ mod tests {
         assert!(!CARD[from..to].contains("joy-division"));
     }
 
-    /// Le vrai risque d'une retouche textuelle : produire un TOML que plus
-    /// personne ne relit. Après chaque insertion, la fiche doit encore se
-    /// charger comme une fiche.
+    /// The real risk of a textual patch: producing a TOML nobody can read
+    /// back. After every insertion, the card must still load as a card.
     #[test]
     fn la_fiche_reste_lisible_apres_chaque_edition() {
         let mut text = CARD.to_string();
@@ -342,7 +340,7 @@ mod tests {
         assert!(card.links.iter().any(|l| l.to == "siouxsie" && l.kind == "member"));
     }
 
-    /// Un titre à guillemets ou à apostrophe ne doit pas casser la fiche.
+    /// A title with quotes or an apostrophe must not break the card.
     #[test]
     fn un_titre_retors_passe_quand_meme() {
         let text = insert_into_array(CARD, "tops", &format!("  {},", quoted("L'\"autre\" titre")));
@@ -356,13 +354,12 @@ mod tests {
     }
 }
 
-/// `:mine` — ce que ce catalogue a de plus que l'amont.
+/// `:mine` — what this catalog has beyond upstream.
 ///
-/// La surcouche personnelle n'est pas stockée, elle se **calcule** : dans un
-/// fork ([0008]), ce qui est à soi ce sont ses commits, et `git diff` les
-/// rend ligne par ligne. C'est ce qui permet de garder une seule fiche par
-/// artiste — pas de copie à fusionner, pas de second format — tout en
-/// voyant sa propre couche.
+/// The personal overlay is not stored, it is **computed**: in a fork
+/// ([0008]), what is yours is your commits, and `git diff` renders them
+/// line by line. That is what allows a single card per artist — no copy to
+/// merge, no second format — while still seeing one's own layer.
 pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
     let git = |args: &[&str]| -> Result<String, String> {
         let out = std::process::Command::new("git")
@@ -378,8 +375,8 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
         }
     };
 
-    // l'amont d'abord, l'origine à défaut : un fork a les deux, un clone
-    // simple n'a que la seconde
+    // upstream first, origin as a fallback: a fork has both, a plain
+    // clone only the latter
     let base = ["upstream/main", "upstream/master", "origin/main", "origin/master"]
         .into_iter()
         .find(|reference| git(&["rev-parse", "--verify", "--quiet", reference]).is_ok())
@@ -400,8 +397,8 @@ pub fn mine(dir: &Path) -> Result<Vec<String>, String> {
         }
     }
 
-    // puis les lignes ajoutées elles-mêmes : c'est ce qu'on veut relire avant
-    // de proposer quoi que ce soit en amont
+    // then the added lines themselves: that is what we want to reread
+    // before proposing anything upstream
     let diff = git(&["diff", "-U0", base, "--", "cards/"])?;
     let added: Vec<&str> = diff
         .lines()

@@ -4,7 +4,7 @@
 //! asked from a human (catalogue.md § On écrit pour les humains). The
 //! composition is the one `tools/vectoriser.py` established on 02/09/2026,
 //! word for word: the reference index and the vector of a card generated
-//! on the fly must come from the same text and the same model, or « close »
+//! on the fly must come from the same text and the same model, or "close"
 //! stops meaning the same thing everywhere.
 //!
 //! The model is `paraphrase-multilingual-MiniLM-L12-v2` through fastembed

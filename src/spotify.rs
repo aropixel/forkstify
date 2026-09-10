@@ -70,7 +70,7 @@ pub struct SearchHit {
     pub artist: String,
     pub uri: String,
     pub album: String,
-    /// The release year alone — « 1964 » — or empty when Spotify has none.
+    /// The release year alone — "1964" — or empty when Spotify has none.
     pub year: String,
     pub duration_ms: u64,
 }
@@ -92,8 +92,8 @@ impl WebApi {
         let token = match &cached {
             Some(refresh) => match client.refresh_token_async(refresh).await {
                 Ok(token) => token,
-                // rien ne s'imprime ici : la TUI tient l'écran et affiche
-                // l'étape en cours (« autorisation de l'api web… »)
+                // nothing is printed here: the TUI holds the screen and
+                // shows the current step ("web api authorization…")
                 Err(_) => client.get_access_token_async().await?,
             },
             None => client.get_access_token_async().await?,
@@ -143,7 +143,7 @@ impl WebApi {
         }
     }
 
-    /// What the cache already knows of « title » by « artist », without
+    /// What the cache already knows of "title" by "artist", without
     /// touching the network: the screen shows first, the lookup runs behind.
     pub fn cached(&self, title: &str, artist: &str) -> Option<Resolved> {
         let key = format!("{artist}\u{1}{title}");
@@ -282,8 +282,8 @@ impl WebApi {
             let Some(albums) = body["albums"].as_array() else { break };
             for album in albums {
                 let album_name = album["name"].as_str().unwrap_or("").to_string();
-                // la date et le rang font l'ordre de la discographie ; le
-                // type sépare les albums des singles
+                // date and rank give the discography its order; the type
+                // separates albums from singles
                 let released = album["release_date"].as_str().unwrap_or("").to_string();
                 let single = album["album_type"].as_str() != Some("album");
                 let Some(items) = album["tracks"]["items"].as_array() else { continue };

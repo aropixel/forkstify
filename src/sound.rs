@@ -42,7 +42,7 @@ pub fn has_credentials() -> bool {
 
 /// Advertise on the local network and wait for the phone to hand over
 /// credentials. This used to live in the `spike-connect` binary; it belongs
-/// in the application, because « brancher le téléphone » is part of the
+/// in the application, because "connecting the phone" is part of the
 /// product, not a setup step run once by hand.
 pub async fn discover() -> Result<String, Box<dyn std::error::Error>> {
     let config = SessionConfig::default();

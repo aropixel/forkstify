@@ -2,8 +2,8 @@
 //!
 //! Everything the engine draws otherwise comes from the card — tops, doors —
 //! or from `learned/`. The tail is the rest of an artist's known
-//! discography, and it is **not** catalogue material: 0012 calls it « hors
-//! catalogue », and `catalogue.md` files API caches outside the repo. So it
+//! discography, and it is **not** catalogue material: 0012 calls it
+//! "off-catalog", and `catalogue.md` files API caches outside the repo. So it
 //! lives in the user's cache, is regenerable, is never committed, and never
 //! syncs between machines.
 //!
@@ -12,7 +12,7 @@
 //! going through Deezer would mean a search per artist, with the homonym
 //! risk the catalogue has already paid once. Spotify also hands back
 //! `spotify:track:` uris directly, so a tail track needs no title → id
-//! resolution and can never turn into a « introuvable sur Spotify ».
+//! resolution and can never turn into a "not found on Spotify".
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,8 +23,8 @@ pub struct TailTrack {
     pub title: String,
     pub uri: String,
     pub album: String,
-    /// The album's release date as Spotify gives it — « 1998 » or
-    /// « 1998-09-22 ». Without it there is no chronological order, which is
+    /// The album's release date as Spotify gives it — "1998" or
+    /// "1998-09-22". Without it there is no chronological order, which is
     /// how one remembers an artist (maquette 1a, 07/09/2026).
     #[serde(default)]
     pub released: String,
@@ -142,11 +142,11 @@ pub fn normalize(title: &str) -> String {
     cut.chars().filter(|c| c.is_alphanumeric()).collect()
 }
 
-/// Le titre **lisible** d'un morceau : celui qu'on écrit dans une fiche
-/// quand on le promeut en top. `normalize` sert à comparer et rend un
-/// mot-clé ; celui-ci coupe le même bruit de version mais garde la casse,
-/// les espaces et la ponctuation du titre — une fiche est lue par un
-/// humain ([0002] : le format est une interface publique).
+/// The **readable** title of a track: the one written into a card when it
+/// is promoted to a top. `normalize` is for comparing and returns a key;
+/// this one strips the same version noise but keeps the title's case,
+/// spaces and punctuation — a card is read by a human ([0002]: the format
+/// is a public interface).
 pub fn clean_title(title: &str) -> String {
     let cut = title
         .find(" - ")
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(a, normalize("A Forest - 2005 Remaster"));
         assert_eq!(a, normalize("A Forest (Remastered)"));
         assert_eq!(a, normalize("a  forest!"));
-        // mais deux titres différents restent différents
+        // but two different titles stay different
         assert_ne!(a, normalize("A Forest Fire"));
         assert_ne!(normalize("Lullaby"), normalize("Lovesong"));
     }
