@@ -487,6 +487,9 @@ pub enum Outcome {
     /// `:generate <nom>` — faire entrer un artiste absent du catalogue, puis
     /// partir de chez lui ([0016]).
     Generate(String),
+    /// `ad` sur la ligne surlignée : sa discographie, en modale sur
+    /// l'accueil (Joel, 10/09/2026).
+    Explore { slug: String, name: String },
     Quit,
 }
 
@@ -540,6 +543,7 @@ impl Home {
         bar: Option<crate::tui::Bar<'_>>,
         live: bool,
         finder: Option<crate::tui::FinderView>,
+        explore: Option<&crate::explore::Explore>,
         tui: &mut Tui,
     ) {
         let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
@@ -587,6 +591,7 @@ impl Home {
             }),
             bar,
             finder,
+            explore,
         });
     }
 
@@ -666,6 +671,21 @@ impl Home {
             // ligne surlignée, ou rien. « as » sort l'artiste des aimés et
             // l'écrit dans learned/, où il prime sur Spotify (Joel,
             // 09/09/2026)
+            // ad : la discographie de la ligne surlignée, si elle a une fiche
+            Cmd::Artist('d') => {
+                let Some(index) = self.cursor else {
+                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    return Outcome::Stay;
+                };
+                match listing.get(index) {
+                    Some((Some(slug), row)) => Outcome::Explore { slug: slug.clone(), name: row.name.clone() },
+                    Some((None, row)) => {
+                        self.said = format!("{} n'a pas de fiche : pas de discographie à ouvrir", row.name);
+                        Outcome::Stay
+                    }
+                    None => Outcome::Stay,
+                }
+            }
             Cmd::Artist(key @ ('l' | 's' | 'b')) => {
                 let Some(index) = self.cursor else {
                     self.said = "(rien de surligné — ↑↓ pour choisir)".into();

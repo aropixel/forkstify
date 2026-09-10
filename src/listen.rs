@@ -709,6 +709,9 @@ impl Live<'_> {
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
             Outcome::Find(query) => self.open_finder(None, &query),
+            // `ad` sur la ligne surlignée de la collection : la même modale,
+            // posée sur l'accueil
+            Outcome::Explore { slug, name } => self.open_explore_of(&slug, &name).await,
             // la même lecture qu'en écoute : le MBID en dernier mot compte
             // aussi depuis l'accueil (Joel, 09/09/2026)
             Outcome::Generate(asked) => self.generate_asked(&asked),
@@ -1477,6 +1480,11 @@ impl Live<'_> {
         if self.finder.is_some() {
             return self.on_finder_key(cmd).await;
         }
+        // la modale de la discographie aussi : elle a sa table (keys.rs),
+        // et s'ouvre de l'accueil comme de l'écoute (Joel, 10/09/2026)
+        if self.explore.is_some() && self.comfort_before.is_none() {
+            return self.on_explore_key(cmd);
+        }
         if self.screen == Screen::Home {
             return self.on_home_cmd(cmd).await;
         }
@@ -1484,10 +1492,6 @@ impl Live<'_> {
         // le réglage du confort prend la main sur tout le reste
         if self.comfort_before.is_some() {
             return self.on_comfort_key(cmd);
-        }
-        // la modale de la discographie aussi : elle a sa table (keys.rs)
-        if self.explore.is_some() {
-            return self.on_explore_key(cmd);
         }
         // un bloc posé sur l'écran tombe au geste suivant — sauf l'aide à la
         // saisie, qui suit la séquence en cours jusqu'à ce qu'elle aboutisse
@@ -1871,6 +1875,7 @@ impl Live<'_> {
                 bar,
                 live,
                 finder,
+                self.explore.as_ref(),
                 self.tui,
             );
             return;
@@ -2664,6 +2669,20 @@ impl Live<'_> {
             say!(self, "({} — hors catalogue, pas de fiche à corriger)", stop.artist);
             return;
         }
+        self.open_explore_of(&stop.slug, &stop.artist).await;
+    }
+
+    /// The discography of one artist with a card — from the axis, or from
+    /// the home's collection.
+    async fn open_explore_of(&mut self, slug: &str, artist: &str) {
+        let stop = crate::engine::Stop {
+            slug: slug.to_string(),
+            artist: artist.to_string(),
+            title: String::new(),
+            source: crate::engine::Source::Outside,
+            head: None,
+            encore: false,
+        };
         // une récolte d'avant les dates ne sait pas faire un album : le
         // cache est régénérable et hors dépôt, on le refait plutôt que de
         // l'afficher de travers

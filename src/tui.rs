@@ -1082,6 +1082,9 @@ pub struct HomeView<'a> {
     /// La modale de recherche, quand elle est ouverte : `:search` s'ouvre
     /// aussi de l'accueil (Joel, 09/09/2026).
     pub finder: Option<FinderView>,
+    /// La discographie, quand `ad` l'a ouverte depuis la collection
+    /// (Joel, 10/09/2026).
+    pub explore: Option<&'a crate::explore::Explore>,
 }
 
 impl Tui {
@@ -1258,6 +1261,10 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     // c'est elle qu'on regarde tant qu'elle est ouverte
     if let Some(finder) = &view.finder {
         render_finder(frame, whole, finder);
+    }
+    // — la discographie, de même
+    if let Some(screen) = view.explore {
+        render_explore(frame, whole, screen);
     }
 
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
@@ -1772,6 +1779,7 @@ mod tests {
             comfort_word: "équilibré",
             collection: None,
             finder: None,
+            explore: None,
             bar: Some(Bar {
                 current: Some(&current),
                 paused: false,
@@ -1809,6 +1817,7 @@ mod tests {
             comfort: 3,
             comfort_word: "équilibré",
             collection: None,
+            explore: None,
             finder: Some(FinderView {
                 insert: false,
                 anchor: None,
