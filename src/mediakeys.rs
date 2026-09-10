@@ -30,7 +30,9 @@ pub async fn start(tx: UnboundedSender<Control>) -> Result<Player, Box<dyn std::
         .can_go_next(true)
         .can_go_previous(true)
         .can_control(true)
-        .playback_status(PlaybackStatus::Playing)
+        // nothing on air until the mirror says so — declared « playing »
+        // here, the bar danced during a :search (Joel, 10/09/2026)
+        .playback_status(PlaybackStatus::Stopped)
         .build()
         .await?;
 
