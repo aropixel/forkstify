@@ -1085,6 +1085,8 @@ pub struct HomeView<'a> {
     /// La discographie, quand `ad` l'a ouverte depuis la collection
     /// (Joel, 10/09/2026).
     pub explore: Option<&'a crate::explore::Explore>,
+    /// L'aide à la saisie (espace), posée par-dessus tout.
+    pub overlay: Option<(&'a str, &'a [String])>,
 }
 
 impl Tui {
@@ -1280,6 +1282,11 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         ])),
         prompt,
     );
+
+    // — et ce qui se pose par-dessus tout : l'aide à la saisie
+    if let Some((title, body)) = view.overlay {
+        render_block(frame, area, title, body);
+    }
 }
 
 /// Un bloc posé sur l'écran — le menu du leader, « ? ». Il remplace le
@@ -1780,6 +1787,7 @@ mod tests {
             collection: None,
             finder: None,
             explore: None,
+            overlay: None,
             bar: Some(Bar {
                 current: Some(&current),
                 paused: false,
@@ -1818,6 +1826,7 @@ mod tests {
             comfort_word: "équilibré",
             collection: None,
             explore: None,
+            overlay: None,
             finder: Some(FinderView {
                 insert: false,
                 anchor: None,

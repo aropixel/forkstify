@@ -693,6 +693,35 @@ impl Live<'_> {
             self.toggle_pause();
             return true;
         }
+        // l'aide à la saisie, comme en écoute (Joel, 10/09/2026) : espace
+        // l'ouvre, elle suit la séquence, se referme au niveau d'entrée,
+        // à échap, ou au geste suivant
+        let was_help = self.help_open;
+        let keeps_overlay = match &cmd {
+            Cmd::Pending(_) | Cmd::Help(_) => true,
+            Cmd::Up | Cmd::Down | Cmd::Auto => !self.help_open,
+            _ => false,
+        };
+        if !keeps_overlay {
+            self.overlay = None;
+            self.help_open = false;
+        }
+        match &cmd {
+            Cmd::Help(namespace) => {
+                if self.help_open && namespace.is_none() {
+                    self.overlay = None;
+                    self.help_open = false;
+                } else {
+                    self.help_open = true;
+                    self.help(*namespace);
+                }
+                return true;
+            }
+            Cmd::Pending(seq) if self.help_open => self.help(seq.chars().next()),
+            // échap ferme l'aide, et rien d'autre
+            Cmd::Escape if was_help => return true,
+            _ => {}
+        }
         let live = !self.rounds.is_empty();
         // une mesure d'artiste faite à l'accueil change les branches de la
         // session qui joue dessous
@@ -1899,6 +1928,7 @@ impl Live<'_> {
                 live,
                 finder,
                 self.explore.as_ref(),
+                self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
                 self.tui,
             );
             return;
@@ -3009,8 +3039,11 @@ impl Live<'_> {
     /// line says whether the gesture is wired, so the menu never promises
     /// what the code does not do.
     fn help(&mut self, namespace: Option<char>) {
+        // l'accueil a sa propre table d'entrée ; seul `a` y a un niveau
+        // (Joel, 10/09/2026)
+        let home = self.screen == Screen::Home;
         let rows: &[(&str, &str, bool)] = match namespace {
-            Some('f') => &[
+            Some('f') if !home => &[
                 ("f<n>", "branche n, en fin de branche", true),
                 ("fn<n>", "branche n, apr\u{e8}s le morceau", true),
                 ("f!<n>", "branche n, apr\u{e8}s le morceau, le reste retir\u{e9}", true),
@@ -3019,12 +3052,12 @@ impl Live<'_> {
                 ("fu", "undo \u{2014} revenir \u{e0} la branche pr\u{e9}c\u{e9}dente", true),
                 ("fw", "wander \u{2014} partir hors de l'univers", false),
             ],
-            Some('e') => &[
+            Some('e') if !home => &[
                 ("e<n>", "n encores, en fin de branche", true),
                 ("en<n>", "n encores, apr\u{e8}s le morceau", true),
                 ("e!<n>", "n encores, le reste retir\u{e9}", true),
             ],
-            Some('t') => &[
+            Some('t') if !home => &[
                 ("tl", "like \u{2014} plus souvent : j'aime ce morceau", true),
                 ("ts", "skip \u{2014} moins souvent : il ne m'int\u{e9}resse pas (et passe)", true),
                 ("tb", "ban \u{2014} plus jamais celui-l\u{e0}", true),
@@ -3042,6 +3075,22 @@ impl Live<'_> {
                 ("ag", "google \u{2014} l'artiste dans le navigateur", true),
                 ("ae", "edit \u{2014} ouvrir la fiche", false),
                 ("aL", "link \u{2014} lier \u{e0} un autre artiste", true),
+            ],
+            _ if home => &[
+                ("1-9", "d\u{e9}marrer sur une entr\u{e9}e des blocs", true),
+                ("\u{2191}\u{2193} gg G", "surligner dans la collection", true),
+                ("entr\u{e9}e", "d\u{e9}marrer sur la ligne surlign\u{e9}e \u{b7} sinon au hasard", true),
+                ("a", "l'artiste surlign\u{e9} \u{2014} tape a pour ses touches", true),
+                ("s", "l'ordre : familiarit\u{e9} \u{2192} a-z \u{2192} derni\u{e8}re \u{e9}coute", true),
+                ("v", "la vue : aim\u{e9}s \u{21c4} tous", true),
+                ("/texte", "filtrer la collection \u{2014} \u{e9}chap efface", true),
+                (":search", "chercher \u{2014} la modale : catalogue puis Spotify, entr\u{e9}e d\u{e9}marre", true),
+                (":generate <nom> [mbid]", "faire entrer un artiste absent", true),
+                ("c<n>", "zone de confort, 5 cocon \u{2192} 0 exploration", true),
+                ("cc", "r\u{e9}gler le confort aux fl\u{e8}ches", true),
+                ("p", "pause / lecture", true),
+                ("r", "retour \u{e0} l'\u{e9}coute \u{b7} sinon reprendre le dernier parcours", true),
+                ("q", "quitter", true),
             ],
             _ => &[
                 ("1-9", "prendre une branche", true),
@@ -3072,10 +3121,11 @@ impl Live<'_> {
             ],
         };
         let title = match namespace {
-            Some('f') => "f \u{2014} la branche",
-            Some('e') => "e \u{2014} encore",
-            Some('t') => "t \u{2014} le morceau",
+            Some('f') if !home => "f \u{2014} la branche",
+            Some('e') if !home => "e \u{2014} encore",
+            Some('t') if !home => "t \u{2014} le morceau",
             Some('a') => "a \u{2014} l'artiste",
+            _ if home => "les touches de l'accueil",
             _ => "les touches",
         };
         // un bloc se pose sur l'écran ; il ne descend pas dans le journal,

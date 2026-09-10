@@ -548,6 +548,7 @@ impl Home {
         live: bool,
         finder: Option<crate::tui::FinderView>,
         explore: Option<&crate::explore::Explore>,
+        overlay: Option<(&str, &[String])>,
         tui: &mut Tui,
     ) {
         let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
@@ -596,6 +597,7 @@ impl Home {
             bar,
             finder,
             explore,
+            overlay,
         });
     }
 
