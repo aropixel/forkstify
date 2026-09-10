@@ -1,13 +1,13 @@
 # Avancement
 
-Mis à jour le **09/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **10/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
 
 - **Conception** : vision et philosophie (« Reprendre la main sur
   l'algorithme »), vocabulaire, 13 décisions (`docs/decisions/`), 5 notes
-  vivantes (`docs/conception/`, 11 aujourd'hui). Rust, TOML, MBID, deux dépôts, format de
+  vivantes (`docs/conception/`, 12 aujourd'hui). Rust, TOML, MBID, deux dépôts, format de
   fiche v1 (links typés anglais + proximité en cascade, doors en critère
   additionnel, tout optionnel sauf `format`/`name`/`mbid`). 14 décisions ;
   dernière le 04/09/2026 : **forme de l'appris** — dossier `learned/`, un
@@ -308,6 +308,27 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## L'agent : une IA qui pilote forkstify de l'extérieur (10/09/2026)
+
+Idée de Joel : une commande `:agent` qui transmet un prompt à une IA
+connectée (le Claude Code de son poste) — « crée-moi une playlist de 20
+titres dans l'ambiance Kanye West, Drake, Kendrick Lamar » —, l'IA se
+servant des outils de forkstify, du catalogue et de la session d'écoute,
+après un échange éventuel pour éclaircir. Discutée, rien de codé ;
+orientation consignée dans [`agent.md`](conception/agent.md).
+
+En bref : **l'agent pilote, il ne choisit pas dans sa tête** — il cherche,
+génère des fiches (`:generate`), demande des branches, lit leurs raisons et
+met en file ; la playlist est le produit dérivé, le catalogue a grandi. Et
+**l'agent est dehors** : pas de client LLM ni de clé dans le binaire.
+Étage 1, sans `:agent` : un socket de contrôle et `forkstify cmd ':…'` plus
+quelques lectures JSON — l'API de l'agent, ce sont les commandes `:` de
+0013, la conversation se tient dans Claude Code. Étage 2, `:agent` dans la
+TUI avec une commande externe configurée, seulement si l'étage 1 se révèle
+trop lourd à l'usage. Six questions à trancher dans la note (plafond de
+génération, trace dans la file, morceaux « de sa tête », nom, trailer,
+nécessité de l'étage 2).
 
 ## Une journée d'écoute : la file, la cible, la génération, les aimés (09/09/2026)
 
