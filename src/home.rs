@@ -490,6 +490,10 @@ pub enum Outcome {
     /// `ad` sur la ligne surlignée : sa discographie, en modale sur
     /// l'accueil (Joel, 10/09/2026).
     Explore { slug: String, name: String },
+    /// Un autre geste `a` sur la ligne surlignée (`ag`, `ae`, `aL`) : la
+    /// session le fait, avec le même code qu'en écoute. `slug` manque quand
+    /// l'artiste n'a pas de fiche.
+    Artist { key: char, slug: Option<String>, name: String },
     Quit,
 }
 
@@ -683,6 +687,16 @@ impl Home {
                         self.said = format!("{} n'a pas de fiche : pas de discographie à ouvrir", row.name);
                         Outcome::Stay
                     }
+                    None => Outcome::Stay,
+                }
+            }
+            Cmd::Artist(key) if !matches!(key, 'l' | 's' | 'b') => {
+                let Some(index) = self.cursor else {
+                    self.said = "(rien de surligné — ↑↓ pour choisir)".into();
+                    return Outcome::Stay;
+                };
+                match listing.get(index) {
+                    Some((slug, row)) => Outcome::Artist { key, slug: slug.clone(), name: row.name.clone() },
                     None => Outcome::Stay,
                 }
             }

@@ -118,6 +118,11 @@ les portes d'entrée d'un fork vierge, et se corrigent dans la discographie
 
 ## `a` — l'artiste en cours
 
+**À l'accueil aussi** : tout le namespace `a` vise la ligne surlignée de la
+collection (Joel, 10/09/2026) — `ad` ouvre la modale sur l'accueil, les
+mesures écrivent dans l'appris, `ag` marche même sans fiche, `ae` et `aL`
+demandent une fiche.
+
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
 | `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) — et de retour parmi les aimés. **À l'accueil aussi**, sur la ligne surlignée (Joel, 09/09/2026) | mesure | ✅ |

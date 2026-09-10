@@ -712,6 +712,29 @@ impl Live<'_> {
             // `ad` sur la ligne surlignée de la collection : la même modale,
             // posée sur l'accueil
             Outcome::Explore { slug, name } => self.open_explore_of(&slug, &name).await,
+            // le reste du namespace `a`, sur la ligne surlignée : le même
+            // code que l'écoute, ce qu'il dit remonte sur la ligne de l'accueil
+            Outcome::Artist { key, slug, name } => {
+                let carded = slug.is_some();
+                let stop = crate::engine::Stop {
+                    slug: slug.unwrap_or_default(),
+                    artist: name.clone(),
+                    title: String::new(),
+                    source: crate::engine::Source::Outside,
+                    head: None,
+                    encore: false,
+                };
+                if key != 'g' && !carded {
+                    self.tell(format!("({name} n'a pas de fiche)"));
+                } else {
+                    self.artist_action(key, stop);
+                    let said: Vec<String> =
+                        self.notices.borrow_mut().drain(..).filter(|l| !l.trim().is_empty()).collect();
+                    if !said.is_empty() {
+                        self.home.say(said.join(" · "));
+                    }
+                }
+            }
             // la même lecture qu'en écoute : le MBID en dernier mot compte
             // aussi depuis l'accueil (Joel, 09/09/2026)
             Outcome::Generate(asked) => self.generate_asked(&asked),
@@ -2520,13 +2543,27 @@ impl Live<'_> {
             self.explore_requested = true;
             return;
         }
-        // `ag` — google : l'artiste visé (surligné, sinon en cours) dans le
-        // navigateur par défaut (Joel, 08/09/2026)
-        if key == 'g' {
+        // `ag` marche hors catalogue aussi : il ne lui faut qu'un nom
+        let stop = if key == 'g' {
             let Some(stop) = self.target() else {
                 say!(self, "(rien en cours)");
                 return;
             };
+            stop
+        } else {
+            let Some(stop) = self.under_needle() else { return };
+            stop
+        };
+        self.artist_action(key, stop);
+    }
+
+    /// One `a` verb on one artist — from the axis, or from the home's
+    /// collection (Joel, 10/09/2026 : « toutes les commandes artistes
+    /// depuis l'accueil »).
+    fn artist_action(&mut self, key: char, stop: crate::engine::Stop) {
+        // `ag` — google : l'artiste visé dans le navigateur par défaut
+        // (Joel, 08/09/2026)
+        if key == 'g' {
             let url = format!(
                 "https://www.google.com/search?q={}",
                 crate::spotify::encode(&stop.artist)
@@ -2543,7 +2580,6 @@ impl Live<'_> {
             }
             return;
         }
-        let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
                 let weight = self.learned.like_artist(&stop.slug);
