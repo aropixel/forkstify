@@ -915,10 +915,10 @@ impl Live<'_> {
                 match result {
                     Ok(tracks) => {
                         let count = tracks.len();
+                        // the branches on the table keep their tracks: a
+                        // list that changes under the eyes is not wanted
+                        // (Joel, 11/09/2026) — the tail serves the next draws
                         self.tail.keep(&slug, tracks);
-                        // the branches still on the table were drawn without
-                        // this tail: their tracks of this artist get a new draw
-                        self.redraw_proposed(&slug);
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
                             Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
                             None if quiet => {}
@@ -1438,25 +1438,6 @@ impl Live<'_> {
             let _ = self.harvest(&slug, true);
         }
     }
-
-    /// A tail just arrived: the proposed branches that walk through that
-    /// artist are drawn again for them (the queue is left alone — what is
-    /// decided stays decided).
-    fn redraw_proposed(&mut self, slug: &str) {
-        if !self.comfort.wants_tail() {
-            return;
-        }
-        let (_, _, _, _, played) = self.state();
-        for branch in &mut self.branches {
-            if branch.artists.iter().any(|a| a == slug) {
-                crate::engine::redraw(
-                    &self.catalog, branch, slug, &self.learned, &self.tail, self.comfort, &played,
-                    &mut self.rng,
-                );
-            }
-        }
-    }
-
 
     /// Take a branch (by weight) and start playing it. The draw is over the
     /// branches *on show*: proposing three then playing a fourth made

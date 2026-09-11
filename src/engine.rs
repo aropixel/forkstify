@@ -590,42 +590,6 @@ pub fn encore(
     stops
 }
 
-/// A branch's tracks are drawn when it is proposed, and an artist's tail
-/// often arrives later — fetched behind, once the branch is on the table
-/// (Joel, 11/09/2026: comfort 3, never a tail track). So a branch still
-/// on show gets that artist's tracks drawn again, tail included. A liked
-/// track stays: the listener asked for it, no draw beats that. Returns
-/// how many stops changed.
-pub fn redraw(
-    catalog: &Catalog,
-    branch: &mut Branch,
-    slug: &str,
-    learned: &Learned,
-    tail: &Tail,
-    comfort: Comfort,
-    played: &HashSet<String>,
-    rng: &mut impl Rng,
-) -> usize {
-    // in the cocoon the tail weighs nothing: a new draw would only shuffle
-    let Some(card) = catalog.cards.get(slug).filter(|_| comfort.wants_tail()) else {
-        return 0;
-    };
-    // the same direction the walk had: the branch's first artist sets it
-    let towards: Vec<String> =
-        branch.artists.first().and_then(|head| catalog.cards.get(head)).map(|c| c.tags.clone()).unwrap_or_default();
-    let mut changed = 0;
-    for stop in branch.stops.iter_mut().filter(|s| s.slug == slug && s.source != Source::Liked) {
-        if let Some((title, source)) = fresh_track(card, slug, learned, tail, comfort, played, &towards, rng) {
-            if title != stop.title {
-                changed += 1;
-            }
-            stop.title = title;
-            stop.source = source;
-        }
-    }
-    changed
-}
-
 /// A direction branch: start at a neighbor, then keep walking to the
 /// closest next artist — one track per artist along the way.
 fn walk(
@@ -1141,54 +1105,6 @@ mod tests {
         assert_eq!(traine.len(), 1, "Killing an Arab only once: {ouvert:?}");
         assert_eq!(traine[0].0, "Killing an Arab");
         assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "less than a top, but present");
-    }
-
-    /// 11/09/2026: a branch proposed before the tail was there is drawn
-    /// again when it arrives — except what the listener liked.
-    #[test]
-    fn a_proposed_branch_is_redrawn_when_the_tail_arrives() {
-        let card = the_cure();
-        let catalog = Catalog {
-            cards: HashMap::from([("the-cure".to_string(), card)]),
-            proximities: HashMap::new(),
-            vectors: HashMap::new(),
-        };
-        let learned = Learned::blank();
-        let stop = |title: &str, source: Source| Stop {
-            slug: "the-cure".into(),
-            artist: "The Cure".into(),
-            title: title.into(),
-            source,
-            head: None,
-            encore: false,
-        };
-        let mut branch = Branch {
-            label: "The Cure".into(),
-            reason: "similar".into(),
-            artists: vec!["the-cure".into()],
-            stops: vec![stop("Boys Don't Cry", Source::Top), stop("A Forest", Source::Liked)],
-            weight: 3.0,
-        };
-        let mut tail = Tail::blank();
-        let tracks: Vec<crate::discography::TailTrack> = (0..200)
-            .map(|i| crate::discography::TailTrack {
-                title: format!("B-side {i}"),
-                uri: format!("spotify:track:{i}"),
-                ..Default::default()
-            })
-            .collect();
-        tail.keep("the-cure", tracks);
-        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
-
-        // in the cocoon nothing changes: the tail weighs nothing there
-        redraw(&catalog, &mut branch, "the-cure", &learned, &tail, Comfort::new(5), &HashSet::new(), &mut rng);
-        assert_eq!(branch.stops[0].source, Source::Top);
-
-        // comfort 3: two hundred tail tracks against two tops — the draw lands in the tail
-        redraw(&catalog, &mut branch, "the-cure", &learned, &tail, Comfort::new(3), &HashSet::new(), &mut rng);
-        assert_eq!(branch.stops[0].source, Source::Tail, "{:?}", branch.stops[0].title);
-        assert_eq!(branch.stops[1].title, "A Forest", "a liked track is never redrawn");
-        assert_eq!(branch.stops[1].source, Source::Liked);
     }
 
     /// What a journey already played does not come back (0012 §3).

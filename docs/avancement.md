@@ -349,13 +349,18 @@ avaient une en cache. Le poids, lui, était juste.
 
 Option 1 retenue par Joel : après chaque `recompute`, les artistes des
 branches proposées sans traîne sont **récoltés en fond**, sans un mot, dès
-que le confort ouvre la traîne. À l'arrivée, `engine::redraw` retire au
-sort les morceaux de cet artiste dans les branches **encore proposées** —
-jamais un aimé, jamais la file. `harvesting` devient une carte slug →
+que le confort ouvre la traîne. `harvesting` devient une carte slug →
 silencieux, pour que le toast « discography — loading » ne serve que les
-récoltes demandées. 66 tests, un nouveau. Détail dans
-[longue-traine.md](conception/longue-traine.md). **À éprouver : relancer
-forkstify, écouter au confort 3, guetter la marque `·`.**
+récoltes demandées. Détail dans [longue-traine.md](conception/longue-traine.md).
+
+Un premier câblage retirait au sort les branches encore proposées à
+l'arrivée de la traîne ; à l'usage, « les chansons des branches changent
+immédiatement », et Joel n'en veut pas. Entre attendre la récolte avant
+d'afficher et afficher les tops puis laisser le cache servir les tirages
+suivants, **la seconde** est câblée (la plus simple, réversible) : une
+proposition affichée ne bouge plus. `engine::redraw` et son test sont
+retirés. **À éprouver : la marque `·` doit apparaître dès les tirages
+suivants, pas au premier d'un artiste inconnu.**
 
 ## La carte de la barre suit enfin l'aiguille (11/09/2026)
 

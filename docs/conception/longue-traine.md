@@ -104,12 +104,17 @@ cache pour toujours, silencieuse — ni toast ni « loading » collant, qui
 restent aux récoltes demandées.
 
 Le point délicat : **les morceaux d'une branche sont tirés quand elle est
-proposée**, plusieurs morceaux avant qu'on la voie. Quand la traîne arrive,
-les branches **encore sur la table** retirent au sort leurs morceaux de cet
-artiste, traîne comprise (`engine::redraw`) ; un morceau **aimé** n'est
-jamais retiré, et **la file n'est pas touchée** : ce qui est décidé reste
-décidé. En une phrase : *une branche proposée sans la traîne d'un artiste
-est retirée au sort quand elle arrive.* Un test le fige.
+proposée**. Un premier câblage retirait au sort les branches encore sur la
+table à l'arrivée de la traîne ; à l'usage, « les chansons des branches
+changent immédiatement » (Joel, 11/09/2026), et il n'en veut pas. Deux
+options posées par Joel : attendre la récolte avant d'afficher les
+branches, ou afficher la première version avec les tops et laisser le
+cache servir les suivantes. **Retenue : la seconde**, la plus simple et
+réversible — une proposition affichée ne bouge plus ; la traîne d'un
+artiste sert dès le prochain tirage qui passe par lui, dans cette session
+ou les suivantes. La première option reste ouverte si le délai de la
+première proposition d'une session finit par gêner : elle demanderait un
+`recompute` qui attend ses récoltes.
 
 ## À trancher — ce qui reste
 
