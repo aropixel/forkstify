@@ -331,6 +331,13 @@ c'est faux » et « cc + flèches ne marche pas ».
   mode cadran passait toute la jauge en noir sur cyan, donc les blocs
   pleins devenaient noirs et les vides colorés — l'inverse. Les blocs
   gardent leur couleur, seuls les mots s'allument, aux deux écrans.
+- **L'ordre des blocs à l'envers** (Joel : « quand je passe en cocoon,
+  les never played passent en premier… c'est contre-intuitif non ? ») :
+  [ecran-d-accueil.md](conception/ecran-d-accueil.md) dit « au cocon les
+  habitués devant, à l'exploration les délaissés », et le code testait
+  `confort ≥ 4` pour mettre les délaissés devant — un reste de l'ancien
+  sens du curseur (5 = cocon depuis le 06/09/2026). Inversé, et un test
+  fige le sens aux quatre coins (5, 3, 1, 0). Premier test de `home.rs`.
 
 ## La traîne suit les branches (11/09/2026)
 

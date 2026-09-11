@@ -429,11 +429,56 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
     );
     let second_bloc = (second_title.to_string(), second);
 
-    // 0012 §4: comfort decides, there is no other setting
-    if comfort.value() >= 4 {
+    // 0012 §4: comfort decides, there is no other setting — the regulars
+    // first in the cocoon, the neglected first when opening up. The test
+    // was left over from the old polarity (5 = cocoon since 06/09/2026):
+    // it put the never-played on top of a cocoon (Joel, 11/09/2026)
+    if comfort.value() <= 1 {
         vec![second_bloc, habitues_bloc]
     } else {
         vec![habitues_bloc, second_bloc]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::catalog::Card;
+    use std::collections::HashMap;
+
+    fn catalog() -> Catalog {
+        let card = |name: &str| Card {
+            generated: false,
+            name: name.into(),
+            spotify: None,
+            tags: Vec::new(),
+            tops: vec![format!("{name} — one")],
+            doors: Vec::new(),
+            links: Vec::new(),
+            begin: None,
+            end: None,
+            origin: None,
+            description: None,
+        };
+        Catalog {
+            cards: HashMap::from([("air".to_string(), card("Air")), ("idles".to_string(), card("IDLES"))]),
+            proximities: HashMap::new(),
+            vectors: HashMap::new(),
+        }
+    }
+
+    /// ecran-d-accueil.md: the cocoon puts the regulars first, the
+    /// exploration the neglected — it was the other way round.
+    #[test]
+    fn the_cocoon_puts_the_regulars_first() {
+        let learned = Learned::blank();
+        let titles = |comfort: u8| -> Vec<String> {
+            entries(&catalog(), &learned, Comfort::new(comfort)).into_iter().map(|(t, _)| t).collect()
+        };
+        assert_eq!(titles(5)[0], "your regulars");
+        assert_eq!(titles(3)[0], "your regulars");
+        assert_eq!(titles(1)[0], "never played");
+        assert_eq!(titles(0)[0], "never played");
     }
 }
 
