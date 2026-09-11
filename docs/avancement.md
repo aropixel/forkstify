@@ -309,6 +309,19 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `:generate <nom> <mbid>` propose au lieu d'écraser (11/09/2026)
+
+Joel : avec un mbid, `:generate` lançait une nouvelle liste et écrasait la
+lecture en cours. Désormais, s'il y a une liste en cours (un morceau joue
+ou la file n'est pas vide) et qu'un mbid est donné, la fiche est faite mais
+**le parcours ne démarre pas** : un toast de succès qui dure plus longtemps
+(`SEED_OFFER_SECONDS`, 12 s) propose de partir de l'artiste — **⏎** accepte
+et remplace la liste, toute autre touche garde la liste et fait son office.
+Nouvelle branche `After::Offer`, une graine en attente `pending_seed`
+consommée par entrée dans `on_cmd`. Sans mbid, à l'accueil ou sans rien qui
+joue, le comportement d'avant ne bouge pas. Le toast porte une durée propre
+maintenant (`linger`).
+
 ## Les branches ne défilent plus dans le vide, et la card rouvre (11/09/2026)
 
 Deux retours de Joel après une vraie session.

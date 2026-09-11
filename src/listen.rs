@@ -158,6 +158,7 @@ async fn async_run(
         home: Home::default(),
         status,
         toast: std::cell::RefCell::new(None),
+        pending_seed: None,
         mpris,
         mpris_shown: Shown::default(),
         mpris_sampled: None,
@@ -388,11 +389,17 @@ struct Live<'a> {
     status: Vec<(String, bool)>,
     /// The last thing said that deserves a toast, and when: the colored
     /// box at the bottom right, four seconds (Joel, 08/09/2026).
-    toast: std::cell::RefCell<Option<(String, std::time::Instant)>>,
+    toast: std::cell::RefCell<Option<(String, std::time::Instant, u64)>>,
+    /// A generated artist offered as a new seed but not yet started: enter
+    /// accepts, any other key declines (Joel, 11/09/2026).
+    pending_seed: Option<(String, String, std::time::Instant)>,
 }
 
 /// How long a toast stays — then it fades by itself on the tick.
 const TOAST_SECONDS: u64 = 4;
+/// The success toast of an offered seed lingers, so there is time to read
+/// it and answer (Joel, 11/09/2026).
+const SEED_OFFER_SECONDS: u64 = 12;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Screen {
@@ -432,6 +439,10 @@ enum After {
     /// `ad` on an artist without a card: the card first, its discography
     /// as soon as it is there (Joel, 10/09/2026).
     Explore,
+    /// `:generate <name> <mbid>` while something plays: the card is made
+    /// but the journey is **not** started — it would wipe the current
+    /// list. Instead a lingering toast offers it (Joel, 11/09/2026).
+    Offer,
 }
 
 /// The needle: a position sampled at an instant, a duration, and whether
@@ -1028,6 +1039,13 @@ impl Live<'_> {
             After::Branch { when, reason } => self.branch_to(slug, when, reason).await,
             After::Card => self.paint(),
             After::Explore => self.open_explore_of(slug, name).await,
+            After::Offer => {
+                self.pending_seed = Some((slug.to_string(), name.to_string(), std::time::Instant::now()));
+                self.linger(
+                    format!("✓ {name} — card ready. ⏎ starts from them (replaces what plays); any other key keeps the current list"),
+                    SEED_OFFER_SECONDS,
+                );
+            }
         }
     }
 
@@ -1125,6 +1143,9 @@ impl Live<'_> {
         let slug = crate::generate::slugify(&name);
         let after = match self.missing.iter().find(|m| m.slug == slug) {
             Some(missing) => After::Branch { when: When::EndOfBranch, reason: missing.why.clone() },
+            // with an mbid, over a running list, do not overwrite it: make
+            // the card and offer the seed instead (Joel, 11/09/2026)
+            None if mbid.is_some() && (self.current.is_some() || !self.queue.is_empty()) => After::Offer,
             None => After::Play { title: None, uri: None },
         };
         self.generate(&slug, Some(&name), mbid.as_deref(), after);
@@ -1645,6 +1666,19 @@ impl Live<'_> {
             self.overlay = None;
             self.help_open = false;
         }
+        // a fresh :generate offered a new seed: ⏎ accepts and starts from
+        // them, anything else declines and does its own thing; the offer
+        // expires with its toast (Joel, 11/09/2026)
+        if let Some((slug, _, at)) = &self.pending_seed {
+            let fresh = at.elapsed().as_secs() < SEED_OFFER_SECONDS;
+            if fresh && matches!(cmd, Cmd::Auto) {
+                let slug = slug.clone();
+                self.pending_seed = None;
+                self.start_journey(Choice::Artist(slug)).await;
+                return true;
+            }
+            self.pending_seed = None;
+        }
         // what is typed is only displayed: no action
         match &cmd {
             Cmd::Pending(seq) => {
@@ -1916,8 +1950,15 @@ impl Live<'_> {
         // "up next" anymore (Joel, 08/09/2026)
         let first = line.trim().to_string();
         if !first.is_empty() {
-            *self.toast.borrow_mut() = Some((first, std::time::Instant::now()));
+            *self.toast.borrow_mut() = Some((first, std::time::Instant::now(), TOAST_SECONDS));
         }
+    }
+
+    /// A toast that lingers longer than the usual four seconds — for an
+    /// offer that waits on an answer (Joel, 11/09/2026).
+    fn linger(&self, line: String, secs: u64) {
+        self.notice(line.clone());
+        *self.toast.borrow_mut() = Some((line.trim().to_string(), std::time::Instant::now(), secs));
     }
 
     /// A toast is on screen, or just faded: a repaint is needed.
@@ -1925,7 +1966,7 @@ impl Live<'_> {
         self.toast
             .borrow()
             .as_ref()
-            .is_some_and(|(_, at)| at.elapsed().as_secs_f32() < TOAST_SECONDS as f32 + 1.5)
+            .is_some_and(|(_, at, secs)| at.elapsed().as_secs_f32() < *secs as f32 + 1.5)
     }
 
     /// The toast of the moment: what is loading, sticky while it loads;
@@ -1951,8 +1992,8 @@ impl Live<'_> {
         self.toast
             .borrow()
             .as_ref()
-            .filter(|(_, at)| at.elapsed().as_secs() < TOAST_SECONDS)
-            .map(|(text, _)| crate::tui::Toast {
+            .filter(|(_, at, secs)| at.elapsed().as_secs() < *secs)
+            .map(|(text, _, _)| crate::tui::Toast {
                 text: text.clone(),
                 tone: crate::tui::tone_of(text),
                 sticky: false,
