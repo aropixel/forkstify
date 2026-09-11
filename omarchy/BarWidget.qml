@@ -52,8 +52,11 @@ BarWidget {
 
   function close() { popupOpen = false }
 
+  // launch it, or focus the window that already runs it — by the bare
+  // word, so a hand-started terminal titled "…: forkstify" counts as much
+  // as the org.omarchy.forkstify window the bar opens (Joel, 11/09/2026)
   function launch() {
-    Quickshell.execDetached(["omarchy-launch-or-focus-tui", "forkstify"])
+    Quickshell.execDetached(["omarchy-launch-or-focus", "forkstify", "omarchy-launch-tui forkstify"])
     popupOpen = false
   }
 
@@ -244,6 +247,20 @@ BarWidget {
           enabled: root.running && root.player.canGoNext
           opacity: enabled ? 1.0 : 0.4
           onClicked: root.player.next()
+        }
+      }
+
+      // back to the window that plays (Joel, 11/09/2026)
+      Row {
+        visible: root.running
+        anchors.horizontalCenter: parent.horizontalCenter
+
+        Button {
+          text: "Show forkstify"
+          foreground: root.bar.foreground
+          horizontalPadding: Style.spacing.controlPaddingX
+          verticalPadding: Style.spacing.controlPaddingY
+          onClicked: root.launch()
         }
       }
 

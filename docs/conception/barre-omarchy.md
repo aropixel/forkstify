@@ -67,6 +67,13 @@ lui-même : un `Timer` d'une seconde, actif carte ouverte et morceau en
 lecture, appelle `player.positionChanged()`. Le service média d'Omarchy
 n'affiche pas la position et n'a pas ce problème.
 
+**Revenir à la fenêtre** (Joel, 11/09/2026) : la carte gagne un bouton
+« Show forkstify » quand forkstify tourne. Il passe par
+`omarchy-launch-or-focus forkstify "omarchy-launch-tui forkstify"`, sur le
+mot nu plutôt que l'identifiant `org.omarchy.forkstify` : un terminal
+lancé à la main, titré « … : forkstify », est retrouvé aussi bien que la
+fenêtre ouverte par la barre. « Launch » emprunte le même chemin.
+
 ## Orientation : deux étages, le premier portable
 
 1. **forkstify publie tout ce qu'un bureau attend** (portable, hors
