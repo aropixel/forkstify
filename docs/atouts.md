@@ -27,3 +27,13 @@ Trois atouts dans une impression :
   phrase.
 - **L'inattendu quand même.** Les branches proposées gardent une part de
   surprise ; la maîtrise n'a pas tué la découverte.
+
+## 11/09/2026 — après quelques jours
+
+> Ça fait quelques jours que j'utilise forkstify et j'en suis très content.
+
+L'usage tient dans la durée : l'application est devenue le lecteur du
+quotidien, pas un prototype qu'on lance pour l'essayer. Le même jour, une
+question sur le tirage (jamais de longue traîne au confort 3) — signe que
+Joel observe le moteur à l'oreille et le compare à ce que les décisions
+promettent.
