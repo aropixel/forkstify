@@ -152,6 +152,7 @@ async fn async_run(
         sync_tx,
         jobs_tx,
         loading: false,
+        dry_advances: 0,
         harvesting: HashMap::new(),
         screen: Screen::Home,
         home: Home::default(),
@@ -267,6 +268,9 @@ async fn async_run(
 /// Past this point of the track, "previous" restarts it instead of going
 /// back — three seconds, as players have learned to do.
 const RESTART_AFTER_MS: u32 = 3_000;
+/// How many branches may auto-advance in a row with nothing reaching the
+/// speakers before the music stops and asks for a hand (Joel, 11/09/2026).
+const MAX_DRY_ADVANCES: u32 = 4;
 
 /// `A` — how many tracks of an album get promoted at once. Four: an album
 /// that carries the plays rarely has more that matter, and beyond that
@@ -367,6 +371,11 @@ struct Live<'a> {
     /// The current track is on screen but its address is still being
     /// looked up — nothing sounds yet.
     loading: bool,
+    /// Branches auto-chosen in a row without a single track reaching the
+    /// speakers. A track that is region-locked ends the instant it starts,
+    /// so a run of unplayable tracks would cycle branches forever without a
+    /// sound (Joel, 11/09/2026). Reset the moment anything actually plays.
+    dry_advances: u32,
     /// Discographies being harvested right now, so a second `ad` or `e<n>`
     /// does not launch the same job twice.
     harvesting: HashMap<String, bool>,
@@ -1450,6 +1459,16 @@ impl Live<'_> {
     /// branches *on show*: proposing three then playing a fourth made
     /// "enter" unreadable (Joel, 05/09/2026).
     async fn auto_advance(&mut self) {
+        // a wall of unplayable tracks (region-locked, pulled from Spotify)
+        // must not spin the branches forever with nothing on air: after a
+        // few dry rounds, stop and hand it back (Joel, 11/09/2026)
+        if self.dry_advances >= MAX_DRY_ADVANCES {
+            self.dry_advances = 0;
+            say!(self, "\n(nothing would play — {MAX_DRY_ADVANCES} branches in a row went silent.");
+            say!(self, "   Tracks may be unavailable in your region. f<n> to pick, or q.)");
+            return;
+        }
+        self.dry_advances += 1;
         if self.branches.is_empty() {
             // a gap is not a branch: it needs the network before it can
             // play, and a random draw does not keep anyone waiting (0016)
@@ -2131,6 +2150,8 @@ impl Live<'_> {
         let duration_ms = self.progress.as_ref().map_or(0, |p| p.duration_ms);
         match event {
             Playing { play_request_id, position_ms, .. } if mine(play_request_id) => {
+                // a track is truly on air: the auto-advance is not dry
+                self.dry_advances = 0;
                 self.progress =
                     Some(Progress { position_ms: *position_ms, duration_ms, sampled, running: true });
                 true

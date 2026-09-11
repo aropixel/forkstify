@@ -52,11 +52,12 @@ BarWidget {
 
   function close() { popupOpen = false }
 
-  // launch it, or focus the window that already runs it — by the bare
-  // word, so a hand-started terminal titled "…: forkstify" counts as much
-  // as the org.omarchy.forkstify window the bar opens (Joel, 11/09/2026)
+  // launch it, or focus the window that already runs it. On the app-id
+  // (org.omarchy.forkstify), not the bare word: the bare word also matched
+  // a terminal sitting in ~/Work/forkstify, so "Show forkstify" focused
+  // that shell instead of launching when forkstify was off (Joel, 11/09/2026)
   function launch() {
-    Quickshell.execDetached(["omarchy-launch-or-focus", "forkstify", "omarchy-launch-tui forkstify"])
+    Quickshell.execDetached(["omarchy-launch-or-focus-tui", "forkstify"])
     popupOpen = false
   }
 

@@ -68,11 +68,13 @@ lecture, appelle `player.positionChanged()`. Le service média d'Omarchy
 n'affiche pas la position et n'a pas ce problème.
 
 **Revenir à la fenêtre** (Joel, 11/09/2026) : la carte gagne un bouton
-« Show forkstify » quand forkstify tourne. Il passe par
-`omarchy-launch-or-focus forkstify "omarchy-launch-tui forkstify"`, sur le
-mot nu plutôt que l'identifiant `org.omarchy.forkstify` : un terminal
-lancé à la main, titré « … : forkstify », est retrouvé aussi bien que la
-fenêtre ouverte par la barre. « Launch » emprunte le même chemin.
+« Show forkstify » quand forkstify tourne, par
+`omarchy-launch-or-focus-tui forkstify` — l'app-id `org.omarchy.forkstify`,
+comme « Launch ». Un premier essai visait le mot nu `forkstify` pour
+attraper aussi un terminal lancé à la main : il attrapait surtout un
+terminal ouvert dans `~/Work/forkstify`, dont le titre porte le chemin, et
+le focus partait sur ce shell au lieu de lancer quand forkstify était
+éteint (Joel, le jour même). L'app-id est précis, on s'y tient.
 
 ## Orientation : deux étages, le premier portable
 

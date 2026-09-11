@@ -116,6 +116,14 @@ ou les suivantes. La première option reste ouverte si le délai de la
 première proposition d'une session finit par gêner : elle demanderait un
 `recompute` qui attend ses récoltes.
 
+**Conséquence trouvée à l'usage (11/09/2026)** : la traîne apporte des
+morceaux que Spotify peut refuser de jouer (indisponibles dans la région).
+Un tel morceau finit à l'instant où il commence, et sans intervention
+`auto_advance` enchaînait les branches sans un son. Un garde-fou dans
+`listen.rs` (`MAX_DRY_ADVANCES`) arrête après quelques branches muettes
+d'affilée et rend la main. Il ne trie pas la traîne — on ne connaît la
+disponibilité qu'en essayant — il empêche seulement l'emballement.
+
 ## À trancher — ce qui reste
 
 *(Les trois points ci-dessous sont tranchés ; conservés pour mémoire du

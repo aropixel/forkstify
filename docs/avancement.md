@@ -309,6 +309,25 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les branches ne défilent plus dans le vide, et la card rouvre (11/09/2026)
+
+Deux retours de Joel après une vraie session.
+
+- **Les branches se choisissaient à l'infini sans jouer.** Depuis que la
+  traîne est récoltée pour les artistes proposés, une branche peut tirer un
+  morceau de traîne (au confort 3, la traîne pèse). Un morceau indisponible
+  dans la région finit à l'instant où il commence : la branche s'épuise,
+  `auto_advance` en tire une autre, sans un son — et rien ne l'arrêtait.
+  Garde-fou : `MAX_DRY_ADVANCES` (4) compte les branches enchaînées sans
+  qu'un morceau atteigne les enceintes ; passé ce seuil, la lecture
+  s'arrête et rend la main (« tracks may be unavailable in your region »).
+  Le compteur retombe à zéro dès qu'un `Playing` arrive.
+- **La card Omarchy ne rouvrait pas forkstify éteint.** Le bouton « Show
+  forkstify » pointait sur le mot nu `forkstify`, qui attrapait aussi un
+  terminal resté dans `~/Work/forkstify` : le focus partait sur ce shell au
+  lieu de lancer. Retour à `omarchy-launch-or-focus-tui forkstify`, sur
+  l'app-id `org.omarchy.forkstify` — précis, comme avant l'ajout du bouton.
+
 ## Entrée dans la discographie part du morceau (11/09/2026)
 
 Joel : « je veux pouvoir démarrer une nouvelle graine depuis une chanson
