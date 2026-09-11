@@ -138,6 +138,7 @@ async fn async_run(
         typed: String::new(),
         warm_requested: false,
         wander_requested: None,
+        start_requested: None,
         search_requested: None,
         branches: Vec::new(),
         missing: Vec::new(),
@@ -328,6 +329,9 @@ struct Live<'a> {
     warm_requested: bool,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
+    /// Enter on a track of the discography: a new seed, once the modal's
+    /// sync handler has returned (Joel, 11/09/2026).
+    start_requested: Option<Choice>,
     /// `:search <text>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
@@ -1594,7 +1598,11 @@ impl Live<'_> {
         // the discography modal too: it has its own table (keys.rs), and
         // opens from the home as from the listening (Joel, 10/09/2026)
         if self.explore.is_some() && self.comfort_before.is_none() {
-            return self.on_explore_key(cmd);
+            let go = self.on_explore_key(cmd);
+            if let Some(choice) = self.start_requested.take() {
+                self.start_journey(choice).await;
+            }
+            return go;
         }
         // the comfort dial takes over everything else — on the home too:
         // the home used to swallow the arrows (Joel, 11/09/2026)
@@ -2871,7 +2879,7 @@ impl Live<'_> {
             Cmd::Track('l') => self.explore_measure(true),
             Cmd::Track('b') => self.explore_measure(false),
             Cmd::Enqueue => self.explore_enqueue(),
-            Cmd::Auto => self.explore_write(),
+            Cmd::Auto => self.explore_enter(),
             Cmd::Escape => self.close_explore(),
             Cmd::Typing(line) => self.typed = line.unwrap_or_default(),
             Cmd::Pending(seq) => self.typed = seq,
@@ -2985,6 +2993,32 @@ impl Live<'_> {
             Err(why) => screen.notice = format!("(nothing done: {why})"),
         }
         self.explore = Some(screen);
+    }
+
+    /// ⏎ — write the batch if there is one (one commit, as before), then,
+    /// on a track, **start a new seed from it**: the track plays, the
+    /// branches fork from its artist (Joel, 11/09/2026). On an album line,
+    /// enter only writes.
+    fn explore_enter(&mut self) {
+        let pending = self.explore.as_ref().is_some_and(|screen| !screen.pending.is_empty());
+        if pending {
+            self.explore_write();
+        }
+        let Some(screen) = self.explore.as_mut() else { return };
+        match screen.track() {
+            Some(track) if track.banned => {
+                screen.notice = format!("(⊘ {} is banned — tl takes it back)", track.title);
+            }
+            Some(track) => {
+                let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone() };
+                crate::keys::set_modal(false);
+                self.start_requested = Some(choice);
+            }
+            None if !pending => {
+                screen.notice = "(enter on a track starts a journey from it)".into();
+            }
+            None => {}
+        }
     }
 
     /// esc — close. With pending edits, the first esc warns: they are not

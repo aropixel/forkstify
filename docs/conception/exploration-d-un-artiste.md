@@ -159,7 +159,14 @@ rien de neuf dans `edit.rs` hormis le titre propre.
    pas cette règle, elle en groupe les gestes d'un même écran.
 4. **Entrée écrit** — et c'est `e` qui met à la file, sans fermer. Une
    édition ne compte pour le moteur qu'au prochain lancement : `e` est la
-   réponse à « je veux l'entendre maintenant ».
+   réponse à « je veux l'entendre maintenant ». **Depuis le 11/09/2026,
+   entrée sur un morceau part aussi de lui** (Joel : « démarrer une
+   nouvelle graine depuis une chanson de l'écran de discographie ») : la
+   fournée est écrite d'abord s'il y en a une, puis la graine remplace le
+   parcours — le morceau joue, les branches partent de son artiste, comme
+   la modale de recherche. Sur une ligne d'album, entrée écrit seulement ;
+   un morceau banni ne part pas. Choix réversible : si écrire sans partir
+   manque sur un morceau, une touche à part (`w`) le rendra.
 5. **Les quatre ajouts retenus** (Joel) : `s` bascule l'ordre
    (chronologique ⇄ mes écoutes d'abord), `v` cycle la vue (tout, ♪ tops,
    ♥ aimés, ⊘ bannis), `A` promeut les quatre titres les plus écoutés de

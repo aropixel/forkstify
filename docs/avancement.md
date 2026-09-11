@@ -309,6 +309,18 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Entrée dans la discographie part du morceau (11/09/2026)
+
+Joel : « je veux pouvoir démarrer une nouvelle graine depuis une chanson
+de l'écran de discographie (avec entrée ?) ». Entrée gardait le sens du
+08/09, écrire la fournée. Les deux se cumulent : entrée écrit la fournée
+s'il y en a une (un commit), puis, **sur un morceau, part de lui** —
+`start_journey` sur `Choice::Track`, comme la recherche. Sur un album,
+entrée écrit seulement ; un banni ne part pas. Le handler de la modale est
+synchrone, la graine part par `start_requested` après lui, comme `:search`
+et `:wander`. Détail dans
+[exploration-d-un-artiste.md](conception/exploration-d-un-artiste.md).
+
 ## `fw` — partir loin, ou chez quelqu'un (11/09/2026)
 
 Joel : « implémentons fw. Je veux aussi pouvoir faire `fw <nom de

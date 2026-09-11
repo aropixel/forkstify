@@ -249,7 +249,7 @@ ouvert, pour que le doute se lève à l'écran.
 | `v` | La **vue** : tout → ♪ tops → ♥ aimés → ⊘ bannis | ✅ |
 | `/texte` | Filtrer sur un titre ou un album | ✅ |
 | `u` | Défaire la dernière édition en attente — gratuit, rien n'est écrit | ✅ |
-| ⏎ | **Écrire la fournée** : une écriture, **un seul commit** | ✅ |
+| ⏎ | **Écrire la fournée** — une écriture, **un seul commit** — puis, **sur un morceau, partir de lui** : nouvelle graine, le morceau joue, les branches partent de son artiste ; sur une ligne d'album, entrée écrit seulement (Joel, 11/09/2026) | ✅ |
 | échap | Fermer. Avec des éditions en attente, le premier échap prévient | ✅ |
 
 **Pourquoi une fournée et un seul commit** : on corrige cinq tops d'une
