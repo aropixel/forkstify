@@ -445,7 +445,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
 
             // `/` and `:` open a line: a query is typed, not chorded
             if pending.is_empty() && (key == '/' || key == ':') {
-                match read_line(key, &tx) {
+                match read_line(key, "", &tx) {
                     Some(text) => {
                         let cmd = if key == '/' { Cmd::Search(text) } else { Cmd::Colon(text) };
                         if tx.send(Cmd::Typing(None)).is_err() || tx.send(cmd).is_err() {
@@ -470,6 +470,25 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             pending.push(key);
             let outcome = if was_modal { parse_modal(&pending) } else { parse(&pending) };
             match outcome {
+                // `fw` takes a name: it opens the `:wander ` line, already
+                // filled — enter alone wanders far, a name wanders there
+                // (Joel, 11/09/2026)
+                Parse::Done(Cmd::Wander) => {
+                    pending.clear();
+                    if tx.send(Cmd::Pending(String::new())).is_err() {
+                        return;
+                    }
+                    let cmd = read_line(':', "wander ", &tx).map(Cmd::Colon);
+                    if tx.send(Cmd::Typing(None)).is_err() {
+                        return;
+                    }
+                    if let Some(cmd) = cmd {
+                        if tx.send(cmd).is_err() {
+                            return;
+                        }
+                    }
+                    continue;
+                }
                 Parse::Done(cmd) => {
                     let was_pending = pending.chars().count() > 1;
                     pending.clear();
@@ -509,9 +528,9 @@ fn clear_pending(pending: &mut String, tx: &UnboundedSender<Cmd>) {
 
 /// Read a line: keystrokes go up to the screen instead of being written on
 /// it. Enter sends, esc cancels.
-fn read_line(prefix: char, tx: &UnboundedSender<Cmd>) -> Option<String> {
-    let mut text = String::new();
-    let _ = tx.send(Cmd::Typing(Some(prefix.to_string())));
+fn read_line(prefix: char, start: &str, tx: &UnboundedSender<Cmd>) -> Option<String> {
+    let mut text = start.to_string();
+    let _ = tx.send(Cmd::Typing(Some(format!("{prefix}{text}"))));
     while let Some(b) = raw_byte() {
         match b {
             b'\r' | b'\n' => return Some(text),

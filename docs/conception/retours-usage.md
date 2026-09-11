@@ -150,8 +150,12 @@ n° 3 (`p1`, `p1n`). `r` seul est plus net et laisse `p` cohérent.
 
 ### 6. « Partir sur complètement autre chose »
 
-**Statut** : **toujours à clarifier** — la touche `fw` est réservée et
-répond « pas encore câblé », mais la question de fond n'est pas tranchée.
+**Statut** : **tranché et câblé le 11/09/2026** — lecture **(a)**, avec une
+cible optionnelle : `fw` seul saute loin (une tête sous le plancher du
+confort, hors du parcours et de ses voisins de graphe, la plus lointaine
+pesant le plus, le curseur penchant comme pour toute tête), `fw <artiste>`
+saute chez cet artiste du catalogue. La touche ouvre la ligne `:wander `
+déjà remplie, entrée part. La branche va en fin de ce qui est décidé.
 
 Deux lectures possibles, et elles ne mènent pas au même travail :
 

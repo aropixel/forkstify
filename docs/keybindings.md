@@ -50,7 +50,7 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 | `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
 | `fr` | fork **reroll** | Reproposer trois autres branches | ✅ |
 | `fu` | fork **undo** | Revenir à la branche précédente | ✅ |
-| `fw` | fork **wander** | Partir loin, hors de l'univers courant | 📋 |
+| `fw` | fork **wander** | Partir loin, hors de l'univers courant : ouvre la ligne `:wander ` déjà remplie — **entrée** seule tire une tête parmi les artistes les plus loin du parcours (sous le plancher du confort, hors du parcours et de ses voisins de graphe), `fw <artiste>` part chez cet artiste du catalogue. La branche va en fin de ce qui est décidé, comme `f<n>` (Joel, 11/09/2026) | ✅ |
 | `1`…`9` | | Raccourci de `f1`…`f9` | ✅ |
 | entrée | | Auto : tire au sort parmi les branches affichées | ✅ |
 
@@ -212,6 +212,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
 | `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
+| `:wander [artiste]` | Partir loin — raccourci `fw` ; avec un nom, chez cet artiste (11/09/2026) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
 | `:generate <nom> [mbid]` | **Faire entrer un artiste absent** du catalogue, puis partir de chez lui — ou, s'il était proposé **en creux**, prendre sa branche en fin de file. Un MBID en dernier mot remplace la recherche par le nom quand MusicBrainz ne trouve pas ; s'il ne répond pas du tout, la fiche naît minimale (nom, id, tops Deezer), marquée à relire ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)) : fiche composée depuis MusicBrainz et Deezer, **son vecteur calculé** ([0019](decisions/0019-vectorisation-par-l-application.md)), un seul commit, et le catalogue de la session l'a tout de suite. Marche à l'accueil comme en écoute. La modale de recherche fait la même chose sur un résultat hors catalogue, par simple `entrée` — et **`entrée` sur une ligne sans fiche de la collection** aussi (Joel, 10/09/2026, sur Kanye West) | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |

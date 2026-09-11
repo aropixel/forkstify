@@ -137,6 +137,7 @@ async fn async_run(
         overlay: None,
         typed: String::new(),
         warm_requested: false,
+        wander_requested: None,
         search_requested: None,
         branches: Vec::new(),
         missing: Vec::new(),
@@ -325,6 +326,8 @@ struct Live<'a> {
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
+    /// `:wander [artist]` asked; the command handler is not async either.
+    wander_requested: Option<String>,
     /// `:search <text>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
@@ -1713,7 +1716,9 @@ impl Live<'_> {
             // --- decided (0015), not wired yet ---
             Cmd::Track(k) => self.on_track_key(k).await,
             Cmd::Artist(k) => self.on_artist_key(k),
-            Cmd::Wander => self.not_yet("fw", "leave the current universe"),
+            // the reader turns `fw` into the `:wander ` line; a bare Wander
+            // can only come from elsewhere — it wanders far
+            Cmd::Wander => self.wander("").await,
             Cmd::Undo => self.not_yet("u", "undo the last gesture"),
             Cmd::Repeat => self.not_yet(".", "repeat the last gesture"),
             Cmd::Why => self.why(),
@@ -1731,6 +1736,9 @@ impl Live<'_> {
                 self.colon(&text);
                 if let Some(query) = self.search_requested.take() {
                     self.open_finder(None, &query);
+                }
+                if let Some(target) = self.wander_requested.take() {
+                    self.wander(&target).await;
                 }
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
@@ -3025,6 +3033,10 @@ impl Live<'_> {
                 _ => say!(self, "Comfort expected between 0 (exploration) and 5 (cocoon)."),
             },
             (Some("warm"), _) => self.warm_requested = true,
+            // `fw` spelled out: the rest of the line names the artist
+            (Some("wander"), _) => {
+                self.wander_requested = Some(text.split_whitespace().skip(1).collect::<Vec<_>>().join(" "));
+            }
             // `ad` spelled out (0013: every key is the shortcut of a
             // command)
             (Some("discography"), _) => self.explore_requested = true,
@@ -3094,6 +3106,41 @@ impl Live<'_> {
         }
     }
 
+    /// `fw` / `:wander [artist]` (retour n° 6, tranché le 11/09/2026):
+    /// leave the universe. Bare, the engine draws a head far from the
+    /// journey; with a name, the head is that artist of the catalog. The
+    /// branch goes at the end of what is decided, as `f<n>` does.
+    async fn wander(&mut self, target: &str) {
+        if self.rounds.is_empty() {
+            say!(self, "(nothing is playing — fw wanders from a journey)");
+            return;
+        }
+        let target = target.trim();
+        let slug = if target.is_empty() {
+            None
+        } else {
+            match self.catalog.search_names(target, 1).into_iter().next() {
+                Some(slug) => Some(slug),
+                None => {
+                    say!(self, "(no \"{target}\" in the catalog — :generate {target} brings them in)");
+                    return;
+                }
+            }
+        };
+        let (context, _, universe, visited, played) = self.state();
+        let branch = crate::engine::wander(
+            &self.catalog, &context, &universe, slug.as_deref(), &self.learned, &self.tail,
+            self.comfort, &visited, &played, self.size, &mut self.rng,
+        );
+        match branch {
+            Some(branch) => {
+                say!(self, "→ {} — {}", branch.label, branch.reason);
+                self.take_branch(branch, When::EndOfBranch).await;
+            }
+            None => say!(self, "(nowhere far enough to wander — everything near is played)"),
+        }
+    }
+
     /// A gesture the grammar accepts but the code does not serve yet. Saying
     /// so beats a silent no-op: the key is right, the wiring is missing.
     fn not_yet(&self, keys: &str, what: &str) {
@@ -3116,7 +3163,7 @@ impl Live<'_> {
                 ("fp", "peek — preview the branches", true),
                 ("fr", "reroll — propose three others", true),
                 ("fu", "undo — back to the previous branch", true),
-                ("fw", "wander — leave the universe", false),
+                ("fw", "wander — far away, or `fw <artist>` to their universe", true),
             ],
             Some('e') if !home => &[
                 ("e<n>", "n encores, at the end of the branch", true),

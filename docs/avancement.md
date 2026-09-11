@@ -309,7 +309,29 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
-## Deux choses qui traînaient à l'accueil (11/09/2026)
+## `fw` — partir loin, ou chez quelqu'un (11/09/2026)
+
+Joel : « implémentons fw. Je veux aussi pouvoir faire `fw <nom de
+l'artiste>` pour cibler un univers particulier ». Le retour n° 6 est
+tranché dans sa lecture (a), sortir de l'univers, avec une cible en
+option.
+
+- **`engine::wander`** : sans cible, la tête est tirée parmi les artistes
+  les plus loin du centre du parcours — hors du parcours et de tout ce qui
+  en est à un lien, sous le plancher du confort (ce que la branche
+  aventureuse refuse), avec des tops non joués ; le plus loin pèse le
+  plus, le curseur penche comme pour toute tête. Avec une cible, la tête
+  est cet artiste, quelle que soit la distance. Puis la même marche qu'une
+  branche. Un test fige les deux cas.
+- **La touche** : `fw` ouvre la ligne `:wander ` déjà remplie
+  (`read_line` prend un début de ligne) ; entrée seule part loin, un nom
+  part chez lui. `:wander [artiste]` est la commande épelée. Le nom se
+  résout par `search_names` sur le catalogue ; absent, le toast renvoie
+  vers `:generate`.
+- **Où** : la branche va en fin de ce qui est décidé, comme `f<n>`. À
+  trancher à l'usage : si « partir sur complètement autre chose » veut dire
+  maintenant, `fn`/`f!` ont le geste, `fw` pourrait le prendre.
+
 
 Joel, avant de relancer : « la page d'accueil évoque un random avec enter,
 c'est faux » et « cc + flèches ne marche pas ».
@@ -1631,8 +1653,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 7. ~~**Trancher la vectorisation d'une fiche générée**~~ — tranché le
    09/09/2026 ([0019](decisions/0019-vectorisation-par-l-application.md)) :
    l'application vectorise elle-même, fait le jour même.
-8. **`fw` — partir hors de l'univers** (retour n° 6), en attente de la
-   clarification de Joel : sortir du cluster, ou repartir d'une graine ?
+8. ~~**`fw` — partir hors de l'univers**~~ (retour n° 6) — tranché et fait
+   le 11/09/2026 : sortir du cluster, avec `fw <artiste>` pour viser un
+   univers.
 13. **Le setup fluide** (Joel, 09/09/2026) : au premier lancement et
     rejouable — connexion, import de la bibliothèque (artistes, albums,
     titres), playlists à cocher, classement calculé par l'application, les

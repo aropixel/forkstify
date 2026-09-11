@@ -846,10 +846,122 @@ pub fn propose(
     branches
 }
 
+/// `fw` — wander: leave the universe on purpose (retour n° 6, Joel,
+/// 11/09/2026). With a `target`, the head is that artist, whatever the
+/// distance; without, the head is drawn among the artists **farthest**
+/// from the journey's centre — outside the journey and its graph
+/// neighbourhood, with unplayed tops — leaning by the dial as any head
+/// does. Then the same walk as a branch, so the wander has a direction.
+pub fn wander(
+    catalog: &Catalog,
+    context: &[String],
+    universe: &[String],
+    target: Option<&str>,
+    learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
+    visited: &HashSet<String>,
+    played: &HashSet<String>,
+    size: usize,
+    rng: &mut impl Rng,
+) -> Option<Branch> {
+    let current = context.last()?.as_str();
+    let (head, reason, weight) = match target {
+        Some(slug) => {
+            let name = &catalog.cards.get(slug)?.name;
+            (slug.to_string(), format!("wander — to {name}, as asked"), 3.0)
+        }
+        None => {
+            // the universe and everything one link away from it: not far
+            let nobody = HashSet::new();
+            let mut near: HashSet<String> = visited.clone();
+            for slug in universe {
+                near.insert(slug.clone());
+                near.extend(graph_neighbors(catalog, slug, &nobody).into_iter().map(|(s, ..)| s));
+            }
+            let mut far: Vec<(String, f32)> = vector_neighbors_of(catalog, universe, &near)
+                .into_iter()
+                .filter(|(slug, _)| catalog.cards[slug].tops.iter().any(|t| !played.contains(t)))
+                .collect();
+            // far is what the adventurous branch refuses: under the dial's
+            // floor. Farthest first — the exact opposite of a branch; if
+            // nothing is under the floor, the farthest there is will do
+            far.sort_by(|a, b| a.1.total_cmp(&b.1));
+            let under: Vec<(String, f32)> =
+                far.iter().filter(|(_, score)| *score < comfort.floor()).cloned().collect();
+            if !under.is_empty() {
+                far = under;
+            }
+            far.truncate(12);
+            let mut pool: Vec<(String, f32)> = far
+                .iter()
+                .map(|(slug, score)| {
+                    let familiarity = learned.familiarity01(slug, &catalog.cards[slug].name);
+                    (slug.clone(), (1.0 - score).max(0.05) * comfort.favours(familiarity))
+                })
+                .collect();
+            let slug = draw_weighted(&mut pool, rng)?;
+            let score = far.iter().find(|(s, _)| *s == slug).map(|(_, c)| *c).unwrap_or(0.0);
+            (slug, format!("wander — far from the journey ({score:.2})"), 1.0)
+        }
+    };
+    let branch = walk(catalog, current, head, reason, weight, learned, tail, comfort, visited, played, size, rng);
+    (!branch.stops.is_empty()).then_some(branch)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::catalog::{Door, Link};
+
+    /// `fw` (11/09/2026): without a target the head is the farthest artist
+    /// from the journey, outside its graph; with one, it is that artist.
+    #[test]
+    fn wander_leaves_the_universe_or_goes_where_asked() {
+        let mut cure = the_cure();
+        cure.links = vec![Link { to: "siouxsie".into(), kind: "similar".into(), note: None, proximity: None }];
+        let named = |name: &str| {
+            let mut card = the_cure();
+            card.name = name.into();
+            card.links = Vec::new();
+            card.tops = vec![format!("{name} — one")];
+            card.doors = Vec::new();
+            card
+        };
+        let catalog = Catalog {
+            cards: HashMap::from([
+                ("the-cure".to_string(), cure),
+                ("siouxsie".to_string(), named("Siouxsie")),
+                ("joy-division".to_string(), named("Joy Division")),
+                ("fela-kuti".to_string(), named("Fela Kuti")),
+            ]),
+            proximities: HashMap::from([("similar".to_string(), 4)]),
+            vectors: HashMap::from([
+                ("the-cure".to_string(), vec![1.0, 0.0]),
+                ("siouxsie".to_string(), vec![0.9, 0.1]),
+                ("joy-division".to_string(), vec![0.8, 0.2]),
+                ("fela-kuti".to_string(), vec![0.0, 1.0]),
+            ]),
+        };
+        let learned = Learned::blank();
+        let context = vec!["the-cure".to_string()];
+        let visited: HashSet<String> = context.iter().cloned().collect();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+
+        // far: Siouxsie is one link away, so not far; Fela is the farthest
+        for _ in 0..10 {
+            let branch = wander(&catalog, &context, &context, None, &learned, &no_tail(), Comfort::new(3), &visited, &HashSet::new(), 1, &mut rng)
+                .expect("somewhere far");
+            assert_eq!(branch.artists[0], "fela-kuti", "{}", branch.label);
+            assert!(branch.reason.starts_with("wander — far"), "{}", branch.reason);
+        }
+
+        // asked: the head is the artist named, however close
+        let branch = wander(&catalog, &context, &context, Some("siouxsie"), &learned, &no_tail(), Comfort::new(3), &visited, &HashSet::new(), 1, &mut rng)
+            .expect("where asked");
+        assert_eq!(branch.artists[0], "siouxsie");
+        assert_eq!(branch.stops[0].artist, "Siouxsie");
+    }
 
     /// A blank tail: the tests that predate it must keep meaning the same
     /// thing, and a cocoon draws none of it anyway.
