@@ -87,6 +87,30 @@ besoin** et **pas de péremption**.
 Le champ `spotify` des fiches, présent depuis toujours et jamais lu par le
 code, l'est enfin : c'est lui qui ouvre la porte.
 
+## Câblé le 11/09/2026 — la récolte suit les branches
+
+Joel, après quelques jours d'écoute au confort 3 : « toujours des morceaux
+tops ou likés, jamais de longue traîne ». Le diagnostic : **une branche
+n'allait jamais chercher la traîne** — seuls `e<n>`, `:warm` et `ad` la
+récoltaient, et 16 artistes sur 314 en avaient une. Là où elle existait,
+le poids était bon (au confort 3, un morceau de traîne pèse 0,1 contre 1
+pour un top et 6,8 pour un aimé, mais deux cents morceaux cumulent).
+
+Option retenue par Joel (la 1 des deux proposées ; l'autre était le
+préchargement au démarrage) : **récolter, en fond, les artistes que les
+branches proposées traversent**, dès que le confort ouvre la traîne
+(ouverture > 0, donc tout sauf le cocon). Une requête par artiste, mise en
+cache pour toujours, silencieuse — ni toast ni « loading » collant, qui
+restent aux récoltes demandées.
+
+Le point délicat : **les morceaux d'une branche sont tirés quand elle est
+proposée**, plusieurs morceaux avant qu'on la voie. Quand la traîne arrive,
+les branches **encore sur la table** retirent au sort leurs morceaux de cet
+artiste, traîne comprise (`engine::redraw`) ; un morceau **aimé** n'est
+jamais retiré, et **la file n'est pas touchée** : ce qui est décidé reste
+décidé. En une phrase : *une branche proposée sans la traîne d'un artiste
+est retirée au sort quand elle arrive.* Un test le fige.
+
 ## À trancher — ce qui reste
 
 *(Les trois points ci-dessous sont tranchés ; conservés pour mémoire du

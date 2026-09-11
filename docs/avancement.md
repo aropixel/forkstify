@@ -309,6 +309,24 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## La traîne suit les branches (11/09/2026)
+
+Joel, « très content » après quelques jours d'écoute (noté dans
+[atouts.md](atouts.md)), mais au confort 3 « jamais de longue traîne ».
+Vérifié dans le code : une branche ne récoltait jamais la discographie —
+seuls `e<n>`, `:warm` et `ad` le faisaient, 16 artistes sur 314 en
+avaient une en cache. Le poids, lui, était juste.
+
+Option 1 retenue par Joel : après chaque `recompute`, les artistes des
+branches proposées sans traîne sont **récoltés en fond**, sans un mot, dès
+que le confort ouvre la traîne. À l'arrivée, `engine::redraw` retire au
+sort les morceaux de cet artiste dans les branches **encore proposées** —
+jamais un aimé, jamais la file. `harvesting` devient une carte slug →
+silencieux, pour que le toast « discography — loading » ne serve que les
+récoltes demandées. 66 tests, un nouveau. Détail dans
+[longue-traine.md](conception/longue-traine.md). **À éprouver : relancer
+forkstify, écouter au confort 3, guetter la marque `·`.**
+
 ## La carte de la barre suit enfin l'aiguille (11/09/2026)
 
 Joel : la barre de progression de la carte Omarchy « reste à 0:00 alors

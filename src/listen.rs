@@ -34,7 +34,7 @@ use crate::{state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -150,7 +150,7 @@ async fn async_run(
         sync_tx,
         jobs_tx,
         loading: false,
-        harvesting: HashSet::new(),
+        harvesting: HashMap::new(),
         screen: Screen::Home,
         home: Home::default(),
         status,
@@ -362,7 +362,7 @@ struct Live<'a> {
     loading: bool,
     /// Discographies being harvested right now, so a second `ad` or `e<n>`
     /// does not launch the same job twice.
-    harvesting: HashSet<String>,
+    harvesting: HashMap<String, bool>,
     /// Which screen is up: the home or the session. The session lives on
     /// under the home — the sound, the queue, the branches (Joel,
     /// 08/09/2026).
@@ -388,7 +388,9 @@ enum Screen {
 enum Job {
     Resolved { title: String, artist: String, result: Resolved },
     Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
-    Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String> },
+    /// `quiet`: fetched behind for a proposed branch, nobody asked —
+    /// nothing to say, whatever comes back.
+    Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String>, quiet: bool },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
     /// The card asked for already exists: nothing to generate, but what
     /// was meant for the artist still happens (Joel, 10/09/2026 — enter
@@ -578,7 +580,7 @@ impl Live<'_> {
         let card = &self.catalog.cards[&current];
         let unplayed = card.tops.iter().filter(|t| !played.contains(*t)).count();
         let tail = if unplayed < count {
-            match self.harvest(&current) {
+            match self.harvest(&current, false) {
                 Ok(true) => None,
                 Ok(false) => Some("its tail is coming — redo e<n> in a moment".to_string()),
                 Err(why) => Some(why),
@@ -900,15 +902,19 @@ impl Live<'_> {
                         .collect()
                 }));
             }
-            Job::Harvested { slug, result } => {
+            Job::Harvested { slug, result, quiet } => {
                 self.harvesting.remove(&slug);
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
                 match result {
                     Ok(tracks) => {
                         let count = tracks.len();
                         self.tail.keep(&slug, tracks);
+                        // the branches still on the table were drawn without
+                        // this tail: their tracks of this artist get a new draw
+                        self.redraw_proposed(&slug);
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
                             Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
+                            None if quiet => {}
                             None => say!(self, "✓ discography of {name} — {count} tracks cached"),
                         }
                     }
@@ -917,6 +923,7 @@ impl Live<'_> {
                             screen.loading = false;
                             screen.notice = format!("⏹ discography — {why}");
                         }
+                        None if quiet => {}
                         None => say!(self, "⏹ discography of {name} — {why}"),
                     },
                 }
@@ -1402,6 +1409,45 @@ impl Live<'_> {
         self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
         self.missing.truncate(3);
         self.mark_pending();
+        self.harvest_proposed();
+    }
+
+    /// The tails of the artists the proposed branches walk through, fetched
+    /// behind as soon as the dial opens (Joel, 11/09/2026: at comfort 3 the
+    /// tail never came up — a branch never went to get it, only `e<n>`,
+    /// `:warm` and `ad` did). One request per artist, cached for good;
+    /// a card without a Spotify id is simply skipped.
+    fn harvest_proposed(&mut self) {
+        if !self.comfort.wants_tail() {
+            return;
+        }
+        let slugs: Vec<String> = self
+            .branches
+            .iter()
+            .flat_map(|branch| branch.artists.iter().cloned())
+            .filter(|slug| !self.tail.has(slug))
+            .collect();
+        for slug in slugs {
+            let _ = self.harvest(&slug, true);
+        }
+    }
+
+    /// A tail just arrived: the proposed branches that walk through that
+    /// artist are drawn again for them (the queue is left alone — what is
+    /// decided stays decided).
+    fn redraw_proposed(&mut self, slug: &str) {
+        if !self.comfort.wants_tail() {
+            return;
+        }
+        let (_, _, _, _, played) = self.state();
+        for branch in &mut self.branches {
+            if branch.artists.iter().any(|a| a == slug) {
+                crate::engine::redraw(
+                    &self.catalog, branch, slug, &self.learned, &self.tail, self.comfort, &played,
+                    &mut self.rng,
+                );
+            }
+        }
     }
 
 
@@ -1699,7 +1745,7 @@ impl Live<'_> {
                 if std::mem::take(&mut self.warm_requested) {
                     let (_, current, ..) = self.state();
                     let name = self.catalog.cards[&current].name.clone();
-                    match self.harvest(&current) {
+                    match self.harvest(&current, false) {
                         Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&current).len()),
                         Ok(false) => say!(self, "… discography of {name} being fetched"),
                         Err(why) => say!(self, "⏹ {why}"),
@@ -1866,7 +1912,7 @@ impl Live<'_> {
                 });
             }
         }
-        if let Some(slug) = self.harvesting.iter().next() {
+        if let Some((slug, _)) = self.harvesting.iter().find(|(_, quiet)| !**quiet) {
             let name = self.catalog.cards.get(slug).map(|c| c.name.as_str()).unwrap_or(slug);
             return Some(crate::tui::Toast {
                 text: format!("discography of {name} — loading"),
@@ -2706,18 +2752,18 @@ impl Live<'_> {
     /// `Ok(true)` when the tail is already there, `Ok(false)` when the
     /// harvest was launched behind (it reports as `Job::Harvested`),
     /// `Err` when it cannot be launched at all.
-    fn harvest(&mut self, slug: &str) -> Result<bool, String> {
+    fn harvest(&mut self, slug: &str, quiet: bool) -> Result<bool, String> {
         if self.tail.has(slug) {
             return Ok(true);
         }
-        if self.harvesting.contains(slug) {
+        if self.harvesting.contains_key(slug) {
             return Ok(false);
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
             return Err(format!("{} has no Spotify id in its card", card.name));
         };
-        self.harvesting.insert(slug.to_string());
+        self.harvesting.insert(slug.to_string(), quiet);
         let web = self.web.clone();
         let tx = self.jobs_tx.clone();
         let slug = slug.to_string();
@@ -2728,7 +2774,7 @@ impl Live<'_> {
                 .discography(&spotify_id)
                 .await
                 .map_err(|why| format!("unreachable ({why})"));
-            let _ = tx.send(Job::Harvested { slug, result });
+            let _ = tx.send(Job::Harvested { slug, result, quiet });
         });
         Ok(false)
     }
@@ -2783,7 +2829,7 @@ impl Live<'_> {
         }
         // the screen opens on what we have — the tops, the learned — and
         // the discography comes behind, saying so (Joel, 08/09/2026)
-        let loading = match self.harvest(&stop.slug) {
+        let loading = match self.harvest(&stop.slug, false) {
             Ok(known) => !known,
             Err(why) => {
                 say!(self, "⏹ {why}");
