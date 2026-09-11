@@ -407,6 +407,8 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     // — the head, on one line: the command on the left, the state on the right
     let tracks = view.past.len() + usize::from(view.current.is_some()) + view.queue.len();
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
+    // the dial open: the words light up, never the blocks — inverted, a
+    // full block read as empty (Joel, 11/09/2026)
     let comfort_style = if view.comfort_mode {
         Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
     } else {
@@ -434,7 +436,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
                     Style::default().fg(MUTED),
                 ),
                 Span::styled(" │ ", Style::default().fg(DIM)),
-                Span::styled(format!("comfort {} {gauge} {}", view.comfort, view.comfort_word), comfort_style),
+                Span::styled(format!("comfort {} ", view.comfort), comfort_style),
+                Span::styled(gauge, Style::default().fg(VECTOR)),
+                Span::styled(format!(" {}", view.comfort_word), comfort_style),
             ],
             full,
         )),
@@ -1330,20 +1334,19 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     }
 
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
+    // same rule as the listening header: the blocks keep their colour,
+    // the words light up while the dial is open
     let comfort_style = if view.comfort_mode {
         Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(VECTOR)
+        Style::default().fg(DIM)
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
             Span::raw("  "),
-            Span::styled(gauge, comfort_style),
-            Span::styled(
-                format!(" {} — {}", view.comfort, view.comfort_word),
-                Style::default().fg(DIM),
-            ),
+            Span::styled(gauge, Style::default().fg(VECTOR)),
+            Span::styled(format!(" {} — {}", view.comfort, view.comfort_word), comfort_style),
         ])),
         prompt,
     );

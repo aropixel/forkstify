@@ -327,6 +327,10 @@ c'est faux » et « cc + flèches ne marche pas ».
   cadran passe devant l'accueil dans `on_cmd`, `cc` l'ouvre depuis
   l'accueil, la jauge s'allume comme à l'écoute, et la validation ne
   recalcule les branches que s'il y a une session.
+- **La jauge « bizarre » pendant le réglage** (Joel, dans la foulée) : le
+  mode cadran passait toute la jauge en noir sur cyan, donc les blocs
+  pleins devenaient noirs et les vides colorés — l'inverse. Les blocs
+  gardent leur couleur, seuls les mots s'allument, aux deux écrans.
 
 ## La traîne suit les branches (11/09/2026)
 
