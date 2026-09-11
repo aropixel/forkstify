@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **10/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **11/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -308,6 +308,23 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## La carte de la barre suit enfin l'aiguille (11/09/2026)
+
+Joel : la barre de progression de la carte Omarchy « reste à 0:00 alors
+qu'un morceau joue bien » — le retour du bug du 10/09. Cette fois le bus
+est hors de cause : `busctl` donne la position, la durée, « Playing », et
+`Seeked` part bien à chaque morceau. Le défaut est dans Quickshell :
+`MprisPlayer.position` se **calcule à chaque lecture** (dernier échantillon
++ temps écoulé) mais le signal `positionChanged` n'est jamais émis pendant
+la lecture — une liaison QML garde donc la valeur lue à la découverte du
+lecteur, ou celle du dernier `Seeked` : 0 au début du morceau. Vérifié dans
+une instance Quickshell à part : la propriété liée reste à 152,91 s tandis
+qu'une lecture directe avance ; un appel à `player.positionChanged()`
+resynchronise la liaison. Le widget gagne un `Timer` d'une seconde, actif
+seulement **carte ouverte et morceau en lecture**, qui demande ce signal.
+Le `Seeked` du 10/09 reste utile pour les sauts (`h`, une correction).
+Consigné dans [barre-omarchy.md](conception/barre-omarchy.md).
 
 ## Ye et Kanye West ne font qu'un (10/09/2026)
 
@@ -1574,7 +1591,8 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
     d'abord de vraies métadonnées MPRIS (portable), puis un petit plugin
     Omarchy les montre. **Fait le 10/09/2026** ([0021](decisions/0021-le-depot-est-le-plugin-omarchy.md)) :
     le dépôt est le plugin, l'état vit sous `~/.local/state/forkstify`, le
-    widget installe et lance le binaire. Reste à éprouver en vrai.
+    widget installe et lance le binaire. Éprouvé : la progression de
+    la carte, figée à 0:00, se rafraîchit depuis le 11/09/2026.
 9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
    `cargo clean` efface aujourd'hui l'authentification.
 10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie

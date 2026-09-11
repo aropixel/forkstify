@@ -57,6 +57,16 @@ même au « Local plugin changed » que provoque la recréation du lien.
 Seul **`omarchy restart shell`** fait prendre un nouveau QML (vérifié le
 10/09/2026 par capture de la barre). Une seconde de clignotement.
 
+**La position dans Quickshell** (11/09/2026) : `MprisPlayer.position` se
+calcule à chaque lecture (dernier échantillon + temps écoulé), mais le
+signal `positionChanged` n'est émis qu'à un `Seeked` ou un changement
+d'état — jamais pendant la lecture. Une liaison QML (`root.position:
+player.position`) reste donc figée sur la dernière valeur signalée, 0 au
+début du morceau, et la carte affichait 0:00. Le widget demande le signal
+lui-même : un `Timer` d'une seconde, actif carte ouverte et morceau en
+lecture, appelle `player.positionChanged()`. Le service média d'Omarchy
+n'affiche pas la position et n'a pas ce problème.
+
 ## Orientation : deux étages, le premier portable
 
 1. **forkstify publie tout ce qu'un bureau attend** (portable, hors

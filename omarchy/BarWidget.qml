@@ -74,6 +74,18 @@ BarWidget {
     onTriggered: root.frame = (root.frame + 1) % root.frames.length
   }
 
+  // Quickshell computes `position` on each read but never says it
+  // changed while playing: a binding keeps the value read when the
+  // player appeared — 0:00, the card never moved (Joel, 11/09/2026).
+  // Asking for the signal once a second, card open, keeps the bar honest.
+  Timer {
+    interval: 1000
+    repeat: true
+    running: root.popupOpen && root.playing
+    triggeredOnStart: true
+    onTriggered: if (root.player) root.player.positionChanged()
+  }
+
   // is the binary on the PATH? asked once at load, and again after an install
   Process {
     id: whichProc
