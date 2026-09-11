@@ -731,6 +731,13 @@ impl Live<'_> {
             _ => {}
         }
         let live = !self.rounds.is_empty();
+        // `cc` opens the dial here as when listening; the keys that follow
+        // go to it before the home sees them
+        if matches!(cmd, Cmd::ComfortMode) {
+            self.comfort_before = Some(self.comfort);
+            say!(self, "comfort zone — ↑↓ to adjust, enter confirms, esc cancels");
+            return true;
+        }
         // an artist measure taken at the home changes the branches of the
         // session playing underneath
         let measured = matches!(cmd, Cmd::Artist(_));
@@ -1605,14 +1612,16 @@ impl Live<'_> {
         if self.explore.is_some() && self.comfort_before.is_none() {
             return self.on_explore_key(cmd);
         }
+        // the comfort dial takes over everything else — on the home too:
+        // the home used to swallow the arrows (Joel, 11/09/2026)
+        if self.comfort_before.is_some() {
+            self.notices.borrow_mut().clear();
+            return self.on_comfort_key(cmd);
+        }
         if self.screen == Screen::Home {
             return self.on_home_cmd(cmd).await;
         }
         self.notices.borrow_mut().clear();
-        // the comfort dial takes over everything else
-        if self.comfort_before.is_some() {
-            return self.on_comfort_key(cmd);
-        }
         // a block laid over the screen falls at the next gesture — except
         // the key helper, which follows the pending sequence until it
         // completes
@@ -1857,7 +1866,10 @@ impl Live<'_> {
             Cmd::Down | Cmd::Prev => self.comfort = Comfort::new(value.saturating_sub(1)),
             Cmd::Auto => {
                 self.comfort_before = None;
-                self.recompute();
+                // the dial changes which branches make sense — when there are any
+                if !self.rounds.is_empty() {
+                    self.recompute();
+                }
                 say!(self, "comfort zone: {} — {}", value, comfort_word(value));
                 return true;
             }
@@ -1992,6 +2004,7 @@ impl Live<'_> {
                 &self.learned,
                 &self.tail,
                 self.comfort,
+                self.comfort_before.is_some(),
                 &self.status,
                 bar,
                 live,

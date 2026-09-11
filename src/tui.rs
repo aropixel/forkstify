@@ -1130,6 +1130,9 @@ pub struct HomeView<'a> {
     pub rows: &'a [Row],
     pub prompt: String,
     pub comfort: u8,
+    /// `cc`: the dial is open, the gauge lights up (Joel, 11/09/2026 —
+    /// the dial did nothing on home).
+    pub comfort_mode: bool,
     pub comfort_word: &'a str,
     /// The right column. It proposes nothing, it lists.
     pub collection: Option<Collection<'a>>,
@@ -1327,11 +1330,16 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     }
 
     let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
+    let comfort_style = if view.comfort_mode {
+        Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(VECTOR)
+    };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
             Span::raw("  "),
-            Span::styled(gauge, Style::default().fg(VECTOR)),
+            Span::styled(gauge, comfort_style),
             Span::styled(
                 format!(" {} — {}", view.comfort, view.comfort_word),
                 Style::default().fg(DIM),
@@ -1928,6 +1936,7 @@ mod tests {
             rows: &[],
             prompt: "[1-3 to start · r back to listening · q quit]".to_string(),
             comfort: 3,
+            comfort_mode: false,
             comfort_word: "balanced",
             collection: None,
             finder: None,
@@ -1969,6 +1978,7 @@ mod tests {
             rows: &rows_of_home,
             prompt: "[1-3 to start · q]".to_string(),
             comfort: 3,
+            comfort_mode: false,
             comfort_word: "balanced",
             collection: None,
             explore: None,
@@ -1995,6 +2005,7 @@ mod tests {
             rows: &rows_of_home,
             prompt: "[1-3 to start · q]".to_string(),
             comfort: 3,
+            comfort_mode: false,
             comfort_word: "balanced",
             collection: None,
             explore: None,

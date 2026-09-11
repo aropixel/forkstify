@@ -424,7 +424,7 @@ impl Comfort {
     /// What this dial does to a candidate of that familiarity. Never zero:
     /// a branch is discouraged, never forbidden — the application does not
     /// decide for the ear.
-    fn favours(self, familiarity: f32) -> f32 {
+    pub fn favours(self, familiarity: f32) -> f32 {
         (1.0 + self.pull() * (2.0 * familiarity - 1.0)).clamp(0.25, 2.0)
     }
 }

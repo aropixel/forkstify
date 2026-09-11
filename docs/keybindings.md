@@ -161,7 +161,7 @@ on la demande pour écouter maintenant.
 | ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
 | entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
 | `c<n>` | **comfort** | La zone de confort d'un coup, 5 cocon → 0 exploration — à l'accueil aussi (Joel, 08/09/2026) | ✅ |
-| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule | ✅ |
+| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule — à l'accueil aussi depuis le 11/09/2026 | ✅ |
 | échap | | Annuler la sélection, fermer un bloc — l'aide comprise | ✅ |
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme. **À l'accueil aussi**, avec sa propre table (Joel, 10/09/2026) | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |

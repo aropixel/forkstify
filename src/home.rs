@@ -18,6 +18,8 @@ use crate::engine::Comfort;
 use crate::keys::{self, Cmd};
 use crate::learned::Learned;
 use crate::tui::{Collection, CollectionRow, HomeView, Row, Tui};
+use rand::distributions::WeightedIndex;
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -232,6 +234,30 @@ struct Entry {
     preview: Vec<(String, String)>,
 }
 
+
+/// One door among all of them, drawn by weight: what the dial makes of
+/// the artist's familiarity (0001). Never a zero weight — a door is
+/// discouraged, never shut.
+fn draw<'a>(
+    doors: &[&'a Entry],
+    catalog: &Catalog,
+    learned: &Learned,
+    comfort: Comfort,
+    rng: &mut impl Rng,
+) -> Option<&'a Entry> {
+    let weights: Vec<f32> = doors
+        .iter()
+        .map(|entry| {
+            let slug = match &entry.choice {
+                Choice::Artist(slug) | Choice::Track { slug, .. } => slug,
+            };
+            let name = catalog.cards.get(slug).map(|c| c.name.as_str()).unwrap_or(slug);
+            comfort.favours(learned.familiarity01(slug, name))
+        })
+        .collect();
+    let dist = WeightedIndex::new(&weights).ok()?;
+    doors.get(dist.sample(rng)).copied()
+}
 
 /// The not-connected screen. Two situations that look nothing alike: never
 /// authorized, where both gestures need explaining; authorization lost,
@@ -552,6 +578,7 @@ impl Home {
         learned: &Learned,
         tail: &Tail,
         comfort: Comfort,
+        comfort_mode: bool,
         status: &[(String, bool)],
         bar: Option<crate::tui::Bar<'_>>,
         live: bool,
@@ -593,6 +620,7 @@ impl Home {
                 )
             },
             comfort: comfort.value(),
+            comfort_mode,
             comfort_word: crate::listen::comfort_word(comfort.value()),
             collection: Some(Collection {
                 rows: &shelf,
@@ -729,7 +757,11 @@ impl Home {
                 self.cursor = (left > 0).then(|| index.min(left - 1));
                 Outcome::Stay
             }
-            Cmd::Auto => match flat.first() {
+            // enter, nothing highlighted: "choose for me" — a draw over
+            // every door on the page, weighted by the dial: the familiar
+            // in the cocoon, the unknown wide open (ecran-d-accueil.md).
+            // It took the first line until 11/09/2026 (Joel: "c'est faux").
+            Cmd::Auto => match draw(&flat, catalog, learned, *comfort, &mut rand::thread_rng()) {
                 Some(entry) => Outcome::Start(pick(entry)),
                 None => Outcome::Stay,
             },

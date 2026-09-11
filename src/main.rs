@@ -283,6 +283,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 rows: &rows,
                 prompt: "[waiting on the local network (mdns) · q]".into(),
                 comfort: comfort.value(),
+            comfort_mode: false,
                 comfort_word: listen::comfort_word(comfort.value()),
                 collection: None,
                 bar: None,

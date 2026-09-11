@@ -309,6 +309,25 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Deux choses qui traînaient à l'accueil (11/09/2026)
+
+Joel, avant de relancer : « la page d'accueil évoque un random avec enter,
+c'est faux » et « cc + flèches ne marche pas ».
+
+- **Entrée à l'accueil** prenait la première porte de la page, alors que
+  l'écran et [ecran-d-accueil.md](conception/ecran-d-accueil.md) promettent
+  « au hasard — tirage pondéré, la porte qui ne demande pas de choisir ».
+  C'est maintenant vrai : un tirage sur toutes les portes de la page,
+  pondéré par ce que le curseur fait de la familiarité de l'artiste
+  (`Comfort::favours`, le même qu'au moteur) — le familier au cocon,
+  l'inconnu grand ouvert, jamais un poids nul. Une ligne surlignée garde
+  la priorité.
+- **`cc` à l'accueil** ne faisait rien : l'accueil prenait la touche avant
+  que le cadran ne soit consulté, et ne connaissait pas `ComfortMode`. Le
+  cadran passe devant l'accueil dans `on_cmd`, `cc` l'ouvre depuis
+  l'accueil, la jauge s'allume comme à l'écoute, et la validation ne
+  recalcule les branches que s'il y a une session.
+
 ## La traîne suit les branches (11/09/2026)
 
 Joel, « très content » après quelques jours d'écoute (noté dans
