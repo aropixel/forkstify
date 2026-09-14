@@ -309,6 +309,23 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `aL` lie à un artiste choisi par la recherche (14/09/2026)
+
+Joel : « je ne comprends pas le geste à faire pour lier un artiste à un
+autre… j'écoutais King Hannah et je voulais le lier à Peter Kernel ».
+`aL` liait à l'artiste **d'où l'on venait**, une cible implicite qu'aucun
+écran n'annonçait, et qui ne pouvait pas atteindre un artiste hors du
+parcours.
+
+`aL` ouvre désormais la modale de recherche, en-tête « link <artiste> » ;
+entrée sur une ligne écrit un lien `similar` dans la fiche courante vers
+l'artiste choisi. Cible catalogue (`Hit::Artist` ou un titre avec fiche) ou
+hors catalogue (nom slugifié — un lien vers une fiche absente est une
+proposition, 0016). Un `link_from` porté par le `Finder`, résolu en tête de
+`take_found` ; l'édition se commite comme avant (compte au prochain
+lancement). Marche à l'accueil comme en écoute. Un artiste sans fiche
+courant ne peut pas être lié : le toast renvoie vers `:generate`.
+
 ## `:generate <nom> <mbid>` propose au lieu d'écraser (11/09/2026)
 
 Joel : avec un mbid, `:generate` lançait une nouvelle liste et écrasait la

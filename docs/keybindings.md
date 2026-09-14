@@ -129,7 +129,7 @@ demandent une fiche.
 | `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) — et **hors des aimés** : un drapeau `unliked` dans `learned/`, qui prime sur les aimés Spotify et survit aux récoltes. À l'accueil aussi | mesure | ✅ |
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file. À l'accueil aussi | mesure | ✅ |
 | `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
-| `aL` | artist **link** | Lier à l'artiste **d'où l'on vient**, type `similar` ([0010](decisions/0010-format-revise-links-sans-portes.md)) | édition | ✅ |
+| `aL` | artist **link** | **Ouvre la recherche pour choisir l'artiste à lier** : entrée écrit un lien `similar` dans la fiche courante vers l'artiste choisi, catalogue ou hors catalogue (le lien vers une fiche absente est une proposition, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)) ; un commit lisible ([0010](decisions/0010-format-revise-links-sans-portes.md)). Remplace l'ancien geste qui liait, sans le dire, à l'artiste d'où l'on venait (Joel, 14/09/2026) | édition | ✅ |
 | `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous. **À l'accueil aussi**, sur la ligne surlignée de la collection, posée sur l'accueil ; un artiste **sans fiche** la reçoit d'abord ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)), la discographie s'ouvre dès qu'elle est là (Joel, 10/09/2026) | édition | ✅ |
 | `ag` | artist **google** | Chercher l'artiste visé (surligné, sinon en cours) dans le navigateur par défaut, via `xdg-open` (Joel, 08/09/2026) | session | ✅ |
 
@@ -324,12 +324,14 @@ constant.
    morceau, avec une différence invisible : `l` avance sans rien noter,
    `ts` avance **et** le note dans `learned/`. Nuance juste sur le papier,
    peut-être insensible dans les doigts.
-2. **`aL` ou `ac`** pour lier deux artistes. `aL` est le seul geste dont la
-   casse ne dit pas la même chose qu'ailleurs : `tt`/`tT` sont un verbe et
-   son inverse, `al`/`aL` sont deux verbes différents. La justification
-   tient (minuscule = mesure, majuscule = édition) mais elle est plus
-   faible. `ac` (*connect*) l'éviterait, au prix du mot « link », qui est
-   celui du format sur disque.
+2. **`aL` ou `ac`** pour lier deux artistes. La cible n'est plus implicite
+   depuis le 14/09/2026 : `aL` ouvre la recherche et on choisit l'artiste,
+   ce qui a levé la confusion (Joel : « je ne comprends pas le geste »).
+   Reste la casse : `aL` est le seul geste dont la majuscule ne dit pas la
+   même chose qu'ailleurs — `tt`/`tT` sont un verbe et son inverse,
+   `al`/`aL` deux verbes différents. La justification tient (minuscule =
+   mesure, majuscule = édition) mais elle est plus faible. `ac` (*connect*)
+   l'éviterait, au prix du mot « link », celui du format sur disque.
 
 ## Lettres libres
 

@@ -132,6 +132,8 @@ pub struct Bar<'a> {
 pub struct FinderView {
     /// `ti` rather than `:search`: the title changes, and the anchor shows.
     pub insert: bool,
+    /// `aL`: linking that artist to the chosen row; the title says so.
+    pub linking: Option<String>,
     pub anchor: Option<String>,
     pub query: String,
     /// (catalog, spotify, spotify being queried)
@@ -613,19 +615,18 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     let mut lines: Vec<Line> = Vec::new();
 
     // — the title carries the key, as everywhere
+    let (heading, key, hint) = match &view.linking {
+        Some(name) => (format!("link {name} "), "aL ", "pick an artist to link to"),
+        None if view.insert => ("insert a track ".to_string(), "ti ", "tracks only"),
+        None => ("search ".to_string(), ":search ", "tracks and artists"),
+    };
     lines.push(ruled(
         vec![
             rule("┌─ "),
-            Span::styled(
-                if view.insert { "insert a track " } else { "search " },
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-            ),
+            Span::styled(heading, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
             rule("── "),
-            Span::styled(if view.insert { "ti " } else { ":search " }, Style::default().fg(MUTED)),
-            Span::styled(
-                if view.insert { "tracks only" } else { "tracks and artists" },
-                Style::default().fg(DIM),
-            ),
+            Span::styled(key, Style::default().fg(MUTED)),
+            Span::styled(hint, Style::default().fg(DIM)),
         ],
         width,
     ));
@@ -2016,6 +2017,7 @@ mod tests {
             toast: None,
             finder: Some(FinderView {
                 insert: false,
+                linking: None,
                 anchor: None,
                 query: "siou".to_string(),
                 counts: (1, None, true),
@@ -2051,6 +2053,7 @@ mod tests {
     fn the_finder_cuts_the_input_from_the_results() {
         let view = FinderView {
             insert: true,
+            linking: None,
             anchor: Some("the insertion lands at 4 — between Sea Of Love and Cross Bones Style".to_string()),
             query: "nothing bu".to_string(),
             counts: (2, None, true),

@@ -508,6 +508,9 @@ struct Finder {
     asked: String,
     cursor: usize,
     only_catalogue: bool,
+    /// `aL`: this modal writes a `similar` link into that artist's card
+    /// (slug, name) instead of playing the chosen row (Joel, 14/09/2026).
+    link_from: Option<(String, String)>,
 }
 
 fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
@@ -2280,6 +2283,7 @@ impl Live<'_> {
         });
         crate::tui::FinderView {
             insert: finder.insert.is_some(),
+            linking: finder.link_from.as_ref().map(|(_, name)| name.clone()),
             anchor,
             query: finder.query.clone(),
             counts: (cat, spotify_count, finder.spotify.is_none() && !finder.only_catalogue),
@@ -2378,6 +2382,7 @@ impl Live<'_> {
             asked: String::new(),
             cursor: 0,
             only_catalogue: false,
+            link_from: None,
         };
         if !query.is_empty() {
             finder.query = query.to_string();
@@ -2389,6 +2394,27 @@ impl Live<'_> {
         if !query.is_empty() {
             self.refind();
         }
+    }
+
+    /// `aL` — open the modal to **link** the given artist to one chosen by
+    /// search (Joel, 14/09/2026): enter on a row writes the `similar` link
+    /// into `from`'s card. The old `aL` linked only to the artist one came
+    /// from, an implicit target that confused (Joel: "je ne comprends pas
+    /// le geste"). Search makes the target explicit and reaches anyone.
+    fn open_link(&mut self, from_slug: &str, from_name: &str) {
+        self.finder = Some(Finder {
+            insert: None,
+            query: String::new(),
+            catalogue: Vec::new(),
+            spotify: Some(Ok(Vec::new())),
+            asked: String::new(),
+            cursor: 0,
+            only_catalogue: false,
+            link_from: Some((from_slug.to_string(), from_name.to_string())),
+        });
+        self.overlay = None;
+        self.help_open = false;
+        crate::keys::set_text(true, "");
     }
 
     fn close_finder(&mut self) {
@@ -2509,7 +2535,34 @@ impl Live<'_> {
             return;
         };
         let insert = finder.insert;
+        let link_from = finder.link_from.clone();
         self.close_finder();
+        // aL: the chosen row is a target to link to, not a track to play
+        if let Some((from_slug, from_name)) = link_from {
+            let target = match &found.hit {
+                Hit::Artist(slug) => Some((
+                    slug.clone(),
+                    self.catalog.cards.get(slug).map(|c| c.name.clone())
+                        .unwrap_or_else(|| slug.replace('-', " ")),
+                )),
+                // a catalog track: its artist's card; an off-catalog one:
+                // the name slugified — a link to a missing card is a
+                // proposal (0016), it need not exist yet to be written
+                Hit::Track { slug: Some(slug), artist, .. } => Some((
+                    slug.clone(),
+                    self.catalog.cards.get(slug).map(|c| c.name.clone())
+                        .unwrap_or_else(|| artist.clone()),
+                )),
+                Hit::Track { artist, .. } => Some((crate::generate::slugify(artist), artist.clone())),
+            };
+            if let Some((to_slug, to_name)) = target {
+                let done = crate::edit::add_link(
+                    &self.catalog_dir, &from_slug, &from_name, &to_slug, &to_name, "similar",
+                );
+                self.report(done);
+            }
+            return;
+        }
         // from the home, choosing **starts a journey** — that is the home's
         // rule, a digit already does the same there (Joel, 09/09/2026). A
         // track without a card has nothing to branch from: it plays from
@@ -2786,31 +2839,15 @@ impl Live<'_> {
                 say!(self, "card: {} (opening it here waits for the input rework)", path.display());
             }
             'L' => {
-                // link to the artist we came from: that is the link before
-                // our eyes at the moment we want to write it
-                let from = self
-                    .rounds
-                    .iter()
-                    .rev()
-                    .flat_map(|round| round.artists.iter())
-                    .find(|slug| **slug != stop.slug)
-                    .cloned();
-                match from.and_then(|slug| {
-                    self.catalog.cards.get(&slug).map(|card| (slug.clone(), card.name.clone()))
-                }) {
-                    Some((to_slug, to_name)) => {
-                        let done = crate::edit::add_link(
-                            &self.catalog_dir,
-                            &stop.slug,
-                            &stop.artist,
-                            &to_slug,
-                            &to_name,
-                            "similar",
-                        );
-                        self.report(done);
-                    }
-                    None => say!(self, "(no artist to come from — the link waits for a second one)"),
+                // link to an artist chosen by search (Joel, 14/09/2026):
+                // the target is no longer the implicit "where we came from"
+                if stop.slug.is_empty() || !self.catalog.cards.contains_key(&stop.slug) {
+                    say!(self, "({} has no card — :generate them first, then aL)", stop.artist);
+                    return;
                 }
+                let name = self.catalog.cards[&stop.slug].name.clone();
+                say!(self, "link {name} — pick an artist to link to (esc cancels)");
+                self.open_link(&stop.slug, &name);
             }
             _ => {}
         }
