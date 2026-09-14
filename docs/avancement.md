@@ -309,6 +309,15 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le confort est retenu d'un lancement à l'autre (14/09/2026)
+
+Joel : « je voudrais que forkstify se souvienne de la dernière zone de
+confort choisie ». Un fichier `~/.local/state/forkstify/comfort`, écrit à
+chaque changement (`config::remember_comfort` sur `c<n>`, `:comfort`, `cc`
+validé, accueil et écoute) et relu au démarrage (`config::comfort_at_start`,
+appelé partout où l'ancien code lisait `config.journey.comfort`). L'état
+prime sur `config.toml`, qui devient la graine du premier lancement.
+
 ## Quatre retours d'usage : goût, infos, jauge, album (14/09/2026)
 
 Joel, après quelques jours.

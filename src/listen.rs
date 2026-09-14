@@ -833,7 +833,11 @@ impl Live<'_> {
         // an artist measure taken at the home changes the branches of the
         // session playing underneath
         let measured = matches!(cmd, Cmd::Artist(_));
+        let before = self.comfort.value();
         let outcome = self.home.on_cmd(cmd, &self.catalog, &mut self.learned, &mut self.comfort, live);
+        if self.comfort.value() != before {
+            crate::config::remember_comfort(self.comfort.value());
+        }
         // what the home has to say goes in a toast, as when listening
         if let Some(said) = self.home.take_said() {
             say!(self, "{said}");
@@ -1993,6 +1997,8 @@ impl Live<'_> {
             Cmd::Down | Cmd::Prev => self.comfort = Comfort::new(value.saturating_sub(1)),
             Cmd::Auto => {
                 self.comfort_before = None;
+                // remembered from one launch to the next (Joel, 14/09/2026)
+                crate::config::remember_comfort(value);
                 // the dial changes which branches make sense — when there are any
                 if !self.rounds.is_empty() {
                     self.recompute();
@@ -3253,6 +3259,7 @@ impl Live<'_> {
             (Some("comfort"), Some(n)) => match n.parse::<u8>() {
                 Ok(n) if n <= 5 => {
                     self.comfort = Comfort::new(n);
+                    crate::config::remember_comfort(n);
                     say!(self, "Comfort zone: {n} — {}", comfort_word(n));
                     // the dial changes which branches make sense from here
                     self.recompute();

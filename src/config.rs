@@ -76,7 +76,8 @@ prefer_studio = true
 [journey]
 # Comfort zone, from 0 to 5: 5 = cocoon (stay with what you know),
 # 0 = exploration (head for what you don't). Adjustable while listening
-# with c or :comfort 4.
+# with c or :comfort 4. This is the value for the first ever run: once you
+# change it, forkstify remembers your last choice from one launch to the next.
 comfort = 3
 
 [catalog]
@@ -124,6 +125,23 @@ pub fn state_dir() -> PathBuf {
     let dir = base.join("forkstify");
     let _ = std::fs::create_dir_all(&dir);
     dir
+}
+
+/// The comfort to open with: the last one chosen, if forkstify remembers
+/// one, else the config default. The state file wins so an adjustment made
+/// while listening survives the next launch (Joel, 14/09/2026).
+pub fn comfort_at_start() -> u8 {
+    let default = Config::load().journey.comfort;
+    std::fs::read_to_string(state_dir().join("comfort"))
+        .ok()
+        .and_then(|s| s.trim().parse::<u8>().ok())
+        .filter(|n| *n <= 5)
+        .unwrap_or(default)
+}
+
+/// Remember the comfort just chosen, so the next launch opens on it.
+pub fn remember_comfort(value: u8) {
+    let _ = std::fs::write(state_dir().join("comfort"), value.to_string());
 }
 
 /// A state file, taken over from its old place under `target/` the first

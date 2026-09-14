@@ -254,7 +254,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let _raw = keys::RawMode::enable();
     let mut tui = tui::Tui::enter()?;
     let mut rx = home::reader();
-    let comfort = engine::Comfort::new(config::Config::load().journey.comfort);
+    let comfort = engine::Comfort::new(config::comfort_at_start());
 
     let last_path: Vec<String> = loop {
         tui.clear();
@@ -394,7 +394,7 @@ fn main() -> anyhow::Result<()> {
             &slug,
             &learned,
             &discography::Tail::load(),
-            engine::Comfort::new(config::Config::load().journey.comfort),
+            engine::Comfort::new(config::comfort_at_start()),
         ),
         "listen" => {
             sync::ensure_merge_driver(&catalog_path(path));
@@ -409,7 +409,7 @@ fn main() -> anyhow::Result<()> {
                 Some(home::Choice::Artist(slug)),
                 learned,
                 discography::Tail::load(),
-                engine::Comfort::new(config::Config::load().journey.comfort),
+                engine::Comfort::new(config::comfort_at_start()),
                 &mut rx,
                 &mut tui,
                 &catalog_path(path),

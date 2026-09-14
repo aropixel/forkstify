@@ -89,3 +89,12 @@ sync ne s'affichent que lorsqu'un d'eux cloche (en rouge, sur la deuxième
 ligne devant le census) : tout vert, on ne montre rien, la place va au
 confort. C'est là qu'ils servent — perte d'auth, API injoignable, sync en
 échec.
+
+**Le confort est retenu d'un lancement à l'autre** (Joel, 14/09/2026). Un
+fichier d'état `~/.local/state/forkstify/comfort` garde la dernière valeur
+choisie ; il est écrit à chaque changement (`c<n>`, `:comfort`, `cc` validé,
+à l'accueil comme à l'écoute) et relu au démarrage. Le `comfort` de
+`config.toml` n'est plus que la graine du tout premier lancement : dès qu'on
+l'ajuste, l'état l'emporte. Cela répond à la troisième question ouverte
+ci-dessus — le confort est bien un curseur réglé par l'utilisateur, qui
+persiste.

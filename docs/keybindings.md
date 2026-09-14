@@ -210,7 +210,7 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | Commande | Action | |
 |---|---|---|
 | `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
-| `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche | ✅ |
+| `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche. **Retenue d'un lancement à l'autre** (Joel, 14/09/2026) | ✅ |
 | `:warm` | Récolter la discographie de l'artiste en cours (la longue traîne) | ✅ |
 | `:wander [artiste]` | Partir loin — raccourci `fw` ; avec un nom, chez cet artiste (11/09/2026) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
