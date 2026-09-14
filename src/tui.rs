@@ -1355,6 +1355,48 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
 
 /// A block laid over the screen — the leader menu, "?". It replaces the
 /// log that grew downwards: what is long is shown, what is short is said.
+/// A line of an overlay. The track-info window (`ta`) reads better with a
+/// little colour: its labels are tinted and their values brighten, while a
+/// line that is not "label: value" — the help menu's rows — stays muted, as
+/// before (Joel, 14/09/2026).
+fn info_line(text: &str) -> Line<'static> {
+    const LABELS: [&str; 5] = ["featuring", "album", "tags", "from here", "off-catalog"];
+    let trimmed = text.trim_start();
+    let indent = text[..text.len() - trimmed.len()].to_string();
+    for label in LABELS {
+        if let Some(rest) = trimmed.strip_prefix(label) {
+            if let Some(value) = rest.strip_prefix(':') {
+                return Line::from(vec![
+                    Span::raw(indent),
+                    Span::styled(label.to_string(), Style::default().fg(VECTOR).add_modifier(Modifier::BOLD)),
+                    Span::styled(":".to_string(), Style::default().fg(DIM)),
+                    Span::styled(value.to_string(), Style::default().fg(Color::Reset)),
+                ]);
+            }
+        }
+    }
+    // the metrics line: "familiarity 50% · weight 1.20 · 3 link(s), 2 top(s)"
+    if trimmed.starts_with("familiarity") {
+        let spans: Vec<Span> = trimmed
+            .split(" · ")
+            .enumerate()
+            .flat_map(|(i, part)| {
+                let sep = if i > 0 {
+                    vec![Span::styled(" · ".to_string(), Style::default().fg(DIM))]
+                } else {
+                    vec![Span::raw(indent.clone())]
+                };
+                sep.into_iter().chain(std::iter::once(Span::styled(
+                    part.to_string(),
+                    Style::default().fg(EDIT),
+                )))
+            })
+            .collect();
+        return Line::from(spans);
+    }
+    Line::from(Span::styled(text.to_string(), Style::default().fg(MUTED)))
+}
+
 fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String]) {
     let width = 64.min(area.width.saturating_sub(4));
     let height = (body.len() as u16 + 2).min(area.height.saturating_sub(2));
@@ -1365,10 +1407,7 @@ fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[Str
         height,
     };
     frame.render_widget(Clear, rect);
-    let lines: Vec<Line> = body
-        .iter()
-        .map(|text| Line::from(Span::styled(text.clone(), Style::default().fg(MUTED))))
-        .collect();
+    let lines: Vec<Line> = body.iter().map(|text| info_line(text)).collect();
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(DIM))

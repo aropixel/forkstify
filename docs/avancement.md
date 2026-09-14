@@ -309,6 +309,18 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Un peu de couleur sur l'encart d'infos du morceau (14/09/2026)
+
+Joel : « mets un peu de couleur sur la fenêtre d'information du morceau ».
+`info_line` dans `tui.rs` teinte les libellés de l'encart `ta` (featuring,
+album, tags, from here, off-catalog) en cyan gras, éclaircit leur valeur, et
+passe la ligne de métriques (familiarité, poids, liens) en jaune avec des
+séparateurs discrets. Les lignes qui ne sont pas « libellé : valeur » — les
+rangs du menu d'aide, qui partagent le même encart — restent grises, comme
+avant. La pochette dans `ta` attend toujours le protocole graphique du
+terminal.
+
+## Reprendre reprend tout le parcours, et plus rien sur stdout (14/09/2026)
 ## Reprendre reprend tout le parcours, et plus rien sur stdout (14/09/2026)
 
 Joel, deux points.
