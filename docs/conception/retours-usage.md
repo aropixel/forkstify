@@ -352,6 +352,41 @@ forte familiarité.
 d'artistes récurrents aideraient à confirmer que c'est bien la boucle (1)
 qui domine, mais le diagnostic tient sans eux.
 
+**La suite du retour (14/09/2026).** Joel : « j'étais tenté de baisser le
+confort pour avoir plus de nouvelles propositions, mais baisser le confort
+amène beaucoup de longue traîne — donc des morceaux plus ou moins bons,
+puisqu'on ne tape ni dans les tops ni dans les likes, mais dans le reste,
+un peu au hasard. »
+
+C'est le nœud : **le confort mêle deux axes que Joel veut régler
+séparément.**
+
+- **La largeur (nouveauté d'artistes)** — jusqu'où les branches vont vers
+  des artistes nouveaux. Portée par `favours(familiarité)`.
+- **La profondeur (longue traîne)** — jusqu'où on descend dans la
+  discographie d'un artiste, sous les tops et les likes. Portée par
+  `tail_share() = openness()`.
+
+Un seul curseur tient les deux (0001 pour la familiarité, 0012 §4 pour la
+traîne), donc **on ne peut pas avoir l'un sans l'autre** : baisser le
+confort pour élargir les artistes fait entrer la traîne, et inversement.
+
+**Piste de fond (réversible), très dans l'esprit du projet et sans second
+curseur** : **lier la profondeur de la traîne à la familiarité de
+l'artiste**, pas (ou pas seulement) au confort global.
+
+- Un artiste **familier** (beaucoup écouté) → sa traîne pèse plus : on creuse
+  ses fonds de tiroir, ce qu'on veut d'un artiste qu'on aime.
+- Un artiste **nouveau** → mené par ses **tops** : on le présente sous son
+  meilleur jour, pas par un morceau au hasard.
+
+Alors baisser le confort **élargit les artistes**, et chaque nouvel artiste
+arrive **par ses tops** — exactement ce que Joel cherchait. La traîne
+profonde reste pour les artistes qu'on connaît. 0012 §4 (« pas de second
+réglage ») est préservée : c'est la familiarité **par artiste**, déjà dans
+`learned/`, qui module la traîne, pas un nouveau bouton. Se cumule avec (A)
+la fraîcheur d'artiste : ensemble, largeur sans noyade dans la traîne.
+
 ## À trancher — récapitulatif
 
 Les cinq points du matin ont tous été tranchés le 05/09 (voir
