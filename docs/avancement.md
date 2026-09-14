@@ -309,6 +309,13 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `:warm` récolte l'artiste sous l'aiguille (14/09/2026)
+
+Joel : `:warm` prenait le dernier artiste du contexte (`state().1`), pas ce
+qui joue ni la ligne surlignée. Il utilise maintenant la même cible que
+`e`/`t`/`a` (0020) : `target()` — la sélection, sinon le morceau en cours —
+avec repli sur le contexte si la cible est hors catalogue.
+
 ## Un peu de couleur sur l'encart d'infos du morceau (14/09/2026)
 
 Joel : « mets un peu de couleur sur la fenêtre d'information du morceau ».

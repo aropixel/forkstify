@@ -1866,7 +1866,14 @@ impl Live<'_> {
                     self.wander(&target).await;
                 }
                 if std::mem::take(&mut self.warm_requested) {
-                    let (_, current, ..) = self.state();
+                    // the artist under the needle — the highlighted line, or
+                    // what plays (0020) — not the end of the branch chain,
+                    // which is no longer what sounds (Joel, 14/09/2026)
+                    let current = self
+                        .target()
+                        .map(|stop| stop.slug.clone())
+                        .filter(|slug| self.catalog.cards.contains_key(slug))
+                        .unwrap_or_else(|| self.state().1);
                     let name = self.catalog.cards[&current].name.clone();
                     match self.harvest(&current, false) {
                         Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&current).len()),
