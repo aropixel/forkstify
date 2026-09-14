@@ -538,6 +538,16 @@ impl Explore {
         album.tracks.get(self.cursor.track?)
     }
 
+    /// The album under the cursor when the cursor sits on its header line
+    /// (no track selected) — for "listen to the whole album" (Joel,
+    /// 14/09/2026).
+    pub fn album_here(&self) -> Option<&Album> {
+        if self.cursor.track.is_some() {
+            return None;
+        }
+        self.albums.get(self.cursor.album)
+    }
+
     fn why(track: &Track) -> String {
         let mut said = Vec::new();
         if track.plays >= 0.5 {

@@ -139,6 +139,7 @@ async fn async_run(
         warm_requested: false,
         wander_requested: None,
         start_requested: None,
+        album_requested: None,
         search_requested: None,
         branches: Vec::new(),
         missing: Vec::new(),
@@ -337,6 +338,9 @@ struct Live<'a> {
     /// Enter on a track of the discography: a new seed, once the modal's
     /// sync handler has returned (Joel, 11/09/2026).
     start_requested: Option<Choice>,
+    /// Enter on an album line of the discography: play the whole album as a
+    /// new seed, once the modal's sync handler has returned (Joel, 14/09/2026).
+    album_requested: Option<(String, String, Vec<String>)>,
     /// `:search <text>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
@@ -465,6 +469,23 @@ impl Progress {
 }
 
 /// What a comfort value means, so the number is never alone on screen.
+/// Names credited in a track title — "(feat. X)", "ft. X", "with X" —
+/// so `ta` can show them without a network call (Joel, 14/09/2026).
+fn featuring(title: &str) -> Option<String> {
+    let low = title.to_lowercase();
+    for tag in [" feat.", " feat ", " ft.", " ft ", " featuring ", " with "] {
+        if let Some(pos) = low.find(tag) {
+            let rest = title[pos + tag.len()..].trim();
+            let rest = rest.trim_start_matches(['(', '[']).trim_end_matches([')', ']']);
+            let rest = rest.trim();
+            if !rest.is_empty() {
+                return Some(rest.to_string());
+            }
+        }
+    }
+    None
+}
+
 pub fn comfort_word(value: u8) -> &'static str {
     match value {
         5 => "cocoon",
@@ -722,6 +743,47 @@ impl Live<'_> {
         self.screen = Screen::Session;
         self.tui.clear();
         self.start_segment(vec![seed], opening, true, false).await;
+    }
+
+    /// Play a whole album as a new seed (⏎ on an album line of the
+    /// discography, Joel 14/09/2026): its tracks open the journey in order,
+    /// then the branches fork from the artist, as any seed.
+    async fn start_album(&mut self, slug: &str, name: &str, titles: Vec<String>) {
+        if self.current.is_some() {
+            self.sound.stop();
+        }
+        self.current = None;
+        self.loading = false;
+        self.progress = None;
+        self.past.clear();
+        self.queue.clear();
+        self.branches.clear();
+        self.selection = None;
+        self.overlay = None;
+        self.help_open = false;
+        self.explore = None;
+        self.notices.borrow_mut().clear();
+        let card_tops = self.catalog.cards.get(slug).map(|c| c.tops.clone()).unwrap_or_default();
+        let opening: Vec<crate::engine::Stop> = titles
+            .into_iter()
+            .map(|title| crate::engine::Stop {
+                slug: slug.to_string(),
+                artist: name.to_string(),
+                source: if card_tops.contains(&title) {
+                    crate::engine::Source::Top
+                } else {
+                    crate::engine::Source::Tail
+                },
+                title,
+                head: None,
+                encore: false,
+            })
+            .collect();
+        self.rounds = vec![Round { artists: vec![slug.to_string()], tracks: Vec::new() }];
+        self.screen = Screen::Session;
+        self.tui.clear();
+        say!(self, "▶ {name} — the whole album");
+        self.start_segment(vec![slug.to_string()], opening, true, false).await;
     }
 
     /// A key at the home: the sound goes on underneath, `p` holds it, the
@@ -1645,6 +1707,9 @@ impl Live<'_> {
             if let Some(choice) = self.start_requested.take() {
                 self.start_journey(choice).await;
             }
+            if let Some((slug, name, titles)) = self.album_requested.take() {
+                self.start_album(&slug, &name, titles).await;
+            }
             return go;
         }
         // the comfort dial takes over everything else — on the home too:
@@ -1785,7 +1850,6 @@ impl Live<'_> {
             Cmd::Wander => self.wander("").await,
             Cmd::Undo => self.not_yet("u", "undo the last gesture"),
             Cmd::Repeat => self.not_yet(".", "repeat the last gesture"),
-            Cmd::Why => self.why(),
             // two home keys, with no use once listening
             Cmd::Resume => say!(self, "\n(r is for the home: here, fu backs up one branch)"),
             Cmd::Browse => say!(self, "\n(b is for the home: here, the sound is already on)"),
@@ -1823,25 +1887,35 @@ impl Live<'_> {
         true
     }
 
-    /// `?` — why this track. Says what the catalogue knows of the artist
+    /// `ta` — track about. What the catalogue and the listening know of it,
+    /// plus its album, its featurings and its year when the discography has
+    /// them (Joel, 14/09/2026 — replaces `?`, the reason folded in).
     /// and what the listening has learned of them: familiarity (our own
     /// decayed plays, or the seed ranking before we ever played them) and
     /// the weight our own "more / less often" has set.
-    fn why(&mut self) {
-        let Some(stop) = self.current.clone() else {
-            say!(self, "(nothing playing)");
-            return;
-        };
+    fn track_about(&mut self, stop: crate::engine::Stop) {
         let title = format!("{} — {}", stop.title, stop.artist);
+        let mut lines = Vec::new();
+        if let Some(feat) = featuring(&stop.title) {
+            lines.push(format!(" featuring: {feat}"));
+        }
         if stop.slug.is_empty() {
-            self.overlay = Some((
-                title,
-                vec![" off-catalog: played from Spotify, no card".into()],
-            ));
+            lines.push(" off-catalog: played from Spotify, no card".into());
+            self.overlay = Some((title, lines));
             return;
         }
+        // album and year from the discography, if it has been harvested
+        let key = crate::discography::normalize(&stop.title);
+        if let Some(t) = self.tail.of(&stop.slug).iter().find(|t| crate::discography::normalize(&t.title) == key) {
+            let mut album = t.album.clone();
+            if let Some(year) = t.year() {
+                album = format!("{album} ({year})");
+            }
+            if !album.trim().is_empty() {
+                lines.push(format!(" album: {album}"));
+            }
+        }
         let card = &self.catalog.cards[&stop.slug];
-        let mut lines = Vec::new();
         if !card.tags.is_empty() {
             lines.push(format!(" tags: {}", card.tags.join(", ")));
         }
@@ -2703,9 +2777,17 @@ impl Live<'_> {
         let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
-                self.learned.like_track(&stop.slug, &stop.title);
-                say!(self, "\n♥ {} — more often", stop.title);
+                // toggle: like, or take the like back — no penalty, unlike
+                // ts (Joel, 14/09/2026)
+                if self.learned.track_liked(&stop.slug, &stop.title) {
+                    self.learned.unlike_track(&stop.slug, &stop.title);
+                    say!(self, "\n♡ {} — like removed", stop.title);
+                } else {
+                    self.learned.like_track(&stop.slug, &stop.title);
+                    say!(self, "\n♥ {} — more often", stop.title);
+                }
             }
+            'a' => self.track_about(stop),
             's' => {
                 self.learned.skip_track(&stop.slug, &stop.title);
                 if self.aims_at_playing() {
@@ -3018,8 +3100,13 @@ impl Live<'_> {
             return;
         };
         if like {
-            self.learned.like_track(&screen.slug, &title);
-            screen.notice = format!("♥ {title} — liked");
+            if self.learned.track_liked(&screen.slug, &title) {
+                self.learned.unlike_track(&screen.slug, &title);
+                screen.notice = format!("♡ {title} — like removed");
+            } else {
+                self.learned.like_track(&screen.slug, &title);
+                screen.notice = format!("♥ {title} — liked");
+            }
         } else {
             self.learned.ban_track(&screen.slug, &title);
             self.queue.retain(|stop| stop.title != title);
@@ -3104,19 +3191,27 @@ impl Live<'_> {
             self.explore_write();
         }
         let Some(screen) = self.explore.as_mut() else { return };
-        match screen.track() {
-            Some(track) if track.banned => {
+        if let Some(track) = screen.track() {
+            if track.banned {
                 screen.notice = format!("(⊘ {} is banned — tl takes it back)", track.title);
-            }
-            Some(track) => {
+            } else {
                 let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone() };
                 crate::keys::set_modal(false);
                 self.start_requested = Some(choice);
             }
-            None if !pending => {
-                screen.notice = "(enter on a track starts a journey from it)".into();
+            return;
+        }
+        // on an album line: start a seed of the whole album (Joel, 14/09/2026)
+        if let Some(album) = screen.album_here() {
+            let titles: Vec<String> =
+                album.tracks.iter().filter(|t| !t.banned).map(|t| t.title.clone()).collect();
+            if titles.is_empty() {
+                screen.notice = "(nothing playable in this album)".into();
+                return;
             }
-            None => {}
+            let (slug, name) = (screen.slug.clone(), screen.name.clone());
+            crate::keys::set_modal(false);
+            self.album_requested = Some((slug, name, titles));
         }
     }
 
@@ -3309,6 +3404,7 @@ impl Live<'_> {
                 ("tb", "ban — never again this one", true),
                 ("tm", "mark — set aside", true),
                 ("td", "door — make it a door (card, one commit)", true),
+                ("ta", "about — album, featuring, year, and why this track", true),
                 ("ti", "insert — insert a track here, via search", true),
                 ("tx", "remove — remove the highlighted line from the queue (not a ban)", true),
                 ("ad", "tops are fixed in the discography", true),
@@ -3354,7 +3450,6 @@ impl Live<'_> {
                 ("cc", "adjust comfort with the arrows", true),
                 ("u", "undo the last gesture", false),
                 (".", "repeat the last gesture", false),
-                ("?", "why this track", true),
                 (":size <n>", "branch size", true),
                 (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 (":warm", "fetch the current artist's discography", true),

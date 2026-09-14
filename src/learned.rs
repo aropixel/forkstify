@@ -359,6 +359,23 @@ impl Learned {
         self.save(slug);
     }
 
+    /// Is this track one of the listener's liked ones? For the `tl` toggle
+    /// (Joel, 14/09/2026).
+    pub fn track_liked(&self, slug: &str, title: &str) -> bool {
+        self.liked_tracks(slug).iter().any(|t| *t == title)
+    }
+
+    /// Take the like back, and only that — no penalty, unlike `ts` which
+    /// also pushes the track down (Joel, 14/09/2026).
+    pub fn unlike_track(&mut self, slug: &str, title: &str) {
+        if let Some(artist) = self.artists.get_mut(slug) {
+            if let Some(top) = artist.tops.get_mut(title) {
+                top.liked = false;
+                self.save(slug);
+            }
+        }
+    }
+
     /// "Less often" — this one does not interest me. Each skip pushes
     /// the track further back, and takes the like away.
     pub fn skip_track(&mut self, slug: &str, title: &str) {

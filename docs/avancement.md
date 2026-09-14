@@ -309,6 +309,31 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Quatre retours d'usage : goût, infos, jauge, album (14/09/2026)
+
+Joel, après quelques jours.
+
+- **`tl` bascule aimé / non-aimé.** Sur un morceau déjà aimé, `tl` retire
+  l'aimé **sans pénalité** — `ts` restait « moins souvent + retire l'aimé »,
+  il manquait le simple retrait. `learned.track_liked` / `unlike_track` ;
+  vaut à l'écoute et dans la discographie.
+- **`ta` — track about**, nouvelle touche (mot anglais, pas « fiche ») :
+  album, featuring, année quand la discographie les a, plus tags,
+  familiarité, poids et la première branche. **Remplace `?`/why**, dont la
+  raison est repliée dedans. Featuring lu du titre (`feat.`/`ft.`/`with`),
+  album et année du cache de discographie, sans appel réseau.
+- **La jauge de confort** est désormais **en haut à droite sur les deux
+  écrans, apparence d'édition permanente** (`comfort_spans`), `cc` ajoutant
+  « ↑↓ ». Le **statut de l'accueil ne s'affiche que dégradé** (Joel doutait
+  de son utilité en continu) : rouge, deuxième ligne, sinon rien.
+- **⏎ sur une ligne d'album** de la discographie **écoute l'album entier** :
+  ses morceaux ouvrent une nouvelle graine dans l'ordre, puis les branches
+  partent de l'artiste (`start_album`). Sur un morceau, ⏎ garde le sens du
+  11/09 (partir de lui).
+
+La pochette dans `ta` reste pour plus tard : elle demande le protocole
+graphique du terminal (sixel/kitty), un chantier à part.
+
 ## `aL` lie à un artiste choisi par la recherche (14/09/2026)
 
 Joel : « je ne comprends pas le geste à faire pour lier un artiste à un

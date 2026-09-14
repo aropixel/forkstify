@@ -408,40 +408,29 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
 
     // — the head, on one line: the command on the left, the state on the right
     let tracks = view.past.len() + usize::from(view.current.is_some()) + view.queue.len();
-    let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
-    // the dial open: the words light up, never the blocks — inverted, a
-    // full block read as empty (Joel, 11/09/2026)
-    let comfort_style = if view.comfort_mode {
-        Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(VECTOR)
-    };
+    let mut right = vec![
+        Span::styled(
+            format!("segment {} · {} track{} · ", view.segment, tracks, if tracks > 1 { "s" } else { "" }),
+            Style::default().fg(DIM),
+        ),
+        Span::styled("→ ", Style::default().fg(BRANCH)),
+        Span::styled(
+            match view.queue.len() {
+                0 => "fork next".to_string(),
+                n => format!("fork in {n}"),
+            },
+            Style::default().fg(MUTED),
+        ),
+        Span::styled(" │ ", Style::default().fg(DIM)),
+    ];
+    right.extend(comfort_spans(view.comfort, view.comfort_word, view.comfort_mode));
     frame.render_widget(
         Paragraph::new(justified(
             vec![
                 Span::styled("forkstify", Style::default().fg(MUTED).add_modifier(Modifier::BOLD)),
                 Span::styled(format!(" listen {}", view.seed), Style::default().fg(DIM)),
             ],
-            vec![
-                Span::styled(
-                    format!("segment {} · {} track{} · ", view.segment, tracks, if tracks > 1 { "s" } else { "" }),
-                    Style::default().fg(DIM),
-                ),
-                // the fork countdown is a journey state, not a playback
-                // one: it sits with the segment counters (mockup 4a)
-                Span::styled("→ ", Style::default().fg(BRANCH)),
-                Span::styled(
-                    match view.queue.len() {
-                        0 => "fork next".to_string(),
-                        n => format!("fork in {n}"),
-                    },
-                    Style::default().fg(MUTED),
-                ),
-                Span::styled(" │ ", Style::default().fg(DIM)),
-                Span::styled(format!("comfort {} ", view.comfort), comfort_style),
-                Span::styled(gauge, Style::default().fg(VECTOR)),
-                Span::styled(format!(" {}", view.comfort_word), comfort_style),
-            ],
+            right,
             full,
         )),
         head,
@@ -608,6 +597,24 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
 /// typing line "⟩", the rule that separates the input from the results and
 /// carries the count, then the two groups — blue written by a human, cyan
 /// guessed.
+/// The comfort dial, one place, one look on both screens (Joel,
+/// 14/09/2026): the blocks keep their colour, the label stays lit as it did
+/// only while editing — the dial reads the same whether or not `cc` is
+/// open; `cc` adds "↑↓" to say it is live.
+fn comfort_spans(comfort: u8, word: &str, adjusting: bool) -> Vec<Span<'static>> {
+    let gauge: String = (0..5).map(|i| if i < comfort { '█' } else { '░' }).collect();
+    let lit = Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD);
+    let mut spans = vec![
+        Span::styled(format!("comfort {comfort} "), lit),
+        Span::styled(gauge, Style::default().fg(VECTOR)),
+        Span::styled(format!(" {word}"), lit),
+    ];
+    if adjusting {
+        spans.push(Span::styled(" ↑↓", Style::default().fg(MUTED)));
+    }
+    spans
+}
+
 fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
     frame.render_widget(Clear, area);
     let width = area.width as usize;
@@ -1198,16 +1205,14 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         _ => (whole, None),
     };
 
-    // the wordmark on the left, the state on the right, on the same line:
-    // the blank between them is computed, with no cell justification
-    let status_width: usize = view
-        .status
-        .iter()
-        .map(|(text, _)| text.chars().count())
-        .sum::<usize>()
-        + view.status.len().saturating_sub(1) * 3;
+    // the wordmark on the left, the comfort dial on the right — the same
+    // place and look as while listening (Joel, 14/09/2026). The status
+    // indicators used to sit here; they only earn their place when
+    // something is wrong, so they drop to the second line, and only then.
+    let comfort = comfort_spans(view.comfort, view.comfort_word, view.comfort_mode);
+    let comfort_width: usize = comfort.iter().map(|s| s.content.chars().count()).sum();
     let gap = (head.width as usize)
-        .saturating_sub("forkstify".len() + status_width)
+        .saturating_sub("forkstify".len() + comfort_width)
         .max(2);
     let mut title = vec![
         Span::styled(
@@ -1216,20 +1221,17 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         ),
         Span::raw(" ".repeat(gap)),
     ];
-    for (i, (text, ok)) in view.status.iter().enumerate() {
-        if i > 0 {
-            title.push(Span::styled(" · ", Style::default().fg(DIM)));
-        }
-        title.push(Span::styled(
-            text.clone(),
-            Style::default().fg(if *ok { PLAYING } else { Color::Red }),
-        ));
+    title.extend(comfort);
+    // the second line: the census, preceded by anything degraded (red)
+    let mut second = Vec::new();
+    for (text, ok) in view.status.iter().filter(|(_, ok)| !ok) {
+        second.push(Span::styled(text.clone(), Style::default().fg(Color::Red)));
+        let _ = ok;
+        second.push(Span::styled("  ", Style::default().fg(DIM)));
     }
+    second.push(Span::styled(view.census.clone(), Style::default().fg(DIM)));
     frame.render_widget(
-        Paragraph::new(vec![
-            Line::from(title),
-            Line::from(Span::styled(view.census.clone(), Style::default().fg(DIM))),
-        ]),
+        Paragraph::new(vec![Line::from(title), Line::from(second)]),
         head,
     );
 
@@ -1334,21 +1336,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
         render_explore(frame, whole, screen);
     }
 
-    let gauge: String = (0..5).map(|i| if i < view.comfort { '█' } else { '░' }).collect();
-    // same rule as the listening header: the blocks keep their colour,
-    // the words light up while the dial is open
-    let comfort_style = if view.comfort_mode {
-        Style::default().fg(Color::Black).bg(VECTOR).add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(DIM)
-    };
     frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(view.prompt.clone(), Style::default().fg(MUTED)),
-            Span::raw("  "),
-            Span::styled(gauge, Style::default().fg(VECTOR)),
-            Span::styled(format!(" {} — {}", view.comfort, view.comfort_word), comfort_style),
-        ])),
+        Paragraph::new(Line::from(Span::styled(view.prompt.clone(), Style::default().fg(MUTED)))),
         prompt,
     );
 

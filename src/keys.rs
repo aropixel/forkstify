@@ -77,7 +77,6 @@ pub enum Cmd {
     Resume,
     /// `b` — browse: dry run, no sound (not-connected screens).
     Browse,
-    Why,
     Quit,
     Search(String),
     Colon(String),
@@ -147,7 +146,7 @@ pub enum Parse {
 
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
-const TRACK_KEYS: [char; 9] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i'];
+const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i', 'a'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
 /// In the discography modal, `t` only serves what makes sense on a list
 /// line: the two edits and the two measures.
@@ -228,7 +227,6 @@ pub fn parse(buf: &str) -> Parse {
         ['K'] => Parse::Done(Cmd::MoveUp),
         ['u'] => Parse::Done(Cmd::Undo),
         ['.'] => Parse::Done(Cmd::Repeat),
-        ['?'] => Parse::Done(Cmd::Why),
         ['q'] => Parse::Done(Cmd::Quit),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 

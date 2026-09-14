@@ -101,13 +101,14 @@ sort de la file. Échap efface le surlignage.
 
 | Touche | Mot | Action | Nature | |
 |---|---|---|---|---|
-| `tl` | track **like** | **Plus souvent** — j'aime ce morceau. Le seul geste du goût : un aimé prime sur les tops dans le tirage (×10 au cocon, ×2 grand ouvert), et efface les « moins souvent » | mesure | ✅ |
+| `tl` | track **like** | **Bascule aimé / non-aimé.** Aimé = plus souvent (prime sur les tops dans le tirage, ×10 au cocon, ×2 grand ouvert, et efface les « moins souvent ») ; sur un morceau déjà aimé, `tl` **retire l'aimé**, sans pénalité — au contraire de `ts` (Joel, 14/09/2026) | mesure | ✅ |
 | `ts` | track **skip** | **Moins souvent** — il ne m'intéresse pas : note, retire l'aimé, et passe | mesure | ✅ |
 | `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
 | `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
 | `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
 | `J` / `K` | | **Déplacer** la ligne surlignée d'un cran vers le bas / le haut, tout de suite — seul ce qui est à venir bouge, le nom de branche voyage avec son morceau, la touche contraire annule (Joel, 08/09/2026) | file | ✅ |
 | `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
+| `ta` | track **about** | Album, featuring, année (quand la discographie les a), tags, familiarité, poids, et la première branche d'ici — remplace `?` (Joel, 14/09/2026) | ✅ |
 | `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué. Un titre **hors catalogue** s'insère tout de suite et sa fiche se génère derrière ; à son arrivée, le morceau — même s'il joue déjà — est rattaché à la fiche, et `tl` a où écrire (Joel, 10/09/2026) | file | ✅ |
 
 **Plus de `tt` / `tT` en écoute** (Joel, 08/09/2026,
@@ -161,7 +162,7 @@ on la demande pour écouter maintenant.
 | ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
 | entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
 | `c<n>` | **comfort** | La zone de confort d'un coup, 5 cocon → 0 exploration — à l'accueil aussi (Joel, 08/09/2026) | ✅ |
-| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule — à l'accueil aussi depuis le 11/09/2026 | ✅ |
+| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule — à l'accueil aussi depuis le 11/09/2026. La jauge est **toujours en haut à droite sur les deux écrans, avec l'apparence d'édition** ; `cc` ajoute « ↑↓ » (Joel, 14/09/2026) | ✅ |
 | échap | | Annuler la sélection, fermer un bloc — l'aide comprise | ✅ |
 | espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme. **À l'accueil aussi**, avec sa propre table (Joel, 10/09/2026) | ✅ |
 | ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
@@ -176,7 +177,6 @@ on la demande pour écouter maintenant.
 | `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |
 | `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
 | `.` | | Répéter la dernière action (son sens vim) | 📋 |
-| `?` | **why** | Tags, familiarité, poids, liens, et la première branche d'ici | ✅ |
 
 **`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
 (un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.
@@ -243,13 +243,14 @@ ouvert, pour que le doute se lève à l'écran.
 | `h` / `l` | Tout plier (douze lignes), rouvrir l'album du curseur | ✅ |
 | `gg` / `G` | Les deux bouts de la liste | ✅ |
 | `A` | **Album** : promouvoir les quatre titres les plus écoutés de l'album, hors tops — mis **en attente**. Plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : un titre seul s'aime, il ne se promeut pas | ✅ |
-| `tl` / `tb` | Aimer / bannir la ligne — ce sont des **mesures**, écrites tout de suite | ✅ |
+| `tb` | Bannir la ligne — **mesure**, écrite tout de suite (aimer/retirer l'aimé : `tl`, bascule) | ✅ |
 | `e` | Mettre le morceau **à la file**, sans fermer | ✅ |
+| `tl` | Aimer / **retirer l'aimé** (bascule) la ligne — mesure écrite tout de suite (Joel, 14/09/2026) | ✅ |
 | `s` | L'ordre : chronologique ⇄ mes écoutes d'abord | ✅ |
 | `v` | La **vue** : tout → ♪ tops → ♥ aimés → ⊘ bannis | ✅ |
 | `/texte` | Filtrer sur un titre ou un album | ✅ |
 | `u` | Défaire la dernière édition en attente — gratuit, rien n'est écrit | ✅ |
-| ⏎ | **Écrire la fournée** — une écriture, **un seul commit** — puis, **sur un morceau, partir de lui** : nouvelle graine, le morceau joue, les branches partent de son artiste ; sur une ligne d'album, entrée écrit seulement (Joel, 11/09/2026) | ✅ |
+| ⏎ | **Écrire la fournée** — une écriture, **un seul commit** — puis, **sur un morceau, partir de lui** ; **sur une ligne d'album, écouter l'album entier** : ses morceaux ouvrent une nouvelle graine dans l'ordre, puis les branches partent de l'artiste (Joel, 14/09/2026) | ✅ |
 | échap | Fermer. Avec des éditions en attente, le premier échap prévient | ✅ |
 
 **Pourquoi une fournée et un seul commit** : on corrige cinq tops d'une

@@ -72,3 +72,20 @@ la bascule tombe entre les deux.
   (elle enchaîne et l'utilisateur peut dévier à tout moment) ?
 - Le confort est-il un curseur réglé par l'utilisateur, un indicateur affiché
   par l'application, ou les deux ?
+
+## Sa place à l'écran (14/09/2026)
+
+Joel : la jauge doit être **toujours au même endroit sur les deux écrans,
+en haut à droite, et toujours avec l'apparence qu'elle a en édition**. Fait.
+Un seul rendu (`comfort_spans` dans `tui.rs`) sert l'accueil et l'écoute :
+les blocs gardent leur couleur, le libellé reste allumé en permanence (le
+noir sur cyan qui ne servait qu'en mode `cc`), et `cc` ajoute « ↑↓ » pour
+dire que la jauge est vive. À l'accueil, la jauge prend la place qu'avaient
+les indicateurs de statut.
+
+**Le statut de l'accueil ne s'affiche plus que dégradé** (question de Joel :
+« est-ce que ces infos sont vraiment utiles ? »). librespot, l'API web et la
+sync ne s'affichent que lorsqu'un d'eux cloche (en rouge, sur la deuxième
+ligne devant le census) : tout vert, on ne montre rien, la place va au
+confort. C'est là qu'ils servent — perte d'auth, API injoignable, sync en
+échec.
