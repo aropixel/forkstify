@@ -299,6 +299,59 @@ cible (le morceau en cours ou la sélection, question qui vaut pour tout le
 namespace `t`/`a`), le nom de la commande, la granularité des commits, et
 ce que fait entrée.
 
+### 13. Le petit cercle d'artistes au confort 3–4 (14/09/2026)
+
+**Statut** : **à traiter** — retour de Joel après quelques jours.
+
+> Après quelques jours, j'ai alterné entre confort 3 et 4, et les mêmes
+> artistes reviennent trop souvent : l'impression de tourner en rond, de
+> n'avoir qu'un petit cercle, alors que mon catalogue et mes artistes likés
+> sont gros. Ça dépend de la graine, mais quand même.
+
+**Diagnostic (code lu).** Plusieurs forces se cumulent, et la principale
+est une **boucle de renforcement** :
+
+1. `familiarity01` **croît avec les écoutes** (compteur décru de `learned/`).
+   Au confort 3–4, `Comfort::favours` **penche vers le familier** (pull 0,2
+   à c3, 0,6 à c4) : plus on écoute un artiste, plus il est familier, plus
+   il est tiré comme tête de branche — donc réécouté. Le cercle **se
+   resserre tout seul**, et les likés, étant les plus familiers, dominent.
+2. **Aucune rotation des artistes dans le temps.** La fraîcheur 0012 §2 ne
+   pénalise que les **morceaux** récemment joués (`freshness`, par titre) et
+   `visited` n'exclut que le parcours **courant**. Rien ne dit « tu as
+   beaucoup entendu cet artiste ces jours-ci, lève le pied ». Une nouvelle
+   graine rentre dans le même noyau.
+3. **Le tirage des têtes est très pointu** : graphe en `poids² × favours`,
+   vecteur en `(score−0,5)³ × favours`, et seulement les **6 premiers**
+   voisins. Les plus proches d'un artiste familier gagnent presque toujours.
+4. **La branche `stay`** puise dans le voisinage de l'univers du parcours —
+   elle renforce le cluster courant.
+
+Le gros catalogue n'aide pas tant que le moteur penche vers ce noyau à
+forte familiarité.
+
+**Pistes (réversibles, à trancher).**
+
+- **(A) Une fraîcheur au niveau de l'artiste**, transposée de 0012 §2 : un
+  artiste entendu récemment est atténué comme **tête de branche**, la
+  pénalité décroît sur quelques jours. `learned/` porte déjà `plays` et
+  `last` par artiste — la donnée existe. C'est le levier le plus direct, il
+  ne change pas le sens du confort, et il s'explique en une phrase (règle du
+  projet). **Recommandé.**
+- **(B) Adoucir la pointe du tirage** : réduire les exposants (² et ³) et
+  élargir la fenêtre (`take(6)` → 12–20), pour que plus de voisins aient une
+  vraie chance. Simple, élargit le cercle sans le casser.
+- **(C) Casser la boucle** : plafonner l'effet de la familiarité **acquise**
+  sur le penchant des têtes (baser le lean sur la familiarité de la graine
+  plutôt que sur les écoutes cumulées), pour que jouer un artiste ne le
+  fasse pas revenir davantage.
+- **(D) Un budget de nouveauté par session** : garantir à chaque session
+  quelques têtes pas entendues récemment, même au confort haut.
+
+(A) et (B) se cumulent bien et sont les moins risqués. Des exemples
+d'artistes récurrents aideraient à confirmer que c'est bien la boucle (1)
+qui domine, mais le diagnostic tient sans eux.
+
 ## À trancher — récapitulatif
 
 Les cinq points du matin ont tous été tranchés le 05/09 (voir
