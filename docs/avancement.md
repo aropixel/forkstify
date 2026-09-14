@@ -309,6 +309,21 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Reprendre reprend tout le parcours, et plus rien sur stdout (14/09/2026)
+
+Joel, deux points.
+
+- **Le « recommencer » (`r`) reprend tout le parcours en cours** :
+  historique, morceau en cours et morceaux à venir, au lieu de repartir du
+  seul dernier morceau. `LastSession` porte maintenant `past`, `current`,
+  `queue` et `rounds` (Stop/Source/Head/Round dérivent serde) ; `remember`
+  les enregistre à la sortie, `restore` les replace et rejoue le morceau qui
+  sonnait. Un `last.json` antérieur, sans ces champs, retombe sur l'ancien
+  comportement (partir du dernier morceau).
+- **Plus de parcours écrit sur stdout à la sortie.** `run` ne renvoie plus
+  la liste des artistes et les deux appelants n'impriment plus « Journey:
+  … » : l'écran alterné est rendu, rien ne s'affiche derrière.
+
 ## Le confort est retenu d'un lancement à l'autre (14/09/2026)
 
 Joel : « je voudrais que forkstify se souvienne de la dernière zone de

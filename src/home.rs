@@ -39,6 +39,17 @@ pub struct LastSession {
     pub name: String,
     pub title: String,
     pub at: String,
+    /// The whole journey, so "resume" brings back the history and what was
+    /// still to come, not only the last track (Joel, 14/09/2026). Absent in
+    /// files written before then: resume then falls back to the last track.
+    #[serde(default)]
+    pub past: Vec<crate::engine::Stop>,
+    #[serde(default)]
+    pub current: Option<crate::engine::Stop>,
+    #[serde(default)]
+    pub queue: Vec<crate::engine::Stop>,
+    #[serde(default)]
+    pub rounds: Vec<crate::Round>,
 }
 
 fn last_path() -> PathBuf {
@@ -553,6 +564,9 @@ pub enum Outcome {
     Stay,
     /// Start a journey — it replaces the one playing, if any.
     Start(Choice),
+    /// Resume the whole saved journey (`r`): history, current, queue
+    /// (Joel, 14/09/2026).
+    Resume(LastSession),
     /// Go back to the current session screen, changing nothing.
     Back,
     /// Open the search modal, empty or already filled — it lives on the
@@ -732,7 +746,7 @@ impl Home {
             // the last session
             Cmd::Resume if live => Outcome::Back,
             Cmd::Resume => match recall() {
-                Some(last) => Outcome::Start(Choice::Track { slug: last.slug, title: last.title }),
+                Some(last) => Outcome::Resume(last),
                 None => {
                     self.said = "(no journey to resume)".into();
                     Outcome::Stay

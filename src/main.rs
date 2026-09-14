@@ -78,6 +78,7 @@ fn resolve(catalog: &Catalog, text: &str) -> Option<String> {
 
 /// One chosen branch: the artists it walked (empty for an encore) and the
 /// tracks it played. `u` pops a whole round.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Round {
     pub artists: Vec<String>,
     pub tracks: Vec<String>,
@@ -256,7 +257,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let mut rx = home::reader();
     let comfort = engine::Comfort::new(config::comfort_at_start());
 
-    let last_path: Vec<String> = loop {
+    loop {
         tui.clear();
         let status = home::Status::read();
         if !status.connected() {
@@ -319,14 +320,11 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 synced.is_ok(),
             ),
         ];
-        break listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
-    };
-
-    // alternate screen handed back, the journey is left behind
-    drop(tui);
-    if !last_path.is_empty() {
-        println!("\nJourney: {}", last_path.join(" → "));
+        listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
+        break;
     }
+    // the alternate screen is handed back; nothing is printed on the way out
+    drop(tui);
     Ok(())
 }
 
@@ -405,7 +403,7 @@ fn main() -> anyhow::Result<()> {
             let _raw = keys::RawMode::enable();
             let mut rx = home::reader();
             let mut tui = tui::Tui::enter()?;
-            let path = listen::run(
+            listen::run(
                 Some(home::Choice::Artist(slug)),
                 learned,
                 discography::Tail::load(),
@@ -416,7 +414,6 @@ fn main() -> anyhow::Result<()> {
                 vec![("✓ librespot".to_string(), true), ("✓ api web".to_string(), true)],
             )?;
             drop(tui);
-            println!("\nJourney: {}", path.join(" → "));
         }
         "check" => check(&catalog, &slug),
         other => {

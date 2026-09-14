@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 /// Where a track came from — 0012 §1: "the top is a weight, not a closed
 /// list". The reservoir of an artist cumulates several sources, and the
 /// display says which one won, so a journey stays explainable.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Source {
     Top,
     /// Liked by this listener at this artist (`learned/`).
@@ -59,7 +59,7 @@ impl Source {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Stop {
     pub slug: String,
     pub artist: String,
@@ -78,7 +78,7 @@ pub struct Stop {
 }
 
 /// What opens a link of the playlist: the branch's label and its reason.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Head {
     pub label: String,
     pub reason: String,

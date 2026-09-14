@@ -46,7 +46,7 @@ pub fn run(
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
     status: Vec<(String, bool)>,
-) -> anyhow::Result<Vec<String>> {
+) -> anyhow::Result<()> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -70,7 +70,7 @@ async fn async_run(
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
     status: Vec<(String, bool)>,
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     // the alternate screen belongs to the TUI: the steps are drawn on it,
     // not printed
     tui.clear();
@@ -256,15 +256,7 @@ async fn async_run(
     };
     let _ = live.tui.splash(&[report]);
     std::thread::sleep(std::time::Duration::from_millis(900));
-    let path: Vec<String> = live
-        .rounds
-        .iter()
-        .flat_map(|round| round.artists.iter())
-        .filter_map(|slug| live.catalog.cards.get(slug).map(|c| c.name.clone()))
-        .collect();
-    // the alternate screen belongs to the whole application: the journey
-    // goes back up to the home instead of printing on a vanishing screen
-    Ok(path)
+    Ok(())
 }
 
 /// Past this point of the track, "previous" restarts it instead of going
@@ -852,6 +844,7 @@ impl Live<'_> {
                 self.tui.clear();
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
+            Outcome::Resume(saved) => self.restore(saved).await,
             Outcome::Find(query) => self.open_finder(None, &query),
             // `ad` on the highlighted line of the collection: the same
             // modal, laid over the home
@@ -3312,15 +3305,49 @@ impl Live<'_> {
     /// Keep where we stopped, so the home screen can offer to resume.
     fn remember(&self) {
         let Some(stop) = &self.current else { return };
-        if stop.slug.is_empty() {
-            return;
-        }
         crate::home::remember(&LastSession {
             slug: stop.slug.clone(),
             name: stop.artist.clone(),
             title: stop.title.clone(),
             at: "just now".to_string(),
+            // the whole journey, so resume brings it all back (Joel, 14/09/2026)
+            past: self.past.clone(),
+            current: Some(stop.clone()),
+            queue: self.queue.iter().cloned().collect(),
+            rounds: self.rounds.clone(),
         });
+    }
+
+    /// `r` — resume the saved journey: its history, the track that was
+    /// playing, and what was still to come. An old save that predates the
+    /// full journey falls back to starting from the last track (Joel,
+    /// 14/09/2026).
+    async fn restore(&mut self, saved: LastSession) {
+        let (Some(current), false) = (saved.current, saved.rounds.is_empty()) else {
+            self.start_journey(Choice::Track { slug: saved.slug, title: saved.title }).await;
+            return;
+        };
+        if self.current.is_some() {
+            self.sound.stop();
+        }
+        self.current = None;
+        self.loading = false;
+        self.progress = None;
+        self.selection = None;
+        self.overlay = None;
+        self.help_open = false;
+        self.explore = None;
+        self.notices.borrow_mut().clear();
+        self.branches.clear();
+        self.past = saved.past;
+        self.queue = saved.queue.into_iter().collect();
+        self.rounds = saved.rounds;
+        self.screen = Screen::Session;
+        self.tui.clear();
+        // replay the track that was on air; the queue and history are back
+        let _ = self.load_stop(current).await;
+        self.recompute();
+        self.render();
     }
 
     /// Say what an edit did, and commit it. An edit that leaves no
