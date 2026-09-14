@@ -309,6 +309,24 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `:warm` sur une traîne vide, et une fiche à l'identifiant faux (14/09/2026)
+
+Joel : impossible de récupérer la discographie de Jarvis Cocker. Deux
+causes.
+
+- **La fiche pointait vers le mauvais Spotify.** `2kTHIUipN0SYKBbmcTCLfQ`
+  est « Jarvis Branson Cocker », un homonyme quasi vide (2 176 auditeurs,
+  sans discographie propre) ; le vrai est `13W7XLRXdWeLmIu9vacE1w` (profil
+  vérifié). Vérifié sur open.spotify.com, corrigé dans le catalogue.
+  L'API répondait donc, mais avec zéro album.
+- **Une traîne vide se mettait en cache et bloquait la reprise.** `:warm`
+  voyait `[]` en cache et disait « déjà en cache, 0 morceau » sans jamais
+  réessayer. `:warm` **oublie maintenant le cache avant de récolter**, donc
+  il refait toujours l'appel ; et une récolte à zéro morceau le dit
+  clairement (« son identifiant Spotify est peut-être faux ») au lieu de
+  passer pour un succès. Le cache vide sur disque a été supprimé.
+
+## `:warm` récolte l'artiste sous l'aiguille (14/09/2026)
 ## `:warm` récolte l'artiste sous l'aiguille (14/09/2026)
 
 Joel : `:warm` prenait le dernier artiste du contexte (`state().1`), pas ce

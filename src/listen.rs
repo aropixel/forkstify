@@ -1011,6 +1011,10 @@ impl Live<'_> {
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
                             Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
                             None if quiet => {}
+                            // 0 tracks is not a success: Spotify answered but
+                            // gave nothing — usually the card's spotify id is
+                            // off (Joel, 14/09/2026)
+                            None if count == 0 => say!(self, "⚑ discography of {name} — 0 tracks: its Spotify id may be wrong in the card"),
                             None => say!(self, "✓ discography of {name} — {count} tracks cached"),
                         }
                     }
@@ -1875,6 +1879,10 @@ impl Live<'_> {
                         .filter(|slug| self.catalog.cards.contains_key(slug))
                         .unwrap_or_else(|| self.state().1);
                     let name = self.catalog.cards[&current].name.clone();
+                    // `:warm` means "go and get it now": forget any cached
+                    // harvest first, so an empty one no longer blocks the
+                    // retry (Joel, 14/09/2026 — Jarvis Cocker stuck at 0)
+                    self.tail.forget(&current);
                     match self.harvest(&current, false) {
                         Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&current).len()),
                         Ok(false) => say!(self, "… discography of {name} being fetched"),
