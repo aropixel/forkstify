@@ -500,8 +500,12 @@ fn reservoir(
             )),
         }
     }
-    // the long tail, scaled by the dial: nothing at the cocoon, plenty open
-    let share = comfort.tail_share();
+    // the long tail, scaled by the dial AND by how familiar this artist is
+    // (Joel, 14/09/2026): deep cuts for an artist we know, tops for a new
+    // one, so lowering comfort widens the artists without drowning in the
+    // tail. A brand-new artist (familiarity 0) is led by its tops.
+    let familiarity = learned.familiarity01(slug, &card.name);
+    let share = comfort.tail_share() * familiarity;
     if share > 0.0 {
         let known: HashSet<String> =
             pool.iter().map(|(t, ..)| discography::normalize(t)).collect();
@@ -713,8 +717,13 @@ fn stay(
     }
     pool.sort_by(|a, b| b.1.total_cmp(&a.1));
     pool.truncate(12);
-    let mut weighted: Vec<(String, f32)> =
-        pool.into_iter().map(|(slug, c)| (slug, (c - 0.5).max(0.05))).collect();
+    let mut weighted: Vec<(String, f32)> = pool
+        .into_iter()
+        .map(|(slug, c)| {
+            let fresh = learned.artist_freshness(&slug);
+            (slug, (c - 0.5).max(0.05) * fresh)
+        })
+        .collect();
 
     let mut artists = Vec::new();
     let mut stops = Vec::new();
@@ -804,8 +813,11 @@ pub fn propose(
     let mut heads: Vec<(String, String, f32)> = Vec::new();
     // 0001: comfort *is* familiarity. It does not filter, it leans —
     // towards what we know in the cocoon, towards what we don't wide open.
+    // comfort leans by familiarity; artist freshness rotates who leads, so
+    // the same faces do not head every branch (Joel, 14/09/2026)
     let favours = |slug: &String| {
         comfort.favours(learned.familiarity01(slug, &catalog.cards[slug].name))
+            * learned.artist_freshness(slug)
     };
     let mut graph_pool: Vec<(String, f32)> = graph
         .iter()
@@ -1176,9 +1188,13 @@ mod tests {
     /// 0012 §4: comfort sets the depth of the draw. In the cocoon the tail
     /// weighs nothing; wide open, it takes over.
     #[test]
-    fn the_tail_only_weighs_when_opening_up() {
+    fn the_tail_weighs_by_comfort_and_by_familiarity() {
         let card = the_cure();
-        let learned = Learned::blank();
+        // a familiar artist: the tail is for the ones we know (Joel, 14/09/2026)
+        let mut learned = Learned::blank();
+        for _ in 0..10 {
+            learned.played("the-cure", "warmup");
+        }
         let mut tail = Tail::blank();
         tail.keep(
             "the-cure",
@@ -1217,6 +1233,15 @@ mod tests {
         assert_eq!(traine.len(), 1, "Killing an Arab only once: {ouvert:?}");
         assert_eq!(traine[0].0, "Killing an Arab");
         assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "less than a top, but present");
+
+        // a new artist (familiarity 0) is led by its tops, even wide open:
+        // the tail is depth for the ones we know (Joel, 14/09/2026)
+        let stranger = Learned::blank();
+        let unknown = reservoir(&card, "the-cure", &stranger, &tail, Comfort::new(0), &HashSet::new(), &[]);
+        assert!(
+            !unknown.iter().any(|(_, _, s)| *s == Source::Tail),
+            "a new artist: tops only, no tail, even open: {unknown:?}"
+        );
     }
 
     /// What a journey already played does not come back (0012 §3).

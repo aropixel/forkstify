@@ -301,7 +301,7 @@ ce que fait entrée.
 
 ### 13. Le petit cercle d'artistes au confort 3–4 (14/09/2026)
 
-**Statut** : **à traiter** — retour de Joel après quelques jours.
+**Statut** : **câblé le 14/09/2026** (pistes A + la traîne par familiarité) — retour de Joel après quelques jours.
 
 > Après quelques jours, j'ai alterné entre confort 3 et 4, et les mêmes
 > artistes reviennent trop souvent : l'impression de tourner en rond, de
@@ -348,9 +348,26 @@ forte familiarité.
 - **(D) Un budget de nouveauté par session** : garantir à chaque session
   quelques têtes pas entendues récemment, même au confort haut.
 
-(A) et (B) se cumulent bien et sont les moins risqués. Des exemples
-d'artistes récurrents aideraient à confirmer que c'est bien la boucle (1)
-qui domine, mais le diagnostic tient sans eux.
+**Câblé le 14/09/2026.** (A) `Learned::artist_freshness` : un artiste
+entendu récemment recule comme tête de branche (demi-vie 4 jours, plancher
+0,3), appliqué au graphe, à l'aventureuse et à `stay`. Et la traîne est
+**modulée par la familiarité de l'artiste** — `share = tail_share() ×
+familiarité` : un artiste nouveau (familiarité 0) est mené par ses tops,
+un artiste connu ouvre ses fonds de tiroir. Baisser le confort élargit
+donc les artistes sans noyer dans la traîne. (B), (C), (D) restent en
+réserve si le cercle se resserre encore. Reste à éprouver dans la durée.
+
+**Où vit la fraîcheur, et la synchro entre postes (14/09/2026).** Joel :
+« ces notions de fraîcheur sont liées à un poste ; on pourrait envisager
+un fichier embarqué dans le fork du catalogue ? » — c'est **déjà le cas**.
+Les compteurs et dates (`plays`, `last`, par artiste et par titre) vivent
+dans `learned/artists/*.toml`, **versionné dans le fork du catalogue et
+synchronisé par 0017** (commit toutes les dix minutes, pull au démarrage,
+push à la sortie, pilote de fusion `merge-learned` compteur par compteur
+quand deux postes ont appris en même temps). La fraîcheur d'artiste comme
+celle des morceaux voyage donc entre le poste du travail et le laptop, sans
+fichier nouveau. Le seul réglage encore **local** est la zone de confort
+(`~/.local/state/forkstify/comfort`) ; à décider si on la synchronise aussi.
 
 **La suite du retour (14/09/2026).** Joel : « j'étais tenté de baisser le
 confort pour avoir plus de nouvelles propositions, mais baisser le confort

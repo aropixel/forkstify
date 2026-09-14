@@ -24,6 +24,12 @@ const HALF_LIFE: f64 = 182.5;
 /// two weeks 78 %, a month 94 %. Both are "to be tuned as the PoC goes".
 const COOLDOWN_FLOOR: f32 = 0.1;
 const COOLDOWN_HALF_LIFE: f32 = 7.0;
+/// The artist-level cooldown (Joel, 14/09/2026): an artist heard lately
+/// steps back as a branch head and recovers over a few days, so a large
+/// library stops circling the same faces. Longer floor than a track's — a
+/// face returns less readily than one of its songs.
+const ARTIST_COOLDOWN_HALF_LIFE: f32 = 4.0;
+const ARTIST_COOLDOWN_FLOOR: f32 = 0.3;
 
 /// "less often" multiplies the weight by this, down to the floor.
 const LESS_OFTEN: f32 = 0.7;
@@ -276,6 +282,17 @@ impl Learned {
         };
         let recovered = 1.0 - 0.5f32.powf(days as f32 / COOLDOWN_HALF_LIFE);
         COOLDOWN_FLOOR + (1.0 - COOLDOWN_FLOOR) * recovered
+    }
+
+    /// How ready an artist is to head a branch again, by how long since we
+    /// last heard them (Joel, 14/09/2026): the artist counterpart of track
+    /// freshness (0012 §2). 1.0 for one not heard recently (or ever); down
+    /// to a floor for one heard today, recovering over a few days. It
+    /// discourages, never forbids — a branch is never shut.
+    pub fn artist_freshness(&self, slug: &str) -> f32 {
+        let Some(days) = self.days_since(slug) else { return 1.0 };
+        let recovered = 1.0 - 0.5f32.powf(days as f32 / ARTIST_COOLDOWN_HALF_LIFE);
+        ARTIST_COOLDOWN_FLOOR + (1.0 - ARTIST_COOLDOWN_FLOOR) * recovered
     }
 
     /// What listening knows of **every** track of an artist: title as it
@@ -611,6 +628,20 @@ fn from_iso(text: &str) -> Option<i64> {
 #[cfg(test)]
 mod taste_tests {
     use super::*;
+
+    /// 14/09/2026: an artist heard today steps back as a branch head, one
+    /// never heard is fully ready, and the step-back fades over days.
+    #[test]
+    fn artist_freshness_steps_back_the_recent_and_recovers() {
+        let mut learned = Learned::blank();
+        assert_eq!(learned.artist_freshness("the-cure"), 1.0, "never heard: ready");
+        learned.played("the-cure", "A Forest");
+        let today = learned.artist_freshness("the-cure");
+        assert!((today - ARTIST_COOLDOWN_FLOOR).abs() < 1e-6, "heard today: floor");
+        // a few days on, more than half recovered
+        learned.artists.get_mut("the-cure").unwrap().last = Some(iso(learned.today - 8));
+        assert!(learned.artist_freshness("the-cure") > 0.7, "a week later: mostly back");
+    }
 
     /// 0012 §2: played today, a track keeps only a tenth of its weight;
     /// never played, it keeps it whole; a week later, it has got more than

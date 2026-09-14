@@ -309,6 +309,25 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Fraîcheur d'artiste et traîne modulée par la familiarité (14/09/2026)
+
+Le retour du petit cercle (retours-usage n° 13), câblé.
+
+- **Fraîcheur au niveau de l'artiste** (`Learned::artist_freshness`,
+  demi-vie 4 jours, plancher 0,3) : un artiste entendu récemment recule
+  comme tête de branche, et récupère sur quelques jours. Appliquée aux têtes
+  du graphe, à l'aventureuse et à la branche `stay`. Casse la boucle de
+  renforcement qui resserrait le cercle.
+- **Traîne modulée par la familiarité de l'artiste** : dans `reservoir`,
+  `share = tail_share() × familiarité`. Un artiste nouveau est mené par ses
+  tops, un artiste connu ouvre sa longue traîne. Baisser le confort élargit
+  les artistes sans faire entrer des fonds de tiroir au hasard.
+- Le test de traîne est réécrit (familier ⇒ traîne, nouveau ⇒ tops), un
+  test de `artist_freshness` ajouté. 68 tests.
+- **La donnée est déjà synchronisée** : `plays`/`last` vivent dans
+  `learned/`, versionné dans le fork et synchronisé par 0017. La fraîcheur
+  voyage entre postes sans fichier nouveau (question de Joel, 14/09/2026).
+
 ## `:warm` sur une traîne vide, et une fiche à l'identifiant faux (14/09/2026)
 
 Joel : impossible de récupérer la discographie de Jarvis Cocker. Deux
