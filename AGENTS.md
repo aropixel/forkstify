@@ -26,6 +26,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 | `docs/avancement.md` | L'état courant : fait, en attente, prochaines étapes. Point d'entrée d'une session. |
 | `docs/atouts.md`   | Les impressions de Joel à l'usage, datées : ce qui marche et distingue le projet, pour en dresser la liste le moment venu. |
 | `docs/keybindings.md` | La table des touches : câblé, décidé, proposé, et les collisions. Référence unique. |
+| `docs/reglages.md` | Les réglages du moteur (`[tuning]`) : à quoi sert chacun, sa valeur par défaut, l'effet de le monter ou le baisser. |
 | `manifest.json`, `omarchy/` | Le dépôt est aussi un plugin Omarchy ([0021](docs/decisions/0021-le-depot-est-le-plugin-omarchy.md)) : le widget de barre, et le script qui construit et installe le binaire. |
 | `bin/build`, `bin/test` | Compiler et tester dans le conteneur `forkstify-build` (mise met `bin/` dans le `PATH` : `build`, `test`). Le binaire sort dans `target/release/forkstify` et tourne sur l'hôte. |
 

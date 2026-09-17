@@ -252,6 +252,8 @@ comfort = 3
 # Every number the engine reasons with. Taking back the algorithm goes
 # down to here: change one, relaunch, and the journey follows. The values
 # below are the defaults — a line you remove falls back to it.
+# Each one is explained, with its default, in docs/reglages.md of the
+# forkstify repository.
 
 # The cooldowns. A track played today keeps track_cooldown_floor of its
 # weight in the draw and gets the rest back with a half-life in days: at

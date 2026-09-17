@@ -56,6 +56,7 @@ fichier de configuration ».
   réglages : ils sont dans sa configuration, pas dans le dépôt. C'est
   voulu — la fiche dit ce qu'est un artiste, le réglage dit comment *on*
   écoute.
-- `docs/conception/zone-de-confort.md` et `moteur-de-branches.md` restent
-  la référence sur *ce que fait* chaque nombre ; le gabarit de
-  configuration en donne la version courte.
+- [`docs/reglages.md`](../reglages.md) est la référence de chaque
+  réglage : à quoi il sert, son défaut, l'effet de le monter ou le
+  baisser. Le gabarit de configuration en donne la version courte ;
+  `zone-de-confort.md` et `moteur-de-branches.md` disent la mécanique.
