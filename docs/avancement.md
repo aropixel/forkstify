@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **11/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **17/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -308,6 +308,33 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## `fr` repart de la liste telle qu'elle est (17/09/2026)
+
+Joel : « Quand je fais un `fr`, les chansons ajoutées dans la playlist via
+un `ti` ou via un `e` depuis une discographie ne sont pas prises en compte.
+Il faudrait qu'il prenne en compte l'état actuel complet de la playlist.
+Pareil pour les titres ajoutés avec `fw`. »
+
+Cause : l'état du moteur (`state()`) ne lisait que le registre des rounds
+— branches prises, encores `e<n>`, `fw`. Un `ti`, un `e` dans la
+discographie ou un `J`/`K` touchent la file sans écrire de round : `fr`
+repartait du dernier round, et pouvait reproposer les titres déjà en file.
+
+- **La liste fait foi.** `state()` fonde maintenant l'état sur l'axe (passé,
+  en cours, à venir) : le **contexte** est le dernier segment de la liste
+  (`engine::segment_of` — depuis la dernière tête de segment, branche ou
+  « inséré (ti) », jusqu'au bout ; toute la liste s'il n'y a pas de tête,
+  cas de la graine), ses artistes rejoignent l'**univers** et les visités,
+  et **tout titre de l'axe compte comme joué**. Les rounds restent le repli
+  quand l'axe n'a rien de connu (morceau hors catalogue), et le registre
+  que `fu` dépile.
+- Conséquence assumée : après `fn<n>` (branche insérée après le morceau en
+  cours, le reste gardé), les directions partent de ce qui **termine** la
+  file, pas de la branche insérée — c'est ce que dit la liste.
+- `fu` vide la file **avant** de relire l'état, et prend l'artiste d'avant
+  dans le registre, pas dans la liste.
+- Test `the_last_segment_of_the_playlist` (69 tests).
 
 ## Fraîcheur d'artiste et traîne modulée par la familiarité (14/09/2026)
 

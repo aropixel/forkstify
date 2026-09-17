@@ -48,7 +48,7 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 | `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé | ✅ |
 | `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré | ✅ |
 | `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
-| `fr` | fork **reroll** | Reproposer trois autres branches | ✅ |
+| `fr` | fork **reroll** | Reproposer trois autres branches, **depuis la fin de la liste telle qu'elle est** : un titre inséré par `ti`, mis en file par le `e` de la discographie ou déplacé par `J`/`K` compte — comme contexte et comme déjà joué (Joel, 17/09/2026) | ✅ |
 | `fu` | fork **undo** | Revenir à la branche précédente | ✅ |
 | `fw` | fork **wander** | Partir loin, hors de l'univers courant : ouvre la ligne `:wander ` déjà remplie — **entrée** seule tire une tête parmi les artistes les plus loin du parcours (sous le plancher du confort, hors du parcours et de ses voisins de graphe), `fw <artiste>` part chez cet artiste du catalogue. La branche va en fin de ce qui est décidé, comme `f<n>` (Joel, 11/09/2026) | ✅ |
 | `1`…`9` | | Raccourci de `f1`…`f9` | ✅ |

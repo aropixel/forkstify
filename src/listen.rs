@@ -1410,10 +1410,33 @@ impl Live<'_> {
     /// The engine already excludes by slug (`visited`) and by title
     /// (`played`); a ban rides those channels rather than a new parameter
     /// threaded through every call.
+    ///
+    /// The playlist as it stands comes first (Joel, 17/09/2026): what `ti`
+    /// inserted, what the discography's `e` queued, a line moved with
+    /// `J`/`K` — none of it enters a round, and `fr` proposed from the
+    /// last round instead of from the end of the list. So the context is
+    /// the list's last segment, its artists join the universe, and every
+    /// title on the axis — past, current, queue — counts as played. The
+    /// rounds remain the fallback (nothing known on the axis) and the
+    /// ledger `fu` pops.
     fn state(&self) -> (Vec<String>, String, Vec<String>, HashSet<String>, HashSet<String>) {
-        let (context, current, universe, mut visited, mut played) = state_of(&self.rounds);
+        let (mut context, mut current, mut universe, mut visited, mut played) =
+            state_of(&self.rounds);
         visited.extend(self.learned.banned_artists().cloned());
         played.extend(self.learned.banned_tracks().cloned());
+        let axis = || self.past.iter().chain(self.current.iter()).chain(self.queue.iter());
+        played.extend(axis().map(|stop| stop.title.clone()));
+        for stop in axis().filter(|stop| self.catalog.cards.contains_key(&stop.slug)) {
+            if !universe.contains(&stop.slug) {
+                universe.push(stop.slug.clone());
+            }
+            visited.insert(stop.slug.clone());
+        }
+        let segment = crate::engine::segment_of(axis(), |slug| self.catalog.cards.contains_key(slug));
+        if let Some(last) = segment.last() {
+            current = last.clone();
+            context = segment;
+        }
         (context, current, universe, visited, played)
     }
 
@@ -3556,7 +3579,11 @@ impl Live<'_> {
             return;
         }
         self.rounds.pop();
-        let (_, current, _, _, played) = self.state();
+        // the ledger says where we were before this branch; the list, once
+        // the branch is out of it, says what was played
+        let current = state_of(&self.rounds).1;
+        self.queue.clear();
+        let (_, _, _, _, played) = self.state();
         let stops = crate::engine::encore(
             &self.catalog,
             &current,
@@ -3567,7 +3594,6 @@ impl Live<'_> {
             self.size,
             &mut self.rng,
         );
-        self.queue.clear();
         self.start_segment(vec![current], stops, false, false).await;
     }
 }

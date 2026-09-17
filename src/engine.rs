@@ -921,6 +921,26 @@ pub fn wander(
     (!branch.stops.is_empty()).then_some(branch)
 }
 
+/// The artists of the playlist's last segment, in order: from the last
+/// stop that opens one (a branch's head, a `ti` insertion) to the end of
+/// the axis — or the whole axis when nothing opens a segment (the seed's
+/// opening). Only artists with a card count: the next directions have to
+/// start from somewhere the catalog knows. That is what the playlist as
+/// it stands says the next directions start from (Joel, 17/09/2026): a
+/// `ti`, an `e` in the discography, a moved line, all count.
+pub fn segment_of<'a>(axis: impl Iterator<Item = &'a Stop>, known: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut segment: Vec<String> = Vec::new();
+    for stop in axis {
+        if stop.head.is_some() {
+            segment.clear();
+        }
+        if known(&stop.slug) && !segment.contains(&stop.slug) {
+            segment.push(stop.slug.clone());
+        }
+    }
+    segment
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1253,5 +1273,37 @@ mod tests {
         let pool = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &played, &[]);
         assert_eq!(pool.len(), 1);
         assert_eq!(pool[0].0, "Boys Don't Cry");
+    }
+
+    /// The playlist as it stands (17/09/2026): the last segment starts at
+    /// the last head; what `ti` or the discography's `e` queued counts,
+    /// an off-catalog stop does not.
+    #[test]
+    fn the_last_segment_of_the_playlist() {
+        let stop = |slug: &str, head: bool| Stop {
+            slug: slug.into(),
+            artist: slug.into(),
+            title: format!("{slug} — one"),
+            source: Source::Top,
+            head: head.then(|| Head { label: slug.into(), reason: String::new() }),
+            encore: false,
+        };
+        let known = |slug: &str| slug != "nobody";
+        // the seed's opening: no head at all, the whole axis is the segment
+        let opening = [stop("the-cure", false), stop("the-cure", false), stop("siouxsie", false)];
+        assert_eq!(segment_of(opening.iter(), known), vec!["the-cure", "siouxsie"]);
+        // a branch, then an `e` from the discography and a `ti`: the
+        // insertion opens the last segment, the off-catalog track is skipped
+        let axis = [
+            stop("the-cure", false),
+            stop("siouxsie", true),
+            stop("joy-division", false),
+            stop("bauhaus", false),
+            stop("nobody", true),
+            stop("bauhaus", false),
+        ];
+        assert_eq!(segment_of(axis.iter(), known), vec!["bauhaus"]);
+        let axis = [stop("the-cure", false), stop("siouxsie", true), stop("joy-division", false)];
+        assert_eq!(segment_of(axis.iter(), known), vec!["siouxsie", "joy-division"]);
     }
 }
