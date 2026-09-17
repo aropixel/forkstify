@@ -9,34 +9,16 @@
 //! Every gesture here is a **measure** (0013): it writes silently, without
 //! confirmation, and never enters a commit of the catalogue proper.
 
+use crate::config::tuning;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-/// Plays at which familiarity reaches half — beyond, it saturates.
-const PLAYS_REFERENCE: f64 = 5.0;
-
-/// Six months, in days (0014).
-const HALF_LIFE: f64 = 182.5;
-
-/// The cooldown (0012 §2): a track played today keeps this share of its
-/// weight, and gets it back with a one-week half-life — a week later 55 %,
-/// two weeks 78 %, a month 94 %. Both are "to be tuned as the PoC goes".
-const COOLDOWN_FLOOR: f32 = 0.1;
-const COOLDOWN_HALF_LIFE: f32 = 7.0;
-/// The artist-level cooldown (Joel, 14/09/2026): an artist heard lately
-/// steps back as a branch head and recovers over a few days, so a large
-/// library stops circling the same faces. Longer floor than a track's — a
-/// face returns less readily than one of its songs.
-const ARTIST_COOLDOWN_HALF_LIFE: f32 = 4.0;
-const ARTIST_COOLDOWN_FLOOR: f32 = 0.3;
-
-/// "less often" multiplies the weight by this, down to the floor.
-const LESS_OFTEN: f32 = 0.7;
-const WEIGHT_FLOOR: f32 = 0.1;
-/// "more often" is its mirror, capped so one key cannot run away.
-const MORE_OFTEN: f32 = 1.0 / LESS_OFTEN;
-const WEIGHT_CEILING: f32 = 3.0;
+// The numbers of this layer — the plays' half-life (0014: six months) and
+// the reference at which familiarity reaches one half, the cooldowns of a
+// track and of an artist (0012 §2), what "less often" and "more often"
+// do to an artist's weight and where it stops — are the listener's:
+// `[tuning]` in the configuration (0023). The defaults are in `config.rs`.
 
 fn one() -> f32 {
     1.0
@@ -206,7 +188,7 @@ impl Learned {
             .map_or(0.0, |s| s / self.seed_max);
         let ours = self.artists.get(slug).map_or(0.0, |artist| {
             let plays = decay(artist.plays, artist.last.as_deref(), self.today);
-            1.0 - 0.5f64.powf(plays / PLAYS_REFERENCE)
+            1.0 - 0.5f64.powf(plays / tuning().plays_reference)
         });
         // the stronger of the two, never the latest known: a first play
         // must not *replace* a whole library. Without this, playing one's
@@ -274,14 +256,16 @@ impl Learned {
     }
 
     /// The cooldown of one track (0012 §2): 1.0 when it never sounded here,
-    /// `COOLDOWN_FLOOR` the day it did, and back up with a one-week
-    /// half-life. The reservoir multiplies its weight by this.
+    /// `track_cooldown_floor` the day it did, and back up with a half-life
+    /// of `track_cooldown_half_life` days. The reservoir multiplies its
+    /// weight by this.
     pub fn freshness(&self, slug: &str, title: &str) -> f32 {
         let Some(days) = self.track_stats(slug, title).and_then(|(_, days, _)| days) else {
             return 1.0;
         };
-        let recovered = 1.0 - 0.5f32.powf(days as f32 / COOLDOWN_HALF_LIFE);
-        COOLDOWN_FLOOR + (1.0 - COOLDOWN_FLOOR) * recovered
+        let t = tuning();
+        let recovered = 1.0 - 0.5f32.powf(days as f32 / t.track_cooldown_half_life);
+        t.track_cooldown_floor + (1.0 - t.track_cooldown_floor) * recovered
     }
 
     /// How ready an artist is to head a branch again, by how long since we
@@ -291,8 +275,9 @@ impl Learned {
     /// discourages, never forbids — a branch is never shut.
     pub fn artist_freshness(&self, slug: &str) -> f32 {
         let Some(days) = self.days_since(slug) else { return 1.0 };
-        let recovered = 1.0 - 0.5f32.powf(days as f32 / ARTIST_COOLDOWN_HALF_LIFE);
-        ARTIST_COOLDOWN_FLOOR + (1.0 - ARTIST_COOLDOWN_FLOOR) * recovered
+        let t = tuning();
+        let recovered = 1.0 - 0.5f32.powf(days as f32 / t.artist_cooldown_half_life);
+        t.artist_cooldown_floor + (1.0 - t.artist_cooldown_floor) * recovered
     }
 
     /// What listening knows of **every** track of an artist: title as it
@@ -409,7 +394,7 @@ impl Learned {
 
     pub fn like_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
-        artist.weight = (artist.weight * MORE_OFTEN).min(WEIGHT_CEILING);
+        artist.weight = (artist.weight * tuning().more_often()).min(tuning().weight_ceiling);
         artist.unliked = false;
         let weight = artist.weight;
         self.save(slug);
@@ -418,7 +403,7 @@ impl Learned {
 
     pub fn skip_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
-        artist.weight = (artist.weight * LESS_OFTEN).max(WEIGHT_FLOOR);
+        artist.weight = (artist.weight * tuning().less_often).max(tuning().weight_floor);
         artist.unliked = true;
         let weight = artist.weight;
         self.save(slug);
@@ -569,7 +554,7 @@ fn merge_flag(base: bool, a: bool, b: bool) -> bool {
 /// `plays` as it stands today, the half-life applied to the gap.
 fn decay(plays: f64, last: Option<&str>, today: i64) -> f64 {
     match last.and_then(from_iso) {
-        Some(day) => plays * 0.5f64.powf((today - day).max(0) as f64 / HALF_LIFE),
+        Some(day) => plays * 0.5f64.powf((today - day).max(0) as f64 / tuning().plays_half_life),
         None => plays,
     }
 }
@@ -637,7 +622,7 @@ mod taste_tests {
         assert_eq!(learned.artist_freshness("the-cure"), 1.0, "never heard: ready");
         learned.played("the-cure", "A Forest");
         let today = learned.artist_freshness("the-cure");
-        assert!((today - ARTIST_COOLDOWN_FLOOR).abs() < 1e-6, "heard today: floor");
+        assert!((today - tuning().artist_cooldown_floor).abs() < 1e-6, "heard today: floor");
         // a few days on, more than half recovered
         learned.artists.get_mut("the-cure").unwrap().last = Some(iso(learned.today - 8));
         assert!(learned.artist_freshness("the-cure") > 0.7, "a week later: mostly back");
@@ -651,7 +636,7 @@ mod taste_tests {
         let mut learned = Learned::blank();
         assert_eq!(learned.freshness("the-cure", "A Forest"), 1.0);
         learned.played("the-cure", "A Forest");
-        assert!((learned.freshness("the-cure", "A Forest") - COOLDOWN_FLOOR).abs() < 1e-6);
+        assert!((learned.freshness("the-cure", "A Forest") - tuning().track_cooldown_floor).abs() < 1e-6);
         // a week later
         learned.today += 7;
         let week = learned.freshness("the-cure", "A Forest");
@@ -786,10 +771,10 @@ mod tests {
         // same day: nothing has decayed
         assert!((decay(8.0, Some("2026-01-01"), day) - 8.0).abs() < 1e-9);
         // one half-life later: half of it is left
-        let later = day + HALF_LIFE as i64;
+        let later = day + tuning().plays_half_life as i64;
         assert!((decay(8.0, Some("2026-01-01"), later) - 4.0).abs() < 0.02);
         // two half-lives: a quarter
-        let much_later = day + 2 * HALF_LIFE as i64;
+        let much_later = day + 2 * tuning().plays_half_life as i64;
         assert!((decay(8.0, Some("2026-01-01"), much_later) - 2.0).abs() < 0.02);
         // no date is no decay
         assert_eq!(decay(3.0, None, later), 3.0);
@@ -855,10 +840,10 @@ mod tests {
         for _ in 0..40 {
             learned.skip_artist("x");
         }
-        assert!(learned.weight("x") >= WEIGHT_FLOOR);
+        assert!(learned.weight("x") >= tuning().weight_floor);
         for _ in 0..80 {
             learned.like_artist("x");
         }
-        assert!(learned.weight("x") <= WEIGHT_CEILING);
+        assert!(learned.weight("x") <= tuning().weight_ceiling);
     }
 }

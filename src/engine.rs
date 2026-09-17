@@ -12,6 +12,7 @@ use crate::catalog::{Card, Catalog};
 use crate::discography::{self, Tail};
 use crate::learned::Learned;
 use rand::distributions::WeightedIndex;
+use crate::config::tuning;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 
@@ -112,18 +113,10 @@ fn label(kind: &str) -> &str {
         .unwrap_or(kind)
 }
 
-/// Below this cosine, the vector space is not trusted for an adventurous
-/// jump. A constant for now — meant to be driven by the comfort zone
-/// (decision 0001) once it enters the navigation.
-/// The adventurous floor, at the cocoon and wide open. The old fixed 0.72
-/// and 0.80 sit at comfort 2 — today's tuning becomes the middle of the
-/// dial rather than a constant.
-const FLOOR_COCON: f32 = 0.80;
-const FLOOR_OPEN: f32 = 0.60;
-const TRUST_COCON: f32 = 0.86;
-const TRUST_OPEN: f32 = 0.70;
-
-/// Above this cosine, the space may bridge without any shared genre tag.
+// The adventurous leap's thresholds — under the floor the vector space is
+// not trusted for a jump outside the graph, above the trust it may bridge
+// without a shared genre tag — slide with the dial, and their values are
+// the listener's (`[tuning]`, 0023): `leap_floor_*`, `leap_trust_*`.
 
 fn shared_tags(a: &Card, b: &Card) -> Vec<String> {
     a.tags.iter().filter(|t| b.tags.contains(t)).cloned().collect()
@@ -393,11 +386,13 @@ impl Comfort {
     /// opens — the constants avancement.md already flagged as "to be driven
     /// by comfort".
     fn floor(self) -> f32 {
-        FLOOR_COCON + (FLOOR_OPEN - FLOOR_COCON) * self.openness()
+        let t = tuning();
+        t.leap_floor_cocoon + (t.leap_floor_open - t.leap_floor_cocoon) * self.openness()
     }
 
     fn trust(self) -> f32 {
-        TRUST_COCON + (TRUST_OPEN - TRUST_COCON) * self.openness()
+        let t = tuning();
+        t.leap_trust_cocoon + (t.leap_trust_open - t.leap_trust_cocoon) * self.openness()
     }
 
     /// The pull of what we already know (0001: comfort *is* familiarity):
@@ -429,23 +424,12 @@ impl Comfort {
     }
 }
 
-/// Weights of the reservoir (0012 §1). A top is the norm, a liked track
-/// nearly as much, a door on its own is thinner — until the direction we
-/// are heading towards matches it, and then it jumps ahead. None of this is
-/// a rule: it is what the weighted draw is given to chew on.
-const W_TOP: f32 = 1.0;
-/// A liked track outweighs a top — the like is the listener's one gesture
-/// for "more of this", the tops are only the entry points of a blank
-/// fork (0018). How much it outweighs follows the dial: ×10 in the cocoon,
-/// ×2 wide open, where the unknown is what we are after.
-const LIKE_COCON: f32 = 10.0;
-const LIKE_OPEN: f32 = 2.0;
-const W_DOOR: f32 = 0.4;
-const DOOR_BONUS: f32 = 2.5;
-/// The tail's own weight, before the comfort dial scales it. Low per track,
-/// but a discography has ten times more tracks than a card has tops — so
-/// cumulatively it takes over as the dial opens, which is what 0012 §4 asks.
-const W_TAIL: f32 = 0.25;
+// Weights of the reservoir (0012 §1) — a top is the norm, a liked track
+// outweighs it by the dial (×10 in the cocoon, ×2 wide open, 0018), a door
+// on its own is thinner until the direction matches it, one track of the
+// tail is light but a discography has ten times more of them. None of
+// this is a rule: it is what the weighted draw is given to chew on, and
+// the numbers are the listener's (`[tuning]`, 0023).
 
 /// The reservoir of one artist — 0012 §1, "the top is a weight, not a
 /// closed list". Cumulates the tops, the tracks this listener liked here,
@@ -455,7 +439,8 @@ const W_TAIL: f32 = 0.25;
 /// cache that does not exist yet.
 /// The weight of a liked track, by the dial (0018).
 fn liked_weight(comfort: Comfort) -> f32 {
-    W_TOP * (LIKE_OPEN + (LIKE_COCON - LIKE_OPEN) * (1.0 - comfort.openness()))
+    let t = tuning();
+    t.top_weight * (t.liked_weight_open + (t.liked_weight_cocoon - t.liked_weight_open) * (1.0 - comfort.openness()))
 }
 
 fn reservoir(
@@ -467,9 +452,10 @@ fn reservoir(
     played: &HashSet<String>,
     towards: &[String],
 ) -> Vec<(String, f32, Source)> {
+    let t = tuning();
     let mut pool: Vec<(String, f32, Source)> = Vec::new();
     for title in &card.tops {
-        pool.push((title.clone(), W_TOP, Source::Top));
+        pool.push((title.clone(), t.top_weight, Source::Top));
     }
     // what the listener likes comes first, top or not: a liked top takes
     // the like's weight and wears its mark (0018)
@@ -489,13 +475,13 @@ fn reservoir(
             // a door that is also a top keeps its place and gains the bonus
             Some(entry) => {
                 if opens {
-                    entry.1 *= DOOR_BONUS;
+                    entry.1 *= t.door_bonus;
                     entry.2 = Source::Door;
                 }
             }
             None => pool.push((
                 door.track.clone(),
-                if opens { W_DOOR * DOOR_BONUS } else { W_DOOR },
+                if opens { t.door_weight * t.door_bonus } else { t.door_weight },
                 Source::Door,
             )),
         }
@@ -517,7 +503,7 @@ fn reservoir(
             if known.contains(&key) || !seen.insert(key) {
                 continue;
             }
-            pool.push((track.title.clone(), W_TAIL * share, Source::Tail));
+            pool.push((track.title.clone(), t.tail_weight * share, Source::Tail));
         }
     }
     pool.retain(|(title, ..)| !played.contains(title) && !learned.track_banned(slug, title));
@@ -1091,7 +1077,7 @@ mod tests {
 
         // the two tops, plus the liked track that is not one
         assert_eq!(pool.len(), 3, "{pool:?}");
-        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP);
+        assert_eq!(weight_of(&pool, "Boys Don't Cry"), tuning().top_weight);
         assert_eq!(weight_of(&pool, "Killing an Arab"), liked_weight(Comfort::new(0)));
         let liked = pool.iter().find(|(t, ..)| t == "Killing an Arab").unwrap();
         assert_eq!(liked.2, Source::Liked);
@@ -1108,11 +1094,11 @@ mod tests {
         let cocon = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(5), &HashSet::new(), &[]);
         let forest = cocon.iter().find(|(t, ..)| t == "A Forest").unwrap();
         assert_eq!(forest.2, Source::Liked, "a liked top wears ♥");
-        assert!((forest.1 - 10.0 * W_TOP).abs() < 1e-6, "{}", forest.1);
-        assert_eq!(weight_of(&cocon, "Boys Don't Cry"), W_TOP);
+        assert!((forest.1 - 10.0 * tuning().top_weight).abs() < 1e-6, "{}", forest.1);
+        assert_eq!(weight_of(&cocon, "Boys Don't Cry"), tuning().top_weight);
         // wide open, a like still weighs two tops: never less
         let ouvert = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &[]);
-        assert!((weight_of(&ouvert, "A Forest") - 2.0 * W_TOP).abs() < 1e-6);
+        assert!((weight_of(&ouvert, "A Forest") - 2.0 * tuning().top_weight).abs() < 1e-6);
     }
 
     /// 0011: a door is an additional criterion, never the main one — its
@@ -1123,7 +1109,7 @@ mod tests {
         let learned = Learned::blank();
 
         let ailleurs = reservoir(&card, "the-cure", &learned, &no_tail(), Comfort::new(0), &HashSet::new(), &["rap".into()]);
-        assert_eq!(weight_of(&ailleurs, "A Forest"), W_TOP, "aucune direction commune");
+        assert_eq!(weight_of(&ailleurs, "A Forest"), tuning().top_weight, "aucune direction commune");
 
         let vers = reservoir(
             &card,
@@ -1134,11 +1120,11 @@ mod tests {
             &HashSet::new(),
             &["post-punk".into()],
         );
-        assert_eq!(weight_of(&vers, "A Forest"), W_TOP * DOOR_BONUS);
+        assert_eq!(weight_of(&vers, "A Forest"), tuning().top_weight * tuning().door_bonus);
         let door = vers.iter().find(|(t, ..)| t == "A Forest").unwrap();
         assert_eq!(door.2, Source::Door, "the source must show on screen");
         // and the bonus stays local: the other top does not move
-        assert_eq!(weight_of(&vers, "Boys Don't Cry"), W_TOP);
+        assert_eq!(weight_of(&vers, "Boys Don't Cry"), tuning().top_weight);
     }
 
     #[test]
@@ -1152,7 +1138,7 @@ mod tests {
 
         assert!(!pool.iter().any(|(t, ..)| t == "Boys Don't Cry"), "banned: out of the draw");
         // two skips: the weight is divided by three, never down to zero
-        assert!((weight_of(&pool, "A Forest") - W_TOP / 3.0).abs() < 1e-6);
+        assert!((weight_of(&pool, "A Forest") - tuning().top_weight / 3.0).abs() < 1e-6);
     }
 
     /// 0012 §2: a track played yesterday steps back, even liked — that is
@@ -1168,7 +1154,7 @@ mod tests {
         let liked = liked_weight(Comfort::new(3));
         assert!(forest < liked / 5.0, "played today: {forest} against {liked} fresh");
         assert!(forest > 0.0, "stepped back, not excluded");
-        assert_eq!(weight_of(&pool, "Boys Don't Cry"), W_TOP, "never played: intact");
+        assert_eq!(weight_of(&pool, "Boys Don't Cry"), tuning().top_weight, "never played: intact");
     }
 
     /// 0001: comfort *is* familiarity — and the scale's polarity is the
@@ -1252,7 +1238,7 @@ mod tests {
             ouvert.iter().filter(|(_, _, s)| *s == Source::Tail).collect();
         assert_eq!(traine.len(), 1, "Killing an Arab only once: {ouvert:?}");
         assert_eq!(traine[0].0, "Killing an Arab");
-        assert!(traine[0].1 > 0.0 && traine[0].1 < W_TOP, "less than a top, but present");
+        assert!(traine[0].1 > 0.0 && traine[0].1 < tuning().top_weight, "less than a top, but present");
 
         // a new artist (familiarity 0) is led by its tops, even wide open:
         // the tail is depth for the ones we know (Joel, 14/09/2026)

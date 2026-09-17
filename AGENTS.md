@@ -75,6 +75,9 @@ Le détail est dans `docs/decisions/`. En résumé :
   souvent » ; les aimés priment sur les tops (×10 au cocon, ×2 ouvert), les
   tops ne sont que les portes d'entrée d'un fork vierge, plus de `tt` à
   l'écoute ([0018](docs/decisions/0018-un-seul-geste-pour-le-gout.md)).
+- **Les indices du moteur se règlent dans la configuration** : section
+  `[tuning]` de `config.toml`, un nom par nombre, défauts = le code
+  d'avant, lus au lancement ([0023](docs/decisions/0023-les-indices-du-moteur-se-reglent.md)).
 - **L'appris vit dans `learned/`** (un fichier par artiste, compteurs
   décrus, demi-vie 6 mois) ([0014](docs/decisions/0014-forme-de-l-appris.md)),
   **et se synchronise tout seul** : pull au démarrage, commit toutes les dix

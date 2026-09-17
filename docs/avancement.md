@@ -309,6 +309,36 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les indices du moteur se règlent dans `config.toml` (17/09/2026)
+
+Joel : « pousser la logique du *reprendre la main sur l'algorithme*
+jusqu'au bout et donner la possibilité à la personne qui aura installé
+forkstify de changer les valeurs de tous les indices (comme
+`ARTIST_COOLDOWN_HALF_LIFE`, `LESS_OFTEN`, `WEIGHT_FLOOR`…) via le fichier
+de configuration ». **Décision
+[0023](decisions/0023-les-indices-du-moteur-se-reglent.md).**
+
+- **Section `[tuning]`** dans `~/.config/forkstify/config.toml`, vingt
+  réglages nommés, tous à leur ancienne valeur par défaut : les cooldowns
+  (`track_cooldown_floor` / `_half_life`, `artist_cooldown_floor` /
+  `_half_life`), le goût (`less_often`, `more_often` — `0` = le miroir de
+  `less_often` —, `weight_floor`, `weight_ceiling`), la familiarité
+  (`plays_reference`, `plays_half_life`), le réservoir (`top_weight`,
+  `liked_weight_cocoon` / `_open`, `door_weight`, `door_bonus`,
+  `tail_weight`) et le saut aventureux (`leap_floor_cocoon` / `_open`,
+  `leap_trust_cocoon` / `_open`). Le gabarit du premier lancement les
+  liste tous, commentés.
+- `config::Tuning` + `config::tuning()` (chargé une fois, au lancement) ;
+  `engine.rs` et `learned.rs` n'ont plus de constante numérique. Une
+  valeur absurde est dite sur stderr et remise à son défaut, seule.
+- Hors champ, à dessein : les délais de l'interface et les formes du
+  tirage (`take(6)`, puissances). Voir la décision.
+- Deux tests de config (parsing, garde-fous). 71 tests.
+
+**Sur un poste existant** : le fichier de configuration n'est pas réécrit ;
+sans section `[tuning]`, tout est au défaut. Copier la section depuis le
+gabarit (`src/config.rs`, `TEMPLATE`) pour l'avoir sous la main.
+
 ## `fr` repart de la liste telle qu'elle est (17/09/2026)
 
 Joel : « Quand je fais un `fr`, les chansons ajoutées dans la playlist via
