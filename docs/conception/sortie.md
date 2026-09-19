@@ -181,35 +181,38 @@ référence**, une commande qui **rebase le fork sur la référence**.
 
 ### Proposé
 
-**La lettre.** `c` est prise par le confort depuis le 08/09/2026 (`c<n>`,
-`cc`). Plutôt que d'ouvrir une lettre de plus, on applique à `c` la règle
-qui vaut déjà pour `f` — « après `f`, un chiffre désigne une branche, une
-lettre une opération » : **après `c`, un chiffre règle le confort, une
-lettre agit sur le catalogue**. `cc` reste l'exception assumée (jauge du
-confort, dans les doigts depuis un mois). La grammaire reste sans préfixe,
-le test `grammar_is_prefix_free` le vérifie. Trois gestes, du mot anglais
+**La lettre : `C`, majuscule** (arbitrage de Joel, 19/09/2026). `c`
+est prise par le confort depuis le 08/09/2026 (`c<n>`, `cc`) ; la
+partager entre deux sujets, à la façon de `f` (chiffre = branche, lettre
+= opération), a été proposé et **écarté** par Joel — deux sens sous une
+lettre ne se lisent pas. `m` (*mine*) a été envisagé, `z` pour déplacer le
+confort aussi. `C` garde le mot *catalog*, reste libre (`G`, `J`, `K` sont
+les seules majuscules nues), et la majuscule marque le geste **rare et
+lourd**, comme `A` promeut un album entier dans la modale. C'est le
+premier namespace en majuscule ; la grammaire reste sans préfixe, le
+test `grammar_is_prefix_free` le vérifie. Trois gestes, du mot anglais
 comme partout :
 
 | Touche | Mot | Commande | Action |
 |---|---|---|---|
-| `cd` | catalog **diff** | `:catalog diff` | Ce que ce catalogue a de plus que la référence — l'actuel `:mine`, renommé ; les fiches seulement |
-| `cp` | catalog **propose** | `:catalog propose` | Proposer ces fiches à la référence : une branche, un push, la PR ouverte dans le navigateur |
-| `cu` | catalog **update** | `:catalog update` | Rapatrier la référence dans le fork, régénérer l'index, recharger le catalogue de la session |
+| `Cd` | catalog **diff** | `:catalog diff` | Ce que ce catalogue a de plus que la référence — l'actuel `:mine`, renommé ; les fiches seulement |
+| `Cp` | catalog **propose** | `:catalog propose` | Proposer ces fiches à la référence : une branche, un push, la PR ouverte dans le navigateur |
+| `Cu` | catalog **update** | `:catalog update` | Rapatrier la référence dans le fork, régénérer l'index, recharger le catalogue de la session |
 | — | | `:catalog fork <url>` | Faire d'un clone local un fork (chantier A, sortie du mode local) — rare, pas de touche ; remplace le `:fork` 📋 de la table |
 | — | | `:catalog` | L'état en une ligne : n commits d'avance / de retard, dernière mise à jour, remotes |
 
 Ce sont des gestes **rares** — 0015 leur donne une commande `:` ; les
-touches sont un confort pour les trois du quotidien, et la ligne `c` de
-l'aide (`espace`, `c`) les montre à côté des chiffres du confort. `:mine`
+touches sont un confort pour les trois du quotidien, et la ligne `C` de
+l'aide (`espace`, `C`) les montre. `:mine`
 disparaît sans alias (sobriété : un nom).
 
-**`cd` — diff.** Même calcul qu'aujourd'hui (`git diff upstream/main --
+**`Cd` — diff.** Même calcul qu'aujourd'hui (`git diff upstream/main --
 cards/`), même overlay, deux ajouts : chaque fiche dit si elle est
 **nouvelle** (`+ generated`, `+ written`) ou **retouchée** (`~ +3 −1`), et
 l'en-tête donne le compte et la date de la dernière mise à jour. Toujours
 les fiches seulement : ni `learned/`, ni `vectors/`.
 
-**`cp` — propose.** Le fork de Joel montre le problème : `main` mêle 165
+**`Cp` — propose.** Le fork de Joel montre le problème : `main` mêle 165
 commits d'appris aux fiches, une PR de `main` serait illisible et
 reverserait l'appris — ce que 0014 interdit. On ne propose donc **pas des
 commits, mais l'état des fiches**, comme `import` le fait dans l'autre
@@ -240,7 +243,7 @@ bruit et des conflits. Le mainteneur régénère à la fusion
 (`forkstify vectors`), à la main d'abord, par une action GitHub ensuite si
 le rythme le justifie.
 
-**`cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
+**`Cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
 propose **merge**, pour une raison de 0017 : `main` est partagé par deux
 postes qui tirent en `pull --rebase` et poussent au fil de l'eau. Rebaser
 `main` sur `upstream/main` réécrit des commits déjà poussés, et l'autre
@@ -248,7 +251,7 @@ poste se retrouve avec une histoire qui a divergé sous ses pieds. Une
 fusion ne réécrit rien, et la structure du catalogue la rend presque
 toujours triviale : une fiche par artiste (les nouvelles fiches de la
 référence arrivent sans conflit), l'appris à part. Le résultat est le même
-pour l'utilisateur — les fiches de la référence sont là — et `cd` reste
+pour l'utilisateur — les fiches de la référence sont là — et `Cd` reste
 juste puisqu'il compare des états, pas des histoires. Les étapes :
 
 1. l'appris sale est commité d'abord, comme `:sync` ;
@@ -269,14 +272,13 @@ produit ne le propose pas.
 
 ### À trancher
 
-1. **`c` partagé entre confort et catalogue** (proposé), ou une autre
-   lettre — `k` est libre, mais ne vient d'aucun mot.
-2. **Merge plutôt que rebase** pour `cu`.
+1. ~~**La lettre**~~ — tranché le 19/09/2026 : `C`.
+2. **Merge plutôt que rebase** pour `Cu`.
 3. **Une seule proposition ouverte à la fois**, branche `proposal`
    réécrite — ou une branche datée par proposition ?
 4. **Le navigateur plutôt que `gh`** pour ouvrir la PR.
-5. Le nom `cp` : *propose* — ou `cs` *share* ? `cp` se lit « copy » à
-   qui vient d'unix, mais « catalog propose » se dit à voix haute.
+5. Le nom `Cp` : *propose* — ou `Cs` *share* ? « catalog propose » se
+   dit à voix haute.
 
 ---
 
@@ -331,7 +333,7 @@ affichés (trois au plus, ~3 s chacun), comme `harvest_proposed` va
 chercher la traîne des branches proposées : le ○ disparaîtrait de
 lui-même, et `fg<n>` ne servirait plus qu'à forcer. Le prix : des appels
 MusicBrainz à chaque recalcul, et un catalogue qui grossit de fiches
-qu'on n'a jamais visitées — moins gênant qu'il n'y paraît, puisque `cp`
+qu'on n'a jamais visitées — moins gênant qu'il n'y paraît, puisque `Cp`
 les proposera à la référence et que chaque fiche née enrichit le commun
 (catalogue.md § La mutualisation). Je propose `fg<n>` d'abord, l'option
 ensuite si l'usage le demande, **désactivée par défaut**.
@@ -352,8 +354,8 @@ ensuite si l'usage le demande, **désactivée par défaut**.
 
 1. **Chantier C** — le plus petit, aucune décision lourde, il rend
    l'écoute plus fluide tout de suite et Joel l'éprouve dès le lendemain.
-2. **Chantier B** — `cd` et `cu` d'abord (Joel en a besoin pour suivre la
-   référence quand elle sera nettoyée), `cp` ensuite : il demande que la
+2. **Chantier B** — `Cd` et `Cu` d'abord (Joel en a besoin pour suivre la
+   référence quand elle sera nettoyée), `Cp` ensuite : il demande que la
    référence soit prête à recevoir.
 3. **Chantier A** — le plus gros ; il attend la maquette et il touche au
    format de l'appris. Ses étapes 1-3 (catalogue, identité, connexion)
@@ -368,7 +370,7 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
 - **La référence porte l'appris de Joel** (`learned/`, huit fichiers et
   18 artistes) : à retirer d'`aropixel/forkstify-catalog` avant qu'elle
   soit publique. Le fork de Joel a modifié ces fichiers : son premier
-  `cu` après le nettoyage aura des conflits *modify/delete* à résoudre
+  `Cu` après le nettoyage aura des conflits *modify/delete* à résoudre
   une fois (garder les siens). Un fork fait après le nettoyage n'en aura
   pas.
 - **Le chemin par défaut** `~/Work/forkstify-catalog` est celui du poste
@@ -378,6 +380,6 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
 - **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
   CC BY-SA) et celle du code (`manifest.json` dit MIT).
 - **Les commits d'édition parlent français** (corrections en attente de
-  l'avancement) — `cp` les rendra visibles à la référence.
+  l'avancement) — `Cp` les rendra visibles à la référence.
 - Les deux dépôts sont **privés** ; la commande de comptage des forks
   (premiere-installation.md § Mesurer l'usage) ne compte rien avant.

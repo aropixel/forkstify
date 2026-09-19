@@ -323,9 +323,10 @@ proposé (C, puis B, puis A) ; et ce que la sortie demande en plus.
 Propositions à valider, en bref : le setup en **sept étapes** (catalogue
 forké ou mode local, identité git, connexion, bibliothèque, playlists à
 cocher, confort, couverture par génération), `learned/library.toml` en
-anglais à la place de `classement.json`, deux scopes OAuth de plus ; la
-lettre **`c` partagée** entre confort (chiffres) et catalogue (lettres :
-`cd` diff, `cp` propose, `cu` update), une PR qui porte **l'état des
+anglais à la place de `classement.json`, deux scopes OAuth de plus ; le
+namespace **`C`** pour le catalogue (`Cd` diff, `Cp` propose, `Cu`
+update — la lettre tranchée par Joel le jour même, après avoir écarté un
+`c` partagé avec le confort), une PR qui porte **l'état des
 fiches** sur une branche `proposal` depuis `upstream/main` (jamais
 l'appris, jamais les vecteurs) et s'ouvre dans le navigateur, une
 **fusion** plutôt qu'un rebase parce que `main` est partagé par deux

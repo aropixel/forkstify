@@ -336,10 +336,10 @@ constant.
 
 3. **Deux propositions du 19/09/2026**, dans
    [conception/sortie.md](conception/sortie.md) : `fg<n>` — générer la
-   fiche d'un creux sans prendre la branche ; et `c` partagé entre le
-   confort (chiffres, `cc`) et le catalogue (`cd` diff, `cp` propose,
-   `cu` update), sur le modèle de `f`. Rien n'entre dans la table avant
-   l'arbitrage.
+   fiche d'un creux sans prendre la branche ; et le namespace **`C`**,
+   le catalogue (`Cd` diff, `Cp` propose, `Cu` update) — la lettre est
+   tranchée par Joel le 19/09/2026 (partager `c` avec le confort, écarté),
+   les gestes ne le sont pas encore. Rien n'entre dans la table avant.
 
 ## Lettres libres
 
