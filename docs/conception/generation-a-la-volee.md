@@ -116,4 +116,6 @@ plutôt que d'échouer.
 
 - **Reverser à l'amont.** [catalogue.md](catalogue.md) § La mutualisation
   veut qu'une fiche générée absente de la référence soit proposée en PR
-  pré-mâchée. Rien ne le fait ; à concevoir avec `:mine`.
+  pré-mâchée. Rien ne le fait ; à concevoir avec `:mine`. Conçu le
+  19/09/2026 dans [sortie.md](sortie.md) (chantier B, `cp`) ; le même
+  cahier propose `fg<n>` pour générer un creux sans le prendre (chantier C).

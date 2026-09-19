@@ -1,0 +1,383 @@
+# Avant de sortir : les trois derniers chantiers
+
+Note ouverte le **19/09/2026**, à la demande de Joel : « affiner les
+dernières choses avant de pouvoir sortir le projet ». Trois sujets, un
+cahier. Chaque chantier distingue ce qui est **demandé** (Joel, 19/09/2026,
+sauf mention), ce qui est **proposé** (l'agent, à valider) et ce qui reste
+**à trancher**. Rien n'est codé tant que la section « à trancher » du
+chantier n'est pas vidée.
+
+Les notes de fond restent celles-ci, et cette note y renvoie plutôt que
+de les recopier : [premiere-installation.md](premiere-installation.md)
+pour le modèle base / mien / appris et l'amorce,
+[catalogue.md](catalogue.md) pour ce qui est partageable,
+[generation-a-la-volee.md](generation-a-la-volee.md) pour les creux.
+
+## L'état de départ, relu dans le code le 19/09/2026
+
+- **Pas de setup.** `forkstify` lit `[catalog] path`, vide = `~/Work/forkstify-catalog`,
+  et `Catalog::load` échoue si le dossier manque. La bibliothèque Spotify
+  entre par cinq scripts Python de `tools/` lancés à la main, qui lisent le
+  trousseau GNOME, puis `classement.py` écrit `learned/classement.json`
+  (clés françaises, lues par `learned.rs`). Ce qui existe déjà et servira :
+  l'écran **non connecté** (`home::disconnected_rows`) qui guide les deux
+  autorisations, l'OAuth PKCE navigateur (`spotify.rs`, cinq scopes),
+  la découverte zeroconf du téléphone, `WebApi` qui pagine, `import.rs` qui
+  sait ajouter un remote et prendre des fiches, `generate.rs` et
+  `embed.rs` pour les fiches manquantes.
+- **Le catalogue, côté git.** Le fork de Joel a **217 commits d'avance** sur
+  la référence, zéro de retard : 165 fichiers d'appris, 49 fiches ajoutées
+  ou retouchées (`git diff --stat upstream/main -- cards`), et l'index de
+  vecteurs entièrement réécrit (normalisation 0019). `:mine` calcule le
+  diff des fiches contre `upstream/main` et l'affiche en overlay. Les
+  commits de l'application sont faits par `git commit` sans identité
+  explicite : ils prennent le `user.name` global de la machine.
+- **La référence porte l'appris de Joel** : `learned/classement.json`,
+  ses cinq récoltes `artistes-*.json`, `faits-mb.json`, `mbid.json` et
+  18 fiches d'appris sont sur `aropixel/forkstify-catalog`. Un fork neuf
+  hériterait de la bibliothèque de Joel. À nettoyer avant la sortie (voir
+  la liste finale).
+- **Les creux.** `engine::missing_neighbors` rend les liens du contexte
+  qui pointent vers une fiche absente ; la colonne en montre trois au plus,
+  en gris « ○ no card yet », numérotés après les branches. `f<n>` sur un
+  creux appelle `generate(…, After::Branch)` : la fiche naît, **et la
+  branche part** — il n'y a pas de chemin qui génère sans brancher. Les
+  creux sont fréquents parce qu'une fiche générée garde ses quatre
+  `similar` Deezer même vers le vide, ce qui est voulu (0016).
+
+---
+
+## Chantier A — le setup après l'installation
+
+### Demandé
+
+Un setup **au premier lancement et rejouable** (Joel, 09/09/2026,
+[premiere-installation.md](premiere-installation.md) § À trancher, 5) :
+connexion, import de la bibliothèque, playlists à cocher, classement
+calculé par l'application, scripts Python retirés. Joel fournit une
+maquette Claude Design avant qu'on code les écrans. Ce chantier fixe **les
+étapes à présenter et les informations à recueillir**, pour que la
+maquette parte d'une liste arrêtée.
+
+### Proposé : sept étapes, dans cet ordre
+
+Le fil conducteur : **on n'a rien à taper qu'on ne sache déjà**, et chaque
+étape peut être sautée puis rejouée seule. L'écran est un écran de la
+session comme l'accueil (0021, « l'accueil est un écran de la session »),
+tout se dit en toast, la grammaire du clavier reste celle des modales
+(`j`/`k`, `espace` coche, `⏎` valide, `échap` saute).
+
+| # | Étape | Ce qu'on recueille | Ce qu'on écrit |
+|---|---|---|---|
+| 1 | **Le catalogue** | L'URL de **son fork** de la référence (ou rien) | le clone dans `~/.local/share/forkstify/catalog`, `origin` = le fork, `upstream` = la référence, `[catalog] path` dans `config.toml` |
+| 2 | **L'identité git** | `user.name` / `user.email` s'ils manquent | `git config --local` dans le clone, jamais global |
+| 3 | **La connexion** | rien à taper : le téléphone (zeroconf) et le navigateur (OAuth) | les deux jetons, là où ils vivent déjà (`~/.local/state/forkstify`) |
+| 4 | **La bibliothèque** | un « oui » | `learned/library.toml` : titres aimés (artiste principal seul), albums aimés, artistes suivis |
+| 5 | **Les playlists** | celles à **cocher** dans la liste de ses playlists | leurs identifiants dans `learned/library.toml`, pour que rejouer soit un seul geste |
+| 6 | **Le confort** | un chiffre 0–5, à la jauge (`cc` existe) — défaut 3 | l'état `comfort`, comme aujourd'hui |
+| 7 | **La couverture** | un « oui » pour générer les fiches manquantes du haut de sa bibliothèque | des fiches `generated = true`, leurs vecteurs, un commit |
+
+Détail par étape :
+
+1. **Le catalogue.** Le cas normal est **un fork** : c'est ce que 0016
+   et 0008 supposent, et ce que la synchronisation de l'appris (0017)
+   exige — elle pousse sur `origin`, ce qu'un clone de la référence ne
+   permet pas. Trois entrées : (a) l'URL de son fork, collée ; (b) si `gh`
+   est installé et connecté, forkstify propose de **forker lui-même**
+   (`gh repo fork aropixel/forkstify-catalog --clone`) ; (c) rien —
+   forkstify clone la référence en **mode local** : tout marche, l'appris
+   se commite mais ne se pousse pas, et l'accueil le dit (`⇅ local`).
+   `:catalog fork <url>` (chantier B) fait passer de (c) à (a) plus tard
+   sans rien perdre : on ajoute le remote, on pousse. Le chemin par défaut
+   quitte `~/Work` : `~/.local/share/forkstify/catalog` (XDG), Joel
+   gardant son `[catalog] path` actuel.
+2. **L'identité git.** Un commit sans `user.name` échoue, et forkstify
+   commite en permanence (0017). Si la config globale les a, rien n'est
+   demandé. Sinon on demande le nom et le mail et on les écrit
+   **localement** dans le clone : c'est l'identité des commits du catalogue,
+   pas celle de la machine.
+3. **La connexion.** C'est l'écran non connecté d'aujourd'hui, inséré
+   dans la suite : rien de nouveau, sinon **deux scopes de plus** pour les
+   étapes 4 et 5 — `user-follow-read` (artistes suivis) et
+   `playlist-read-private` (ses playlists, dont les privées). Conséquence :
+   les utilisateurs déjà autorisés — Joel — repasseront **une fois** par le
+   navigateur, et le produit doit le dire au lieu de laisser croire à une
+   panne.
+4. **La bibliothèque.** La récolte des scripts, réécrite sur `WebApi` :
+   `/me/tracks`, `/me/albums`, `/me/following?type=artist`, paginés
+   (plusieurs centaines d'appels pour une grosse bibliothèque, avec
+   `Retry-After` respecté — ~2 min pour 5 000 titres). Une barre de
+   progression par source. **L'artiste principal seul** compte (Joel,
+   09/09/2026 : les invités d'un titre aimé ne sont pas des aimés).
+5. **Les playlists.** La liste de ses playlists (nom, nombre de titres,
+   propriétaire), les siennes d'abord, à cocher. Une playlist cochée
+   compte ses artistes ×1 comme aujourd'hui (`#fipway`, road trip). Les
+   identifiants cochés sont **mémorisés** dans `learned/library.toml`, si
+   bien que « re-récolter » est un seul geste sans rien recocher — la
+   question laissée ouverte le 09/09 est tranchée par là si Joel est
+   d'accord.
+6. **Le confort.** La jauge de `cc`, avec ses mots (cocon → exploration),
+   et la phrase de 0001 : « elle choisit seule quand tu ne choisis pas ».
+7. **La couverture.** On croise le classement et le catalogue : « 48 de
+   tes 50 artistes les plus présents ont une fiche ; en générer 12 de plus
+   pour couvrir tout ce qui a un score ≥ 5 ? (~3 s chacune) ». C'est la
+   base large **et** la génération (0016) à l'échelle d'une installation :
+   le nouveau venu au goût éloigné de la référence a de quoi démarrer
+   dès la première soirée, sans attendre d'arriver chez chacun. Plafond
+   (30 ?) et seuil (score ≥ 5, celui de l'écran d'accueil) à régler ;
+   **un seul commit** pour la fournée, comme `import` — pas un par fiche.
+
+**Le classement calculé par l'application.** `learned/library.toml`
+remplace `classement.json` et les cinq `artistes-*.json`, en **vocabulaire
+anglais** (0014 l'attendait, 0022 l'impose) : par artiste, `name`,
+`spotify`, `liked_tracks`, `liked_albums`, `followed`, `playlist_tracks`,
+`score`, `sources` ; en tête, la date de récolte et les playlists cochées.
+Le score garde la formule de `classement.py` — titres ×1, albums ×3, suivi
++8, playlists ×1 — en constantes du code, pas dans `[tuning]` : 0023 règle
+les indices du moteur, pas la récolte. `learned.rs` lit le nouveau fichier
+et **encore l'ancien** tant qu'il existe, pour que le fork de Joel ne
+change pas de comportement le jour du basculement ; la résolution des MBID
+(`resoudre-mbid.py`, `mbid.json`) n'a plus d'objet — la génération
+résout par le nom, avec Deezer en secours.
+
+**Rejouable.** `:setup` depuis l'accueil rejoue la suite, chaque étape
+déjà faite s'affichant cochée et se sautant d'un `⏎` ; `:library` rejoue
+les seules étapes 4-5-7. En ligne de commande, `forkstify setup` fait la
+même chose pour le plugin Omarchy, qui installe le binaire et pourra le
+lancer. Le premier lancement, c'est simplement `forkstify` **sans
+catalogue lisible** : il ouvre le setup au lieu d'échouer.
+
+**Ce qui se retire ensuite.** Les scripts de récolte et de classement
+(`bibliotheque-*.py`, `playlist-spotify.py`, `classement.py`,
+`resoudre-mbid.py`), `generate-cards.py` et `vectoriser.py` (déjà
+remplacés, 0019), `voisins.py` (`forkstify check`). Restent `amis-*.py`,
+qui n'ont pas d'équivalent dans l'application et attendent des amis
+consentants — à traduire (étape 11 de l'avancement) ou à déplacer hors
+du catalogue de référence.
+
+### À trancher
+
+1. **Le fork obligatoire ou non** : le mode local (c) vaut-il d'être
+   fait, ou dit-on « forkez d'abord » ? Proposition : le faire — c'est
+   quelques lignes, et il évite un mur le premier soir.
+2. **Le format de `learned/library.toml`** — un fichier, ou un par source
+   comme aujourd'hui ? Proposition : un seul, c'est ce que le classement
+   lit.
+3. **Plafond et seuil de l'étape 7**, et si elle est proposée aussi
+   à chaque `:library`.
+4. **Les deux scopes de plus** : acceptés, avec la ré-autorisation
+   qu'ils entraînent ?
+5. La maquette Claude Design de Joel, sur cette liste d'étapes.
+
+---
+
+## Chantier B — le namespace « catalogue »
+
+### Demandé
+
+Regrouper sous une lettre les gestes sur le catalogue : `:mine` (renommé
+en *diff*), une commande qui fait une **PR des nouvelles fiches vers la
+référence**, une commande qui **rebase le fork sur la référence**.
+
+### Proposé
+
+**La lettre.** `c` est prise par le confort depuis le 08/09/2026 (`c<n>`,
+`cc`). Plutôt que d'ouvrir une lettre de plus, on applique à `c` la règle
+qui vaut déjà pour `f` — « après `f`, un chiffre désigne une branche, une
+lettre une opération » : **après `c`, un chiffre règle le confort, une
+lettre agit sur le catalogue**. `cc` reste l'exception assumée (jauge du
+confort, dans les doigts depuis un mois). La grammaire reste sans préfixe,
+le test `grammar_is_prefix_free` le vérifie. Trois gestes, du mot anglais
+comme partout :
+
+| Touche | Mot | Commande | Action |
+|---|---|---|---|
+| `cd` | catalog **diff** | `:catalog diff` | Ce que ce catalogue a de plus que la référence — l'actuel `:mine`, renommé ; les fiches seulement |
+| `cp` | catalog **propose** | `:catalog propose` | Proposer ces fiches à la référence : une branche, un push, la PR ouverte dans le navigateur |
+| `cu` | catalog **update** | `:catalog update` | Rapatrier la référence dans le fork, régénérer l'index, recharger le catalogue de la session |
+| — | | `:catalog fork <url>` | Faire d'un clone local un fork (chantier A, sortie du mode local) — rare, pas de touche ; remplace le `:fork` 📋 de la table |
+| — | | `:catalog` | L'état en une ligne : n commits d'avance / de retard, dernière mise à jour, remotes |
+
+Ce sont des gestes **rares** — 0015 leur donne une commande `:` ; les
+touches sont un confort pour les trois du quotidien, et la ligne `c` de
+l'aide (`espace`, `c`) les montre à côté des chiffres du confort. `:mine`
+disparaît sans alias (sobriété : un nom).
+
+**`cd` — diff.** Même calcul qu'aujourd'hui (`git diff upstream/main --
+cards/`), même overlay, deux ajouts : chaque fiche dit si elle est
+**nouvelle** (`+ generated`, `+ written`) ou **retouchée** (`~ +3 −1`), et
+l'en-tête donne le compte et la date de la dernière mise à jour. Toujours
+les fiches seulement : ni `learned/`, ni `vectors/`.
+
+**`cp` — propose.** Le fork de Joel montre le problème : `main` mêle 165
+commits d'appris aux fiches, une PR de `main` serait illisible et
+reverserait l'appris — ce que 0014 interdit. On ne propose donc **pas des
+commits, mais l'état des fiches**, comme `import` le fait dans l'autre
+sens (« the state of their cards, never their history ») :
+
+1. `git fetch upstream` ;
+2. une branche `proposal` **depuis `upstream/main`**, dans un **worktree**
+   à part (`~/.local/state/forkstify/proposal`) — le clone que la session
+   lit ne change jamais de branche, l'appris continue de se commiter sur
+   `main` toutes les dix minutes ;
+3. `git checkout main -- cards/` dans ce worktree : les fiches telles
+   qu'elles sont, sans `learned/` ni `vectors/` ;
+4. un commit `Propose N cards` dont le corps liste les fiches (nouvelle /
+   retouchée, et la note de provenance des liens — catalogue.md § « Tout
+   le mien n'est pas également partageable ») ; trailer
+   `Forkstify: proposal <version>` ;
+5. `git push --force origin proposal` — **une seule proposition ouverte à
+   la fois**, la branche se réécrit et la PR ouverte se met à jour ;
+6. le navigateur s'ouvre sur la page de comparaison GitHub, titre et corps
+   pré-remplis dans l'URL, comme `ag` ouvre un artiste (`xdg-open`). C'est
+   la « PR pré-mâchée » de catalogue.md : on relit le diff, on clique.
+   Pas de dépendance à `gh` ; si Joel le veut, `gh pr create` peut être
+   une voie quand `gh` est là.
+
+**Les vecteurs n'entrent pas dans la PR.** L'index est dérivé (0019) et
+réécrit en entier à chaque régénération : dans une PR il ne serait que du
+bruit et des conflits. Le mainteneur régénère à la fusion
+(`forkstify vectors`), à la main d'abord, par une action GitHub ensuite si
+le rythme le justifie.
+
+**`cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
+propose **merge**, pour une raison de 0017 : `main` est partagé par deux
+postes qui tirent en `pull --rebase` et poussent au fil de l'eau. Rebaser
+`main` sur `upstream/main` réécrit des commits déjà poussés, et l'autre
+poste se retrouve avec une histoire qui a divergé sous ses pieds. Une
+fusion ne réécrit rien, et la structure du catalogue la rend presque
+toujours triviale : une fiche par artiste (les nouvelles fiches de la
+référence arrivent sans conflit), l'appris à part. Le résultat est le même
+pour l'utilisateur — les fiches de la référence sont là — et `cd` reste
+juste puisqu'il compare des états, pas des histoires. Les étapes :
+
+1. l'appris sale est commité d'abord, comme `:sync` ;
+2. `git fetch upstream` puis `git merge --no-edit upstream/main` ;
+3. `vectors/` en conflit : on prend n'importe lequel et on **régénère**
+   l'index sur place (0019), dans un commit qui suit ; `cards/` en conflit
+   — les deux côtés ont touché la même fiche — on s'arrête, on nomme les
+   fiches, et on laisse la main (« l'amont a enrichi la description de
+   The Cure, tu as changé les tops » : le guidage champ par champ imaginé
+   dans catalogue.md est un chantier à part, pas celui-ci) ;
+4. la session **recharge son catalogue** — elle le possède depuis le
+   09/09, une fiche arrivée de la référence peut donc combler un creux
+   affiché sans relancer — l'appris ne bouge pas ;
+5. un toast : « ⇅ 41 cards from upstream · index regenerated ».
+
+`git rebase` reste possible à la main pour qui n'a qu'un poste ; le
+produit ne le propose pas.
+
+### À trancher
+
+1. **`c` partagé entre confort et catalogue** (proposé), ou une autre
+   lettre — `k` est libre, mais ne vient d'aucun mot.
+2. **Merge plutôt que rebase** pour `cu`.
+3. **Une seule proposition ouverte à la fois**, branche `proposal`
+   réécrite — ou une branche datée par proposition ?
+4. **Le navigateur plutôt que `gh`** pour ouvrir la PR.
+5. Le nom `cp` : *propose* — ou `cs` *share* ? `cp` se lit « copy » à
+   qui vient d'unix, mais « catalog propose » se dit à voix haute.
+
+---
+
+## Chantier C — générer un creux sans le prendre
+
+### Demandé
+
+Dans les branches proposées, un artiste **sans fiche** ne se prend
+aujourd'hui qu'en le mettant à la file. Joel veut **générer la fiche
+seule** — `fg<n>` — et qu'à l'arrivée de la fiche, les branches se
+proposent **en tenant compte** de la nouvelle fiche.
+
+### Proposé
+
+**`fg<n>` — fork generate.** Après `f`, `g` est une opération, comme `r`,
+`w`, `u` ; `fg` attend son chiffre, la grammaire reste sans préfixe. Sur
+un creux affiché, `fg<n>` lance la génération avec une intention
+nouvelle, `After::Gap`, à côté de `After::Branch` : la fiche est composée,
+vectorisée, commitée et adoptée par la session exactement comme
+aujourd'hui (0013 : une génération est une édition) — **mais rien n'est
+mis à la file**. Sur un numéro de branche jouable, `fg<n>` répond « n has
+a card already » ; sur un creux en cours de génération, « already
+underway » (la garde `generating` existe).
+
+**À l'arrivée : le creux devient une branche, à sa place.** Plutôt que
+de rejouer trois branches — ce qui remélangerait ce que l'utilisateur
+était en train de lire, la raison même pour laquelle `⏎` tire parmi les
+branches affichées (Joel, 05/09/2026) — la ligne « ○ no card yet » se
+change en **branche jouable au même numéro** : ses morceaux tirés par le
+même chemin que `branch_to` (`engine::encore` sur la fiche fraîche, la
+raison du lien conservée), la marque ○ remplacée par celle de la source
+du morceau. Les deux autres branches ne bougent pas. Puis la liste des
+creux se **rafraîchit** depuis le contexte : les liens de la fiche
+fraîche vers le vide apparaissent à leur tour en gris — c'est le
+catalogue qui grandit le long de ses liens, un cran plus loin, et c'est
+le sens que je donne à « proposer de nouvelles branches en fonction ».
+Le toast : « ✓ Georges Moustaki — card ready · branch 3 ». `fr` reste là
+pour qui veut trois autres branches, et la fiche fraîche est alors dans
+le vivier comme les autres ; `⏎` peut désormais tirer la branche, ce
+qu'il ne fait jamais sur un creux.
+
+Ce que ça change dans le code, pour mesurer : une variante d'`After`, un
+cas dans `keys::parse` et son test, `branch_to` scindé en « fabriquer la
+branche d'une fiche » et « la mettre à la file », `recompute` des seuls
+creux après adoption, la ligne `fg<n>` dans l'aide et la table. Aucun
+changement de moteur.
+
+**Un pas de plus, à discuter : la génération d'avance.** Si les creux
+gênent, c'est qu'ils attendent un geste. Une option `[generation]
+prefetch = true` ferait générer **en fond et sans bruit** les creux
+affichés (trois au plus, ~3 s chacun), comme `harvest_proposed` va
+chercher la traîne des branches proposées : le ○ disparaîtrait de
+lui-même, et `fg<n>` ne servirait plus qu'à forcer. Le prix : des appels
+MusicBrainz à chaque recalcul, et un catalogue qui grossit de fiches
+qu'on n'a jamais visitées — moins gênant qu'il n'y paraît, puisque `cp`
+les proposera à la référence et que chaque fiche née enrichit le commun
+(catalogue.md § La mutualisation). Je propose `fg<n>` d'abord, l'option
+ensuite si l'usage le demande, **désactivée par défaut**.
+
+### À trancher
+
+1. **En place plutôt que rejoué** : la fiche fraîche prend le numéro du
+   creux, les autres branches restent — ou tout se recalcule comme `fr` ?
+2. **Le nom** : `fg` (generate) ; `g` est *google* dans `a`, une lettre
+   par namespace comme `e` (edit / encore) — acceptable ?
+3. **`fga` — tout générer** (les trois creux) : pas avant que le besoin
+   se montre deux fois.
+4. La **génération d'avance**, en option, plus tard.
+
+---
+
+## L'ordre proposé
+
+1. **Chantier C** — le plus petit, aucune décision lourde, il rend
+   l'écoute plus fluide tout de suite et Joel l'éprouve dès le lendemain.
+2. **Chantier B** — `cd` et `cu` d'abord (Joel en a besoin pour suivre la
+   référence quand elle sera nettoyée), `cp` ensuite : il demande que la
+   référence soit prête à recevoir.
+3. **Chantier A** — le plus gros ; il attend la maquette et il touche au
+   format de l'appris. Ses étapes 1-3 (catalogue, identité, connexion)
+   peuvent se faire avant la maquette : elles n'ont pas d'écran à
+   dessiner, ce sont des questions posées l'une après l'autre.
+
+## Ce que la sortie demande en plus, hors de ces trois chantiers
+
+Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
+à trancher ailleurs :
+
+- **La référence porte l'appris de Joel** (`learned/`, huit fichiers et
+  18 artistes) : à retirer d'`aropixel/forkstify-catalog` avant qu'elle
+  soit publique. Le fork de Joel a modifié ces fichiers : son premier
+  `cu` après le nettoyage aura des conflits *modify/delete* à résoudre
+  une fois (garder les siens). Un fork fait après le nettoyage n'en aura
+  pas.
+- **Le chemin par défaut** `~/Work/forkstify-catalog` est celui du poste
+  de Joel — chantier A, étape 1.
+- **Un `README.md`** dans le dépôt de l'application (il n'y a
+  qu'`AGENTS.md`), et celui du catalogue en anglais (0022).
+- **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
+  CC BY-SA) et celle du code (`manifest.json` dit MIT).
+- **Les commits d'édition parlent français** (corrections en attente de
+  l'avancement) — `cp` les rendra visibles à la référence.
+- Les deux dépôts sont **privés** ; la commande de comptage des forks
+  (premiere-installation.md § Mesurer l'usage) ne compte rien avant.

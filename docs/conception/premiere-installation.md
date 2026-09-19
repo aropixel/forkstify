@@ -175,7 +175,9 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
    il fournira une maquette Claude Design quand on attaquera la
    fonctionnalité — on ne code pas avant. Reste ouvert : si les playlists
    cochées se mémorisent dans `learned/` (probable, pour que la re-récolte
-   soit un seul geste).
+   soit un seul geste). **Les étapes et les informations à recueillir
+   sont proposées le 19/09/2026 dans [sortie.md](sortie.md)** (chantier A),
+   pour que la maquette parte d'une liste arrêtée.
 4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
    demande-t-il une URL ?
 

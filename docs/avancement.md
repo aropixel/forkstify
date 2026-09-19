@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **17/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **19/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -308,6 +308,31 @@ et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
 appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
+
+## Le cahier des trois derniers chantiers avant la sortie (19/09/2026)
+
+Joel : « affiner les dernières choses avant de pouvoir sortir le projet » —
+le setup après l'installation, un namespace « catalogue » (`:mine` renommé
+en diff, une PR des nouvelles fiches vers la référence, une mise à jour du
+fork depuis la référence), et générer un creux sans le prendre (`fg<n>`),
+les branches se proposant ensuite avec la fiche fraîche. Le cahier est
+[`conception/sortie.md`](conception/sortie.md) : pour chaque chantier, ce
+qui est demandé, ce qui est proposé, ce qui reste à trancher ; l'ordre
+proposé (C, puis B, puis A) ; et ce que la sortie demande en plus.
+
+Propositions à valider, en bref : le setup en **sept étapes** (catalogue
+forké ou mode local, identité git, connexion, bibliothèque, playlists à
+cocher, confort, couverture par génération), `learned/library.toml` en
+anglais à la place de `classement.json`, deux scopes OAuth de plus ; la
+lettre **`c` partagée** entre confort (chiffres) et catalogue (lettres :
+`cd` diff, `cp` propose, `cu` update), une PR qui porte **l'état des
+fiches** sur une branche `proposal` depuis `upstream/main` (jamais
+l'appris, jamais les vecteurs) et s'ouvre dans le navigateur, une
+**fusion** plutôt qu'un rebase parce que `main` est partagé par deux
+postes ; `fg<n>` qui fait du creux **une branche à son numéro** sans
+rejouer les autres, puis rafraîchit les creux. Relevé au passage : la
+référence porte encore l'appris de Joel, à retirer avant qu'elle soit
+publique.
 
 ## Les indices du moteur se règlent dans `config.toml` (17/09/2026)
 
@@ -1899,6 +1924,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    déroule.
 11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
+15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) : le setup,
+    le namespace catalogue, `fg<n>` — cahier dans
+    [conception/sortie.md](conception/sortie.md), à trancher avant de coder.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).
