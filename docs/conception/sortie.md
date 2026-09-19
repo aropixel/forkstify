@@ -231,11 +231,19 @@ sens (« the state of their cards, never their history ») :
    `Forkstify: proposal <version>` ;
 5. `git push --force origin proposal` — **une seule proposition ouverte à
    la fois**, la branche se réécrit et la PR ouverte se met à jour ;
-6. le navigateur s'ouvre sur la page de comparaison GitHub, titre et corps
-   pré-remplis dans l'URL, comme `ag` ouvre un artiste (`xdg-open`). C'est
-   la « PR pré-mâchée » de catalogue.md : on relit le diff, on clique.
-   Pas de dépendance à `gh` ; si Joel le veut, `gh pr create` peut être
-   une voie quand `gh` est là.
+6. la PR elle-même, **deux voies selon le poste** (arbitrage de Joel,
+   19/09/2026) : si `gh` est installé **et connecté** (`gh auth status`),
+   forkstify montre le titre, le corps et le compte des fiches, et
+   **demande confirmation** — `y` crée la PR (`gh pr create --head
+   <compte>:proposal --title … --body …`), toute autre touche n'envoie
+   rien, la branche poussée restant là ; le toast donne l'URL de la PR.
+   Sinon, le navigateur s'ouvre sur la page de comparaison GitHub, titre
+   et corps pré-remplis dans l'URL, comme `ag` ouvre un artiste
+   (`xdg-open`) : on relit, on clique. Dans les deux cas c'est la « PR
+   pré-mâchée » de catalogue.md, et rien ne part sans un geste de plus.
+   Une proposition déjà ouverte n'en crée pas une seconde : le push de
+   l'étape 5 l'a mise à jour, et le toast le dit avec son URL
+   (`gh pr list --head proposal`, ou rien à faire côté navigateur).
 
 **Les vecteurs n'entrent pas dans la PR.** L'index est dérivé (0019) et
 réécrit en entier à chaque régénération : dans une PR il ne serait que du
@@ -273,10 +281,12 @@ produit ne le propose pas.
 ### À trancher
 
 1. ~~**La lettre**~~ — tranché le 19/09/2026 : `C`.
-2. **Merge plutôt que rebase** pour `Cu`.
+2. ~~**Merge plutôt que rebase** pour `Cu`~~ — tranché le 19/09/2026 :
+   la fusion.
 3. **Une seule proposition ouverte à la fois**, branche `proposal`
    réécrite — ou une branche datée par proposition ?
-4. **Le navigateur plutôt que `gh`** pour ouvrir la PR.
+4. ~~**Le navigateur plutôt que `gh`**~~ — tranché le 19/09/2026 : `gh`
+   avec confirmation quand il est là et connecté, le navigateur sinon.
 5. Le nom `Cp` : *propose* — ou `Cs` *share* ? « catalog propose » se
    dit à voix haute.
 

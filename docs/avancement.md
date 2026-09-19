@@ -331,7 +331,9 @@ fiches** sur une branche `proposal` depuis `upstream/main` (jamais
 l'appris, jamais les vecteurs) et s'ouvre dans le navigateur, une
 **fusion** plutôt qu'un rebase parce que `main` est partagé par deux
 postes ; `fg<n>` qui fait du creux **une branche à son numéro** sans
-rejouer les autres, puis rafraîchit les creux. Relevé au passage : la
+rejouer les autres, puis rafraîchit les creux. Tranché le jour même : `C`, la fusion pour
+`Cu`, et pour `Cp` la PR par `gh` avec confirmation quand il est là et
+connecté, le navigateur sinon. Relevé au passage : la
 référence porte encore l'appris de Joel, à retirer avant qu'elle soit
 publique.
 
