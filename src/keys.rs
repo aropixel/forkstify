@@ -101,8 +101,13 @@ pub enum Cmd {
     Filter,
     /// `A` — promote the whole album, at the grain of the problem.
     AlbumTop,
-    /// `o` — open: the setup's "open the browser", "generate" (setup only).
+    /// `o` — open: the setup's "open the browser", "generate"; while
+    /// listening, the first card a stopped merge left to resolve.
     Open,
+    /// `C<k>` — the catalog namespace, upper case (Joel, 19/09/2026):
+    /// `Cd` diff, `Cp` propose, `Cu` update. The first namespace in a
+    /// capital: the rare, heavy gesture, as `A` promotes a whole album.
+    Catalog(char),
 }
 
 /// A modal takes the keyboard and gives it **its** table — `keybindings.md`
@@ -174,6 +179,8 @@ pub enum Parse {
 // tops are corrected; the listening session itself refuses them (0018)
 const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i', 'a'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
+/// `Cd` diff, `Cp` propose, `Cu` update.
+const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
 /// In the discography modal, `t` only serves what makes sense on a list
 /// line: the two edits and the two measures.
 // no more `tt` / `tT` here either (Joel, 08/09/2026): the modal likes,
@@ -231,7 +238,12 @@ pub fn parse(buf: &str) -> Parse {
         ['t', k] if TRACK_KEYS.contains(k) => Parse::Done(Cmd::Track(*k)),
         ['a', k] if ARTIST_KEYS.contains(k) => Parse::Done(Cmd::Artist(*k)),
 
+        // --- C, the catalog (chantier B, `docs/conception/sortie.md`) ---
+        ['C'] => Parse::Pending,
+        ['C', k] if CATALOG_KEYS.contains(k) => Parse::Done(Cmd::Catalog(*k)),
+
         // --- the bare keyboard ---
+        ['o'] => Parse::Done(Cmd::Open),
         ['h'] => Parse::Done(Cmd::Prev),
         ['l'] => Parse::Done(Cmd::Next),
         ['p'] => Parse::Done(Cmd::PlayPause),
@@ -622,7 +634,7 @@ mod tests {
     #[test]
     fn grammar_is_prefix_free() {
         let alphabet: Vec<char> =
-            "0123456789fenatlsbcgGmTdLpruwhqQ.?!\r".chars().collect();
+            "0123456789fenatlsbcgGmTdLpruwhqQCo.?!\r".chars().collect();
         let mut complete: Vec<String> = Vec::new();
         // every sequence up to 3 keys
         let mut queue: Vec<String> = vec![String::new()];
@@ -701,6 +713,12 @@ mod tests {
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
         assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
         assert_eq!(parse("ag").done(), Some(Cmd::Artist('g')));
+        assert!(matches!(parse("C"), Parse::Pending));
+        assert_eq!(parse("Cd").done(), Some(Cmd::Catalog('d')));
+        assert_eq!(parse("Cp").done(), Some(Cmd::Catalog('p')));
+        assert_eq!(parse("Cu").done(), Some(Cmd::Catalog('u')));
+        assert!(matches!(parse("Cx"), Parse::Unknown));
+        assert_eq!(parse("o").done(), Some(Cmd::Open));
         assert_eq!(parse("ti").done(), Some(Cmd::Track('i')));
         assert_eq!(parse("h").done(), Some(Cmd::Prev));
         assert_eq!(parse("p").done(), Some(Cmd::PlayPause));

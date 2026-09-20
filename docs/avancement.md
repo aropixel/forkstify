@@ -309,6 +309,45 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le namespace `C` — diff, propose, update (20/09/2026)
+
+Le chantier B de [`conception/sortie.md`](conception/sortie.md), codé
+d'après `Catalogue.dc.html` (Claude Design, sept écrans). Tout ce qui
+avait été tranché les 19 et 20/09 est câblé, dans `src/fork.rs` :
+
+- **`:catalog`** — l'état en une ligne (origin, avance/retard, dernière
+  mise à jour, fiches au-delà de la référence), en mode local le dit.
+- **`Cd`** — l'overlay de `:mine`, renommé : le compte et la date, les
+  fiches nouvelles (générées / écrites, tags, liens) puis les retouchées
+  (+n −m, sections touchées lues dans le diff — tops, tags, description,
+  types de liens —, note de provenance).
+- **`Cp`** — fetch, worktree `~/.local/state/forkstify/proposal` sur une
+  branche `proposal` depuis `upstream/main`, l'état de `cards/` copié
+  depuis `main`, un commit `Propose N cards (a generated, b edited)` dont
+  le corps est en deux listes pour le relecteur, `push --force`. Avec `gh`
+  connecté : l'overlay montre la PR et **`y`** l'ouvre (`gh pr create`),
+  toute autre touche n'envoie rien ; une PR déjà ouverte est mise à jour
+  par le push. Sans `gh` : la page de comparaison GitHub, titre et corps
+  dans l'URL.
+- **`Cu`** — l'appris commité, fetch, **merge** `upstream/main` ; conflits
+  réglés seuls sur `vectors/` (amont, régénéré), `learned/` (à soi),
+  `tools/` (amont) ; une fiche modifiée des deux côtés **arrête** : la
+  fusion reste en cours, l'overlay nomme les fiches et ce que chaque côté
+  a changé, `o` ouvre la première, `:catalog` reprend après `git add`
+  (et `git commit`, ou pas). Puis l'index est régénéré si des fiches ont
+  changé, la date mémorisée, et **la session recharge son catalogue**.
+- **`:catalog fork <url>`** — sortie du mode local.
+- Les gestes tournent en `spawn_blocking`, un à la fois, la lecture
+  continue. Écarts : `:catalog` en overlay, pas dans le flux ; `Cd` ne
+  déroule pas ; `o` passe par `xdg-open`.
+- 86 tests verts, dont un **test d'intégration sur trois dépôts git
+  temporaires** (référence, fork, clone) qui enchaîne diff, propose deux
+  fois, l'update qui fusionne, l'update qui s'arrête sur une fiche et la
+  reprise — `git` est entré dans l'image `forkstify-build` pour cela
+  (`Dockerfile`, image à reconstruire : `docker build -t forkstify-build .`).
+  **Non éprouvé en vrai** : `Cp` jusqu'à `gh pr create`, `Cu` sur le fork
+  de Joel.
+
 ## Le setup après l'installation, d'après la maquette (20/09/2026)
 
 Le chantier A de [`conception/sortie.md`](conception/sortie.md), codé le
@@ -2027,10 +2066,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
 15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) — cahier dans
-    [conception/sortie.md](conception/sortie.md). ~~C, `fg<n>`~~ et
-    ~~A, le setup~~ faits le 20/09/2026 ; **B, le namespace `C`**,
-    tranché en entier, à coder. Puis retirer les scripts de `tools/` du
-    catalogue, et éprouver `:library` en vrai.
+    [conception/sortie.md](conception/sortie.md). ~~Les trois~~ faits le
+    20/09/2026. Reste à éprouver en vrai : `:library`, `Cp`, `Cu` ; puis
+    retirer les scripts de `tools/` du catalogue, nettoyer l'appris de la
+    référence, l'action GitHub et le `CONTRIBUTING.md`.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

@@ -14,6 +14,7 @@ mod embed;
 mod engine;
 mod generate;
 mod explore;
+mod fork;
 mod home;
 mod import;
 mod keys;

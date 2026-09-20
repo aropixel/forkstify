@@ -1,7 +1,8 @@
 # Build environment for forkstify. The binary embeds librespot, whose
 # audio backend (rodio → alsa) links libasound at build time, so the
 # builder needs the alsa headers and pkg-config on top of the Rust image;
-# fastembed links ONNX Runtime (C++) statically, which needs g++.
+# fastembed links ONNX Runtime (C++) statically, which needs g++. git is
+# there for the tests of fork.rs, which drive real repositories.
 #
 #   docker build -t forkstify-build .
 #   docker run --rm -v "$PWD":/app -w /app \
@@ -13,6 +14,6 @@
 FROM rust:1-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libasound2-dev g++ \
+    && apt-get install -y --no-install-recommends pkg-config libasound2-dev g++ git \
     && rm -rf /var/lib/apt/lists/* \
     && rustup component add clippy rustfmt

@@ -28,7 +28,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 | `docs/keybindings.md` | La table des touches : câblé, décidé, proposé, et les collisions. Référence unique. |
 | `docs/reglages.md` | Les réglages du moteur (`[tuning]`) : à quoi sert chacun, sa valeur par défaut, l'effet de le monter ou le baisser. |
 | `manifest.json`, `omarchy/` | Le dépôt est aussi un plugin Omarchy ([0021](docs/decisions/0021-le-depot-est-le-plugin-omarchy.md)) : le widget de barre, et le script qui construit et installe le binaire. |
-| `bin/build`, `bin/test` | Compiler et tester dans le conteneur `forkstify-build` (mise met `bin/` dans le `PATH` : `build`, `test`). Le binaire sort dans `target/release/forkstify` et tourne sur l'hôte. |
+| `bin/build`, `bin/test` | Compiler et tester dans le conteneur `forkstify-build` (mise met `bin/` dans le `PATH` : `build`, `test`). Le binaire sort dans `target/release/forkstify` et tourne sur l'hôte. L'image a `git` depuis le 20/09/2026 (tests de `fork.rs`) : `docker build -t forkstify-build .` si elle date d'avant. |
 
 Le reste vient avec les décisions.
 

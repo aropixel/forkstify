@@ -159,6 +159,9 @@ async fn async_run(
         home: Home::default(),
         status,
         leave: None,
+        pending_proposal: None,
+        conflicts: Vec::new(),
+        catalog_busy: false,
         toast: std::cell::RefCell::new(None),
         pending_seed: None,
         mpris,
@@ -393,6 +396,15 @@ struct Live<'a> {
     /// `:setup` / `:library`: the session closes and the setup opens on
     /// the catalog, then home comes back (chantier A, 20/09/2026).
     leave: Option<crate::setup::Replay>,
+    /// `Cp` did its work — branch, worktree, commit, push — and waits for
+    /// `y` to open the pull request through gh; any other key sends
+    /// nothing (chantier B, 20/09/2026).
+    pending_proposal: Option<crate::fork::Proposal>,
+    /// The cards a `Cu` stopped on: `o` opens the first, `:catalog`
+    /// resumes once git has them.
+    conflicts: Vec<String>,
+    /// A `Cd`, `Cp` or `Cu` is running off the loop: one at a time.
+    catalog_busy: bool,
 }
 
 /// How long a toast stays — then it fades by itself on the tick.
@@ -422,6 +434,11 @@ enum Job {
     /// The fresh card's vector (0019) — or why there is none; the card is
     /// adopted either way.
     Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
+    /// The catalog gestures, run off the loop (chantier B).
+    Diffed(Result<crate::fork::Diff, String>),
+    Proposed(Result<crate::fork::Proposal, String>),
+    Updated(Result<crate::fork::Update, String>),
+    PullRequest(Result<String, String>),
 }
 
 /// What was meant for the artist **once it has a card**. Generation takes
@@ -1098,6 +1115,86 @@ impl Live<'_> {
                 // card: the measures finally have somewhere to write
                 self.attach_stops(&slug);
                 self.after_card(&slug, &name, after).await;
+            }
+            Job::Diffed(result) => {
+                self.catalog_busy = false;
+                match result {
+                    Ok(diff) => {
+                        let title = format!("C diff — {}", if diff.is_empty() { "nothing beyond the reference".to_string() } else { format!("{} card(s) beyond the reference", diff.new.len() + diff.edited.len()) });
+                        self.overlay = Some((title, diff.lines(12)));
+                    }
+                    Err(why) => self.tell(format!("⏹ diff: {why}")),
+                }
+            }
+            Job::Proposed(result) => {
+                self.catalog_busy = false;
+                match result {
+                    Ok(proposal) => {
+                        if let Some(url) = &proposal.existing {
+                            // one proposal open at a time: the push updated it
+                            self.tell(format!("↻ proposal updated — {url}"));
+                            return;
+                        }
+                        if !proposal.through_gh {
+                            self.tell(format!("→ the comparison page opened in the browser — {} cards, {} → {}: read, then click", proposal.count, proposal.head, proposal.upstream));
+                            return;
+                        }
+                        let mut lines = vec![
+                            format!("from   {}  →  {}:main", proposal.head, proposal.upstream),
+                            format!("title  {}", proposal.title),
+                            String::new(),
+                        ];
+                        lines.extend(proposal.body.lines().take(14).map(|l| format!("  {l}")));
+                        if proposal.body.lines().count() > 14 {
+                            lines.push("  …".to_string());
+                        }
+                        lines.push(String::new());
+                        lines.push(format!("gh pr create --head {}", proposal.head));
+                        lines.push("↻ open the pull request?  y — any other key sends nothing, the pushed branch stays".to_string());
+                        self.overlay = Some(("C propose — the pull request, as it will leave".into(), lines));
+                        self.pending_proposal = Some(proposal);
+                    }
+                    Err(why) => self.tell(format!("⏹ propose: {why}")),
+                }
+            }
+            Job::PullRequest(result) => match result {
+                Ok(url) => self.tell(format!("✓ pull request opened — {url}")),
+                Err(why) => self.tell(format!("⏹ pull request: {why}")),
+            },
+            Job::Updated(result) => {
+                self.catalog_busy = false;
+                match result {
+                    Ok(update) if update.conflicts.is_empty() => {
+                        self.conflicts.clear();
+                        // the session owns its catalog: a card that arrived
+                        // from the reference may fill a gap on show
+                        if update.cards > 0 {
+                            match Catalog::load(&self.catalog_dir) {
+                                Ok(catalog) => {
+                                    self.catalog = catalog;
+                                    self.recompute();
+                                }
+                                Err(why) => self.tell(format!("⏹ catalog not reloaded: {why} — relaunch")),
+                            }
+                        }
+                        self.tell(format!("⇅ {}", update.word));
+                    }
+                    Ok(update) => {
+                        let mut lines = vec!["conflict on cards/ — the merge is stopped, the hand is yours".to_string(), String::new()];
+                        for (slug, why) in &update.conflicts {
+                            lines.push(format!("  ⊘ {slug} — {why}"));
+                        }
+                        lines.push(String::new());
+                        lines.push("the other cards are merged and wait in the index. nothing lost, nothing overwritten — the learned is not concerned.".to_string());
+                        lines.push(String::new());
+                        lines.push("  o         open the first card — git add once resolved".to_string());
+                        lines.push("  :catalog  resume — the merge completes, the index regenerates".to_string());
+                        lines.push("  git merge --abort, by hand, to give it up".to_string());
+                        self.conflicts = update.conflicts.iter().map(|(slug, _)| slug.clone()).collect();
+                        self.overlay = Some(("C update — stopped on cards".into(), lines));
+                    }
+                    Err(why) => self.tell(format!("⏹ update: {why}")),
+                }
             }
             Job::Existing { slug, after } => {
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
@@ -1796,6 +1893,37 @@ impl Live<'_> {
             self.notices.borrow_mut().clear();
             return self.on_comfort_key(cmd);
         }
+        // a proposal waits for its answer: y opens the pull request,
+        // anything else sends nothing (Joel, 19/09/2026)
+        if self.pending_proposal.is_some() && !matches!(cmd, Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Help(_)) {
+            let proposal = self.pending_proposal.take().expect("pending");
+            self.overlay = None;
+            if matches!(&cmd, Cmd::Unknown(seq) if seq == "y") {
+                self.tell("… gh pr create".to_string());
+                let tx = self.jobs_tx.clone();
+                tokio::task::spawn_local(async move {
+                    let result = tokio::task::spawn_blocking(move || crate::fork::create_pull_request(&proposal))
+                        .await
+                        .unwrap_or_else(|e| Err(format!("interrupted ({e})")));
+                    let _ = tx.send(Job::PullRequest(result));
+                });
+            } else {
+                self.tell("(nothing sent — the pushed branch stays, Cp again to ask once more)".to_string());
+            }
+            return true;
+        }
+        // the catalog namespace works on both screens (chantier B)
+        if let Cmd::Catalog(key) = cmd {
+            self.overlay = None;
+            self.help_open = false;
+            self.catalog_gesture(key);
+            return true;
+        }
+        if matches!(cmd, Cmd::Open) {
+            self.overlay = None;
+            self.open_conflict();
+            return true;
+        }
         if self.screen == Screen::Home {
             return self.on_home_cmd(cmd).await;
         }
@@ -1971,8 +2099,8 @@ impl Live<'_> {
                     }
                 }
             }
-            // `o` belongs to the setup's table, never to this one
-            Cmd::Open => {}
+            // routed before the screens split
+            Cmd::Open | Cmd::Catalog(_) => {}
         }
         // `ad` and `:discography` ask for the tail before opening: the
         // keyboard is not async, the loop is
@@ -3336,6 +3464,69 @@ impl Live<'_> {
     /// `:` commands — 0013 makes every key the shortcut of one. Only
     /// `:size` is served so far: it replaces the old `b<n>`, which the
     /// move to raw mode dropped on the way.
+    /// `:catalog` — the state in one line, then what is under it.
+    fn catalog_status(&mut self) {
+        let status = crate::fork::status(&self.catalog_dir);
+        if status.merging || status.pending {
+            // a stopped merge: resuming is what :catalog is for then
+            match crate::fork::resume(&self.catalog_dir) {
+                Ok(update) => {
+                    self.conflicts.clear();
+                    if let Ok(catalog) = Catalog::load(&self.catalog_dir) {
+                        self.catalog = catalog;
+                        self.recompute();
+                    }
+                    self.tell(format!("⇅ {}", update.word));
+                    return;
+                }
+                Err(why) => self.tell(format!("⊘ {why}")),
+            }
+        }
+        self.overlay = Some(("C — the catalog".into(), status.lines()));
+    }
+
+    /// `Cd`, `Cp`, `Cu`: git off the loop, the answer comes back as a job.
+    fn catalog_gesture(&mut self, key: char) {
+        if self.catalog_busy {
+            self.tell("(the catalog is busy — one gesture at a time)".to_string());
+            return;
+        }
+        let dir = self.catalog_dir.clone();
+        let tx = self.jobs_tx.clone();
+        let what = match key {
+            'd' => "… C diff — comparing to the reference",
+            'p' => "… C propose — fetch upstream, worktree proposal, commit, push",
+            _ => "… C update — learned committed, fetch upstream, merge, index",
+        };
+        self.tell(what.to_string());
+        self.catalog_busy = true;
+        tokio::task::spawn_local(async move {
+            let job = tokio::task::spawn_blocking(move || match key {
+                'd' => Job::Diffed(crate::fork::diff(&dir)),
+                'p' => Job::Proposed(crate::fork::propose(&dir)),
+                _ => Job::Updated(crate::fork::update(&dir)),
+            })
+            .await
+            .unwrap_or_else(|e| Job::Diffed(Err(format!("interrupted ({e})"))));
+            let _ = tx.send(job);
+        });
+    }
+
+    /// `o` — the first card a stopped merge waits on, in the desktop's
+    /// editor. The terminal editor is out of reach: the key reader holds
+    /// stdin (the same limit as `ae`).
+    fn open_conflict(&mut self) {
+        let Some(slug) = self.conflicts.first().cloned() else {
+            self.tell("(nothing to open — o opens a card a merge stopped on)".to_string());
+            return;
+        };
+        let path = crate::edit::card_path(&self.catalog_dir, &slug);
+        match std::process::Command::new("xdg-open").arg(&path).spawn() {
+            Ok(_) => self.tell(format!("→ {} — git add it once resolved, then :catalog", path.display())),
+            Err(why) => self.tell(format!("⏹ xdg-open: {why} — {}", path.display())),
+        }
+    }
+
     fn colon(&mut self, text: &str) {
         let mut words = text.split_whitespace();
         match (words.next(), words.next()) {
@@ -3390,10 +3581,20 @@ impl Live<'_> {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
             },
-            (Some("mine"), _) => match crate::edit::mine(&self.catalog_dir) {
-                Ok(lines) => self.overlay = Some(("what is mine".into(), lines)),
-                Err(why) => say!(self, "(cannot compare to upstream: {why})"),
+            // the catalog, as commands (chantier B): the state in one line,
+            // the three gestures, and the way out of the local mode
+            (Some("catalog"), None) => self.catalog_status(),
+            (Some("catalog"), Some("diff")) => self.catalog_gesture('d'),
+            (Some("catalog"), Some("propose")) => self.catalog_gesture('p'),
+            (Some("catalog"), Some("update")) => self.catalog_gesture('u'),
+            (Some("catalog"), Some("fork")) => match text.split_whitespace().nth(2) {
+                Some(url) => match crate::fork::fork(&self.catalog_dir, url) {
+                    Ok(word) => say!(self, "✓ {word}"),
+                    Err(why) => say!(self, "⏹ {why}"),
+                },
+                None => say!(self, "usage: :catalog fork <url of your fork>"),
             },
+            (Some("catalog"), Some(other)) => say!(self, "(:catalog {other} — diff, propose, update, or fork <url>)"),
             (Some("comfort"), None) => say!(self, 
                 "Comfort zone: {} — {}",
                 self.comfort.value(),
@@ -3546,6 +3747,13 @@ impl Live<'_> {
                 ("tx", "remove — remove the highlighted line from the queue (not a ban)", true),
                 ("ad", "tops are fixed in the discography", true),
             ],
+            Some('C') => &[
+                ("Cd", "diff — what this catalog has beyond the reference", true),
+                ("Cp", "propose — offer those cards to the reference, one pull request", true),
+                ("Cu", "update — bring the reference into the fork (a merge)", true),
+                (":catalog", "the state in one line", true),
+                (":catalog fork <url>", "out of the local mode — rare, no key", true),
+            ],
             Some('a') => &[
                 ("al", "like — this artist, more often", true),
                 ("as", "skip — this artist, less often", true),
@@ -3560,6 +3768,7 @@ impl Live<'_> {
                 ("\u{2191}\u{2193} gg G", "highlight in the collection", true),
                 ("enter", "start on the highlighted line · else random", true),
                 ("a", "the highlighted artist — type a for its keys", true),
+                ("C", "the catalog — type C for its keys", true),
                 ("s", "the order: familiarity → a-z → last played", true),
                 ("v", "the view: liked ⇄ all", true),
                 ("/text", "filter the collection — esc clears", true),
@@ -3592,7 +3801,8 @@ impl Live<'_> {
                 (":warm", "fetch the current artist's discography", true),
                 (":discography", "their discography by album — shortcut ad", true),
                 (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough", true),
-                (":mine", "what this catalog has beyond upstream", true),
+                ("C", "the catalog — type C for its keys", true),
+                (":catalog", "the fork's state in one line · :catalog fork <url> leaves the local mode", true),
                 (":sync", "commit and push the learned now", true),
                 (":setup", "replay a step of the setup — catalog, identity, connection, library…", true),
                 (":library", "harvest the library again — steps 4, 5 and 7 of the setup", true),
@@ -3605,6 +3815,7 @@ impl Live<'_> {
             Some('e') if !home => "e — encore",
             Some('t') if !home => "t — the track",
             Some('a') => "a — the artist",
+            Some('C') => "C — the catalog",
             _ if home => "the home keys",
             _ => "the keys",
         };

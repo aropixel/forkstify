@@ -156,6 +156,23 @@ que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
 fiche** (09/09/2026), qui entre dans le catalogue de la session sur-le-champ :
 on la demande pour écouter maintenant.
 
+## `C` — le catalogue
+
+**Le premier namespace en majuscule** (Joel, 19/09/2026 ; conçu dans
+[conception/sortie.md](conception/sortie.md) chantier B, câblé le
+20/09/2026 d'après `Catalogue.dc.html`). `c` est le confort ; partager la
+lettre à la façon de `f` a été écarté — deux sens sous une lettre ne se
+lisent pas. La majuscule marque le geste **rare et lourd**, comme `A`
+promeut un album entier. Trois gestes, sur les deux écrans, qui tournent
+hors de la boucle : la lecture continue.
+
+| Touche | Mot | Action | |
+|---|---|---|---|
+| `Cd` | catalog **diff** | **Ce que ce catalogue a de plus que la référence** — l'ancien `:mine`, renommé : en overlay, le compte et la date de la dernière mise à jour, les fiches **nouvelles** (générées ou écrites, tags, liens) puis les **retouchées** (+n −m, les sections touchées, la note de provenance). Les fiches seulement — ni `learned/`, ni `vectors/` | ✅ |
+| `Cp` | catalog **propose** | **Proposer ces fiches à la référence** : fetch, une branche `proposal` depuis `upstream/main` dans un worktree à part (le clone de la session ne change pas de branche), l'**état des fiches** — jamais l'appris, jamais les vecteurs —, un commit écrit pour le relecteur (les nouvelles à survoler, les retouchées à lire), `push --force`. Puis, avec `gh` connecté : la PR telle qu'elle partira et **`y`** l'ouvre, toute autre touche n'envoie rien ; sans `gh` : la page de comparaison dans le navigateur, titre et corps pré-remplis. Une proposition déjà ouverte est mise à jour par le push, le toast donne son URL | ✅ |
+| `Cu` | catalog **update** | **Rapatrier la référence** : l'appris commité d'abord, fetch, **fusion** (pas un rebase : `main` est partagé par deux postes), l'index régénéré si des fiches ont changé, le catalogue de la session rechargé — un creux peut devenir une branche sans relancer. Une fiche modifiée **des deux côtés** arrête la fusion : l'overlay nomme les fiches et ce que chaque côté a changé, `o` ouvre la première, `:catalog` reprend après `git add` et `git commit`. `vectors/` prend l'amont (régénéré), `learned/` reste à soi, `tools/` prend l'amont | ✅ |
+| `o` | **open** | La première fiche sur laquelle une fusion s'est arrêtée, dans l'éditeur du bureau (`xdg-open` — le lecteur de touches tient `stdin`, comme pour `ae`) | ✅ |
+
 ## Navigation et session
 
 | Touche | Mot | Action | |
@@ -220,11 +237,12 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:wander [artiste]` | Partir loin — raccourci `fw` ; avec un nom, chez cet artiste (11/09/2026) | ✅ |
 | `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
 | `:generate <nom> [mbid]` | **Faire entrer un artiste absent** du catalogue, puis partir de chez lui — ou, s'il était proposé **en creux**, prendre sa branche en fin de file. Un MBID en dernier mot remplace la recherche par le nom quand MusicBrainz ne trouve pas ; s'il ne répond pas du tout, la fiche naît minimale (nom, id, tops Deezer), marquée à relire ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)) : fiche composée depuis MusicBrainz et Deezer, **son vecteur calculé** ([0019](decisions/0019-vectorisation-par-l-application.md)), un seul commit, et le catalogue de la session l'a tout de suite. Marche à l'accueil comme en écoute. **Avec un mbid, par-dessus une lecture en cours, ne démarre plus tout seul** (Joel, 11/09/2026) : le toast de succès dure et propose — **⏎** part de l'artiste et remplace la liste, toute autre touche la garde. La modale de recherche fait la même chose sur un résultat hors catalogue, par simple `entrée` — et **`entrée` sur une ligne sans fiche de la collection** aussi (Joel, 10/09/2026, sur Kanye West) | ✅ |
-| `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
+| `:catalog` | **L'état du fork en une ligne** : d'où l'on tire, où l'on pousse, commits d'avance et de retard, date de la dernière mise à jour, fiches au-delà de la référence ; en mode local, le dit. Et, après un `Cu` arrêté sur des fiches : **reprend** une fois les fiches ajoutées (ou commitées) — la fusion se termine, l'index se régénère | ✅ |
+| `:catalog diff` / `propose` / `update` | Les trois gestes, en commande — `Cd`, `Cp`, `Cu` | ✅ |
+| `:catalog fork <url>` | **Sortir du mode local** : la référence passe en `upstream`, l'URL de son fork en `origin`, `main` poussé, l'appris s'y pousse désormais — rare, pas de touche | ✅ |
 | `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | ✅ |
 | `:setup` | **Rejouer une étape du setup** — la liste des sept, cochées ou non, `⏎` ou `1-7` rejoue l'une ; la session se ferme et l'accueil revient sur le catalogue (20/09/2026, [conception/sortie.md](conception/sortie.md) chantier A) | ✅ |
 | `:library` | **Re-récolter la bibliothèque** — les étapes 4, 5 et 7 du setup à la suite : titres, albums, suivis, playlists cochées (mémorisées), fiches manquantes du haut du classement | ✅ |
-| `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) — remplacé par `:catalog fork <url>` du chantier B, à câbler | 📋 |
 
 Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
 écoute : `forkstify import <url>` reprend les fiches d'un autre catalogue —
@@ -360,19 +378,20 @@ constant.
    mesure, majuscule = édition) mais elle est plus faible. `ac` (*connect*)
    l'éviterait, au prix du mot « link », celui du format sur disque.
 
-3. **Le namespace `C`** (19/09/2026, [conception/sortie.md](conception/sortie.md)),
+3. ~~**Le namespace `C`**~~ (19/09/2026, [conception/sortie.md](conception/sortie.md)),
    le catalogue (`Cd` diff, `Cp` propose, `Cu` update) — la lettre est
    tranchée par Joel le 19/09/2026 (partager `c` avec le confort, écarté),
-   les gestes ne le sont pas encore. Rien n'entre dans la table avant.
-   `fg<n>`, du même cahier, est câblé depuis le 20/09/2026.
+   tranché et câblé le 20/09/2026 — table ci-dessus. `fg<n>`, du même
+   cahier, l'est aussi.
 
 ## Lettres libres
 
-Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `u`, `q`
+Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `C`, `o`, `u`, `q`
 — hors modale, où `j`, `k`, `s`, `v`, `e` et `A` servent (table ci-dessus).
 `Q` est parti le 08/09/2026 avec le mode file d'attente. Restent libres :
-`b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `o`, `r`, `s`, `v`, `w`, `x`, `y`,
-`z`, et toutes les majuscules. Dans les
+`b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`, `x`, `y`,
+`z`, et les majuscules sauf `C`, `G`, `J`, `K` (`o` est pris le 20/09/2026,
+`C` aussi). Dans les
 namespaces, `d` a été pris chez `a` le 07/09/2026 (`ad`, discography). Le mode
 file d'attente peut s'installer sans rien déplacer.
 

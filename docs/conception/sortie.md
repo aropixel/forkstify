@@ -196,6 +196,21 @@ doit un jour continuer derrière l'accueil comme la maquette le montre.
 
 ## Chantier B — le namespace « catalogue »
 
+**Fait le 20/09/2026**, d'après la maquette `Catalogue.dc.html` (sept
+écrans) : `src/fork.rs` (`status`, `diff`, `propose`, `update`, `resume`,
+`fork`), la table (`C` pending, `Cd` `Cp` `Cu`, `o`), les jobs hors de la
+boucle dans `listen.rs`, `:catalog` et ses sous-commandes. `:mine` et
+`edit::mine` sont partis. Ce qui s'écarte de la maquette : `:catalog`
+s'affiche en overlay comme `Cd`, pas dans le flux ; l'overlay de `Cd` ne
+déroule pas (douze nouvelles, puis « … n more ») et n'ouvre pas la fiche ;
+`o` sur un conflit ouvre la fiche dans l'éditeur du bureau (`xdg-open`),
+faute de pouvoir rendre `stdin` à `$EDITOR`. **Non éprouvé en vrai** :
+`Cp` jusqu'à `gh pr create`, `Cu` sur le vrai fork de Joel ; mais `diff`,
+`propose` (deux fois, la branche réécrite), `update` qui fusionne, `update`
+qui s'arrête sur une fiche et `resume` sont éprouvés par un **test
+d'intégration sur trois dépôts git temporaires** (la référence, le fork,
+le clone) — `git` est entré dans l'image `forkstify-build` pour cela.
+
 ### Demandé
 
 Regrouper sous une lettre les gestes sur le catalogue : `:mine` (renommé
