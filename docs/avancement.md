@@ -334,9 +334,21 @@ rien ne le faisait. Deux gestes câblés le jour même :
   le toast le dit, rien n'est commité, `ae` à nouveau. Sans éditeur
   nommé, `xdg-open`. La boucle attend l'éditeur : le son continue dans
   son thread, une fin de morceau attend la fermeture.
-- 93 tests verts (`a_link_is_removed_and_the_others_stay`). **`ae` non
-  éprouvé en session réelle** — la garde du terminal est ce qu'il faut
-  regarder en premier au prochain essai.
+- 93 tests verts (`a_link_is_removed_and_the_others_stay`).
+- **Premier essai de Joel** : « le `ae` marche bien mais l'écran ne se
+  redessine pas après le `:wq` ». Vérifié avec un spike
+  (`src/bin/spike-editor.rs`, dans un pty avec `stty rows 24 cols 80` —
+  sans taille, ratatui ne dessine rien, ce qui rend les tests de fumée
+  précédents muets sur l'affichage) : la séquence rendre / reprendre /
+  effacer / redessiner **est bien émise** après la sortie de nvim. Deux
+  choses corrigées à côté : nvim demande au terminal qui il est en
+  sortant (`ESC [ c`) et la réponse arrivait sur `stdin` **après** lui,
+  lue comme des touches — « 62;1;4c » aurait pris les branches 6, 2, 1,
+  4 — d'où `keys::drain_input` avant de rendre le clavier ; et l'écran
+  est repeint **sur place** à la reprise (`paint()` dans `edit_card`,
+  reprise avec styles remis à zéro et `2J`), sans attendre le geste
+  suivant. À re-éprouver ; si l'écran reste vide, regarder si une
+  touche le ramène (le repaint) ou non (le terminal).
 
 Pour la PR n° 1 : `aL` sur King Hannah, entrée sur Beirut, puis `Cp` —
 la branche `proposal` se réécrit et la PR se met à jour.

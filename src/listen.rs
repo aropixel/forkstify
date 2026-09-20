@@ -3660,9 +3660,13 @@ impl Live<'_> {
             .arg("forkstify")
             .arg(&path)
             .status();
-        self.tui.resume();
         crate::keys::raw_resume();
+        crate::keys::drain_input();
+        self.tui.resume();
         crate::keys::suspend_reader(false);
+        // painted right here, whatever comes next: the screen must not
+        // stay blank until the next gesture
+        self.paint();
         if let Err(why) = status {
             say!(self, "⏹ {editor}: {why}");
             return;

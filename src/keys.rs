@@ -394,6 +394,18 @@ pub fn suspend_reader(on: bool) {
     SUSPENDED.store(on, Ordering::Relaxed);
 }
 
+/// Throw away what the terminal answered the editor — nvim asks it who it
+/// is on the way out (`ESC [ c`), and the reply lands on stdin after the
+/// editor is gone: read as keys, "62;1;4c" would take branches 6, 2, 1, 4.
+/// Called while the reader is parked, before it is released.
+pub fn drain_input() {
+    while input_pending(80) {
+        if raw_byte().is_none() {
+            break;
+        }
+    }
+}
+
 fn suspended() -> bool {
     SUSPENDED.load(Ordering::Relaxed)
 }

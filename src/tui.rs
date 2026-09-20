@@ -192,7 +192,9 @@ impl Tui {
 
     pub fn resume(&mut self) {
         let mut out = std::io::stdout();
-        let _ = write!(out, "\x1b[?1049h\x1b[?25l");
+        // back to the alternate screen, styles reset, everything wiped:
+        // the editor may have left the terminal in any state
+        let _ = write!(out, "\x1b[?1049h\x1b[?25l\x1b[0m\x1b[H\x1b[2J");
         let _ = out.flush();
         let _ = self.terminal.clear();
     }
