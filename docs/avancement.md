@@ -340,7 +340,8 @@ générées pour 3 retouchées — d'où une **action GitHub** sur la référenc
 relecteur** en deux listes, et une **règle de fusion** écrite dans un
 `CONTRIBUTING.md` (générées : un coup d'œil ; retouches : les faits se
 prennent, un `similar` avec sa note, un top s'il corrige une erreur).
-Relevé au passage : la
+Puis une seule branche `proposal` réécrite, et le nom `Cp` gardé : **le
+chantier B n'a plus rien à trancher**. Relevé au passage : la
 référence porte encore l'appris de Joel, à retirer avant qu'elle soit
 publique.
 

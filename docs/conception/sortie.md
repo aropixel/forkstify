@@ -322,12 +322,15 @@ produit ne le propose pas.
 1. ~~**La lettre**~~ — tranché le 19/09/2026 : `C`.
 2. ~~**Merge plutôt que rebase** pour `Cu`~~ — tranché le 19/09/2026 :
    la fusion.
-3. **Une seule proposition ouverte à la fois**, branche `proposal`
-   réécrite — ou une branche datée par proposition ?
+3. ~~**Une seule proposition ouverte à la fois**~~ — tranché le
+   20/09/2026 : la branche `proposal`, réécrite.
 4. ~~**Le navigateur plutôt que `gh`**~~ — tranché le 19/09/2026 : `gh`
    avec confirmation quand il est là et connecté, le navigateur sinon.
-5. Le nom `Cp` : *propose* — ou `Cs` *share* ? « catalog propose » se
-   dit à voix haute.
+5. ~~Le nom `Cp`~~ — tranché le 20/09/2026 : `Cp`, *propose*.
+
+**Le chantier B n'a plus rien à trancher** : la lettre `C`, les trois
+gestes, la fusion pour `Cu`, `gh` avec confirmation sinon le navigateur,
+une seule branche `proposal`, et la relecture côté référence.
 
 ---
 
