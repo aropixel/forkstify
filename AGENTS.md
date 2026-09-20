@@ -19,6 +19,7 @@ dépôt ; `~/Work/chorizo/AGENTS.md` fait autorité sur la machine.
 
 | Chemin             | Contenu                                                                 |
 |--------------------|-------------------------------------------------------------------------|
+| `README.md`, `LICENSE` | La porte d'entrée publique, en anglais (0022), et la licence MIT.   |
 | `AGENTS.md`        | Ce fichier — le contrat de l'agent.                                      |
 | `docs/vision.md`   | Ce qu'est le produit : pitch, principes, vocabulaire.                    |
 | `docs/decisions/`  | Une décision par fichier, numérotée et datée. **On ne modifie jamais une décision** : pour revenir dessus, on en écrit une nouvelle qui remplace l'ancienne. |

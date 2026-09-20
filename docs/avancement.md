@@ -309,6 +309,29 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## README, LICENSE, et un historique sans note personnelle (20/09/2026)
+
+Joel veut passer l'application en public. Vérifié avant : aucun jeton,
+aucun mot de passe, aucune adresse dans les 188 commits ; l'historique
+est gardé tel quel — les décisions datées et les commits qui y renvoient
+sont la mémoire du projet, un squash dirait le contraire de ce que le
+dépôt est. Fait :
+
+- **`README.md`** en anglais (0022) : ce que c'est, ce qu'il faut
+  (Linux, Premium, git, docker), l'installation (plugin Omarchy ou
+  `bin/build`), le premier lancement (les sept étapes), la fiche, la
+  configuration, où sont les docs. **`LICENSE`** : MIT, comme le
+  manifeste l'annonçait.
+- **Une note de travail personnelle retirée de l'historique** (Joel,
+  20/09/2026), par `git filter-branch`, et `main` poussé de force. Elle
+  vit désormais hors de tout dépôt, dans `~/Work/forkstify-private/`.
+  **L'autre poste doit refaire son clone**, ou `git fetch && git reset
+  --hard origin/main` — son historique local ne correspond plus.
+- Non fait, jugé non nécessaire : les vieux scripts `amis-*.py` restent
+  dans l'historique des deux dépôts du catalogue (Joel : « pas grave »),
+  comme les huit fichiers d'appris de la référence ; à reconsidérer
+  ensemble le jour où la référence passe en public.
+
 ## L'action de la référence et son CONTRIBUTING (20/09/2026)
 
 Joel : « mets en place l'action GitHub et le CONTRIBUTING.md sur la
