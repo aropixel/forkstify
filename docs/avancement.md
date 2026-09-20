@@ -309,6 +309,28 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le fork détaché : `y` refusé par GitHub, le fork refait (20/09/2026)
+
+Joel, au `y` du `Cp` : « pull request create failed: GraphQL: Head sha
+can't be blank, Base sha can't be blank, Head repository can't be blank,
+No commits between aropixel:main and kbyjoel:proposal… ». Diagnostic par
+l'API : `kbyjoel/forkstify-catalog` n'était **plus un fork** pour GitHub
+(`fork: false`, pas de parent), et les deux dépôts du catalogue étaient
+passés en public. **Quand un dépôt privé passe en public, ses forks
+privés sont détachés** et deviennent des dépôts indépendants ; or une PR
+ne s'ouvre qu'entre dépôts d'un même réseau de forks.
+
+Réparé sans toucher au clone local ni à l'autre poste : le dépôt détaché
+renommé `kbyjoel/forkstify-catalog-detached`, la référence forkée à
+nouveau sous le nom libéré (`gh repo fork`), `main` et `proposal` poussés
+dessus (même histoire, même URL d'`origin`). `compare/main...kbyjoel:proposal`
+répond « ahead 1 ». **Le dépôt détaché peut être supprimé par Joel**, il
+ne contient rien que le nouveau fork n'ait.
+
+Et `Cp` le dit désormais en une phrase au lieu de la liste de GraphQL :
+avant de proposer, il demande à GitHub le parent d'`origin` et, s'il
+n'est pas `upstream`, explique le détachement et la sortie.
+
 ## Le premier `Cp` en vrai : `gh` introuvable hors de mise, et les couleurs (20/09/2026)
 
 Joel a lancé son premier `Cp` : la branche `proposal` est partie

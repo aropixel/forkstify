@@ -507,6 +507,20 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
     let upstream = short_repo(&upstream_url);
     let through_gh = gh_ready();
     let account = through_gh.then(|| gh(&["api", "user", "--jq", ".login"]).ok()).flatten();
+    // GitHub only opens a pull request between repositories of one fork
+    // network — and detaches the private forks of a repository that goes
+    // public (Joel, 20/09/2026: "Head repository can't be blank…"). Said
+    // in one sentence, with the way out, rather than GraphQL's list.
+    if through_gh {
+        let origin_repo = short_repo(&origin_url);
+        let parent = gh(&["api", &format!("repos/{origin_repo}"), "--jq", ".parent.full_name // empty"]).unwrap_or_default();
+        if parent != upstream {
+            return Err(format!(
+                "{origin_repo} is not a fork of {upstream} for GitHub{} — a private fork is detached when the reference goes public: rename it, fork the reference again under its name, push main and proposal there",
+                if parent.is_empty() { String::new() } else { format!(" (it descends from {parent})") }
+            ));
+        }
+    }
     let existing = if through_gh {
         gh(&["pr", "list", "--repo", &upstream, "--head", &head, "--state", "open", "--json", "url", "--jq", ".[0].url"])
             .ok()
