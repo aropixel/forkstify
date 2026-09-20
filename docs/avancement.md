@@ -358,11 +358,10 @@ référence ». Les trois pièces de « La relecture côté référence » sont 
   coup d'œil ; retouches : les faits se prennent, un `similar` avec sa
   note, un top s'il corrige une erreur. Le README pointe dessus.
 
-**À faire par Joel** : tant que `aropixel/forkstify` est privé, créer le
-secret **`FORKSTIFY_TOKEN`** sur la référence — un PAT à grain fin,
-*Contents: read* sur `aropixel/forkstify` — sans quoi l'action ne peut
-pas cloner l'application. Une fois l'application publique, le jeton du
-workflow suffit et le secret peut disparaître.
+~~**À faire par Joel** : le secret `FORKSTIFY_TOKEN`~~ — sans objet :
+**`aropixel/forkstify` est public depuis le 20/09/2026** (Joel), le jeton
+du workflow suffit à l'action pour cloner l'application. Le README
+installe par `https://` désormais.
 
 ## Le catalogue sans outillage, la référence sans appris (20/09/2026)
 
@@ -2144,9 +2143,8 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
     et l'appris de Joel retiré de la référence (Joel, 20/09/2026). Reste à
     éprouver en vrai : `:library`, `Cp`, `Cu` — le premier `Cu` du fork
     réglera seul les conflits `learned/` (les siens gardés). L'action
-    GitHub et le `CONTRIBUTING.md` sont en place le même jour ; reste le
-    secret `FORKSTIFY_TOKEN` à créer par Joel tant que l'application est
-    privée.
+    GitHub et le `CONTRIBUTING.md` sont en place le même jour, et
+    l'application est **publique** depuis (README, LICENSE).
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

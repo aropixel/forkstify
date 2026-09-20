@@ -498,12 +498,13 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
   place le 20/09/2026 : `.github/workflows/catalog.yml` (`check` sur
   chaque PR — fiches seules, `forkstify validate` ; `index` sur `main` —
   `forkstify vectors` commité), l'action composite qui construit forkstify
-  depuis `aropixel/forkstify`, `CONTRIBUTING.md` en anglais. Tant que
-  l'application est privée, le secret `FORKSTIFY_TOKEN` (PAT à grain fin,
-  *Contents: read* sur `aropixel/forkstify`) est à créer sur la référence.
+  depuis `aropixel/forkstify`, `CONTRIBUTING.md` en anglais. L'application
+  est publique depuis le 20/09/2026 : le jeton du workflow suffit à l'action.
 - **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
   CC BY-SA) et celle du code (`manifest.json` dit MIT).
 - **Les commits d'édition parlent français** (corrections en attente de
   l'avancement) — `Cp` les rendra visibles à la référence.
-- Les deux dépôts sont **privés** ; la commande de comptage des forks
-  (premiere-installation.md § Mesurer l'usage) ne compte rien avant.
+- ~~Les deux dépôts sont **privés**~~ — l'application est publique
+  depuis le 20/09/2026 ; la référence reste privée, et la commande de
+  comptage des forks (premiere-installation.md § Mesurer l'usage) ne
+  compte rien avant qu'elle ne le soit.
