@@ -309,6 +309,24 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le catalogue sans outillage, la référence sans appris (20/09/2026)
+
+Joel : « retire les scripts Python de `tools/` du catalogue et nettoie
+l'appris de la référence ». Fait sur les deux dépôts :
+
+- **`kbyjoel/forkstify-catalog`** (le fork, celui que l'application lit) :
+  `tools/` retiré — les dix scripts ont chacun leur remplaçant dans
+  forkstify (setup et `:library`, génération à la volée, `forkstify
+  vectors`, `forkstify check`) ; `amis-*.py`, sans équivalent, partent
+  avec. `learned/` **reste** : c'est l'appris de Joel, et
+  `classement.json` est lu tant que `library.toml` n'existe pas.
+- **`aropixel/forkstify-catalog`** (la référence) : `tools/` et
+  **`learned/` entier** retirés — un fork neuf n'hérite plus de la
+  bibliothèque de Joel. Il ne reste que `cards/`, `vectors/`,
+  `catalog.toml`, `.gitattributes` (le pilote de fusion) et le README.
+- Le premier `Cu` du fork verra `learned/` modifié d'un côté, supprimé de
+  l'autre : la fusion garde les siens sans rien demander (fork.rs).
+
 ## Le namespace `C` — diff, propose, update (20/09/2026)
 
 Le chantier B de [`conception/sortie.md`](conception/sortie.md), codé
@@ -2063,13 +2081,15 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
    touche par touche est faite, l'affichage reste celui d'un terminal qui
    déroule.
-11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
-    de langue du code (à l'occasion).
+11. ~~**Traduire en anglais** les scripts de `tools/`~~ — retirés le
+    20/09/2026 : forkstify récolte, classe, génère et vectorise lui-même.
 15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) — cahier dans
     [conception/sortie.md](conception/sortie.md). ~~Les trois~~ faits le
-    20/09/2026. Reste à éprouver en vrai : `:library`, `Cp`, `Cu` ; puis
-    retirer les scripts de `tools/` du catalogue, nettoyer l'appris de la
-    référence, l'action GitHub et le `CONTRIBUTING.md`.
+    20/09/2026. Le même jour, `tools/` retiré des deux dépôts du catalogue
+    et l'appris de Joel retiré de la référence (Joel, 20/09/2026). Reste à
+    éprouver en vrai : `:library`, `Cp`, `Cu` — le premier `Cu` du fork
+    réglera seul les conflits `learned/` (les siens gardés) ; puis
+    l'action GitHub et le `CONTRIBUTING.md`.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

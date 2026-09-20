@@ -188,9 +188,10 @@ Tranché en bloc par la maquette du 20/09/2026 :
    n'est pas une panne.
 5. ~~La maquette~~ — `Installation.dc.html`.
 
-Reste, à l'usage : retirer les scripts de `tools/` du catalogue une fois
-`:library` rejoué sur le fork de Joel ; et si la génération de l'étape 7
-doit un jour continuer derrière l'accueil comme la maquette le montre.
+Reste, à l'usage : si la génération de l'étape 7 doit un jour continuer
+derrière l'accueil comme la maquette le montre. Les scripts de `tools/`
+sont retirés le 20/09/2026 (Joel) ; `classement.json` reste lu dans le
+fork tant que `:library` n'a pas écrit `library.toml`.
 
 ---
 
@@ -486,12 +487,9 @@ ensuite si l'usage le demande, **désactivée par défaut**.
 Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
 à trancher ailleurs :
 
-- **La référence porte l'appris de Joel** (`learned/`, huit fichiers et
-  18 artistes) : à retirer d'`aropixel/forkstify-catalog` avant qu'elle
-  soit publique. Le fork de Joel a modifié ces fichiers : son premier
-  `Cu` après le nettoyage aura des conflits *modify/delete* à résoudre
-  une fois (garder les siens). Un fork fait après le nettoyage n'en aura
-  pas.
+- ~~**La référence porte l'appris de Joel**~~ — retiré le 20/09/2026,
+  avec `tools/` des deux dépôts. Le premier `Cu` du fork règle seul les
+  conflits *modify/delete* sur `learned/` (les siens gardés).
 - **Le chemin par défaut** `~/Work/forkstify-catalog` est celui du poste
   de Joel — chantier A, étape 1.
 - **Un `README.md`** dans le dépôt de l'application (il n'y a
