@@ -93,7 +93,8 @@ pub struct View<'a> {
     pub selection: Option<usize>,
     /// A block laid over the screen, which does not go down into the log:
     /// the bottom of the screen must never move (Joel, 06/09/2026).
-    pub overlay: Option<(&'a str, &'a [String])>,
+    /// Title, lines, and how far it is scrolled (j/k, ↑↓ — Joel, 20/09/2026).
+    pub overlay: Option<(&'a str, &'a [String], usize)>,
     pub comfort_mode: bool,
     pub comfort: u8,
     pub comfort_word: &'a str,
@@ -175,6 +176,10 @@ impl Tui {
     pub fn draw(&mut self, view: &View) -> std::io::Result<()> {
         self.terminal.draw(|frame| render(frame, view))?;
         Ok(())
+    }
+
+    pub fn height(&self) -> Option<u16> {
+        self.terminal.size().ok().map(|size| size.height)
     }
 }
 
@@ -588,8 +593,8 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
     }
 
     // — and what sits over everything: a requested block (the leader, "?")
-    if let Some((title, body)) = view.overlay {
-        render_block(frame, area, title, body);
+    if let Some((title, body, scroll)) = view.overlay {
+        render_block(frame, area, title, body, scroll);
     }
 }
 
@@ -1157,7 +1162,8 @@ pub struct HomeView<'a> {
     /// (Joel, 10/09/2026).
     pub explore: Option<&'a crate::explore::Explore>,
     /// The input help (space), laid over everything.
-    pub overlay: Option<(&'a str, &'a [String])>,
+    /// Title, lines, and how far it is scrolled (j/k, ↑↓ — Joel, 20/09/2026).
+    pub overlay: Option<(&'a str, &'a [String], usize)>,
     /// The toast: **every notification shows as a toast**, under home as
     /// while listening (Joel, 10/09/2026) — nothing is said on the bottom
     /// line anymore.
@@ -1348,8 +1354,8 @@ fn render_home(frame: &mut ratatui::Frame, view: &HomeView) {
     }
 
     // — and what sits over everything: the input help
-    if let Some((title, body)) = view.overlay {
-        render_block(frame, area, title, body);
+    if let Some((title, body, scroll)) = view.overlay {
+        render_block(frame, area, title, body, scroll);
     }
 }
 
@@ -1397,7 +1403,11 @@ fn info_line(text: &str) -> Line<'static> {
     Line::from(Span::styled(text.to_string(), Style::default().fg(MUTED)))
 }
 
-fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String]) {
+/// A block laid over the screen. Longer than the screen, it **scrolls**:
+/// `scroll` is the first line shown, and the title says what is above
+/// and below — a `Cd` on a fork a month old is a hundred lines (Joel,
+/// 20/09/2026).
+fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String], scroll: usize) {
     let width = 64.min(area.width.saturating_sub(4));
     let height = (body.len() as u16 + 2).min(area.height.saturating_sub(2));
     let rect = Rect {
@@ -1407,15 +1417,29 @@ fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[Str
         height,
     };
     frame.render_widget(Clear, rect);
+    let visible = height.saturating_sub(2) as usize;
+    let scroll = scroll.min(body.len().saturating_sub(visible));
+    let below = body.len().saturating_sub(scroll + visible);
+    let mut heading = format!(" {title} ");
+    if scroll > 0 || below > 0 {
+        heading.push_str(&format!("— ↑ {scroll} · ↓ {below} · j/k "));
+    }
     let lines: Vec<Line> = body.iter().map(|text| info_line(text)).collect();
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(DIM))
-        .title(Span::styled(
-            format!(" {title} "),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-        ));
-    frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), rect);
+        .title(Span::styled(heading, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: false }).scroll((scroll as u16, 0)),
+        rect,
+    );
+}
+
+/// How far an overlay of `len` lines may scroll: to the point where its
+/// last lines fill the block, never past them.
+pub fn overlay_scroll_max(len: usize, screen_height: u16) -> usize {
+    let visible = screen_height.saturating_sub(4) as usize;
+    len.saturating_sub(visible.max(1))
 }
 
 impl Tui {
@@ -2651,6 +2675,44 @@ fn render_setup(frame: &mut ratatui::Frame, view: &SetupView) {
     );
     if let Some(toast) = &view.toast {
         render_toast(frame, body, toast);
+    }
+}
+
+#[cfg(test)]
+mod overlay_tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+
+    fn draw(body: &[String], scroll: usize) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+        terminal.draw(|frame| render_block(frame, frame.area(), "C diff", body, scroll)).unwrap();
+        let buffer = terminal.backend().buffer().clone();
+        (0..buffer.area.height)
+            .map(|y| (0..buffer.area.width).map(|x| buffer[(x, y)].symbol().to_string()).collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// A long overlay scrolls: the title says what is above and below,
+    /// and the lines shown are the ones asked for.
+    #[test]
+    fn a_long_overlay_scrolls_and_says_so() {
+        let body: Vec<String> = (1..=30).map(|i| format!("line {i}")).collect();
+        let top = draw(&body, 0);
+        assert!(top.contains("C diff — ↑ 0 · ↓ 22 · j/k"), "{top}");
+        assert!(top.contains("line 1 ") && !top.contains("line 9"), "{top}");
+        let down = draw(&body, 10);
+        assert!(down.contains("↑ 10 · ↓ 12"), "{down}");
+        assert!(down.contains("line 11") && !down.contains("line 10 "), "{down}");
+        // past the end, it stops where the last lines fill the block
+        let end = draw(&body, 100);
+        assert!(end.contains("↑ 22 · ↓ 0"), "{end}");
+        assert!(end.contains("line 30"), "{end}");
+        // a short one says nothing
+        let short = draw(&body[..3], 0);
+        assert!(short.contains(" C diff ") && !short.contains("j/k"), "{short}");
+        assert_eq!(overlay_scroll_max(30, 12), 22);
+        assert_eq!(overlay_scroll_max(3, 12), 0);
     }
 }
 

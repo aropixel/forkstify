@@ -309,6 +309,18 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les overlays déroulent (20/09/2026)
+
+Premier retour sur `Cd`, Joel : « si mon `Cd` est grand, je ne peux pas
+scroller pour voir tout ce que le diff contient ». L'overlay coupait à
+douze fiches nouvelles et le bloc à la hauteur de l'écran. Désormais
+**tout overlay déroule** — `Cd`, `:catalog`, `ta`, la PR de `Cp`, les
+conflits de `Cu` : `j`/`k` ou ↑↓ d'une ligne, `gg`/`G` aux deux bouts,
+le titre dit ce qu'il y a au-dessus et en dessous (« ↑ 10 · ↓ 12 · j/k »),
+et la sélection de l'axe ne bouge pas tant qu'un overlay est ouvert
+(`overlay_scroll` dans `listen.rs`, `render_block` avec `scroll`). `Cd`
+affiche tout le diff. Un test de rendu (`a_long_overlay_scrolls_and_says_so`).
+
 ## README, LICENSE, et un historique sans note personnelle (20/09/2026)
 
 Joel veut passer l'application en public. Vérifié avant : aucun jeton,

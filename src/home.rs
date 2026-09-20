@@ -643,7 +643,7 @@ impl Home {
         live: bool,
         finder: Option<crate::tui::FinderView>,
         explore: Option<&crate::explore::Explore>,
-        overlay: Option<(&str, &[String])>,
+        overlay: Option<(&str, &[String], usize)>,
         toast: Option<crate::tui::Toast>,
         tui: &mut Tui,
     ) {

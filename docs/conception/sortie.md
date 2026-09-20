@@ -202,8 +202,9 @@ fork tant que `:library` n'a pas écrit `library.toml`.
 `fork`), la table (`C` pending, `Cd` `Cp` `Cu`, `o`), les jobs hors de la
 boucle dans `listen.rs`, `:catalog` et ses sous-commandes. `:mine` et
 `edit::mine` sont partis. Ce qui s'écarte de la maquette : `:catalog`
-s'affiche en overlay comme `Cd`, pas dans le flux ; l'overlay de `Cd` ne
-déroule pas (douze nouvelles, puis « … n more ») et n'ouvre pas la fiche ;
+s'affiche en overlay comme `Cd`, pas dans le flux ; l'overlay de `Cd`
+n'ouvre pas la fiche (il **déroule** depuis le premier retour de Joel,
+20/09/2026 : `j`/`k`, ↑↓, `gg`/`G`, tout le diff affiché) ;
 `o` sur un conflit ouvre la fiche dans l'éditeur du bureau (`xdg-open`),
 faute de pouvoir rendre `stdin` à `$EDITOR`. **Non éprouvé en vrai** :
 `Cp` jusqu'à `gh pr create`, `Cu` sur le vrai fork de Joel ; mais `diff`,

@@ -168,7 +168,7 @@ hors de la boucle : la lecture continue.
 
 | Touche | Mot | Action | |
 |---|---|---|---|
-| `Cd` | catalog **diff** | **Ce que ce catalogue a de plus que la référence** — l'ancien `:mine`, renommé : en overlay, le compte et la date de la dernière mise à jour, les fiches **nouvelles** (générées ou écrites, tags, liens) puis les **retouchées** (+n −m, les sections touchées, la note de provenance). Les fiches seulement — ni `learned/`, ni `vectors/` | ✅ |
+| `Cd` | catalog **diff** | **Ce que ce catalogue a de plus que la référence** — l'ancien `:mine`, renommé : en overlay, le compte et la date de la dernière mise à jour, les fiches **nouvelles** (générées ou écrites, tags, liens) puis les **retouchées** (+n −m, les sections touchées, la note de provenance). Les fiches seulement — ni `learned/`, ni `vectors/`. **Tout s'affiche, et ça déroule** : `j`/`k` ou ↑↓, `gg`/`G`, le titre dit ce qu'il y a au-dessus et en dessous ; échap ferme (Joel, 20/09/2026) | ✅ |
 | `Cp` | catalog **propose** | **Proposer ces fiches à la référence** : fetch, une branche `proposal` depuis `upstream/main` dans un worktree à part (le clone de la session ne change pas de branche), l'**état des fiches** — jamais l'appris, jamais les vecteurs —, un commit écrit pour le relecteur (les nouvelles à survoler, les retouchées à lire), `push --force`. Puis, avec `gh` connecté : la PR telle qu'elle partira et **`y`** l'ouvre, toute autre touche n'envoie rien ; sans `gh` : la page de comparaison dans le navigateur, titre et corps pré-remplis. Une proposition déjà ouverte est mise à jour par le push, le toast donne son URL | ✅ |
 | `Cu` | catalog **update** | **Rapatrier la référence** : l'appris commité d'abord, fetch, **fusion** (pas un rebase : `main` est partagé par deux postes), l'index régénéré si des fiches ont changé, le catalogue de la session rechargé — un creux peut devenir une branche sans relancer. Une fiche modifiée **des deux côtés** arrête la fusion : l'overlay nomme les fiches et ce que chaque côté a changé, `o` ouvre la première, `:catalog` reprend après `git add` et `git commit`. `vectors/` prend l'amont (régénéré), `learned/` reste à soi, `tools/` prend l'amont | ✅ |
 | `o` | **open** | La première fiche sur laquelle une fusion s'est arrêtée, dans l'éditeur du bureau (`xdg-open` — le lecteur de touches tient `stdin`, comme pour `ae`) | ✅ |
@@ -181,7 +181,7 @@ hors de la boucle : la lecture continue.
 | ← / `h` sur un morceau en cours | | **Recommence** le morceau ; une seconde fois — ou dans ses trois premières secondes — revient au précédent (Joel, 08/09/2026) | ✅ |
 | ← / → | | Idem, pour les doigts hors de la rangée d'accueil | ✅ |
 | `p` | **pause** | Pause / lecture | ✅ |
-| ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas | ✅ |
+| ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas. **Sous un overlay** (`Cd`, `:catalog`, `ta`…), elles le **déroulent**, comme `j`/`k`, `gg`, `G` (20/09/2026) | ✅ |
 | entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
 | `c<n>` | **comfort** | La zone de confort d'un coup, 5 cocon → 0 exploration — à l'accueil aussi (Joel, 08/09/2026) | ✅ |
 | `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule — à l'accueil aussi depuis le 11/09/2026. La jauge est **toujours en haut à droite sur les deux écrans, avec l'apparence d'édition** ; `cc` ajoute « ↑↓ » (Joel, 14/09/2026) | ✅ |

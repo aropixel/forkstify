@@ -135,6 +135,7 @@ async fn async_run(
         selection: None,
         comfort_before: None,
         overlay: None,
+        overlay_scroll: 0,
         typed: String::new(),
         warm_requested: false,
         wander_requested: None,
@@ -326,6 +327,8 @@ struct Live<'a> {
     /// A block laid over the screen — the leader menu, `?`. It does not go
     /// down into the log: the bottom of the screen must not move.
     overlay: Option<(String, Vec<String>)>,
+    /// The first line of the overlay shown — j/k, ↑↓, gg, G scroll it.
+    overlay_scroll: usize,
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
@@ -822,6 +825,7 @@ impl Live<'_> {
         };
         if !keeps_overlay {
             self.overlay = None;
+            self.overlay_scroll = 0;
             self.help_open = false;
         }
         match &cmd {
@@ -1121,7 +1125,7 @@ impl Live<'_> {
                 match result {
                     Ok(diff) => {
                         let title = format!("C diff — {}", if diff.is_empty() { "nothing beyond the reference".to_string() } else { format!("{} card(s) beyond the reference", diff.new.len() + diff.edited.len()) });
-                        self.overlay = Some((title, diff.lines(12)));
+                        self.overlay = Some((title, diff.lines(usize::MAX)));
                     }
                     Err(why) => self.tell(format!("⏹ diff: {why}")),
                 }
@@ -1893,6 +1897,24 @@ impl Live<'_> {
             self.notices.borrow_mut().clear();
             return self.on_comfort_key(cmd);
         }
+        // an overlay longer than the screen scrolls — j/k, the arrows,
+        // gg and G — instead of moving the axis under it (Joel, 20/09/2026)
+        if let Some((_, lines)) = self.overlay.as_ref().filter(|_| !self.help_open) {
+            let max = crate::tui::overlay_scroll_max(lines.len(), self.tui_height());
+            let scrolled = match &cmd {
+                Cmd::Down => Some(self.overlay_scroll.saturating_add(1)),
+                Cmd::Up => Some(self.overlay_scroll.saturating_sub(1)),
+                Cmd::Top => Some(0),
+                Cmd::Bottom => Some(max),
+                Cmd::Unknown(seq) if seq == "j" => Some(self.overlay_scroll.saturating_add(1)),
+                Cmd::Unknown(seq) if seq == "k" => Some(self.overlay_scroll.saturating_sub(1)),
+                _ => None,
+            };
+            if let Some(to) = scrolled {
+                self.overlay_scroll = to.min(max);
+                return true;
+            }
+        }
         // a proposal waits for its answer: y opens the pull request,
         // anything else sends nothing (Joel, 19/09/2026)
         if self.pending_proposal.is_some() && !matches!(cmd, Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Help(_)) {
@@ -1938,6 +1960,7 @@ impl Live<'_> {
         };
         if !keeps_overlay {
             self.overlay = None;
+            self.overlay_scroll = 0;
             self.help_open = false;
         }
         // a fresh :generate offered a new seed: ⏎ accepts and starts from
@@ -2369,7 +2392,7 @@ impl Live<'_> {
                 live,
                 finder,
                 self.explore.as_ref(),
-                self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
+                self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice(), self.overlay_scroll)),
                 self.toast(),
                 self.tui,
             );
@@ -2446,7 +2469,7 @@ impl Live<'_> {
             panel: true,
             notes: &notes,
             selection: self.selection,
-            overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice())),
+            overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice(), self.overlay_scroll)),
             comfort_mode: self.comfort_before.is_some(),
             comfort: self.comfort.value(),
             comfort_word: comfort_word(self.comfort.value()),
@@ -3465,6 +3488,12 @@ impl Live<'_> {
     /// `:size` is served so far: it replaces the old `b<n>`, which the
     /// move to raw mode dropped on the way.
     /// `:catalog` — the state in one line, then what is under it.
+    /// The screen's height, for what scrolls: the terminal's, or a
+    /// generous guess when it cannot be asked.
+    fn tui_height(&self) -> u16 {
+        self.tui.height().unwrap_or(40)
+    }
+
     fn catalog_status(&mut self) {
         let status = crate::fork::status(&self.catalog_dir);
         if status.merging || status.pending {
