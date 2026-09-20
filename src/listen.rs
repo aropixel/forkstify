@@ -507,6 +507,46 @@ fn featuring(title: &str) -> Option<String> {
     None
 }
 
+/// The pull request's body for the confirmation: the new cards cut to
+/// two lines and a count — the reviewer skims them, so does the author —
+/// the edited ones whole, since those are the ones to read.
+fn abridged_body(body: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut in_new = false;
+    let mut shown = 0;
+    let mut hidden = 0;
+    for line in body.lines() {
+        if line.starts_with("## ") {
+            if hidden > 0 {
+                out.push(format!("… {hidden} more, one line each"));
+                hidden = 0;
+            }
+            in_new = line.starts_with("## New cards");
+            shown = 0;
+            out.push(line.to_string());
+            continue;
+        }
+        if in_new && line.starts_with("- ") {
+            if shown < 2 {
+                shown += 1;
+                out.push(line.to_string());
+            } else {
+                hidden += 1;
+            }
+            continue;
+        }
+        if in_new && line.is_empty() && hidden > 0 {
+            out.push(format!("… {hidden} more, one line each"));
+            hidden = 0;
+        }
+        out.push(line.to_string());
+    }
+    if hidden > 0 {
+        out.push(format!("… {hidden} more, one line each"));
+    }
+    out
+}
+
 pub fn comfort_word(value: u8) -> &'static str {
     match value {
         5 => "cocoon",
@@ -1143,6 +1183,10 @@ impl Live<'_> {
                             self.tell(format!("→ gh not found or not logged in: the comparison page opened in the browser — {} cards, {} → {}: read, then click", proposal.count, proposal.head, proposal.upstream));
                             return;
                         }
+                        // the question first, in sight — the body was
+                        // pushing it under the fold (Joel, 20/09/2026);
+                        // the new cards are abridged as on the mockup, Cd
+                        // has them all
                         let mut lines = vec![
                             "✓ fetch upstream · worktree proposal, from upstream/main".to_string(),
                             format!("✓ commit {} · push --force", proposal.title),
@@ -1151,14 +1195,15 @@ impl Live<'_> {
                             format!("from   {}  →  {}:main", proposal.head, proposal.upstream),
                             format!("title  {}", proposal.title),
                             String::new(),
+                            format!(
+                                "↻ open the pull request?  y — any other key sends nothing, the pushed branch stays  (gh logged in{})",
+                                proposal.account.as_ref().map(|a| format!(" — {a}")).unwrap_or_default()
+                            ),
+                            format!("gh pr create --head {}", proposal.head),
+                            String::new(),
                         ];
-                        lines.extend(proposal.body.lines().map(|l| format!("  {l}")));
+                        lines.extend(abridged_body(&proposal.body).into_iter().map(|l| format!("  {l}")));
                         lines.push(String::new());
-                        lines.push(format!("gh pr create --head {}", proposal.head));
-                        lines.push(format!(
-                            "↻ open the pull request?  y — any other key sends nothing, the pushed branch stays  (gh logged in{})",
-                            proposal.account.as_ref().map(|a| format!(" — {a}")).unwrap_or_default()
-                        ));
                         lines.push("  the reference's action checks the toml, the unique mbids, the slugs and the link targets".to_string());
                         self.overlay = Some(("C propose — the pull request, as it will leave".into(), lines));
                         self.pending_proposal = Some(proposal);
@@ -3907,5 +3952,23 @@ impl Live<'_> {
             &mut self.rng,
         );
         self.start_segment(vec![current], stops, false, false).await;
+    }
+}
+
+#[cfg(test)]
+mod proposal_tests {
+    use super::abridged_body;
+
+    /// The confirmation shows two new cards and counts the rest; the
+    /// edited cards stay whole.
+    #[test]
+    fn the_confirmation_abridges_the_new_cards_only() {
+        let body = "## New cards (4) — pipeline output, nothing to read\n\n- a · generated\n- b · generated\n- c · generated\n- d · generated\n\n## Edited cards (2) — please read\n\n- x +1 −0 · tops\n  source: listening\n- y +2 −1 · member\n\nForkstify: proposal 0.1.0\n";
+        let lines = abridged_body(body);
+        let text = lines.join("\n");
+        assert!(text.contains("- a · generated\n- b · generated\n… 2 more, one line each"), "{text}");
+        assert!(!text.contains("- c"), "{text}");
+        assert!(text.contains("- x +1 −0 · tops\n  source: listening\n- y +2 −1 · member"), "{text}");
+        assert!(text.ends_with("Forkstify: proposal 0.1.0"), "{text}");
     }
 }

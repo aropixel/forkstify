@@ -335,8 +335,15 @@ demande de confirmation », et « les couleurs comme sur la maquette ».
   `o`) en magenta. Valables pour `Cd`, `:catalog`, `Cu` aussi. Test
   `a_catalog_line_is_coloured_by_its_shape`.
 
+Second essai de Joel, binaire à jour, `gh` trouvé : « il manque encore
+la confirmation avec le y ». Elle était là — **sous le pli** : le corps
+entier de la PR (49 fiches) la poussait au bas d'un overlay qui déroule,
+et l'écran n'en montrait que le haut. Désormais la **question est en
+tête**, juste sous `from`/`title`, et le corps est **abrégé comme sur
+l'écran 4** — deux fiches nouvelles puis « … 44 more, one line each »,
+les retouchées entières (`abridged_body`, test). `Cd` a tout le détail.
 La branche `proposal` poussée est toujours là : le prochain `Cp` la
-réécrit et, `gh` trouvé, demande `y`.
+réécrit et demande `y`.
 
 ## Les overlays déroulent (20/09/2026)
 
