@@ -1381,6 +1381,74 @@ fn info_line(text: &str) -> Line<'static> {
             }
         }
     }
+    // the catalog overlays (Cd, Cp, Cu, :catalog — `Catalogue.dc.html`):
+    // a heading, a new card, an edited one, a labelled value, a glyph line
+    if let Some(rest) = trimmed.strip_prefix("## ") {
+        return Line::from(vec![
+            Span::raw(indent),
+            Span::styled(rest.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ]);
+    }
+    if let Some(rest) = trimmed.strip_prefix("+ ").or_else(|| trimmed.strip_prefix("~ ")) {
+        let (glyph, tone) = if trimmed.starts_with('+') { ("+ ", PLAYING) } else { ("~ ", EDIT) };
+        let (name, tail) = match rest.find("  ") {
+            Some(cut) => (&rest[..cut], &rest[cut..]),
+            None => (rest, ""),
+        };
+        return Line::from(vec![
+            Span::raw(indent),
+            Span::styled(glyph.to_string(), Style::default().fg(tone).add_modifier(Modifier::BOLD)),
+            Span::styled(name.to_string(), Style::default().fg(Color::White)),
+            Span::styled(tail.to_string(), Style::default().fg(DIM)),
+        ]);
+    }
+    if let Some(rest) = trimmed.strip_prefix("- ") {
+        let (slug, tail) = match rest.find(" · ").or_else(|| rest.find(" +")) {
+            Some(cut) => (&rest[..cut], &rest[cut..]),
+            None => (rest, ""),
+        };
+        return Line::from(vec![
+            Span::raw(indent),
+            Span::styled("- ".to_string(), Style::default().fg(DIM)),
+            Span::styled(slug.to_string(), Style::default().fg(CATALOG)),
+            Span::styled(tail.to_string(), Style::default().fg(MUTED)),
+        ]);
+    }
+    const KEYS: [&str; 8] = ["from", "title", "origin", "upstream", "cards", "source:", "gh pr create", "Forkstify:"];
+    for key in KEYS {
+        if let Some(rest) = trimmed.strip_prefix(key) {
+            if rest.starts_with(' ') || rest.is_empty() {
+                let tone = if key == "Forkstify:" { DIM } else if key == "gh pr create" { BRANCH } else { Color::White };
+                return Line::from(vec![
+                    Span::raw(indent),
+                    Span::styled(key.to_string(), Style::default().fg(if key == "Forkstify:" { DIM } else { CATALOG })),
+                    Span::styled(rest.to_string(), Style::default().fg(tone)),
+                ]);
+            }
+        }
+    }
+    if trimmed.starts_with(['✓', '⏹', '⊘', '↻', '→', '⇅']) {
+        return Line::from(vec![Span::raw(indent), Span::styled(trimmed.to_string(), Style::default().fg(tone_of(trimmed)))]);
+    }
+    // a hint that opens with a key: "Cd the detail · Cp propose", "o open…"
+    for key in ["Cd ", "Cp ", "Cu ", "o ", ":catalog ", "git merge"] {
+        if let Some(rest) = trimmed.strip_prefix(key) {
+            let mut spans = vec![Span::raw(indent), Span::styled(key.to_string(), Style::default().fg(BRANCH).add_modifier(Modifier::BOLD))];
+            for (i, part) in rest.split(" · ").enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled(" · ".to_string(), Style::default().fg(DIM)));
+                }
+                match part.split_once(' ').filter(|(k, _)| ["Cd", "Cp", "Cu", "o"].contains(k)) {
+                    Some((k, what)) => {
+                        spans.push(Span::styled(format!("{k} "), Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)));
+                        spans.push(Span::styled(what.to_string(), Style::default().fg(MUTED)));
+                    }
+                    None => spans.push(Span::styled(part.to_string(), Style::default().fg(MUTED))),
+                }
+            }
+            return Line::from(spans);
+        }
+    }
     // the metrics line: "familiarity 50% · weight 1.20 · 3 link(s), 2 top(s)"
     if trimmed.starts_with("familiarity") {
         let spans: Vec<Span> = trimmed
@@ -2721,6 +2789,31 @@ mod overlay_tests {
         assert!(text.contains("4 similar, 2 links │"), "{text}");
         assert_eq!(overlay_scroll_max(30, 12), 22);
         assert_eq!(overlay_scroll_max(3, 12), 0);
+    }
+
+    /// The lines of a catalog overlay wear their colours: a new card in
+    /// green, an edited one in yellow, a heading bright, a key blue.
+    #[test]
+    fn a_catalog_line_is_coloured_by_its_shape() {
+        let colour = |text: &str| -> Vec<(String, Color)> {
+            info_line(text).spans.iter().map(|s| (s.content.to_string(), s.style.fg.unwrap_or(Color::Reset))).collect()
+        };
+        let new = colour("  + Codeine                  generated  slowcore");
+        assert_eq!(new[1], ("+ ".to_string(), PLAYING));
+        assert_eq!(new[2], ("Codeine".to_string(), Color::White));
+        let edited = colour("  ~ The Cure                 +3 −1  tops");
+        assert_eq!(edited[1], ("~ ".to_string(), EDIT));
+        let heading = colour("  ## Edited cards (3) — please read");
+        assert_eq!(heading[1].1, Color::White);
+        let key = colour("title  Propose 49 cards");
+        assert_eq!(key[1], ("title".to_string(), CATALOG));
+        let ask = colour("↻ open the pull request?");
+        assert_eq!(ask[1].1, EDIT);
+        let hint = colour("  Cd the detail · Cp propose");
+        assert_eq!(hint[1], ("Cd ".to_string(), BRANCH));
+        assert!(hint.iter().any(|(s, c)| s == "Cp " && *c == BRANCH), "{hint:?}");
+        let plain = colour("nothing special here");
+        assert_eq!(plain[0].1, MUTED);
     }
 }
 

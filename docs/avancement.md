@@ -309,6 +309,35 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le premier `Cp` en vrai : `gh` introuvable hors de mise, et les couleurs (20/09/2026)
+
+Joel a lancé son premier `Cp` : la branche `proposal` est partie
+(« Propose 49 cards (46 generated, 3 edited) »), mais « il manque la
+demande de confirmation », et « les couleurs comme sur la maquette ».
+
+- **`gh` n'était pas trouvé.** Il n'existe sur ce poste que par les shims
+  de mise ; lancé depuis la barre d'Omarchy, forkstify n'a pas le `PATH`
+  d'un shell mise, `gh auth status` échoue, et `Cp` prend la voie du
+  navigateur — sans confirmation, c'est le clic qui en tient lieu.
+  `fork::gh_command` cherche désormais `gh` sur le `PATH`, puis dans
+  `~/.local/share/mise/shims`, `~/.local/bin`, `/usr/local/bin`,
+  `/usr/bin` ; le setup s'en sert aussi. Et le toast du chemin navigateur
+  dit désormais pourquoi (« gh not found or not logged in »).
+- **La confirmation, comme l'écran 4** : les étapes faites en tête
+  (fetch, worktree, commit, push), `from` → `to`, le titre, **tout le
+  corps** (l'overlay déroule), la commande `gh pr create`, la question
+  avec le compte `gh`, et ce que l'action vérifiera.
+- **Les couleurs** (`tui::info_line`) : un titre `##` en clair, une fiche
+  nouvelle `+` en vert, une retouchée `~` en jaune, un slug de la PR en
+  bleu, une clé (`from`, `title`, `origin`…) en bleu et sa valeur en
+  clair, le trailer estompé, une ligne à glyphe (`✓ ⏹ ⊘ ↻ → ⇅`) à la
+  couleur du toast, les touches d'une ligne d'aide (`Cd`, `Cp`, `Cu`,
+  `o`) en magenta. Valables pour `Cd`, `:catalog`, `Cu` aussi. Test
+  `a_catalog_line_is_coloured_by_its_shape`.
+
+La branche `proposal` poussée est toujours là : le prochain `Cp` la
+réécrit et, `gh` trouvé, demande `y`.
+
 ## Les overlays déroulent (20/09/2026)
 
 Premier retour sur `Cd`, Joel : « si mon `Cd` est grand, je ne peux pas

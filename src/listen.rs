@@ -1140,21 +1140,26 @@ impl Live<'_> {
                             return;
                         }
                         if !proposal.through_gh {
-                            self.tell(format!("→ the comparison page opened in the browser — {} cards, {} → {}: read, then click", proposal.count, proposal.head, proposal.upstream));
+                            self.tell(format!("→ gh not found or not logged in: the comparison page opened in the browser — {} cards, {} → {}: read, then click", proposal.count, proposal.head, proposal.upstream));
                             return;
                         }
                         let mut lines = vec![
+                            "✓ fetch upstream · worktree proposal, from upstream/main".to_string(),
+                            format!("✓ commit {} · push --force", proposal.title),
+                            "  the learned goes on committing on main meanwhile".to_string(),
+                            String::new(),
                             format!("from   {}  →  {}:main", proposal.head, proposal.upstream),
                             format!("title  {}", proposal.title),
                             String::new(),
                         ];
-                        lines.extend(proposal.body.lines().take(14).map(|l| format!("  {l}")));
-                        if proposal.body.lines().count() > 14 {
-                            lines.push("  …".to_string());
-                        }
+                        lines.extend(proposal.body.lines().map(|l| format!("  {l}")));
                         lines.push(String::new());
                         lines.push(format!("gh pr create --head {}", proposal.head));
-                        lines.push("↻ open the pull request?  y — any other key sends nothing, the pushed branch stays".to_string());
+                        lines.push(format!(
+                            "↻ open the pull request?  y — any other key sends nothing, the pushed branch stays  (gh logged in{})",
+                            proposal.account.as_ref().map(|a| format!(" — {a}")).unwrap_or_default()
+                        ));
+                        lines.push("  the reference's action checks the toml, the unique mbids, the slugs and the link targets".to_string());
                         self.overlay = Some(("C propose — the pull request, as it will leave".into(), lines));
                         self.pending_proposal = Some(proposal);
                     }

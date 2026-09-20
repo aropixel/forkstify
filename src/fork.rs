@@ -36,8 +36,33 @@ fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     }
 }
 
+/// Where `gh` is: on the PATH, or where a version manager keeps it —
+/// launched from the desktop's bar, forkstify does not have a shell's
+/// PATH, and the first `Cp` went to the browser for that (Joel,
+/// 20/09/2026).
+pub fn gh_command() -> std::process::Command {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let candidates = [
+        format!("{home}/.local/share/mise/shims/gh"),
+        format!("{home}/.local/bin/gh"),
+        "/usr/local/bin/gh".to_string(),
+        "/usr/bin/gh".to_string(),
+    ];
+    let on_path = std::env::var("PATH")
+        .unwrap_or_default()
+        .split(':')
+        .any(|dir| Path::new(dir).join("gh").is_file());
+    if on_path {
+        return std::process::Command::new("gh");
+    }
+    match candidates.iter().find(|c| Path::new(c).is_file()) {
+        Some(found) => std::process::Command::new(found),
+        None => std::process::Command::new("gh"),
+    }
+}
+
 fn gh(args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("gh").args(args).output().map_err(|e| format!("gh not found ({e})"))?;
+    let out = gh_command().args(args).output().map_err(|e| format!("gh not found ({e})"))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     } else {
@@ -48,7 +73,7 @@ fn gh(args: &[&str]) -> Result<String, String> {
 /// Is `gh` there and logged in? The proposal goes through it when so, the
 /// browser otherwise (Joel, 19/09/2026).
 pub fn gh_ready() -> bool {
-    std::process::Command::new("gh").args(["auth", "status"]).output().is_ok_and(|out| out.status.success())
+    gh_command().args(["auth", "status"]).output().is_ok_and(|out| out.status.success())
 }
 
 /// `owner/repo` out of a remote url.
@@ -436,6 +461,8 @@ pub struct Proposal {
     pub existing: Option<String>,
     /// `gh` will create it on `y`; otherwise the browser opened already.
     pub through_gh: bool,
+    /// The gh account, when `gh` is there — said on the confirmation.
+    pub account: Option<String>,
 }
 
 fn worktree_dir() -> PathBuf {
@@ -479,6 +506,7 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
     let head = format!("{owner}:{PROPOSAL_BRANCH}");
     let upstream = short_repo(&upstream_url);
     let through_gh = gh_ready();
+    let account = through_gh.then(|| gh(&["api", "user", "--jq", ".login"]).ok()).flatten();
     let existing = if through_gh {
         gh(&["pr", "list", "--repo", &upstream, "--head", &head, "--state", "open", "--json", "url", "--jq", ".[0].url"])
             .ok()
@@ -497,7 +525,7 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
         );
         let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
     }
-    Ok(Proposal { title, body, count: diff.new.len() + diff.edited.len(), head, upstream, existing, through_gh })
+    Ok(Proposal { title, body, count: diff.new.len() + diff.edited.len(), head, upstream, existing, through_gh, account })
 }
 
 /// `y` on the proposal: the pull request, through gh.

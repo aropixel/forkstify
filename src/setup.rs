@@ -102,7 +102,7 @@ fn git(dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
 }
 
 fn gh(args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("gh").args(args).output().map_err(|e| format!("gh not found ({e})"))?;
+    let out = crate::fork::gh_command().args(args).output().map_err(|e| format!("gh not found ({e})"))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     } else {
@@ -119,7 +119,7 @@ enum Gh {
 }
 
 fn gh_state() -> Gh {
-    match std::process::Command::new("gh").args(["auth", "status"]).output() {
+    match crate::fork::gh_command().args(["auth", "status"]).output() {
         Ok(out) if out.status.success() => Gh::Ready,
         Ok(_) => Gh::NotLoggedIn,
         Err(_) => Gh::Absent,
