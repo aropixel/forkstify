@@ -122,6 +122,21 @@ impl Learned {
         let mut seed = HashMap::new();
         let mut seed_names: HashMap<String, String> = HashMap::new();
         let mut seed_liked = HashSet::new();
+        // the library the setup harvested (`library.toml`) comes first;
+        // the seed file of the Python scripts stays read as long as it is
+        // there and no library replaced it (chantier A, 20/09/2026)
+        let library = crate::library::Library::load(catalog_dir);
+        if let Some(library) = &library {
+            for artist in &library.artists {
+                let key = crate::generate::slugify(&artist.name);
+                seed.insert(key.clone(), f64::from(artist.score));
+                seed_names.insert(key.clone(), artist.name.clone());
+                if artist.liked() {
+                    seed_liked.insert(key);
+                }
+            }
+        }
+        if library.is_none() {
         if let Ok(text) = std::fs::read_to_string(root.join("classement.json")) {
             if let Ok(rows) = serde_json::from_str::<Vec<serde_json::Value>>(&text) {
                 for row in rows {
@@ -146,6 +161,7 @@ impl Learned {
                     }
                 }
             }
+        }
         }
 
         let seed_max = seed.values().copied().fold(1.0, f64::max);

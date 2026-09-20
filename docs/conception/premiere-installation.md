@@ -177,9 +177,12 @@ est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
    cochées se mémorisent dans `learned/` (probable, pour que la re-récolte
    soit un seul geste). **Les étapes et les informations à recueillir
    sont proposées le 19/09/2026 dans [sortie.md](sortie.md)** (chantier A),
-   pour que la maquette parte d'une liste arrêtée.
-4. **L'import au premier lancement** : forkstify clone-t-il lui-même, ou
-   demande-t-il une URL ?
+   pour que la maquette parte d'une liste arrêtée. **Fait le
+   20/09/2026** d'après la maquette `Installation.dc.html` : `src/setup.rs`,
+   `src/library.rs`, `learned/library.toml`.
+4. ~~**L'import au premier lancement**~~ — tranché par la maquette du
+   20/09/2026 : les deux, et un troisième — l'URL de son fork collée,
+   le fork fait par `gh` s'il est là, ou la référence clonée en mode local.
 
 ## Mesurer l'usage à travers les forks
 

@@ -2459,3 +2459,262 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
     lines.extend(foot);
     frame.render_widget(Paragraph::new(lines), area);
 }
+
+// ---------------------------------------------------------------------
+// The setup screens (`Installation.dc.html`, chantier A of
+// `docs/conception/sortie.md`): one column, the flow, the prompt last —
+// the same skeleton as home, with a step counter and its gauge on the
+// right of the head.
+// ---------------------------------------------------------------------
+
+/// One line of a setup screen.
+pub enum SetupRow {
+    /// The step's title, bright.
+    Title(String),
+    Text(String),
+    Muted(String),
+    Dim(String),
+    Rule(String),
+    Blank,
+    /// A numbered choice: `n  label  — note`, the selected one lit.
+    Choice { n: usize, label: String, note: String, selected: bool },
+    /// A text field: `label  > value`, the active one with its cursor.
+    Field { label: String, value: String, active: bool },
+    /// A playlist to tick: `[✓] name  count  owner`.
+    Check { on: bool, name: String, count: String, owner: String, cursor: bool },
+    /// A progress bar: `label  ████░░  count  note`.
+    Bar { label: String, done: usize, total: usize, note: String },
+    /// A step of the list (screens 0 and 9): `n ✓ label — note   state`.
+    Step { n: usize, done: Option<bool>, label: String, note: String, state: String, cursor: bool },
+    /// A key and its value: `key   value`.
+    Kv { key: String, value: String },
+    /// Names, three per line.
+    Names(Vec<String>),
+    /// A notice, colored by its glyph like a toast.
+    Notice(String),
+}
+
+pub struct SetupView<'a> {
+    /// "step 1 / 7", or the screen's name.
+    pub step: String,
+    /// (done, of) cells of the gauge on the right; (0, 0) = none.
+    pub gauge: (usize, usize),
+    /// The second line of the head: the authorizations, or a subtitle.
+    pub status: Vec<(String, bool)>,
+    pub rows: &'a [SetupRow],
+    pub prompt: String,
+    /// What was just said, as a toast at the bottom right.
+    pub toast: Option<Toast>,
+}
+
+impl Tui {
+    pub fn draw_setup(&mut self, view: &SetupView) -> std::io::Result<()> {
+        self.terminal.draw(|frame| render_setup(frame, view))?;
+        Ok(())
+    }
+}
+
+fn cells(done: usize, total: usize, width: usize) -> String {
+    let filled = if total == 0 { 0 } else { (done * width + total / 2) / total }.min(width);
+    (0..width).map(|i| if i < filled { '█' } else { '░' }).collect()
+}
+
+pub fn setup_lines(rows: &[SetupRow], width: usize) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line> = Vec::new();
+    for row in rows {
+        match row {
+            SetupRow::Title(text) => lines.push(Line::from(Span::styled(
+                format!("  {text}"),
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            ))),
+            SetupRow::Text(text) => lines.push(Line::from(Span::raw(format!("  {text}")))),
+            SetupRow::Muted(text) => lines.push(Line::from(Span::styled(format!("  {text}"), Style::default().fg(MUTED)))),
+            SetupRow::Dim(text) => lines.push(Line::from(Span::styled(format!("  {text}"), Style::default().fg(DIM)))),
+            SetupRow::Rule(text) => {
+                let dashes = width.saturating_sub(text.chars().count() + 6);
+                lines.push(Line::from(Span::styled(
+                    format!("  ── {text} {}", "─".repeat(dashes)),
+                    Style::default().fg(DIM),
+                )));
+            }
+            SetupRow::Blank => lines.push(Line::from("")),
+            SetupRow::Choice { n, label, note, selected } => {
+                let (num, text) = if *selected { (BRANCH, Color::White) } else { (DIM, MUTED) };
+                lines.push(Line::from(vec![
+                    Span::styled(if *selected { "  ▸ " } else { "    " }.to_string(), Style::default().fg(BRANCH)),
+                    Span::styled(format!("{n}  "), Style::default().fg(num).add_modifier(Modifier::BOLD)),
+                    Span::styled(label.clone(), Style::default().fg(text)),
+                    Span::styled(if note.is_empty() { String::new() } else { format!("  — {note}") }, Style::default().fg(DIM)),
+                ]));
+            }
+            SetupRow::Field { label, value, active } => {
+                lines.push(Line::from(vec![
+                    Span::styled(format!("    {label:<6}"), Style::default().fg(MUTED)),
+                    Span::styled("> ", Style::default().fg(if *active { BRANCH } else { DIM })),
+                    Span::styled(value.clone(), Style::default().fg(Color::White)),
+                    Span::styled(if *active { "▏" } else { "" }.to_string(), Style::default().fg(BRANCH)),
+                ]));
+            }
+            SetupRow::Check { on, name, count, owner, cursor } => {
+                let name_width = width.saturating_sub(30).max(12);
+                let shown: String = name.chars().take(name_width).collect();
+                lines.push(Line::from(vec![
+                    Span::styled(if *cursor { "  ▸ " } else { "    " }.to_string(), Style::default().fg(BRANCH)),
+                    Span::styled(if *on { "[✓] " } else { "[ ] " }.to_string(), Style::default().fg(if *on { PLAYING } else { DIM })),
+                    Span::styled(
+                        format!("{shown:<name_width$}"),
+                        Style::default().fg(if *cursor { Color::White } else if *on { MUTED } else { DIM }),
+                    ),
+                    Span::styled(format!("  {count:>6}"), Style::default().fg(DIM)),
+                    Span::styled(format!("  {owner}"), Style::default().fg(DIM)),
+                ]));
+            }
+            SetupRow::Bar { label, done, total, note } => {
+                let count = if *total > 0 { format!("{done} / {total}") } else { done.to_string() };
+                lines.push(Line::from(vec![
+                    Span::styled(format!("    {label:<16}"), Style::default().fg(MUTED)),
+                    Span::styled(cells(*done, (*total).max(*done), 14), Style::default().fg(CATALOG)),
+                    Span::styled(format!("  {count:>13}"), Style::default().fg(Color::White)),
+                    Span::styled(if note.is_empty() { String::new() } else { format!("  {note}") }, Style::default().fg(DIM)),
+                ]));
+            }
+            SetupRow::Step { n, done, label, note, state, cursor } => {
+                let (mark, mark_color) = match done {
+                    Some(true) => ("✓", PLAYING),
+                    Some(false) => ("○", MUTED),
+                    None => (" ", DIM),
+                };
+                let text_color = if *cursor { Color::White } else { MUTED };
+                let left: usize = 8 + label.chars().count() + if note.is_empty() { 0 } else { 3 + note.chars().count() };
+                let gap = width.saturating_sub(left + state.chars().count() + 4).max(2);
+                lines.push(Line::from(vec![
+                    Span::styled(if *cursor { "  ▸ " } else { "    " }.to_string(), Style::default().fg(BRANCH)),
+                    Span::styled(format!("{n} "), Style::default().fg(DIM)),
+                    Span::styled(format!("{mark} "), Style::default().fg(mark_color)),
+                    Span::styled(label.clone(), Style::default().fg(text_color)),
+                    Span::styled(if note.is_empty() { String::new() } else { format!(" — {note}") }, Style::default().fg(DIM)),
+                    Span::raw(" ".repeat(gap)),
+                    Span::styled(state.clone(), Style::default().fg(if state == "to do" { EDIT } else { DIM })),
+                ]));
+            }
+            SetupRow::Kv { key, value } => lines.push(Line::from(vec![
+                Span::styled(format!("    {key:<10}"), Style::default().fg(DIM)),
+                Span::styled(value.clone(), Style::default().fg(MUTED)),
+            ])),
+            SetupRow::Names(names) => {
+                for chunk in names.chunks(3) {
+                    let mut spans = vec![Span::raw("    ".to_string())];
+                    for name in chunk {
+                        spans.push(Span::styled(format!("{:<26}", name.chars().take(25).collect::<String>()), Style::default().fg(MUTED)));
+                    }
+                    lines.push(Line::from(spans));
+                }
+            }
+            SetupRow::Notice(text) => lines.push(Line::from(Span::styled(format!("  {text}"), Style::default().fg(tone_of(text))))),
+        }
+    }
+    lines
+}
+
+fn render_setup(frame: &mut ratatui::Frame, view: &SetupView) {
+    let area = frame.area();
+    let [head, body, prompt] =
+        Layout::vertical([Constraint::Length(2), Constraint::Min(3), Constraint::Length(1)]).areas(area);
+
+    // the head: the wordmark, the step and its gauge on the right
+    let right = if view.gauge.1 > 0 {
+        format!("{}  {}", view.step, cells(view.gauge.0, view.gauge.1, view.gauge.1))
+    } else {
+        view.step.clone()
+    };
+    let gap = (head.width as usize).saturating_sub("forkstify".len() + right.chars().count()).max(2);
+    let title = Line::from(vec![
+        Span::styled("forkstify", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::raw(" ".repeat(gap)),
+        Span::styled(right, Style::default().fg(BRANCH)),
+    ]);
+    let mut second: Vec<Span> = Vec::new();
+    for (i, (text, ok)) in view.status.iter().enumerate() {
+        if i > 0 {
+            second.push(Span::styled(" · ", Style::default().fg(DIM)));
+        }
+        second.push(Span::styled(text.clone(), Style::default().fg(if *ok { DIM } else { DANGER })));
+    }
+    frame.render_widget(Paragraph::new(vec![title, Line::from(second)]), head);
+
+    let lines = setup_lines(view.rows, body.width as usize);
+    frame.render_widget(Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false }), body);
+
+    frame.render_widget(
+        Paragraph::new(Line::from(Span::styled(view.prompt.clone(), Style::default().fg(MUTED)))),
+        prompt,
+    );
+    if let Some(toast) = &view.toast {
+        render_toast(frame, body, toast);
+    }
+}
+
+#[cfg(test)]
+mod setup_tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+
+    fn text_of(rows: &[SetupRow]) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(90, 24)).unwrap();
+        terminal
+            .draw(|frame| {
+                render_setup(
+                    frame,
+                    &SetupView {
+                        step: "step 5 / 7".into(),
+                        gauge: (5, 7),
+                        status: vec![("✓ librespot".into(), true), ("⏹ no api web".into(), false)],
+                        rows,
+                        prompt: "[space tick · j/k · ⏎ harvest]".into(),
+                        toast: None,
+                    },
+                )
+            })
+            .unwrap();
+        let buffer = terminal.backend().buffer().clone();
+        (0..buffer.area.height)
+            .map(|y| (0..buffer.area.width).map(|x| buffer[(x, y)].symbol().to_string()).collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// The setup screen has the skeleton of home — head, flow, prompt —
+    /// with the step and its gauge on the right, and every row kind reads.
+    #[test]
+    fn a_setup_screen_reads_from_top_to_bottom() {
+        let rows = vec![
+            SetupRow::Title("the playlists".into()),
+            SetupRow::Check { on: true, name: "#fipway".into(), count: "412 tracks".into(), owner: "you".into(), cursor: true },
+            SetupRow::Check { on: false, name: "pour dormir".into(), count: "140".into(), owner: "you".into(), cursor: false },
+            SetupRow::Bar { label: "liked tracks".into(), done: 4812, total: 4812, note: "the main artist only".into() },
+            SetupRow::Step { n: 7, done: Some(false), label: "the coverage".into(), note: "9 artists".into(), state: "to do".into(), cursor: false },
+            SetupRow::Choice { n: 2, label: "fork it for me".into(), note: "gh detected".into(), selected: true },
+            SetupRow::Field { label: "name".into(), value: "Joel".into(), active: true },
+        ];
+        let text = text_of(&rows);
+        assert!(text.contains("step 5 / 7  █████░░"), "{text}");
+        assert!(text.contains("✓ librespot · ⏹ no api web"), "{text}");
+        assert!(text.contains("the playlists"), "{text}");
+        assert!(text.contains("▸ [✓] #fipway"), "{text}");
+        assert!(text.contains("[ ] pour dormir"), "{text}");
+        assert!(text.contains("liked tracks    ██████████████    4812 / 4812  the main artist only"), "{text}");
+        assert!(text.contains("7 ○ the coverage — 9 artists"), "{text}");
+        assert!(text.contains("to do"), "{text}");
+        assert!(text.contains("▸ 2  fork it for me  — gh detected"), "{text}");
+        assert!(text.contains("name  > Joel▏"), "{text}");
+        assert!(text.contains("[space tick · j/k · ⏎ harvest]"), "{text}");
+    }
+
+    #[test]
+    fn the_cells_round_to_the_nearest() {
+        assert_eq!(cells(0, 7, 7), "░░░░░░░");
+        assert_eq!(cells(1, 7, 7), "█░░░░░░");
+        assert_eq!(cells(7, 7, 7), "███████");
+        assert_eq!(cells(3, 0, 4), "░░░░");
+    }
+}

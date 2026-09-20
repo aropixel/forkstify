@@ -13,12 +13,17 @@ use std::time::Instant;
 
 const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b"; // ncspot, extended quota
 const REDIRECT_URI: &str = "http://127.0.0.1:8989/login";
-const SCOPES: [&str; 5] = [
+/// Seven scopes since the setup (chantier A, 20/09/2026): the five of
+/// playing, plus the followed artists and the private playlists the
+/// library harvest reads. A token granted with fewer is asked again.
+const SCOPES: [&str; 7] = [
     "user-read-private",
     "user-library-read",
     "user-read-playback-state",
     "user-modify-playback-state",
     "streaming",
+    "user-follow-read",
+    "playlist-read-private",
 ];
 /// The refresh token and the title → uri cache, under the state dir (0021);
 /// taken over from `target/` the first time.
@@ -27,6 +32,29 @@ fn refresh_cache() -> std::path::PathBuf {
 }
 fn resolve_cache() -> std::path::PathBuf {
     crate::config::state_file("resolve-cache.json", "target/resolve-cache.json")
+}
+/// The scopes the stored refresh token was granted with. A refresh token
+/// keeps its scopes for life: when the list grows (the setup's harvest),
+/// the browser has to be asked once more — and the product says so
+/// instead of failing on the first call (`docs/conception/sortie.md`).
+fn scopes_cache() -> std::path::PathBuf {
+    crate::config::state_dir().join("web-scopes")
+}
+
+/// Is the stored token short of the scopes the product needs now?
+pub fn needs_reauthorization() -> bool {
+    has_refresh() && std::fs::read_to_string(scopes_cache()).map_or(true, |t| t.trim() != SCOPES.join(" "))
+}
+
+fn remember_scopes() {
+    let _ = std::fs::write(scopes_cache(), SCOPES.join(" "));
+}
+
+/// Forget the authorization, so the next `WebApi::new` goes through the
+/// browser — what the setup does when the scopes grew.
+pub fn forget_authorization() {
+    let _ = std::fs::remove_file(refresh_cache());
+    let _ = std::fs::remove_file(scopes_cache());
 }
 
 /// Outcome of a title lookup. `Absent` is an answer from Spotify (worth
@@ -85,7 +113,10 @@ impl WebApi {
         let cached = std::fs::read_to_string(refresh_cache())
             .ok()
             .map(|text| text.trim().to_string())
-            .filter(|text| !text.is_empty());
+            .filter(|text| !text.is_empty())
+            // a token granted with fewer scopes than we need now: through
+            // the browser again, once
+            .filter(|_| !needs_reauthorization());
 
         // a refresh token that no longer works is not a fatal error: it
         // just means the authorization has to be asked for again
@@ -115,7 +146,21 @@ impl WebApi {
             prefer_studio,
         };
         api.keep_refresh(token.refresh_token);
+        remember_scopes();
         Ok(api)
+    }
+
+    /// A GET of the Web API as JSON, the token refreshed if needed —
+    /// what the library harvest paginates with (`library.rs`).
+    pub async fn get_json(&mut self, url: &str) -> Result<serde_json::Value, String> {
+        self.refresh_if_needed().await.map_err(|e| format!("authorization: {e}"))?;
+        self.get_with_backoff(url).await.ok_or_else(|| format!("no answer from {}", url.split('?').next().unwrap_or(url)))
+    }
+
+    /// Who is logged in: the user id, to tell one's own playlists apart.
+    pub async fn me(&mut self) -> Result<String, String> {
+        let me = self.get_json("https://api.spotify.com/v1/me").await?;
+        me["id"].as_str().map(str::to_string).ok_or_else(|| "no user id".to_string())
     }
 
     async fn refresh_if_needed(&mut self) -> Result<(), Box<dyn std::error::Error>> {

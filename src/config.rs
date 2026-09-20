@@ -333,6 +333,57 @@ impl Config {
     }
 }
 
+/// Where the catalog is cloned by the setup: `$XDG_DATA_HOME/forkstify/catalog`,
+/// else `~/.local/share/forkstify/catalog` — the path leaves `~/Work`,
+/// which was Joel's (chantier A, `docs/conception/sortie.md`).
+pub fn default_catalog_dir() -> PathBuf {
+    let base = std::env::var("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".local/share"));
+    base.join("forkstify").join("catalog")
+}
+
+/// Write `[catalog] path` into the configuration file, textually: the
+/// file is the user's, its comments stay. A `path =` line of the section,
+/// commented or not, is replaced; otherwise one is added under the header.
+pub fn set_catalog_path(dir: &std::path::Path) -> Result<(), String> {
+    let file = path();
+    let _ = Config::load();
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    let line = format!("path = \"{}\"", dir.display());
+    let mut out: Vec<String> = Vec::new();
+    let mut in_section = false;
+    let mut written = false;
+    for row in text.lines() {
+        let trimmed = row.trim();
+        if trimmed.starts_with('[') {
+            if in_section && !written {
+                out.push(line.clone());
+                written = true;
+            }
+            in_section = trimmed == "[catalog]" || trimmed == "[catalogue]";
+        } else if in_section && !written && trimmed.trim_start_matches('#').trim_start().starts_with("path") {
+            out.push(line.clone());
+            written = true;
+            continue;
+        }
+        out.push(row.to_string());
+    }
+    if !written {
+        if !in_section {
+            out.push(String::new());
+            out.push("[catalog]".to_string());
+        }
+        out.push(line);
+    }
+    let mut joined = out.join("\n");
+    joined.push('\n');
+    if let Some(parent) = file.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&file, joined).map_err(|e| format!("config not written ({e})"))
+}
+
 /// Where tokens and caches live: `$XDG_STATE_HOME/forkstify`, else
 /// `~/.local/state/forkstify`. They used to sit in `target/`, relative to
 /// the directory the binary was launched from — which a launch from the

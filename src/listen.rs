@@ -46,7 +46,7 @@ pub fn run(
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
     status: Vec<(String, bool)>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<crate::setup::Replay>> {
     // current-thread runtime + LocalSet: the MPRIS Player is !Send (RefCell
     // callbacks) and must be driven with spawn_local. librespot's own tasks
     // run fine here (as in spike-play).
@@ -70,7 +70,7 @@ async fn async_run(
     tui: &mut Tui,
     catalog_dir: &std::path::Path,
     status: Vec<(String, bool)>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Option<crate::setup::Replay>, Box<dyn std::error::Error>> {
     // the alternate screen belongs to the TUI: the steps are drawn on it,
     // not printed
     tui.clear();
@@ -158,6 +158,7 @@ async fn async_run(
         screen: Screen::Home,
         home: Home::default(),
         status,
+        leave: None,
         toast: std::cell::RefCell::new(None),
         pending_seed: None,
         mpris,
@@ -256,7 +257,7 @@ async fn async_run(
     };
     let _ = live.tui.splash(&[report]);
     std::thread::sleep(std::time::Duration::from_millis(900));
-    Ok(())
+    Ok(live.leave)
 }
 
 /// Past this point of the track, "previous" restarts it instead of going
@@ -389,6 +390,9 @@ struct Live<'a> {
     /// A generated artist offered as a new seed but not yet started: enter
     /// accepts, any other key declines (Joel, 11/09/2026).
     pending_seed: Option<(String, String, std::time::Instant)>,
+    /// `:setup` / `:library`: the session closes and the setup opens on
+    /// the catalog, then home comes back (chantier A, 20/09/2026).
+    leave: Option<crate::setup::Replay>,
 }
 
 /// How long a toast stays — then it fades by itself on the tick.
@@ -1937,6 +1941,9 @@ impl Live<'_> {
             }
             Cmd::Colon(text) => {
                 self.colon(&text);
+                if self.leave.is_some() {
+                    return false;
+                }
                 if let Some(query) = self.search_requested.take() {
                     self.open_finder(None, &query);
                 }
@@ -1964,6 +1971,8 @@ impl Live<'_> {
                     }
                 }
             }
+            // `o` belongs to the setup's table, never to this one
+            Cmd::Open => {}
         }
         // `ad` and `:discography` ask for the tail before opening: the
         // keyboard is not async, the loop is
@@ -3373,6 +3382,10 @@ impl Live<'_> {
             (Some("generate"), None) => {
                 say!(self, "usage: :generate <artist name> [mbid]")
             }
+            // the setup, replayed: the session closes on it and home comes
+            // back after (chantier A, `docs/conception/sortie.md`)
+            (Some("setup"), _) => self.leave = Some(crate::setup::Replay::All),
+            (Some("library"), _) => self.leave = Some(crate::setup::Replay::Library),
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
@@ -3581,6 +3594,8 @@ impl Live<'_> {
                 (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough", true),
                 (":mine", "what this catalog has beyond upstream", true),
                 (":sync", "commit and push the learned now", true),
+                (":setup", "replay a step of the setup — catalog, identity, connection, library…", true),
+                (":library", "harvest the library again — steps 4, 5 and 7 of the setup", true),
                 ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", true),
                 ("q", "quit", true),
             ],

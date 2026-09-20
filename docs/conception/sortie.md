@@ -49,6 +49,27 @@ pour le modèle base / mien / appris et l'amorce,
 
 ## Chantier A — le setup après l'installation
 
+**Fait le 20/09/2026**, d'après la maquette `Installation.dc.html` (Claude
+Design, projet « Accueil Forkstify », neuf écrans) : `src/setup.rs` (les
+écrans et le fil), `src/library.rs` (la récolte, `learned/library.toml`,
+le classement, la couverture), `keys::parse_setup` (la table : chiffres,
+`j`/`k`, `o`, espace coche, `⏎`, échap), `tui::render_setup` (une colonne,
+le pas et sa jauge à droite, l'invite en dernière ligne). **La maquette a
+tranché les points ouverts** : le mode local reste (« il évite un mur le
+premier soir »), un seul `library.toml`, seuil ≥ 5 et 30 fiches au plus,
+les deux scopes acceptés avec la ré-autorisation qu'ils entraînent. Ce
+qui s'écarte de la maquette, faute de mieux : à l'étape 7 la génération
+**se regarde** (échap l'arrête après la fiche en cours, ce qui est écrit
+est commité) au lieu de continuer derrière l'accueil ; l'étape 4 se
+regarde aussi (échap annule). Et `:setup` / `:library` **ferment la
+session** — le son s'arrête — puis l'accueil revient sur le catalogue
+rejoué. Le premier lancement, c'est `forkstify` sans catalogue lisible.
+Les scripts de `tools/` ne sont pas encore retirés du catalogue : après
+que Joel a rejoué `:library` sur son fork. **Non éprouvé en session
+réelle** : la récolte et la génération demandent le réseau et les jetons ;
+le fil (clone, identité, confort, récapitulatif) a tourné dans un test de
+fumée sur des dossiers XDG temporaires.
+
 ### Demandé
 
 Un setup **au premier lancement et rejouable** (Joel, 09/09/2026,
@@ -157,17 +178,19 @@ du catalogue de référence.
 
 ### À trancher
 
-1. **Le fork obligatoire ou non** : le mode local (c) vaut-il d'être
-   fait, ou dit-on « forkez d'abord » ? Proposition : le faire — c'est
-   quelques lignes, et il évite un mur le premier soir.
-2. **Le format de `learned/library.toml`** — un fichier, ou un par source
-   comme aujourd'hui ? Proposition : un seul, c'est ce que le classement
-   lit.
-3. **Plafond et seuil de l'étape 7**, et si elle est proposée aussi
-   à chaque `:library`.
-4. **Les deux scopes de plus** : acceptés, avec la ré-autorisation
-   qu'ils entraînent ?
-5. La maquette Claude Design de Joel, sur cette liste d'étapes.
+Tranché en bloc par la maquette du 20/09/2026 :
+
+1. ~~**Le fork obligatoire ou non**~~ — le mode local est fait.
+2. ~~**Le format de `learned/library.toml`**~~ — un seul fichier.
+3. ~~**Plafond et seuil de l'étape 7**~~ — score ≥ 5, 30 au plus,
+   reproposée à chaque `:library` (l'écran 9 la marque « to do »).
+4. ~~**Les deux scopes de plus**~~ — acceptés ; l'écran 3 dit que ce
+   n'est pas une panne.
+5. ~~La maquette~~ — `Installation.dc.html`.
+
+Reste, à l'usage : retirer les scripts de `tools/` du catalogue une fois
+`:library` rejoué sur le fork de Joel ; et si la génération de l'étape 7
+doit un jour continuer derrière l'accueil comme la maquette le montre.
 
 ---
 

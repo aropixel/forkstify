@@ -71,7 +71,21 @@ pub fn commit_learned(dir: &Path) -> Result<Option<String>, String> {
 }
 
 pub fn push(dir: &Path) -> Result<(), String> {
+    if is_local(dir) {
+        return Ok(());
+    }
     git(dir, &["push", "-q"]).map(|_| ())
+}
+
+/// A clone of the reference without a fork of one's own (the setup's
+/// "nothing — local mode"): everything works, the learned is committed
+/// but never pushed. Marked in the clone's config, never versioned.
+pub fn is_local(dir: &Path) -> bool {
+    git(dir, &["config", "--get", "forkstify.local"]).is_ok_and(|v| v.trim() == "true")
+}
+
+pub fn set_local(dir: &Path, local: bool) {
+    let _ = git(dir, &["config", "forkstify.local", if local { "true" } else { "false" }]);
 }
 
 /// Commit what we learned here, then bring in what the other machines
@@ -79,6 +93,9 @@ pub fn push(dir: &Path) -> Result<(), String> {
 /// the counters. Returns a short word for the screen.
 pub fn pull(dir: &Path) -> Result<String, String> {
     let committed = commit_learned(dir)?.is_some();
+    if is_local(dir) {
+        return Ok(if committed { "learned committed, local".to_string() } else { "local".to_string() });
+    }
     let before = git(dir, &["rev-parse", "HEAD"])?;
     git(dir, &["pull", "--rebase", "--quiet"])?;
     let after = git(dir, &["rev-parse", "HEAD"])?;
@@ -94,9 +111,12 @@ pub fn pull(dir: &Path) -> Result<String, String> {
 pub fn sync(dir: &Path) -> Result<String, String> {
     let committed = commit_learned(dir)?;
     push(dir)?;
-    Ok(match committed {
-        Some(subject) => format!("learned pushed — {subject}"),
-        None => "nothing new, all pushed".to_string(),
+    let local = is_local(dir);
+    Ok(match (committed, local) {
+        (Some(subject), false) => format!("learned pushed — {subject}"),
+        (Some(subject), true) => format!("learned committed, local — {subject}"),
+        (None, false) => "nothing new, all pushed".to_string(),
+        (None, true) => "nothing new, local".to_string(),
     })
 }
 

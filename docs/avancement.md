@@ -309,6 +309,64 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Le setup après l'installation, d'après la maquette (20/09/2026)
+
+Le chantier A de [`conception/sortie.md`](conception/sortie.md), codé le
+jour même d'après `Installation.dc.html` (Claude Design, projet « Accueil
+Forkstify » — neuf écrans, importés par l'agent). La maquette a tranché
+les quatre points ouverts : mode local gardé, un seul `library.toml`,
+seuil ≥ 5 et 30 fiches au plus, les deux scopes acceptés.
+
+- **Le premier lancement** : `forkstify` sans catalogue lisible ouvre le
+  setup au lieu d'échouer (`main::accueil`). L'écran 0 liste les sept
+  étapes, `⏎` commence.
+- **`src/setup.rs`** — les sept étapes et les deux écrans de sortie.
+  1 le catalogue : l'URL d'un fork collée, `gh repo fork` + `gh repo
+  clone` si `gh` est là et connecté, ou la référence clonée en **mode
+  local** (`git config forkstify.local`, la synchro commite sans
+  pousser, l'accueil dit `⇅ local`) ; le clone va dans
+  `~/.local/share/forkstify/catalog` (XDG), `upstream` ajouté,
+  `[catalog] path` écrit dans `config.toml` (`config::set_catalog_path`,
+  textuel, les commentaires restent). 2 l'identité git, seulement si la
+  config globale n'en a pas, écrite `--local`. 3 la connexion : le
+  téléphone (zeroconf en fond, échap saute) et le navigateur (`o`) ; **sept
+  scopes** désormais (`user-follow-read`, `playlist-read-private`), et un
+  jeton accordé avec les cinq d'avant **repasse une fois par le
+  navigateur** — `spotify::needs_reauthorization`, les scopes mémorisés
+  dans l'état, l'écran dit que ce n'est pas une panne. 4 la bibliothèque :
+  `/me/tracks`, `/me/albums`, `/me/following`, une barre par source,
+  l'artiste principal seul. 5 les playlists : les siennes d'abord, espace
+  coche, `/` filtre, `⏎` récolte les cochées, mémorisées. 6 le confort à
+  la jauge. 7 la couverture : le classement croisé au catalogue par
+  tranches (≥ 20, 10–19, 5–9), `o` génère les fiches manquantes de score
+  ≥ 5 (30 au plus) — une par une en fond, vecteurs à la fin, **un seul
+  commit** `library: N cards generated`. L'écran 8 récapitule en toasts,
+  l'écran 9 (`:setup`) liste les étapes cochées et rejoue l'une ;
+  `:library` rejoue 4, 5, 7.
+- **`src/library.rs`** — `learned/library.toml`, un fichier en anglais
+  (`name`, `spotify`, `liked_tracks`, `liked_albums`, `followed`,
+  `playlist_tracks`, `score`, `sources`, la date et les playlists
+  cochées), la formule de `classement.py` inchangée ; `learned.rs` le lit
+  d'abord, `classement.json` tant qu'il n'y a pas de `library.toml`.
+- **`keys::parse_setup`** (chiffres, `j`/`k`, `o`, espace, `⏎`, échap) et
+  **`tui::render_setup`** (le pas et sa jauge à droite de l'en-tête, les
+  lignes : choix, champ, case à cocher, barre, étape, clé/valeur, noms).
+  Un champ ouvert après un autre ne garde plus la ligne du précédent
+  (génération du mode texte — bug vu au test de fumée).
+- **Écarts assumés** : la génération (7) et la récolte (4) se regardent,
+  échap arrête ; `:setup` et `:library` ferment la session (le son
+  s'arrête) et l'accueil revient sur le catalogue rejoué. Les scripts de
+  `tools/` restent dans le catalogue jusqu'à ce que `:library` ait tourné
+  sur le fork de Joel.
+- 81 tests verts, aucun avertissement ; test de fumée du fil complet
+  (clone par URL, identité, confort, récapitulatif) sur des dossiers XDG
+  temporaires. **Non éprouvé en session réelle** : la récolte, les
+  playlists, la génération de couverture, `gh`.
+
+**Au prochain lancement de Joel** : le navigateur s'ouvre une fois pour
+les deux scopes de plus, puis `:library` depuis l'accueil récolte sa
+bibliothèque et remplace `classement.json`.
+
 ## `fg<n>` — générer un creux sans le prendre, et la branche d'un creux marche (20/09/2026)
 
 Le chantier C de [`conception/sortie.md`](conception/sortie.md), codé le
@@ -1949,10 +2007,9 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 8. ~~**`fw` — partir hors de l'univers**~~ (retour n° 6) — tranché et fait
    le 11/09/2026 : sortir du cluster, avec `fw <artiste>` pour viser un
    univers.
-13. **Le setup fluide** (Joel, 09/09/2026) : au premier lancement et
-    rejouable — connexion, import de la bibliothèque (artistes, albums,
-    titres), playlists à cocher, classement calculé par l'application, les
-    scripts Python retirés. **Attend la maquette Claude Design de Joel.**
+13. ~~**Le setup fluide**~~ (Joel, 09/09/2026) — fait le 20/09/2026
+    d'après la maquette `Installation.dc.html` (section ci-dessus) ; les
+    scripts Python se retirent après le premier `:library` en vrai.
 14. **La barre Omarchy** (Joel, 10/09/2026) : l'animation `▂▄▆` dans la
     barre, et au clic une popover titre / artiste / progression / prochain
     morceau. Deux étages proposés dans
@@ -1970,9 +2027,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
 11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
 15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) — cahier dans
-    [conception/sortie.md](conception/sortie.md). ~~C, `fg<n>`~~ fait le
-    20/09/2026 ; **B, le namespace `C`**, tranché en entier, à coder ;
-    **A, le setup**, attend la maquette et ses derniers arbitrages.
+    [conception/sortie.md](conception/sortie.md). ~~C, `fg<n>`~~ et
+    ~~A, le setup~~ faits le 20/09/2026 ; **B, le namespace `C`**,
+    tranché en entier, à coder. Puis retirer les scripts de `tools/` du
+    catalogue, et éprouver `:library` en vrai.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

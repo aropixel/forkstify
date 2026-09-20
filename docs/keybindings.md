@@ -222,11 +222,32 @@ direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
 | `:generate <nom> [mbid]` | **Faire entrer un artiste absent** du catalogue, puis partir de chez lui — ou, s'il était proposé **en creux**, prendre sa branche en fin de file. Un MBID en dernier mot remplace la recherche par le nom quand MusicBrainz ne trouve pas ; s'il ne répond pas du tout, la fiche naît minimale (nom, id, tops Deezer), marquée à relire ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)) : fiche composée depuis MusicBrainz et Deezer, **son vecteur calculé** ([0019](decisions/0019-vectorisation-par-l-application.md)), un seul commit, et le catalogue de la session l'a tout de suite. Marche à l'accueil comme en écoute. **Avec un mbid, par-dessus une lecture en cours, ne démarre plus tout seul** (Joel, 11/09/2026) : le toast de succès dure et propose — **⏎** part de l'artiste et remplace la liste, toute autre touche la garde. La modale de recherche fait la même chose sur un résultat hors catalogue, par simple `entrée` — et **`entrée` sur une ligne sans fiche de la collection** aussi (Joel, 10/09/2026, sur Kanye West) | ✅ |
 | `:mine` | Ce que ce catalogue a de plus que l'amont — la surcouche personnelle, calculée par `git diff` plutôt que stockée ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | ✅ |
 | `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | ✅ |
-| `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) | 📋 |
+| `:setup` | **Rejouer une étape du setup** — la liste des sept, cochées ou non, `⏎` ou `1-7` rejoue l'une ; la session se ferme et l'accueil revient sur le catalogue (20/09/2026, [conception/sortie.md](conception/sortie.md) chantier A) | ✅ |
+| `:library` | **Re-récolter la bibliothèque** — les étapes 4, 5 et 7 du setup à la suite : titres, albums, suivis, playlists cochées (mémorisées), fiches manquantes du haut du classement | ✅ |
+| `:fork` | Forker le catalogue ([0008](decisions/0008-le-fork-est-la-surcouche.md)) — remplacé par `:catalog fork <url>` du chantier B, à câbler | 📋 |
 
 Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
 écoute : `forkstify import <url>` reprend les fiches d'un autre catalogue —
 celles qu'on n'a pas, jamais celles qu'on a — puis régénère les vecteurs.
+
+## Les écrans du setup
+
+Une table à part (`keys::parse_setup`), sans préfixe, vertical comme la
+modale, les chiffres en plus — les choix d'une étape sont numérotés — et
+`o` pour ouvrir (le navigateur, la génération). D'après
+`Installation.dc.html` (20/09/2026).
+
+| Touche | Action | |
+|---|---|---|
+| `1`…`7`, `0` | Choisir — un choix de l'étape, un pas dans la liste de `:setup`, le confort à l'étape 6 | ✅ |
+| `j` / `k`, ↑ / ↓ | Monter, descendre — la liste des playlists, celle des étapes | ✅ |
+| `h` / `l` | Le confort, d'un cran | ✅ |
+| espace | **Cocher** une playlist | ✅ |
+| `/texte` | Filtrer les playlists ; échap efface | ✅ |
+| `o` | **Ouvrir** : la page d'autorisation (étape 3), la génération (étape 7) | ✅ |
+| ⏎ | Valider l'étape, le champ, la fournée | ✅ |
+| échap | **Sauter** l'étape (ou annuler une récolte, arrêter une génération après la fiche en cours) | ✅ |
+| `q` | Quitter | ✅ |
 
 ## La modale de la discographie (`ad`)
 

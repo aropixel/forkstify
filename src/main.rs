@@ -19,8 +19,10 @@ mod import;
 mod keys;
 mod discography;
 mod learned;
+mod library;
 mod listen;
 mod mediakeys;
+mod setup;
 mod sound;
 mod sync;
 mod tui;
@@ -45,7 +47,19 @@ fn catalog_path(arg: Option<&String>) -> PathBuf {
     if !configured.trim().is_empty() {
         return PathBuf::from(configured.trim());
     }
-    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Work/forkstify-catalog")
+    // nothing configured: the xdg place the setup clones into — or the
+    // clone of before the setup existed (`~/Work/forkstify-catalog`),
+    // written into the config once so it stays the one
+    let default = config::default_catalog_dir();
+    if default.join(".git").exists() {
+        return default;
+    }
+    let legacy = PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Work/forkstify-catalog");
+    if legacy.join("cards").exists() {
+        let _ = config::set_catalog_path(&legacy);
+        return legacy;
+    }
+    default
 }
 
 /// The seed: an exact slug, otherwise a search through card names.
@@ -246,15 +260,27 @@ fn check(catalog: &Catalog, slug: &str) {
 /// renders **before** any connection — catalog and learned are local — and
 /// the network only comes in when playing.
 fn accueil(path: Option<&String>) -> anyhow::Result<()> {
-    let dir = catalog_path(path);
+    let mut dir = catalog_path(path);
+    let _raw = keys::RawMode::enable();
+    let mut tui = tui::Tui::enter()?;
+    let mut rx = home::reader();
+    // the first launch is simply forkstify without a readable catalog:
+    // the setup opens instead of failing (chantier A, 20/09/2026); and
+    // `:setup` / `:library` bring it back from the session
+    let mut replay: Option<setup::Replay> = None;
+    loop {
+    if replay.is_some() || Catalog::load(&dir).is_err() {
+        let known = Catalog::load(&dir).is_ok().then(|| dir.clone());
+        match setup::run(&mut rx, &mut tui, replay.take(), known)? {
+            setup::Outcome::Ready(ready) => dir = ready,
+            setup::Outcome::Quit => break,
+        }
+    }
     // 0017: what the other machine learned arrives before we read anything
     // — and what was learned here leaves first
     sync::ensure_merge_driver(&dir);
     let synced = sync::pull(&dir);
     let catalog = Catalog::load(&dir)?;
-    let _raw = keys::RawMode::enable();
-    let mut tui = tui::Tui::enter()?;
-    let mut rx = home::reader();
     let comfort = engine::Comfort::new(config::comfort_at_start());
 
     loop {
@@ -320,8 +346,12 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                 synced.is_ok(),
             ),
         ];
-        listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
+        replay = listen::run(None, learned, tail, comfort, &mut rx, &mut tui, &dir, status)?;
         break;
+    }
+    if replay.is_none() {
+        break;
+    }
     }
     // the alternate screen is handed back; nothing is printed on the way out
     drop(tui);
@@ -403,7 +433,7 @@ fn main() -> anyhow::Result<()> {
             let _raw = keys::RawMode::enable();
             let mut rx = home::reader();
             let mut tui = tui::Tui::enter()?;
-            listen::run(
+            let _ = listen::run(
                 Some(home::Choice::Artist(slug)),
                 learned,
                 discography::Tail::load(),

@@ -12,7 +12,7 @@
 //!
 //! `/` and `:` leave raw mode for a line, which is where a query belongs.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -101,6 +101,8 @@ pub enum Cmd {
     Filter,
     /// `A` — promote the whole album, at the grain of the problem.
     AlbumTop,
+    /// `o` — open: the setup's "open the browser", "generate" (setup only).
+    Open,
 }
 
 /// A modal takes the keyboard and gives it **its** table — `keybindings.md`
@@ -119,6 +121,10 @@ static TEXT: AtomicBool = AtomicBool::new(false);
 /// modal already filled, and the next keystroke must **continue** that
 /// word, not erase it (Joel, 09/09/2026).
 static TEXT_LINE: Mutex<String> = Mutex::new(String::new());
+/// Bumped on every opening: two fields opened back to back (the setup's
+/// name then mail) must not share a line — the reader reloads it when the
+/// generation moved, not only when the mode flipped (seen 20/09/2026).
+static TEXT_GENERATION: AtomicUsize = AtomicUsize::new(0);
 
 pub fn set_text(on: bool, start: &str) {
     if let Ok(mut line) = TEXT_LINE.lock() {
@@ -126,6 +132,11 @@ pub fn set_text(on: bool, start: &str) {
         line.push_str(start);
     }
     TEXT.store(on, Ordering::Relaxed);
+    TEXT_GENERATION.fetch_add(1, Ordering::Relaxed);
+}
+
+fn text_generation() -> usize {
+    TEXT_GENERATION.load(Ordering::Relaxed)
 }
 
 fn text() -> bool {
@@ -134,6 +145,18 @@ fn text() -> bool {
 
 pub fn set_modal(on: bool) {
     MODAL.store(on, Ordering::Relaxed);
+}
+
+/// The setup screens (chantier A of `docs/conception/sortie.md`) have
+/// their own table too: digits pick, `j`/`k` move, `o` opens or launches.
+static SETUP: AtomicBool = AtomicBool::new(false);
+
+pub fn set_setup(on: bool) {
+    SETUP.store(on, Ordering::Relaxed);
+}
+
+fn setup() -> bool {
+    SETUP.load(Ordering::Relaxed)
 }
 
 fn modal() -> bool {
@@ -234,6 +257,28 @@ pub fn parse(buf: &str) -> Parse {
         ['q'] => Parse::Done(Cmd::Quit),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 
+        _ => Parse::Unknown,
+    }
+}
+
+/// The table of the setup screens (`Installation.dc.html`): prefix-free,
+/// vertical like the modal, with the digits back — a step's choices are
+/// numbered — and `o` to open (the browser, the generation).
+pub fn parse_setup(buf: &str) -> Parse {
+    let c: Vec<char> = buf.chars().collect();
+    match c.as_slice() {
+        [] => Parse::Pending,
+        [d] if d.is_ascii_digit() => Parse::Done(Cmd::Digit(d.to_digit(10).unwrap() as usize)),
+        ['j'] => Parse::Done(Cmd::Down),
+        ['k'] => Parse::Done(Cmd::Up),
+        ['h'] => Parse::Done(Cmd::Prev),
+        ['l'] => Parse::Done(Cmd::Next),
+        ['g'] => Parse::Pending,
+        ['g', 'g'] => Parse::Done(Cmd::Top),
+        ['G'] => Parse::Done(Cmd::Bottom),
+        ['o'] => Parse::Done(Cmd::Open),
+        ['q'] => Parse::Done(Cmd::Quit),
+        ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
         _ => Parse::Unknown,
     }
 }
@@ -347,16 +392,19 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
     std::thread::spawn(move || {
         let mut pending = String::new();
         let mut was_modal = modal();
+        let mut was_setup = setup();
         // the text-mode line: it lives here, the screen only sees its state
         let mut line = String::new();
         let mut was_text = text();
+        let mut was_generation = text_generation();
 
         while let Some(b) = raw_byte() {
             let byte = [b];
             let key = b as char;
 
-            if text() != was_text {
-                was_text = !was_text;
+            if text() != was_text || text_generation() != was_generation {
+                was_text = text();
+                was_generation = text_generation();
                 line = match (was_text, TEXT_LINE.lock()) {
                     (true, Ok(start)) => start.clone(),
                     _ => String::new(),
@@ -395,6 +443,10 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             // sequence belonged to the other one
             if modal() != was_modal {
                 was_modal = !was_modal;
+                clear_pending(&mut pending, &tx);
+            }
+            if setup() != was_setup {
+                was_setup = !was_setup;
                 clear_pending(&mut pending, &tx);
             }
 
@@ -470,7 +522,13 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             }
 
             pending.push(key);
-            let outcome = if was_modal { parse_modal(&pending) } else { parse(&pending) };
+            let outcome = if was_setup {
+                parse_setup(&pending)
+            } else if was_modal {
+                parse_modal(&pending)
+            } else {
+                parse(&pending)
+            };
             match outcome {
                 // `fw` takes a name: it opens the `:wander ` line, already
                 // filled — enter alone wanders far, a name wanders there
@@ -621,6 +679,20 @@ mod tests {
             parse("e!2").done(),
             Some(Cmd::Encore { count: 2, when: When::NowForce })
         );
+    }
+
+    /// The setup table: digits pick (0 included, for the comfort), `o`
+    /// opens, and it stays prefix-free.
+    #[test]
+    fn the_setup_table() {
+        assert_eq!(parse_setup("3").done(), Some(Cmd::Digit(3)));
+        assert_eq!(parse_setup("0").done(), Some(Cmd::Digit(0)));
+        assert_eq!(parse_setup("j").done(), Some(Cmd::Down));
+        assert_eq!(parse_setup("o").done(), Some(Cmd::Open));
+        assert_eq!(parse_setup("q").done(), Some(Cmd::Quit));
+        assert!(matches!(parse_setup("g"), Parse::Pending));
+        assert_eq!(parse_setup("gg").done(), Some(Cmd::Top));
+        assert!(matches!(parse_setup("f"), Parse::Unknown));
     }
 
     #[test]
