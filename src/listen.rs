@@ -1232,7 +1232,8 @@ impl Live<'_> {
                         ];
                         lines.extend(abridged_body(&proposal.body).into_iter().map(|l| format!("  {l}")));
                         lines.push(String::new());
-                        lines.push("  the reference's action checks the toml, the unique mbids, the slugs and the link targets".to_string());
+                        lines.push("  the reference's action checks the toml, the unique mbids, the slugs and the link targets;".to_string());
+                        lines.push("  new cards only: it merges on its own once green — an edited card waits for a reader".to_string());
                         self.overlay = Some(("C propose — the pull request, as it will leave".into(), lines));
                         self.pending_proposal = Some(proposal);
                     }

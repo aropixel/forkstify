@@ -324,11 +324,15 @@ tranchées par Joel le 20/09/2026 :
    de la référence ne sont que les portes d'entrée d'un fork vierge
    ([0018](../decisions/0018-un-seul-geste-pour-le-gout.md)).
 
-Écarté pour l'instant : l'auto-fusion GitHub des PR « fiches nouvelles
-seulement » vertes — le coup d'œil sur le nom et le MBID vaut d'être
-gardé tant que le rythme le permet. En réserve si même cela pèse : `Cp`
-ne proposerait par défaut que les fiches nouvelles, les retouches ne
-partant qu'en cochant les fiches dans une modale.
+~~Écarté pour l'instant : l'auto-fusion~~ — **tranchée le 20/09/2026**
+(Joel : « faisons en sorte que les PR avec seulement des ajouts de cards
+soient automatiquement validées ») : un second workflow de la référence,
+`automerge.yml` sur `workflow_run`, fusionne toute PR dont le `check` est
+vert et qui **n'apporte que des fiches nouvelles** (ajouts seuls dans
+`cards/`), le dit en commentaire et régénère l'index dans la foulée ;
+une PR qui retouche une fiche attend un lecteur. Le coup d'œil sur
+l'homonyme se fait après coup, par une retouche. En réserve si même cela
+pèse : `Cp` ne proposerait par défaut que les fiches nouvelles.
 
 **`Cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
 propose **merge**, pour une raison de 0017 : `main` est partagé par deux

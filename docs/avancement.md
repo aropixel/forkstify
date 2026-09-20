@@ -309,6 +309,28 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## Les ajouts fusionnent seuls (20/09/2026)
+
+Joel : « faisons en sorte que les PR avec seulement des ajouts de cards
+soient automatiquement validées ». L'auto-fusion, gardée en réserve le
+20/09 au matin, est tranchée le soir. Sur la référence,
+`.github/workflows/automerge.yml` :
+
+- déclenché par **`workflow_run`** quand `catalog` s'achève sur une PR —
+  dans le contexte de la référence, avec le droit de fusionner, là où le
+  jeton d'une PR venue d'un fork est en lecture seule ;
+- retrouve la PR par le sha de tête (`commits/<sha>/pulls`, car
+  `workflow_run.pull_requests` est vide pour un fork), lit ses fichiers :
+  **tous `added` dans `cards/`**, sinon « a reader decides » et rien ne
+  bouge ;
+- fusionne (`gh pr merge --merge`), le dit en commentaire, puis
+  **régénère l'index sur `main`** lui-même — un push fait avec le jeton du
+  workflow ne déclenche aucun autre workflow, le job `index` de `catalog`
+  ne le verrait pas (il reste pour les fusions à la main).
+
+`CONTRIBUTING.md` dit la règle ; la confirmation de `Cp` aussi. La PR
+n° 1 de Joel retouche trois fiches : elle attend sa lecture.
+
 ## `aL` retire aussi, et `ae` ouvre enfin la fiche (20/09/2026)
 
 Joel, en relisant sa PR : King Hannah « a été liée par erreur à Beirut.
