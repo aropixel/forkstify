@@ -1408,7 +1408,11 @@ fn info_line(text: &str) -> Line<'static> {
 /// and below — a `Cd` on a fork a month old is a hundred lines (Joel,
 /// 20/09/2026).
 fn render_block(frame: &mut ratatui::Frame, area: Rect, title: &str, body: &[String], scroll: usize) {
-    let width = 64.min(area.width.saturating_sub(4));
+    // as wide as its longest line asks, from 64 columns up to the screen:
+    // a diff line — name, kind, tags, links — must not fold in two (Joel,
+    // 20/09/2026); the key helper stays narrow
+    let longest = body.iter().map(|line| line.chars().count()).max().unwrap_or(0) as u16;
+    let width = longest.saturating_add(4).max(64).min(area.width.saturating_sub(4));
     let height = (body.len() as u16 + 2).min(area.height.saturating_sub(2));
     let rect = Rect {
         x: area.x + 2,
@@ -2711,6 +2715,10 @@ mod overlay_tests {
         // a short one says nothing
         let short = draw(&body[..3], 0);
         assert!(short.contains(" C diff ") && !short.contains("j/k"), "{short}");
+        // a long line widens the block instead of folding
+        let wide = vec![format!("  + {:<24} generated  slowcore, us · 4 similar, 2 links", "Codeine")];
+        let text = draw(&wide, 0);
+        assert!(text.contains("4 similar, 2 links │"), "{text}");
         assert_eq!(overlay_scroll_max(30, 12), 22);
         assert_eq!(overlay_scroll_max(3, 12), 0);
     }
