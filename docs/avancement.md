@@ -351,7 +351,13 @@ rien ne le faisait. Deux gestes câblés le jour même :
   touche le ramène (le repaint) ou non (le terminal).
 
 Pour la PR n° 1 : `aL` sur King Hannah, entrée sur Beirut, puis `Cp` —
-la branche `proposal` se réécrit et la PR se met à jour.
+la branche `proposal` se réécrit et la PR se met à jour. **Fait par Joel
+le soir même**, avec un accroc : `Cp` a redemandé `y` et `gh pr create` a
+refusé, « a pull request already exists ». La détection de la PR ouverte
+passait par `gh pr list --head kbyjoel:proposal`, qui ne répond rien —
+`--head` veut le nom nu de la branche ; corrigé (`--head proposal`, le
+propriétaire filtré sur la réponse), et la PR ouverte reçoit désormais
+**le titre et le corps réécrits** (`gh pr edit`) en plus de la branche.
 
 ## Le fork détaché : `y` refusé par GitHub, le fork refait (20/09/2026)
 

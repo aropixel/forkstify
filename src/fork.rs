@@ -521,13 +521,36 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
             ));
         }
     }
+    // `gh pr list --head` wants the bare branch name, not `owner:branch`
+    // — with the latter it answers nothing, and `y` then ran into "a pull
+    // request already exists" (Joel, 20/09/2026); the owner is filtered
+    // on the answer instead
     let existing = if through_gh {
-        gh(&["pr", "list", "--repo", &upstream, "--head", &head, "--state", "open", "--json", "url", "--jq", ".[0].url"])
-            .ok()
-            .filter(|u| !u.is_empty())
+        gh(&[
+            "pr",
+            "list",
+            "--repo",
+            &upstream,
+            "--head",
+            PROPOSAL_BRANCH,
+            "--state",
+            "open",
+            "--json",
+            "url,headRepositoryOwner",
+            "--jq",
+            &format!(".[] | select(.headRepositoryOwner.login == \"{owner}\") | .url"),
+        ])
+        .ok()
+        .and_then(|out| out.lines().next().map(str::to_string))
+        .filter(|u| !u.is_empty())
     } else {
         None
     };
+    // the push rewrote the branch: the open pull request follows, and so
+    // does its text, written for the reviewer
+    if let Some(url) = &existing {
+        let _ = gh(&["pr", "edit", url, "--title", &title, "--body", &body]);
+    }
     if !through_gh && existing.is_none() {
         // the browser: the comparison page, title and body in the url —
         // one reads, one clicks. Nothing leaves without that click.
