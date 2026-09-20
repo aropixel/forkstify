@@ -55,7 +55,7 @@ As an Omarchy plugin — the repository is one — the bar widget builds and
 launches it:
 
 ```sh
-omarchy plugin add git@github.com:aropixel/forkstify.git
+omarchy plugin add https://github.com/aropixel/forkstify.git
 ```
 
 Or by hand, from a clone:
