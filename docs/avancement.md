@@ -341,7 +341,10 @@ relecteur** en deux listes, et une **règle de fusion** écrite dans un
 `CONTRIBUTING.md` (générées : un coup d'œil ; retouches : les faits se
 prennent, un `similar` avec sa note, un top s'il corrige une erreur).
 Puis une seule branche `proposal` réécrite, et le nom `Cp` gardé : **le
-chantier B n'a plus rien à trancher**. Relevé au passage : la
+chantier B n'a plus rien à trancher**. Chantier C, le 20/09/2026 : la branche née d'un creux est une **marche**
+comme les autres (`engine::walk`, la fiche fraîche en tête, d'autres
+artistes ensuite), pas un encore de l'artiste généré — ce qui corrige au
+passage le `f<n>` actuel sur un creux. Relevé au passage : la
 référence porte encore l'appris de Joel, à retirer avant qu'elle soit
 publique.
 

@@ -355,28 +355,44 @@ mis à la file**. Sur un numéro de branche jouable, `fg<n>` répond « n has
 a card already » ; sur un creux en cours de génération, « already
 underway » (la garde `generating` existe).
 
-**À l'arrivée : le creux devient une branche, à sa place.** Plutôt que
-de rejouer trois branches — ce qui remélangerait ce que l'utilisateur
-était en train de lire, la raison même pour laquelle `⏎` tire parmi les
-branches affichées (Joel, 05/09/2026) — la ligne « ○ no card yet » se
-change en **branche jouable au même numéro** : ses morceaux tirés par le
-même chemin que `branch_to` (`engine::encore` sur la fiche fraîche, la
-raison du lien conservée), la marque ○ remplacée par celle de la source
-du morceau. Les deux autres branches ne bougent pas. Puis la liste des
-creux se **rafraîchit** depuis le contexte : les liens de la fiche
-fraîche vers le vide apparaissent à leur tour en gris — c'est le
-catalogue qui grandit le long de ses liens, un cran plus loin, et c'est
-le sens que je donne à « proposer de nouvelles branches en fonction ».
-Le toast : « ✓ Georges Moustaki — card ready · branch 3 ». `fr` reste là
+**À l'arrivée : le creux devient une branche, à sa place — et une vraie
+branche.** Plutôt que de rejouer trois branches — ce qui remélangerait ce
+que l'utilisateur était en train de lire, la raison même pour laquelle
+`⏎` tire parmi les branches affichées (Joel, 05/09/2026) — la ligne
+« ○ no card yet » se change en **branche jouable au même numéro**, la
+marque ○ remplacée par celle de la source du morceau. Les deux autres
+branches ne bougent pas.
+
+**Ce qu'elle contient** (Joel, 20/09/2026 : « pas uniquement des
+morceaux de l'artiste qui vient d'être généré — une branche régénérée
+comme les autres, avec un morceau de l'artiste généré et d'autres
+morceaux d'autres artistes ») : une **marche**, comme toute branche
+proposée — la fiche fraîche en tête, puis un morceau par artiste
+traversé, tirés dans son voisinage de graphe et de vecteurs, à la taille
+`:size`. C'est `engine::walk`, celui de `propose` et de `wander`, avec la
+fiche fraîche pour tête, la raison du lien pour raison et sa proximité
+pour poids. Et c'est une **correction au passage** : aujourd'hui,
+`branch_to` — le chemin du `f<n>` sur un creux — construit la branche
+avec `engine::encore`, donc n morceaux du seul artiste généré ; un creux
+pris donnait un « encore » déguisé en branche. `f<n>` et `fg<n>` passent
+tous deux par la marche. Un voisin de la fiche fraîche qui n'a pas de
+fiche est ignoré par la marche, comme partout — mais il apparaît en
+creux, ci-dessous.
+
+Puis la liste des creux se **rafraîchit** depuis le contexte : les liens
+de la fiche fraîche vers le vide apparaissent à leur tour en gris — c'est
+le catalogue qui grandit le long de ses liens, un cran plus loin. Le
+toast : « ✓ Georges Moustaki — card ready · branch 3 ». `fr` reste là
 pour qui veut trois autres branches, et la fiche fraîche est alors dans
 le vivier comme les autres ; `⏎` peut désormais tirer la branche, ce
 qu'il ne fait jamais sur un creux.
 
 Ce que ça change dans le code, pour mesurer : une variante d'`After`, un
-cas dans `keys::parse` et son test, `branch_to` scindé en « fabriquer la
-branche d'une fiche » et « la mettre à la file », `recompute` des seuls
-creux après adoption, la ligne `fg<n>` dans l'aide et la table. Aucun
-changement de moteur.
+cas dans `keys::parse` et son test, `walk` exposé (ou un `branch_from`
+sur le modèle de `wander`) et `branch_to` qui l'appelle à la place
+d'`encore`, `recompute` des seuls creux après adoption, la ligne `fg<n>`
+dans l'aide et la table. Un test : la branche d'un creux généré traverse
+plus d'un artiste quand le voisinage le permet.
 
 **Un pas de plus, à discuter : la génération d'avance.** Si les creux
 gênent, c'est qu'ils attendent un geste. Une option `[generation]
@@ -392,8 +408,9 @@ ensuite si l'usage le demande, **désactivée par défaut**.
 
 ### À trancher
 
-1. **En place plutôt que rejoué** : la fiche fraîche prend le numéro du
-   creux, les autres branches restent — ou tout se recalcule comme `fr` ?
+1. ~~**En place plutôt que rejoué**~~ — tranché le 20/09/2026 : en
+   place, au numéro du creux, et la branche est une **marche** comme les
+   autres, pas un encore de l'artiste généré.
 2. **Le nom** : `fg` (generate) ; `g` est *google* dans `a`, une lettre
    par namespace comme `e` (edit / encore) — acceptable ?
 3. **`fga` — tout générer** (les trois creux) : pas avant que le besoin
