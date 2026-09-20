@@ -1,6 +1,6 @@
 # Avancement
 
-Mis à jour le **19/09/2026**. Ce fichier est le point d'entrée pour reprendre
+Mis à jour le **20/09/2026**. Ce fichier est le point d'entrée pour reprendre
 le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
 
 ## Fait
@@ -333,7 +333,14 @@ l'appris, jamais les vecteurs) et s'ouvre dans le navigateur, une
 postes ; `fg<n>` qui fait du creux **une branche à son numéro** sans
 rejouer les autres, puis rafraîchit les creux. Tranché le jour même : `C`, la fusion pour
 `Cu`, et pour `Cp` la PR par `gh` avec confirmation quand il est là et
-connecté, le navigateur sinon. Relevé au passage : la
+connecté, le navigateur sinon. Le 20/09/2026, contre la crainte de
+validations laborieuses : sur le fork de Joel, 46 fiches nouvelles toutes
+générées pour 3 retouchées — d'où une **action GitHub** sur la référence
+(vérifications, index régénéré à la fusion), une PR **composée pour le
+relecteur** en deux listes, et une **règle de fusion** écrite dans un
+`CONTRIBUTING.md` (générées : un coup d'œil ; retouches : les faits se
+prennent, un `similar` avec sa note, un top s'il corrige une erreur).
+Relevé au passage : la
 référence porte encore l'appris de Joel, à retirer avant qu'elle soit
 publique.
 

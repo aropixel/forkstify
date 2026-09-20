@@ -225,10 +225,12 @@ sens (« the state of their cards, never their history ») :
    `main` toutes les dix minutes ;
 3. `git checkout main -- cards/` dans ce worktree : les fiches telles
    qu'elles sont, sans `learned/` ni `vectors/` ;
-4. un commit `Propose N cards` dont le corps liste les fiches (nouvelle /
-   retouchée, et la note de provenance des liens — catalogue.md § « Tout
-   le mien n'est pas également partageable ») ; trailer
-   `Forkstify: proposal <version>` ;
+4. un commit `Propose N cards` dont le corps est écrit **pour le
+   relecteur**, en deux listes (voir « La relecture côté référence »
+   ci-dessous) : les fiches nouvelles générées d'abord, une ligne chacune
+   — nom, MBID, tags —, puis les fiches retouchées avec le diff résumé et
+   la note de provenance des liens (catalogue.md § « Tout le mien n'est
+   pas également partageable ») ; trailer `Forkstify: proposal <version>` ;
 5. `git push --force origin proposal` — **une seule proposition ouverte à
    la fois**, la branche se réécrit et la PR ouverte se met à jour ;
 6. la PR elle-même, **deux voies selon le poste** (arbitrage de Joel,
@@ -247,9 +249,46 @@ sens (« the state of their cards, never their history ») :
 
 **Les vecteurs n'entrent pas dans la PR.** L'index est dérivé (0019) et
 réécrit en entier à chaque régénération : dans une PR il ne serait que du
-bruit et des conflits. Le mainteneur régénère à la fusion
-(`forkstify vectors`), à la main d'abord, par une action GitHub ensuite si
-le rythme le justifie.
+bruit et des conflits. C'est l'action GitHub de la référence qui régénère
+à la fusion (ci-dessous).
+
+**La relecture côté référence** (Joel, 20/09/2026 : « j'ai peur que les
+validations de PR soient un peu laborieuses de mon côté »). La mesure sur
+son propre fork, après un mois d'usage : **46 fiches nouvelles, toutes
+`generated = true`, 3 fiches retouchées à la main** (14 lignes ajoutées,
+4 retirées). Une fiche générée est la sortie du pipeline, MusicBrainz puis
+Deezer — la référence aurait produit la même : il n'y a rien à y relire,
+il y a des choses à **vérifier**, et une machine le fait mieux. Ce qui
+demande une oreille, ce sont les retouches, rares. D'où trois pièces,
+tranchées par Joel le 20/09/2026 :
+
+1. **Une action GitHub sur la référence**, qui vérifie chaque PR : TOML
+   lisible et `format = 1` ; `mbid` présent et **unique dans tout le
+   catalogue** (c'est elle qui attrape un « Ye » proposé alors que
+   `kanye-west` existe) ; slug conforme au nom ; cibles des `links` en
+   slugs valides ; aucun fichier hors de `cards/`. À la fusion sur `main`,
+   elle **régénère l'index** (`forkstify vectors`) et le commite — le
+   mainteneur n'y touche plus. L'action tourne le binaire dans le
+   conteneur `forkstify-build`, comme `bin/build`.
+2. **`Cp` compose la PR pour le relecteur** : les deux listes de l'étape
+   4. On survole la première, on lit la seconde.
+3. **Une règle de fusion écrite dans le dépôt de la référence**
+   (`CONTRIBUTING.md`, en anglais — 0022) : une PR qui **n'apporte que
+   des fiches générées** se fusionne sur un coup d'œil — nom et MBID,
+   pour l'homonyme que l'action ne voit pas, comme Les Thugs — dès que
+   l'action est verte. Une PR qui **retouche** des fiches existantes se
+   lit : les faits (`member`, `collab`, `family`) se prennent ; un
+   `similar` se prend s'il porte sa note de provenance ; un changement de
+   tops se prend s'il **corrige une erreur** (mauvais titre, version
+   live, identifiant Spotify faux), pas s'il exprime un goût — les tops
+   de la référence ne sont que les portes d'entrée d'un fork vierge
+   ([0018](../decisions/0018-un-seul-geste-pour-le-gout.md)).
+
+Écarté pour l'instant : l'auto-fusion GitHub des PR « fiches nouvelles
+seulement » vertes — le coup d'œil sur le nom et le MBID vaut d'être
+gardé tant que le rythme le permet. En réserve si même cela pèse : `Cp`
+ne proposerait par défaut que les fiches nouvelles, les retouches ne
+partant qu'en cochant les fiches dans une modale.
 
 **`Cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
 propose **merge**, pour une raison de 0017 : `main` est partagé par deux
@@ -387,6 +426,9 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
   de Joel — chantier A, étape 1.
 - **Un `README.md`** dans le dépôt de l'application (il n'y a
   qu'`AGENTS.md`), et celui du catalogue en anglais (0022).
+- **L'action GitHub de la référence** et son `CONTRIBUTING.md` (chantier
+  B, « La relecture côté référence ») : à mettre en place avant la
+  première `Cp` d'un tiers.
 - **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
   CC BY-SA) et celle du code (`manifest.json` dit MIT).
 - **Les commits d'édition parlent français** (corrections en attente de
