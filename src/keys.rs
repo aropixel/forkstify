@@ -330,6 +330,22 @@ pub fn parse_modal(buf: &str) -> Parse {
 /// a panic, which is why this is a guard and not a pair of calls.
 pub struct RawMode(libc::termios);
 
+/// The terminal as it was before raw mode, kept for `raw_pause`: `ae`
+/// hands the terminal to `$EDITOR` and takes it back (Joel, 20/09/2026).
+struct Original(libc::termios);
+// termios is plain data
+unsafe impl Send for Original {}
+static ORIGINAL: Mutex<Option<Original>> = Mutex::new(None);
+
+fn set_raw(original: &libc::termios) -> bool {
+    let mut raw = *original;
+    // no canonical line buffering, no echo: keys arrive one by one
+    raw.c_lflag &= !(libc::ICANON | libc::ECHO);
+    raw.c_cc[libc::VMIN] = 1;
+    raw.c_cc[libc::VTIME] = 0;
+    unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &raw) == 0 }
+}
+
 impl RawMode {
     pub fn enable() -> Option<RawMode> {
         unsafe {
@@ -340,15 +356,61 @@ impl RawMode {
             if libc::tcgetattr(libc::STDIN_FILENO, &mut original) != 0 {
                 return None;
             }
-            let mut raw = original;
-            // no canonical line buffering, no echo: keys arrive one by one
-            raw.c_lflag &= !(libc::ICANON | libc::ECHO);
-            raw.c_cc[libc::VMIN] = 1;
-            raw.c_cc[libc::VTIME] = 0;
-            if libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &raw) != 0 {
+            if !set_raw(&original) {
                 return None;
             }
+            if let Ok(mut kept) = ORIGINAL.lock() {
+                *kept = Some(Original(original));
+            }
             Some(RawMode(original))
+        }
+    }
+}
+
+/// Give the terminal back as it was — for an editor — and take it again.
+pub fn raw_pause() {
+    if let Ok(kept) = ORIGINAL.lock() {
+        if let Some(original) = kept.as_ref() {
+            unsafe {
+                libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &original.0);
+            }
+        }
+    }
+}
+
+pub fn raw_resume() {
+    if let Ok(kept) = ORIGINAL.lock() {
+        if let Some(original) = kept.as_ref() {
+            set_raw(&original.0);
+        }
+    }
+}
+
+/// The reader parks while an editor has the terminal: it polls before it
+/// reads, so no keystroke meant for the editor is swallowed.
+static SUSPENDED: AtomicBool = AtomicBool::new(false);
+
+pub fn suspend_reader(on: bool) {
+    SUSPENDED.store(on, Ordering::Relaxed);
+}
+
+fn suspended() -> bool {
+    SUSPENDED.load(Ordering::Relaxed)
+}
+
+/// One byte, once the reader is allowed to read: while suspended it
+/// waits, and it only reads what `poll` says is there.
+fn next_byte() -> Option<u8> {
+    loop {
+        if suspended() {
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            continue;
+        }
+        if input_pending(100) {
+            if suspended() {
+                continue;
+            }
+            return raw_byte();
         }
     }
 }
@@ -410,7 +472,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
         let mut was_text = text();
         let mut was_generation = text_generation();
 
-        while let Some(b) = raw_byte() {
+        while let Some(b) = next_byte() {
             let byte = [b];
             let key = b as char;
 

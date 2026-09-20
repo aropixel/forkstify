@@ -150,6 +150,40 @@ pub fn add_link(
     Ok(Edit { summary: format!("{name} — link: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
 }
 
+/// `aL` on a link the card already has: **unlink** (Joel, 20/09/2026 —
+/// King Hannah linked to Beirut by mistake). The line goes, the rest of
+/// the card is untouched; the commit names the type it had.
+pub fn remove_link(dir: &Path, slug: &str, name: &str, to_slug: &str, to_name: &str) -> Result<Edit, String> {
+    let path = card_path(dir, slug);
+    let text = read(&path)?;
+    let needle = format!("to = {}", quoted(to_slug));
+    let mut kind = String::from("link");
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            let hit = trimmed.starts_with('{') && trimmed.contains(&needle);
+            if hit {
+                if let Some(rest) = trimmed.split("type = \"").nth(1) {
+                    kind = rest.split('"').next().unwrap_or("link").to_string();
+                }
+            }
+            !hit
+        })
+        .collect();
+    if kept.len() == text.lines().count() {
+        return Err(format!("{name} is not linked to {to_name}"));
+    }
+    write(&path, &(kept.join("\n") + "\n"))?;
+    Ok(Edit { summary: format!("{name} — unlink: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
+}
+
+/// `ae`: the card was edited by hand, in `$EDITOR`; what changed is the
+/// diff, the commit only says who and how.
+pub fn edited_by_hand(dir: &Path, slug: &str, name: &str) -> Edit {
+    Edit { summary: format!("{name} — edited by hand"), body: None, path: card_path(dir, slug), also: Vec::new() }
+}
+
 /// The **batch** of the discography screen (mockup 1a, 07/09/2026): five
 /// tops get fixed in a row there, and five commits for a single thought do
 /// not reread well. One read, one write, one commit — and the message says
@@ -346,6 +380,25 @@ mod tests {
         let text = insert_into_array(CARD, "tops", &format!("  {},", quoted("L'\"autre\" titre")));
         let card: crate::catalog::Card = toml::from_str(&text).expect("lisible");
         assert!(card.tops.contains(&"L'\"autre\" titre".to_string()));
+    }
+
+    /// Unlinking removes the one line, keeps the others, and says the type.
+    #[test]
+    fn a_link_is_removed_and_the_others_stay() {
+        let dir = std::env::temp_dir().join(format!("forkstify-unlink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cards")).unwrap();
+        let text = "format = 1\nname = \"King Hannah\"\nmbid = \"x\"\n\nlinks = [\n  { to = \"pj-harvey\", type = \"similar\" },\n  { to = \"beirut\", type = \"similar\", note = \"linked while listening, 2026-09-14\" },\n  { to = \"peter-kernel\", type = \"similar\" },\n]\n";
+        std::fs::write(dir.join("cards/king-hannah.toml"), text).unwrap();
+        let edit = remove_link(&dir, "king-hannah", "King Hannah", "beirut", "Beirut").expect("removed");
+        assert_eq!(edit.summary, "King Hannah — unlink: → Beirut (similar)");
+        let after = std::fs::read_to_string(dir.join("cards/king-hannah.toml")).unwrap();
+        assert!(!after.contains("beirut"), "{after}");
+        assert!(after.contains("pj-harvey") && after.contains("peter-kernel"), "{after}");
+        let card: crate::catalog::Card = toml::from_str(&after).expect("still reads");
+        assert_eq!(card.links.len(), 2);
+        assert!(remove_link(&dir, "king-hannah", "King Hannah", "beirut", "Beirut").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

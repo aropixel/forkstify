@@ -134,8 +134,8 @@ demandent une fiche.
 | `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) — et de retour parmi les aimés. **À l'accueil aussi**, sur la ligne surlignée (Joel, 09/09/2026) | mesure | ✅ |
 | `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) — et **hors des aimés** : un drapeau `unliked` dans `learned/`, qui prime sur les aimés Spotify et survit aux récoltes. À l'accueil aussi | mesure | ✅ |
 | `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file. À l'accueil aussi | mesure | ✅ |
-| `ae` | artist **edit** | Affiche le chemin de la fiche. L'ouvrir sur place attend une saisie interrogée : le lecteur de touches tient `stdin` en permanence et volerait ses frappes à `$EDITOR` | 📋 |
-| `aL` | artist **link** | **Ouvre la recherche pour choisir l'artiste à lier** : entrée écrit un lien `similar` dans la fiche courante vers l'artiste choisi, catalogue ou hors catalogue (le lien vers une fiche absente est une proposition, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)) ; un commit lisible ([0010](decisions/0010-format-revise-links-sans-portes.md)). Remplace l'ancien geste qui liait, sans le dire, à l'artiste d'où l'on venait (Joel, 14/09/2026) | édition | ✅ |
+| `ae` | artist **edit** | **La fiche dans `$EDITOR`, sur place** (Joel, 20/09/2026) : le lecteur de touches se gare, le terminal et l'écran reviennent à l'éditeur ; à sa fermeture la fiche est relue — changée et lisible, elle est **commitée** (« … — edited by hand ») et le moteur la suit sur-le-champ ; illisible, c'est dit, rien n'est commité, `ae` à nouveau. Sans `$EDITOR`/`$VISUAL`, l'éditeur du bureau (`xdg-open`). La boucle attend l'éditeur : le son continue, une fin de morceau attend | édition | ✅ |
+| `aL` | artist **link** | **Les liens, dans les deux sens** (Joel, 20/09/2026, à l'image de `tl`). La modale liste d'abord les liens que la fiche **a déjà**, marqués ✓ avec leur type et leur note — **entrée sur l'un le retire** (commit « … — unlink: → Beirut (similar) ») ; en dessous la recherche, catalogue et Spotify : entrée sur un résultat écrit un lien `similar` vers l'artiste choisi, catalogue ou hors catalogue (le lien vers une fiche absente est une proposition, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)) ; un commit lisible ([0010](decisions/0010-format-revise-links-sans-portes.md)). Dans les deux sens, **le moteur suit sur-le-champ**. Remplace l'ancien geste qui liait, sans le dire, à l'artiste d'où l'on venait (Joel, 14/09/2026) | édition | ✅ |
 | `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous. **À l'accueil aussi**, sur la ligne surlignée de la collection, posée sur l'accueil ; un artiste **sans fiche** la reçoit d'abord ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)), la discographie s'ouvre dès qu'elle est là (Joel, 10/09/2026) | édition | ✅ |
 | `ag` | artist **google** | Chercher l'artiste visé (surligné, sinon en cours) dans le navigateur par défaut, via `xdg-open` (Joel, 08/09/2026) | session | ✅ |
 
@@ -148,13 +148,14 @@ par artiste dans le catalogue, compteurs à décroissance intégrée
 (demi-vie six mois), écrit à chaque geste, silencieux et jamais reversé.
 
 **Les éditions écrivent dans les fiches depuis le 06/09/2026** : `tt`,
-`tT`, `td` et `aL` modifient une fiche **et produisent un commit lisible**
+`tT`, `td`, `aL` et `ae` modifient une fiche **et produisent un commit lisible**
 (`src/edit.rs`). La fiche est retouchée textuellement, jamais réécrite —
 c'est une interface publique, et une relecture par serde perdrait tout ce
-que le code ne modélise pas. Une édition ne compte pour le moteur qu'au
-**prochain lancement**, et le produit le dit — **sauf la génération d'une
-fiche** (09/09/2026), qui entre dans le catalogue de la session sur-le-champ :
-on la demande pour écouter maintenant.
+que le code ne modélise pas — sauf `ae`, où c'est l'éditeur qui écrit.
+Une édition de tops ne compte pour le moteur qu'au **prochain
+lancement**, et le produit le dit ; la génération d'une fiche
+(09/09/2026), un lien posé ou retiré et une fiche éditée à la main
+(20/09/2026) entrent dans le catalogue de la session **sur-le-champ**.
 
 ## `C` — le catalogue
 

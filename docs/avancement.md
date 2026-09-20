@@ -309,6 +309,38 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `aL` retire aussi, et `ae` ouvre enfin la fiche (20/09/2026)
+
+Joel, en relisant sa PR : King Hannah « a été liée par erreur à Beirut.
+Si je veux enlever le link depuis forkstify, comment je peux faire ? » —
+rien ne le faisait. Deux gestes câblés le jour même :
+
+- **`aL` dans les deux sens.** La modale liste d'abord les liens que la
+  fiche a déjà (✓, type, nom, note de provenance), filtrés par la
+  frappe ; **entrée sur l'un le retire** — `edit::remove_link`, la ligne
+  seule s'en va, commit « King Hannah — unlink: → Beirut (similar) » ;
+  en dessous, la recherche pour en ajouter un, comme avant. Un seul geste
+  pour les liens, à l'image de `tl` qui aime et retire l'aimé. Et **le
+  moteur suit sur-le-champ** : la fiche en mémoire perd ou gagne le
+  lien, les branches se recalculent — plus besoin de relancer.
+- **`ae` — la fiche dans `$EDITOR`, sur place.** Ce que le lecteur de
+  touches empêchait depuis le 05/09 : il **se gare** (`keys::suspend_reader`,
+  le lecteur attend `poll` avant de lire, aucune frappe volée), le
+  terminal quitte le mode brut (`keys::raw_pause`) et l'écran alternatif
+  (`Tui::suspend`), `$VISUAL` ou `$EDITOR` s'ouvre sur la fiche, puis
+  tout revient (`raw_resume`, `Tui::resume`, redessin complet). La fiche
+  est relue : changée et lisible, elle remplace celle de la session et
+  est **commitée** (« … — edited by hand », trailer `edit`) ; illisible,
+  le toast le dit, rien n'est commité, `ae` à nouveau. Sans éditeur
+  nommé, `xdg-open`. La boucle attend l'éditeur : le son continue dans
+  son thread, une fin de morceau attend la fermeture.
+- 93 tests verts (`a_link_is_removed_and_the_others_stay`). **`ae` non
+  éprouvé en session réelle** — la garde du terminal est ce qu'il faut
+  regarder en premier au prochain essai.
+
+Pour la PR n° 1 : `aL` sur King Hannah, entrée sur Beirut, puis `Cp` —
+la branche `proposal` se réécrit et la PR se met à jour.
+
 ## Le fork détaché : `y` refusé par GitHub, le fork refait (20/09/2026)
 
 Joel, au `y` du `Cp` : « pull request create failed: GraphQL: Head sha
@@ -2166,13 +2198,12 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    session de Joel, dix retours traités le jour même (section ci-dessus),
    et les premiers atouts dans `docs/atouts.md`. Reste à éprouver : les
    mesures qui écrivent dans les fiches, le réservoir, `:warm`.
-2. **Les cinq éditions** — `tt`/`tT` (tops), `td` (door), `ae` ($EDITOR),
-   `aL` (lier deux artistes). Elles touchent une **fiche**, pas l'appris.
-   La couche qui écrit et commite le catalogue **existe depuis le
-   06/09/2026** (`src/edit.rs`, et `create_card` depuis le 09/09) : `tt`,
-   `tT`, `td` et `aL` sont câblées ; il reste `ae` ($EDITOR), que le lecteur
-   de touches empêche. C'est le dernier tiers de [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)
-   et le retour n° 8 de Joel.
+2. ~~**Les cinq éditions**~~ — `tt`/`tT` (tops), `td` (door), `aL`
+   (lier, et délier depuis le 20/09/2026), `ae` ($EDITOR, câblé le
+   20/09/2026 : le lecteur de touches se gare). Toutes écrivent et
+   commitent (`src/edit.rs`). C'était le dernier tiers de
+   [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md) et le
+   retour n° 8 de Joel.
 3. ~~**Le cooldown daté**~~ — fait le 08/09/2026 (un dixième le jour même,
    demi-vie d'une semaine).
 4. **`u` — annuler le dernier geste** ([0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)).

@@ -593,6 +593,10 @@ struct Finder {
     /// `aL`: this modal writes a `similar` link into that artist's card
     /// (slug, name) instead of playing the chosen row (Joel, 14/09/2026).
     link_from: Option<(String, String)>,
+    /// `aL`: the links the card already has, listed first and marked —
+    /// enter on one **removes** it, one gesture for both directions, as
+    /// `tl` likes and unlikes (Joel, 20/09/2026).
+    linked: Vec<Found>,
 }
 
 fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
@@ -604,8 +608,32 @@ fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
 }
 
 impl Finder {
+    /// The links already there that the query keeps: all of them on an
+    /// empty query, else those whose slug or name contains it.
+    fn linked_rows(&self) -> Vec<&Found> {
+        let query = self.query.trim().to_lowercase();
+        self.linked
+            .iter()
+            .filter(|f| {
+                query.is_empty()
+                    || match &f.hit {
+                        Hit::Artist(slug) => slug.contains(&query) || f.note.to_lowercase().contains(&query),
+                        _ => false,
+                    }
+            })
+            .collect()
+    }
+
+    fn is_linked(&self, found: &Found) -> bool {
+        match &found.hit {
+            Hit::Artist(slug) => self.linked.iter().any(|l| matches!(&l.hit, Hit::Artist(s) if s == slug)),
+            _ => false,
+        }
+    }
+
     fn rows(&self) -> Vec<&Found> {
-        let mut rows: Vec<&Found> = self.catalogue.iter().collect();
+        let mut rows: Vec<&Found> = self.linked_rows();
+        rows.extend(self.catalogue.iter());
         if !self.only_catalogue {
             if let Some(Ok(found)) = &self.spotify {
                 rows.extend(found.iter());
@@ -2606,6 +2634,16 @@ impl Live<'_> {
     /// What the TUI draws of the search modal.
     fn finder_view(&self, finder: &Finder) -> crate::tui::FinderView {
         let mut lines: Vec<crate::tui::FinderLine> = Vec::new();
+        let linked = finder.linked_rows();
+        if !linked.is_empty() {
+            lines.push(crate::tui::FinderLine::Header {
+                catalogue: true,
+                text: format!("linked  {} — enter on one removes it", linked.len()),
+            });
+            for f in linked {
+                lines.push(found_line(f, true));
+            }
+        }
         let cat = finder.catalogue.len();
         if cat > 0 {
             lines.push(crate::tui::FinderLine::Header {
@@ -2755,6 +2793,7 @@ impl Live<'_> {
             cursor: 0,
             only_catalogue: false,
             link_from: None,
+            linked: Vec::new(),
         };
         if !query.is_empty() {
             finder.query = query.to_string();
@@ -2774,6 +2813,27 @@ impl Live<'_> {
     /// from, an implicit target that confused (Joel: "je ne comprends pas
     /// le geste"). Search makes the target explicit and reaches anyone.
     fn open_link(&mut self, from_slug: &str, from_name: &str) {
+        // what the card already links to, first: enter on one removes it
+        let linked: Vec<Found> = self
+            .catalog
+            .cards
+            .get(from_slug)
+            .map(|card| {
+                card.links
+                    .iter()
+                    .map(|link| Found {
+                        hit: Hit::Artist(link.to.clone()),
+                        mark: '✓',
+                        note: format!(
+                            "{} · {}{}",
+                            link.kind,
+                            self.catalog.cards.get(&link.to).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(&link.to)),
+                            link.note.as_ref().map(|n| format!(" — {n}")).unwrap_or_default()
+                        ),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         self.finder = Some(Finder {
             insert: None,
             query: String::new(),
@@ -2783,6 +2843,7 @@ impl Live<'_> {
             cursor: 0,
             only_catalogue: false,
             link_from: Some((from_slug.to_string(), from_name.to_string())),
+            linked,
         });
         self.overlay = None;
         self.help_open = false;
@@ -2908,7 +2969,23 @@ impl Live<'_> {
         };
         let insert = finder.insert;
         let link_from = finder.link_from.clone();
+        let already = finder.is_linked(&found);
         self.close_finder();
+        // aL on a link the card has: unlink (Joel, 20/09/2026)
+        if let (Some((from_slug, from_name)), true, Hit::Artist(to_slug)) = (&link_from, already, &found.hit) {
+            let to_name = self.catalog.cards.get(to_slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(to_slug));
+            let done = crate::edit::remove_link(&self.catalog_dir, from_slug, from_name, to_slug, &to_name);
+            if done.is_ok() {
+                // the engine follows on the spot: the link is gone for
+                // the next branches, not for the next launch
+                if let Some(card) = self.catalog.cards.get_mut(from_slug) {
+                    card.links.retain(|l| &l.to != to_slug);
+                }
+                self.recompute();
+            }
+            self.report(done);
+            return;
+        }
         // aL: the chosen row is a target to link to, not a track to play
         if let Some((from_slug, from_name)) = link_from {
             let target = match &found.hit {
@@ -2931,6 +3008,17 @@ impl Live<'_> {
                 let done = crate::edit::add_link(
                     &self.catalog_dir, &from_slug, &from_name, &to_slug, &to_name, "similar",
                 );
+                if done.is_ok() {
+                    if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
+                        card.links.push(crate::catalog::Link {
+                            to: to_slug.clone(),
+                            kind: "similar".into(),
+                            note: Some(format!("linked while listening, {}", crate::learned::today_iso())),
+                            proximity: None,
+                        });
+                    }
+                    self.recompute();
+                }
                 self.report(done);
             }
             return;
@@ -3210,14 +3298,7 @@ impl Live<'_> {
                 );
                 self.recompute();
             }
-            'e' => {
-                // $EDITOR would need the input given back to the terminal,
-                // but the key reader holds stdin permanently — it would
-                // steal its keystrokes. This waits for polled input rather
-                // than a blocking thread.
-                let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
-                say!(self, "card: {} (opening it here waits for the input rework)", path.display());
-            }
+            'e' => self.edit_card(&stop),
             'L' => {
                 // link to an artist chosen by search (Joel, 14/09/2026):
                 // the target is no longer the implicit "where we came from"
@@ -3544,6 +3625,67 @@ impl Live<'_> {
         self.tui.height().unwrap_or(40)
     }
 
+    /// `ae` — the card in `$EDITOR`, right here (Joel, 20/09/2026). The
+    /// key reader parks, the terminal goes back to the editor, the
+    /// alternate screen too; when the editor closes, the card is read
+    /// again: readable and changed, it is committed and the engine follows
+    /// on the spot; unreadable, it is said and left uncommitted to fix.
+    /// The loop blocks meanwhile — the sound goes on in its own thread,
+    /// but a track ending waits for the editor to close.
+    fn edit_card(&mut self, stop: &crate::engine::Stop) {
+        if stop.slug.is_empty() || !self.catalog.cards.contains_key(&stop.slug) {
+            say!(self, "({} has no card — :generate them first, then ae)", stop.artist);
+            return;
+        }
+        let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
+        let name = self.catalog.cards[&stop.slug].name.clone();
+        let editor = std::env::var("VISUAL")
+            .or_else(|_| std::env::var("EDITOR"))
+            .ok()
+            .filter(|e| !e.trim().is_empty());
+        let Some(editor) = editor else {
+            // no editor named: the desktop's, and nothing to wait for
+            let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+            say!(self, "→ {} — no $EDITOR, opened by the desktop; relaunch to reload it", path.display());
+            return;
+        };
+        let before = std::fs::read_to_string(&path).unwrap_or_default();
+        crate::keys::suspend_reader(true);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        crate::keys::raw_pause();
+        self.tui.suspend();
+        let status = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("{editor} \"$1\""))
+            .arg("forkstify")
+            .arg(&path)
+            .status();
+        self.tui.resume();
+        crate::keys::raw_resume();
+        crate::keys::suspend_reader(false);
+        if let Err(why) = status {
+            say!(self, "⏹ {editor}: {why}");
+            return;
+        }
+        let after = std::fs::read_to_string(&path).unwrap_or_default();
+        if after == before {
+            say!(self, "({name} — unchanged)");
+            return;
+        }
+        match toml::from_str::<crate::catalog::Card>(&after) {
+            Ok(card) => {
+                self.catalog.cards.insert(stop.slug.clone(), card);
+                let edit = crate::edit::edited_by_hand(&self.catalog_dir, &stop.slug, &name);
+                match crate::edit::commit(&self.catalog_dir, &edit) {
+                    Ok(()) => say!(self, "✓ {name} — edited by hand, committed"),
+                    Err(why) => say!(self, "⏹ {name} — edited, not committed: {why}"),
+                }
+                self.recompute();
+            }
+            Err(why) => say!(self, "⏹ {name} — the card does not read: {} — ae again to fix it, nothing committed", why.message()),
+        }
+    }
+
     fn catalog_status(&mut self) {
         let status = crate::fork::status(&self.catalog_dir);
         if status.merging || status.pending {
@@ -3839,8 +3981,8 @@ impl Live<'_> {
                 ("ab", "ban — never again this artist", true),
                 ("ad", "discography — their discography, by album", true),
                 ("ag", "google — the artist in the browser", true),
-                ("ae", "edit — open the card", false),
-                ("aL", "link — link to another artist", true),
+                ("ae", "edit — the card in $EDITOR, committed when it changed", true),
+                ("aL", "link — the links it has (enter removes), then search to add one", true),
             ],
             _ if home => &[
                 ("1-9", "start on an entry of the blocks", true),

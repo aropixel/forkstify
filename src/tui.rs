@@ -181,6 +181,21 @@ impl Tui {
     pub fn height(&self) -> Option<u16> {
         self.terminal.size().ok().map(|size| size.height)
     }
+
+    /// Hand the terminal to another program — `$EDITOR` for `ae` — and
+    /// take it back, redrawn from scratch.
+    pub fn suspend(&mut self) {
+        let mut out = std::io::stdout();
+        let _ = write!(out, "\x1b[?25h\x1b[?1049l");
+        let _ = out.flush();
+    }
+
+    pub fn resume(&mut self) {
+        let mut out = std::io::stdout();
+        let _ = write!(out, "\x1b[?1049h\x1b[?25l");
+        let _ = out.flush();
+        let _ = self.terminal.clear();
+    }
 }
 
 impl Drop for Tui {
