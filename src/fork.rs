@@ -522,7 +522,6 @@ pub fn create_pull_request(proposal: &Proposal) -> Result<String, String> {
 pub struct Update {
     /// Cards added or changed by the reference.
     pub cards: usize,
-    pub regenerated: bool,
     /// The merge stopped on these cards: (slug, what each side changed).
     pub conflicts: Vec<(String, String)>,
     pub word: String,
@@ -552,7 +551,7 @@ pub fn update(dir: &Path) -> Result<Update, String> {
 pub fn update_with(dir: &Path, regenerate: bool) -> Result<Update, String> {
     if crate::sync::is_local(dir) {
         // the reference is origin: a pull is the update
-        return crate::sync::pull(dir).map(|word| Update { cards: 0, regenerated: false, conflicts: Vec::new(), word });
+        return crate::sync::pull(dir).map(|word| Update { cards: 0, conflicts: Vec::new(), word });
     }
     if dir.join(".git/MERGE_HEAD").exists() {
         return resume(dir);
@@ -589,7 +588,7 @@ pub fn update_with(dir: &Path, regenerate: bool) -> Result<Update, String> {
         if !conflicts.is_empty() {
             // stopped on cards: git gets the hand, :catalog resumes
             let _ = std::fs::write(pending_file(), &before);
-            return Ok(Update { cards: 0, regenerated: false, conflicts, word: "stopped on cards".to_string() });
+            return Ok(Update { cards: 0, conflicts, word: "stopped on cards".to_string() });
         }
         git(dir, &["commit", "-q", "--no-edit"])?;
     }
@@ -627,7 +626,7 @@ fn finish(dir: &Path, before: &str, regenerate: bool) -> Result<Update, String> 
         (n, true) => format!("{n} card(s) from the reference · index regenerated"),
         (n, false) => format!("{n} card(s) from the reference{caveat}"),
     };
-    Ok(Update { cards, regenerated, conflicts: Vec::new(), word })
+    Ok(Update { cards, conflicts: Vec::new(), word })
 }
 
 /// `:catalog` while a merge waits: once the cards are added — and

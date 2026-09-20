@@ -309,6 +309,38 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## L'action de la référence et son CONTRIBUTING (20/09/2026)
+
+Joel : « mets en place l'action GitHub et le CONTRIBUTING.md sur la
+référence ». Les trois pièces de « La relecture côté référence » sont là :
+
+- **`forkstify validate [catalog]`** (`src/validate.rs`) — chaque fiche
+  lue en TOML brut et en `Card` : `format = 1`, un `name`, un `mbid`
+  **unique dans tout le catalogue** (une même personne sous deux fichiers
+  est refusée), un nom de fichier en slug, des `links` dont la cible est
+  un slug (une cible sans fiche est une proposition, 0016) et le type dans
+  la liste fermée de 0010 ou déclaré dans `catalog.toml`. Un nom qui ne
+  correspond plus à son fichier (`Ye` à `kanye-west`) est un
+  avertissement, pas une erreur. Sortie 1 sur une erreur. Les deux
+  catalogues passent : 0 erreur, 18 avertissements de noms.
+- **`.github/workflows/catalog.yml`** sur `aropixel/forkstify-catalog` :
+  `check` sur chaque PR — seules les fiches peuvent changer, puis
+  `forkstify validate .` ; `index` sur chaque push de `main` qui touche
+  les fiches — `forkstify vectors .` et l'index commité par le bot.
+  Une action composite `.github/actions/forkstify` construit le binaire
+  depuis `aropixel/forkstify` (cache cargo, alsa) ; le modèle
+  d'embedding est mis en cache entre les runs.
+- **`CONTRIBUTING.md`** (anglais, 0022) : comment une proposition se fait
+  (`Cp`), ce que l'action vérifie, comment elle est lue — générées : un
+  coup d'œil ; retouches : les faits se prennent, un `similar` avec sa
+  note, un top s'il corrige une erreur. Le README pointe dessus.
+
+**À faire par Joel** : tant que `aropixel/forkstify` est privé, créer le
+secret **`FORKSTIFY_TOKEN`** sur la référence — un PAT à grain fin,
+*Contents: read* sur `aropixel/forkstify` — sans quoi l'action ne peut
+pas cloner l'application. Une fois l'application publique, le jeton du
+workflow suffit et le secret peut disparaître.
+
 ## Le catalogue sans outillage, la référence sans appris (20/09/2026)
 
 Joel : « retire les scripts Python de `tools/` du catalogue et nettoie
@@ -2088,8 +2120,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
     20/09/2026. Le même jour, `tools/` retiré des deux dépôts du catalogue
     et l'appris de Joel retiré de la référence (Joel, 20/09/2026). Reste à
     éprouver en vrai : `:library`, `Cp`, `Cu` — le premier `Cu` du fork
-    réglera seul les conflits `learned/` (les siens gardés) ; puis
-    l'action GitHub et le `CONTRIBUTING.md`.
+    réglera seul les conflits `learned/` (les siens gardés). L'action
+    GitHub et le `CONTRIBUTING.md` sont en place le même jour ; reste le
+    secret `FORKSTIFY_TOKEN` à créer par Joel tant que l'application est
+    privée.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

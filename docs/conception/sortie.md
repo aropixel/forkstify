@@ -301,8 +301,8 @@ il y a des choses à **vérifier**, et une machine le fait mieux. Ce qui
 demande une oreille, ce sont les retouches, rares. D'où trois pièces,
 tranchées par Joel le 20/09/2026 :
 
-1. **Une action GitHub sur la référence**, qui vérifie chaque PR : TOML
-   lisible et `format = 1` ; `mbid` présent et **unique dans tout le
+1. **Une action GitHub sur la référence** (en place le 20/09/2026,
+   `forkstify validate`), qui vérifie chaque PR : TOML lisible et `format = 1` ; `mbid` présent et **unique dans tout le
    catalogue** (c'est elle qui attrape un « Ye » proposé alors que
    `kanye-west` existe) ; slug conforme au nom ; cibles des `links` en
    slugs valides ; aucun fichier hors de `cards/`. À la fusion sur `main`,
@@ -494,9 +494,13 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
   de Joel — chantier A, étape 1.
 - **Un `README.md`** dans le dépôt de l'application (il n'y a
   qu'`AGENTS.md`), et celui du catalogue en anglais (0022).
-- **L'action GitHub de la référence** et son `CONTRIBUTING.md` (chantier
-  B, « La relecture côté référence ») : à mettre en place avant la
-  première `Cp` d'un tiers.
+- ~~**L'action GitHub de la référence** et son `CONTRIBUTING.md`~~ — en
+  place le 20/09/2026 : `.github/workflows/catalog.yml` (`check` sur
+  chaque PR — fiches seules, `forkstify validate` ; `index` sur `main` —
+  `forkstify vectors` commité), l'action composite qui construit forkstify
+  depuis `aropixel/forkstify`, `CONTRIBUTING.md` en anglais. Tant que
+  l'application est privée, le secret `FORKSTIFY_TOKEN` (PAT à grain fin,
+  *Contents: read* sur `aropixel/forkstify`) est à créer sur la référence.
 - **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
   CC BY-SA) et celle du code (`manifest.json` dit MIT).
 - **Les commits d'édition parlent français** (corrections en attente de

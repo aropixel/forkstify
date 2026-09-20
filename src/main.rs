@@ -3,6 +3,7 @@
 //!   forkstify journey <seed> [catalog]     navigate dry (no sound)
 //!   forkstify listen  <seed> [catalog]     navigate and play (Spotify)
 //!   forkstify check   <artist> [catalog]   a card's neighbors in space
+//!   forkstify validate [catalog]           the cards against their rules (the reference's action)
 //!
 //! `journey` prints segments without playing — fast, for iterating on the
 //! engine. `listen` plays them through the embedded librespot device.
@@ -27,6 +28,7 @@ mod setup;
 mod sound;
 mod sync;
 mod tui;
+mod validate;
 mod spotify;
 
 use catalog::Catalog;
@@ -375,6 +377,26 @@ fn main() -> anyhow::Result<()> {
                 }
             };
         }
+        // what the reference's action runs on every pull request: the
+        // cards against their rules, exit 1 on any error
+        [command, rest @ ..] if command == "validate" => {
+            let dir = catalog_path(rest.first());
+            let report = validate::validate(&dir);
+            for warning in &report.warnings {
+                println!("  ~ {warning}");
+            }
+            for error in &report.errors {
+                println!("  ⏹ {error}");
+            }
+            println!(
+                "{} {} card(s) — {} error(s), {} warning(s)",
+                if report.ok() { "✓" } else { "⏹" },
+                report.cards,
+                report.errors.len(),
+                report.warnings.len()
+            );
+            std::process::exit(if report.ok() { 0 } else { 1 });
+        }
         // the whole index, from the cards (0019) — `--texts` shows what gets
         // vectorized instead, to compare with another vectorizer
         [command, rest @ ..] if command == "vectors" => {
@@ -401,7 +423,7 @@ fn main() -> anyhow::Result<()> {
         }
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage: forkstify [journey|listen|check <seed>] [catalog]\n       forkstify import <catalog url> [catalog]\n       forkstify vectors [catalog] [--texts]\n       forkstify merge-learned <base> <ours> <theirs>   (git merge driver)");
+            eprintln!("usage: forkstify [journey|listen|check <seed>] [catalog]\n       forkstify import <catalog url> [catalog]\n       forkstify vectors [catalog] [--texts]\n       forkstify validate [catalog]\n       forkstify merge-learned <base> <ours> <theirs>   (git merge driver)");
             std::process::exit(2);
         }
     };

@@ -119,9 +119,6 @@ impl Library {
     pub fn followed(&self) -> usize {
         self.artists.iter().filter(|a| a.followed).count()
     }
-    pub fn playlist_tracks(&self) -> u32 {
-        self.artists.iter().map(|a| a.playlist_tracks).sum()
-    }
 
     fn entry(&mut self, id: &str, name: &str) -> &mut Artist {
         let index = match self.artists.iter().position(|a| a.spotify == id) {
