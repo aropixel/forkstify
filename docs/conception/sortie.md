@@ -336,6 +336,19 @@ une seule branche `proposal`, et la relecture côté référence.
 
 ## Chantier C — générer un creux sans le prendre
 
+**Fait le 20/09/2026** (`src/keys.rs`, `src/engine.rs::branch_from`,
+`src/listen.rs`) : `fg<n>` génère la fiche du creux n avec l'intention
+`After::Gap` ; à l'arrivée, la fiche devient une branche **à la suite des
+branches affichées** — donc au numéro du creux quand il était le premier
+—, les autres ne bougent pas, et les creux se rafraîchissent autour du
+contexte *et* de la fiche fraîche. La branche est une marche
+(`engine::branch_from` → `walk`), pour `f<n>` comme pour `fg<n>` ; le
+`f<n>` d'un creux ne donne plus un encore déguisé. Trois tests : `fg2`
+se lit et la grammaire reste sans préfixe ; la branche d'une tête
+fraîche traverse plus d'un artiste ; une tête inconnue ne donne rien.
+Non éprouvé en session réelle. Reste en réserve : `fga`, et la
+génération d'avance en option.
+
 ### Demandé
 
 Dans les branches proposées, un artiste **sans fiche** ne se prend
@@ -411,8 +424,7 @@ ensuite si l'usage le demande, **désactivée par défaut**.
 1. ~~**En place plutôt que rejoué**~~ — tranché le 20/09/2026 : en
    place, au numéro du creux, et la branche est une **marche** comme les
    autres, pas un encore de l'artiste généré.
-2. **Le nom** : `fg` (generate) ; `g` est *google* dans `a`, une lettre
-   par namespace comme `e` (edit / encore) — acceptable ?
+2. ~~**Le nom**~~ — tranché le 20/09/2026 : `fg`.
 3. **`fga` — tout générer** (les trois creux) : pas avant que le besoin
    se montre deux fois.
 4. La **génération d'avance**, en option, plus tard.

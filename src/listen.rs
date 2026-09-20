@@ -428,7 +428,12 @@ enum After {
     /// if there was one.
     Play { title: Option<String>, uri: Option<String> },
     /// A gap branch: taken like the others, where the key asked for it.
-    Branch { when: When, reason: String },
+    /// `proximity` is the link's, the branch's weight.
+    Branch { when: When, reason: String, proximity: u8 },
+    /// `fg<n>` — the card of a gap, and nothing queued: the gap turns into
+    /// a branch on show, walked like the others, and the gaps are refreshed
+    /// around the fresh card (Joel, 19–20/09/2026).
+    Gap { reason: String, proximity: u8 },
     /// The card alone: the track is already in the queue (`ti` on an
     /// off-catalog track), it waits for nothing — it will be attached.
     Card,
@@ -1102,7 +1107,18 @@ impl Live<'_> {
     async fn after_card(&mut self, slug: &str, name: &str, after: After) {
         match after {
             After::Play { title, uri } => self.play_fresh(slug, title, uri).await,
-            After::Branch { when, reason } => self.branch_to(slug, when, reason).await,
+            After::Branch { when, reason, proximity } => self.branch_to(slug, when, reason, proximity).await,
+            After::Gap { reason, proximity } => {
+                match self.branch_of(slug, reason, proximity) {
+                    Some(branch) => {
+                        self.branches.push(branch);
+                        let n = self.branches.len();
+                        self.tell(format!("✓ {name} — card ready · branch {n}"));
+                    }
+                    None => self.tell(format!("✓ {name} — card ready, but nothing of it plays yet")),
+                }
+                self.refresh_gaps(slug);
+            }
             After::Card => self.paint(),
             After::Explore => self.open_explore_of(slug, name).await,
             After::Offer => {
@@ -1208,7 +1224,11 @@ impl Live<'_> {
         }
         let slug = crate::generate::slugify(&name);
         let after = match self.missing.iter().find(|m| m.slug == slug) {
-            Some(missing) => After::Branch { when: When::EndOfBranch, reason: missing.why.clone() },
+            Some(missing) => After::Branch {
+                when: When::EndOfBranch,
+                reason: missing.why.clone(),
+                proximity: missing.proximity,
+            },
             // with an mbid, over a running list, do not overwrite it: make
             // the card and offer the seed instead (Joel, 11/09/2026)
             None if mbid.is_some() && (self.current.is_some() || !self.queue.is_empty()) => After::Offer,
@@ -1284,26 +1304,24 @@ impl Live<'_> {
     }
 
     /// A gap branch just got its card: from now on it is taken like any
-    /// other.
-    async fn branch_to(&mut self, slug: &str, when: When, reason: String) {
-        let (_, _, _, _, played) = self.state();
-        let stops = crate::engine::encore(
-            &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size,
-            &mut self.rng,
-        );
-        if stops.is_empty() {
+    /// other — **walked** like any other, the fresh card leading and other
+    /// artists after it, not an encore of the head (Joel, 20/09/2026).
+    async fn branch_to(&mut self, slug: &str, when: When, reason: String, proximity: u8) {
+        let Some(branch) = self.branch_of(slug, reason, proximity) else {
             say!(self, "(nothing to play from {})", self.catalog.cards[slug].name);
             return;
-        }
-        let branch = crate::engine::Branch {
-            label: self.catalog.cards[slug].name.clone(),
-            reason,
-            artists: vec![slug.to_string()],
-            stops,
-            weight: 3.0,
         };
         self.take_branch(branch, when).await;
         self.render();
+    }
+
+    /// The branch a fresh card leads, from where the playlist stands.
+    fn branch_of(&mut self, slug: &str, reason: String, proximity: u8) -> Option<crate::engine::Branch> {
+        let (context, _, _, visited, played) = self.state();
+        crate::engine::branch_from(
+            &self.catalog, &context, slug, reason, proximity as f32, &self.learned, &self.tail,
+            self.comfort, &visited, &played, self.size, &mut self.rng,
+        )
     }
 
     /// An outage stops the walk rather than turning every remaining track
@@ -1607,8 +1625,8 @@ impl Live<'_> {
         // card, and the branch is taken when it arrives
         if n > self.branches.len() && n <= self.branches.len() + self.missing.len() {
             let missing = &self.missing[n - self.branches.len() - 1];
-            let (slug, reason) = (missing.slug.clone(), missing.why.clone());
-            self.generate(&slug, None, None, After::Branch { when, reason });
+            let (slug, reason, proximity) = (missing.slug.clone(), missing.why.clone(), missing.proximity);
+            self.generate(&slug, None, None, After::Branch { when, reason, proximity });
             return;
         }
         if n == 0 || n > self.branches.len() {
@@ -1617,6 +1635,38 @@ impl Live<'_> {
         }
         let branch = self.branches.remove(n - 1);
         self.take_branch(branch, when).await;
+    }
+
+    /// `fg<n>` — the card of gap n, without taking it: the gap becomes a
+    /// branch on show, and the column stays as it was read. `f<n>` still
+    /// takes it when the card is there (Joel, 19/09/2026).
+    fn generate_gap(&mut self, n: usize) {
+        if n >= 1 && n <= self.branches.len() {
+            say!(self, "(branch {n} has a card already — f{n} takes it)");
+            return;
+        }
+        if n == 0 || n > self.branches.len() + self.missing.len() {
+            say!(self, "choice not understood");
+            return;
+        }
+        let missing = &self.missing[n - self.branches.len() - 1];
+        let (slug, reason, proximity) = (missing.slug.clone(), missing.why.clone(), missing.proximity);
+        self.generate(&slug, None, None, After::Gap { reason, proximity });
+    }
+
+    /// The gaps, computed again around the context **and** a fresh card:
+    /// its own links to the void show in turn — the catalog growing along
+    /// its links, one step further. The next recompute reads the playlist
+    /// as it stands, like `fr` (Joel, 20/09/2026).
+    fn refresh_gaps(&mut self, fresh: &str) {
+        let (mut context, _, _, visited, _) = self.state();
+        if !context.iter().any(|slug| slug == fresh) {
+            context.push(fresh.to_string());
+        }
+        self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
+        self.missing.retain(|m| !self.branches.iter().any(|b| b.artists.first() == Some(&m.slug)));
+        self.missing.truncate(3);
+        self.mark_pending();
     }
 
     /// Put a branch in the queue, where the key asked for it. Separate from
@@ -1832,6 +1882,7 @@ impl Live<'_> {
             // --- f, the branch namespace ---
             Cmd::Digit(n) => self.choose(n, When::EndOfBranch).await,
             Cmd::Fork { branch, when } => self.choose(branch, when).await,
+            Cmd::ForkGenerate(n) => self.generate_gap(n),
             Cmd::Peek => self.preview(),
             Cmd::Reroll => {
                 self.recompute();
@@ -3460,6 +3511,7 @@ impl Live<'_> {
                 ("f<n>", "branch n, at the end of the branch", true),
                 ("fn<n>", "branch n, after the track", true),
                 ("f!<n>", "branch n, after the track, the rest dropped", true),
+                ("fg<n>", "generate — the card of gap n, the branch stays on show", true),
                 ("fp", "peek — preview the branches", true),
                 ("fr", "reroll — propose three others", true),
                 ("fu", "undo — back to the previous branch", true),

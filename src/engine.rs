@@ -844,6 +844,36 @@ pub fn propose(
     branches
 }
 
+/// The branch of an imposed head — a gap that just got its card (`f<n>`
+/// or `fg<n>` on a "○ no card yet" line): the **same walk as a proposed
+/// branch**, the fresh card leading, then a track per artist crossed in
+/// its neighbourhood. Not an encore of the head: a gap taken used to give
+/// n tracks of the one artist, a segment in disguise (Joel, 20/09/2026).
+/// `weight` is the link's proximity, so the gauge and the auto draw read
+/// it like any branch. None when nothing of it can play.
+pub fn branch_from(
+    catalog: &Catalog,
+    context: &[String],
+    head: &str,
+    reason: String,
+    weight: f32,
+    learned: &Learned,
+    tail: &Tail,
+    comfort: Comfort,
+    visited: &HashSet<String>,
+    played: &HashSet<String>,
+    size: usize,
+    rng: &mut impl Rng,
+) -> Option<Branch> {
+    catalog.cards.get(head)?;
+    // at the seed's opening there is no segment yet: the head is its own
+    // starting point
+    let current = context.last().map(String::as_str).unwrap_or(head);
+    let branch =
+        walk(catalog, current, head.to_string(), reason, weight, learned, tail, comfort, visited, played, size, rng);
+    (!branch.stops.is_empty()).then_some(branch)
+}
+
 /// `fw` — wander: leave the universe on purpose (retour n° 6, Joel,
 /// 11/09/2026). With a `target`, the head is that artist, whatever the
 /// distance; without, the head is drawn among the artists **farthest**
@@ -1042,6 +1072,59 @@ mod tests {
         assert_eq!(missing[0].proximity, 4);
         assert!(missing[0].why.contains("around Jacques Brel"), "{}", missing[0].why);
         assert!(!missing[0].pending);
+    }
+
+    /// A gap that got its card is walked like any branch: the head leads,
+    /// then its neighbourhood — not n tracks of the head alone.
+    #[test]
+    fn the_branch_of_a_fresh_head_walks_on() {
+        let mut moustaki = the_cure();
+        moustaki.name = "Georges Moustaki".into();
+        moustaki.tops = vec!["Le Métèque".into()];
+        moustaki.links =
+            vec![Link { to: "georges-brassens".into(), kind: "similar".into(), note: None, proximity: None }];
+        let mut brassens = the_cure();
+        brassens.name = "Georges Brassens".into();
+        brassens.tops = vec!["Les Copains d'abord".into()];
+        let mut brel = the_cure();
+        brel.name = "Jacques Brel".into();
+        let catalog = Catalog {
+            cards: HashMap::from([
+                ("georges-moustaki".to_string(), moustaki),
+                ("georges-brassens".to_string(), brassens),
+                ("jacques-brel".to_string(), brel),
+            ]),
+            proximities: HashMap::from([("similar".to_string(), 4)]),
+            vectors: HashMap::new(),
+        };
+        let learned = Learned::blank();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+        let branch = branch_from(
+            &catalog,
+            &["jacques-brel".to_string()],
+            "georges-moustaki",
+            "similar · around Jacques Brel".into(),
+            4.0,
+            &learned,
+            &no_tail(),
+            Comfort::new(3),
+            &HashSet::new(),
+            &HashSet::new(),
+            3,
+            &mut rng,
+        )
+        .expect("something to play");
+        assert_eq!(branch.artists[0], "georges-moustaki");
+        assert!(branch.artists.contains(&"georges-brassens".to_string()), "{:?}", branch.artists);
+        assert_eq!(branch.stops[0].slug, "georges-moustaki");
+        assert!(branch.stops.iter().any(|s| s.slug == "georges-brassens"));
+        assert_eq!(branch.weight, 4.0);
+        // a head nobody knows gives no branch
+        assert!(branch_from(
+            &catalog, &[], "nobody", String::new(), 1.0, &learned, &no_tail(), Comfort::new(3),
+            &HashSet::new(), &HashSet::new(), 3, &mut rng
+        )
+        .is_none());
     }
 
     /// An artist already visited does not come back as a card to generate.

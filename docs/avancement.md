@@ -309,6 +309,37 @@ appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
 touchent les fiches et demandent la couche qui écrit et commite le
 catalogue.
 
+## `fg<n>` — générer un creux sans le prendre, et la branche d'un creux marche (20/09/2026)
+
+Le chantier C de [`conception/sortie.md`](conception/sortie.md), codé le
+jour de l'arbitrage. Joel : les artistes sans fiche proposés en creux
+obligeaient à les mettre à la file pour obtenir la fiche ; il veut « les
+générer, et que cela propose de nouvelles branches en fonction », et « une
+branche régénérée comme les autres, avec un morceau de l'artiste généré et
+d'autres morceaux d'autres artistes ».
+
+- **`fg<n>`** (`Cmd::ForkGenerate`, `After::Gap`) : la fiche du creux n
+  naît — composée, vectorisée, commitée, adoptée par la session comme
+  aujourd'hui — et **rien n'est mis à la file**. À l'arrivée, la ligne
+  « ○ no card yet » devient une branche jouable à la suite des branches
+  affichées, les autres ne bougent pas (la raison pour laquelle `⏎` tire
+  parmi ce qui est affiché), et le toast dit son numéro. Sur un numéro de
+  branche, `fg<n>` répond « f<n> takes it ».
+- **Les creux se rafraîchissent** autour du contexte *et* de la fiche
+  fraîche (`refresh_gaps`) : ses propres liens vers le vide apparaissent en
+  gris à leur tour — le catalogue grandit le long de ses liens, un cran
+  plus loin. Le prochain recalcul repart de la liste telle qu'elle est,
+  comme `fr`.
+- **La branche d'un creux est une marche** (`engine::branch_from`, le
+  `walk` de `propose` et de `wander`, la fiche fraîche en tête, la raison
+  et la proximité du lien pour raison et poids). Correction au passage :
+  `branch_to` — le chemin du `f<n>` sur un creux — construisait la branche
+  avec `encore`, donc n morceaux du seul artiste généré. `f<n>` et `fg<n>`
+  passent tous deux par la marche.
+- Tests : `fg2` se lit, la grammaire reste sans préfixe ; la branche d'une
+  tête fraîche traverse plus d'un artiste, une tête inconnue ne donne rien.
+  72 tests verts, aucun avertissement. **Non éprouvé en session réelle.**
+
 ## Le cahier des trois derniers chantiers avant la sortie (19/09/2026)
 
 Joel : « affiner les dernières choses avant de pouvoir sortir le projet » —
@@ -1938,9 +1969,10 @@ précédente sont largement faites ; ce qui suit est ce qui reste.
    déroule.
 11. **Traduire en anglais** les scripts de `tools/` écrits avant la règle
     de langue du code (à l'occasion).
-15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) : le setup,
-    le namespace catalogue, `fg<n>` — cahier dans
-    [conception/sortie.md](conception/sortie.md), à trancher avant de coder.
+15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) — cahier dans
+    [conception/sortie.md](conception/sortie.md). ~~C, `fg<n>`~~ fait le
+    20/09/2026 ; **B, le namespace `C`**, tranché en entier, à coder ;
+    **A, le setup**, attend la maquette et ses derniers arbitrages.
 12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
     (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
     09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).

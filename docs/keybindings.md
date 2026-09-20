@@ -47,6 +47,7 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 | `f<n>` | **fork** | Branche n, **ajoutée à la suite de ce qui est déjà décidé** — on enchaîne les choix et la soirée se construit | ✅ |
 | `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé | ✅ |
 | `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré | ✅ |
+| `fg<n>` | fork **generate** | **Générer la fiche d'un creux sans le prendre** : la ligne « ○ no card yet » devient une **branche jouable**, à la suite des branches, les autres ne bougent pas ; puis les creux se rafraîchissent autour de la fiche fraîche — ses propres liens vers le vide apparaissent en gris. `f<n>` la prend ensuite, `⏎` peut la tirer (Joel, 19–20/09/2026) | ✅ |
 | `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
 | `fr` | fork **reroll** | Reproposer trois autres branches, **depuis la fin de la liste telle qu'elle est** : un titre inséré par `ti`, mis en file par le `e` de la discographie ou déplacé par `J`/`K` compte — comme contexte et comme déjà joué (Joel, 17/09/2026) | ✅ |
 | `fu` | fork **undo** | Revenir à la branche précédente | ✅ |
@@ -59,9 +60,13 @@ Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
 fiche vers un artiste **qui n'a pas encore de fiche** n'est plus jeté : il
 s'affiche en gris au bas de la colonne, marqué « ○ fiche à générer », et se
 prend au chiffre suivant. Le prendre **génère la fiche** — MusicBrainz puis
-Deezer, quelques secondes — puis la branche part comme les autres. La
-génération est une **édition** : elle commite, et la fiche porte
-`generated = true`. Voir
+Deezer, quelques secondes — puis la branche part comme les autres ; `fg<n>`
+génère **sans prendre**. La branche née d'un creux est une **marche** comme
+toute branche proposée — la fiche fraîche en tête, puis un morceau par
+artiste traversé — et non un encore de l'artiste généré (Joel,
+20/09/2026 ; jusque-là `f<n>` sur un creux donnait n morceaux du seul
+artiste). La génération est une **édition** : elle commite, et la fiche
+porte `generated = true`. Voir
 [conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
 
 `entrée` ne tire jamais un creux : elle choisit parmi ce qui peut sonner
@@ -334,12 +339,11 @@ constant.
    mesure, majuscule = édition) mais elle est plus faible. `ac` (*connect*)
    l'éviterait, au prix du mot « link », celui du format sur disque.
 
-3. **Deux propositions du 19/09/2026**, dans
-   [conception/sortie.md](conception/sortie.md) : `fg<n>` — générer la
-   fiche d'un creux sans prendre la branche ; et le namespace **`C`**,
+3. **Le namespace `C`** (19/09/2026, [conception/sortie.md](conception/sortie.md)),
    le catalogue (`Cd` diff, `Cp` propose, `Cu` update) — la lettre est
    tranchée par Joel le 19/09/2026 (partager `c` avec le confort, écarté),
    les gestes ne le sont pas encore. Rien n'entre dans la table avant.
+   `fg<n>`, du même cahier, est câblé depuis le 20/09/2026.
 
 ## Lettres libres
 

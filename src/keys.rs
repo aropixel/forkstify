@@ -33,6 +33,9 @@ pub enum Cmd {
     /// the caller knows which, the parser does not.
     Digit(usize),
     Fork { branch: usize, when: When },
+    /// `fg<n>` — fork generate: the card of gap n, and nothing queued —
+    /// the gap turns into a branch on show (Joel, 19/09/2026).
+    ForkGenerate(usize),
     Peek,
     Reroll,
     Wander,
@@ -166,7 +169,7 @@ pub fn parse(buf: &str) -> Parse {
         [d] if digit(*d).is_some() => Parse::Done(Cmd::Digit(digit(*d).unwrap())),
 
         // --- f, the branch namespace ---
-        ['f'] | ['f', 'n'] | ['f', '!'] => Parse::Pending,
+        ['f'] | ['f', 'n'] | ['f', '!'] | ['f', 'g'] => Parse::Pending,
         ['f', d] if digit(*d).is_some() => Parse::Done(Cmd::Fork {
             branch: digit(*d).unwrap(),
             when: When::EndOfBranch,
@@ -179,6 +182,7 @@ pub fn parse(buf: &str) -> Parse {
             branch: digit(*d).unwrap(),
             when: When::NowForce,
         }),
+        ['f', 'g', d] if digit(*d).is_some() => Parse::Done(Cmd::ForkGenerate(digit(*d).unwrap())),
         ['f', 'p'] => Parse::Done(Cmd::Peek),
         ['f', 'r'] => Parse::Done(Cmd::Reroll),
         ['f', 'w'] => Parse::Done(Cmd::Wander),
@@ -603,6 +607,8 @@ mod tests {
             parse("f!3").done(),
             Some(Cmd::Fork { branch: 3, when: When::NowForce })
         );
+        assert!(matches!(parse("fg"), Parse::Pending));
+        assert_eq!(parse("fg2").done(), Some(Cmd::ForkGenerate(2)));
         assert_eq!(
             parse("e2").done(),
             Some(Cmd::Encore { count: 2, when: When::EndOfBranch })

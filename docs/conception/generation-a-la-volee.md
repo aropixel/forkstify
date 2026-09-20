@@ -49,6 +49,13 @@ bout : le catalogue ne grandit pas le long de ses propres liens.
 Aucun des deux ne suffit seul : le premier ne sait faire entrer que ce
 qu'on nomme, le second que ce que le catalogue pointe déjà.
 
+**Un creux se génère aussi sans se prendre** (Joel, 19–20/09/2026,
+[sortie.md](sortie.md) chantier C) : `fg<n>` fait naître la fiche, la
+ligne en creux devient une branche à l'écran, et les creux se
+rafraîchissent autour de la fiche fraîche. **La branche d'un creux est une
+marche** comme toute branche proposée (`engine::branch_from`), pas un
+encore de l'artiste généré.
+
 **C'est une édition au sens de [0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)** —
 un commit lisible, `generated = true` jusqu'à relecture — comme 0016 le
 prévoyait.
