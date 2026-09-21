@@ -225,6 +225,41 @@ notes that is never committed. What has to follow you between machines
 belongs in a private repository instead: a gitignored folder dies with the
 clone, as this one nearly did.
 
+## The index is regenerated only where it moved (2026-09-21)
+
+Joel, seeing a commit rewrite `vectors/vectors.jsonl` after a two-line
+translation: "is versioning the vectors really a good thing?"
+
+**What we measured.** Same cards in, 358 vectors out of 360 different:
+97.4 % of the 138 240 components moved, by 1.3e-5 median and 1.29e-4 at
+worst, on components whose own amplitude is 0.035. So the embedding is not
+reproducible to the last digit — ONNX Runtime, thread by thread, machine by
+machine — and every regeneration rewrote 1.5 MB into the history for
+nothing. The workflow's "commit only if changed" guard could never fire.
+
+**Rounding, which we first proposed, does not work.** Simulated on the two
+real indexes: 4 decimals leaves 2 lines out of 360 stable, 3 decimals the
+same. Two decimals stabilises 195, but quantizes to a cosine error near
+0.06 — the order of the proximities the engine reads. Dropped.
+
+**What is wired instead.** Each line carries the fingerprint of the text it
+came from (`h`, FNV-1a over the model name and the text; `DefaultHasher` is
+not stable across Rust releases and this goes into a versioned file).
+`regenerate` composes every text — cheap — hashes it, and runs the model
+**only over the cards whose fingerprint moved**, keeping every other line
+byte for byte. A card's text carries its neighbours' links, so a new link
+still makes both sides stale, which is right. An index written before today
+has no fingerprints: it regenerates once, wholesale, then holds still.
+
+**And the trigger was wrong.** The catalog workflow fired on `catalog.toml`,
+which carries the proximity grid the engine reads and the embedding never
+does. Removed: `cards/**` only. The pull-request check is untouched, its
+trigger has no path filter.
+
+Versioning the vectors stays right: a listener would otherwise download a
+241 MB model to compute 366 of them. It was regenerating them wholesale
+that was wrong.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

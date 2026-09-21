@@ -1338,6 +1338,9 @@ impl Live<'_> {
     fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
             .map_err(|e| format!("the composed card does not read back ({e})"))?;
+        // the text the vector came from, fingerprinted into the index so a
+        // later regeneration knows this line is current (2026-09-21)
+        let text = crate::embed::text_of(&draft.slug, &card, &self.catalog.cards);
         let mut edit = crate::edit::create_card(
             &self.catalog_dir,
             &draft.slug,
@@ -1349,7 +1352,7 @@ impl Live<'_> {
         // the vector goes in the same commit (0019): the index shipped with
         // the fork never lags behind its cards
         if let Some(vector) = &vector {
-            edit.also.push(crate::embed::write_vector(&self.catalog_dir, &draft.slug, vector)?);
+            edit.also.push(crate::embed::write_vector(&self.catalog_dir, &draft.slug, &text, vector)?);
         }
         crate::edit::commit(&self.catalog_dir, &edit)?;
         self.catalog.cards.insert(draft.slug.clone(), card);

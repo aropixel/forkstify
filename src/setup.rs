@@ -1051,12 +1051,15 @@ impl Setup<'_> {
         rows.push(SetupRow::Notice(format!("… vectorizing {} card(s){}", written.len(), if crate::embed::model_cached() { "" } else { " — first run: the model downloads (241 MB)" })));
         self.draw(7, &rows, "[vectorizing…]");
         let texts: Vec<String> = written.iter().map(|slug| crate::embed::text_of(slug, &catalog.cards[slug], &catalog.cards)).collect();
-        let vectors = tokio::task::spawn_blocking(move || crate::embed::embed(&texts)).await.unwrap_or_else(|e| Err(format!("interrupted ({e})")));
+        // the texts are kept: each line of the index stores the fingerprint
+        // of the text it came from (2026-09-21)
+        let to_embed = texts.clone();
+        let vectors = tokio::task::spawn_blocking(move || crate::embed::embed(&to_embed)).await.unwrap_or_else(|e| Err(format!("interrupted ({e})")));
         let mut vectorized = 0;
         match vectors {
             Ok(vectors) => {
-                for (slug, vector) in written.iter().zip(&vectors) {
-                    if crate::embed::write_vector(&dir, slug, vector).is_ok() {
+                for (n, (slug, vector)) in written.iter().zip(&vectors).enumerate() {
+                    if crate::embed::write_vector(&dir, slug, &texts[n], vector).is_ok() {
                         vectorized += 1;
                     }
                 }

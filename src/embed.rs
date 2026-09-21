@@ -187,9 +187,50 @@ fn index_path(dir: &Path) -> PathBuf {
     dir.join("vectors").join("vectors.jsonl")
 }
 
+/// The fingerprint of the text a vector was computed from, stored beside
+/// it so regeneration can tell what actually moved (2026-09-21). The model
+/// goes into it: change the model and every line is stale, which is right.
+///
+/// FNV-1a, 64 bits — dependency-free and stable for ever, which a hash
+/// written into a versioned file must be. `DefaultHasher` is not: its
+/// output is explicitly allowed to change between Rust releases.
+fn digest(text: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in MODEL.as_bytes().iter().chain(b"\0".iter()).chain(text.as_bytes().iter()) {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// Which of these cards need the model run over them again: the ones with
+/// no line yet, and the ones whose text no longer matches the fingerprint
+/// stored beside their vector.
+fn stale(slugs: &[&String], digests: &[String], known: &HashMap<String, (String, String)>) -> Vec<usize> {
+    (0..slugs.len())
+        .filter(|i| match known.get(slugs[*i]) {
+            Some((stored, _)) => *stored != digests[*i],
+            None => true,
+        })
+        .collect()
+}
+
+/// The index as it stands: slug → (fingerprint, the line itself, kept to
+/// be written back byte for byte).
+fn known_lines(path: &Path) -> HashMap<String, (String, String)> {
+    let mut known = HashMap::new();
+    let Ok(text) = std::fs::read_to_string(path) else { return known };
+    for raw in text.lines().filter(|l| !l.trim().is_empty()) {
+        if let Ok(parsed) = serde_json::from_str::<Line>(raw) {
+            known.insert(parsed.slug, (parsed.h.unwrap_or_default(), raw.to_string()));
+        }
+    }
+    known
+}
+
 /// One line of the index, in the shape the Python tool wrote — six
 /// decimals, a diff-friendly order of keys.
-fn line(slug: &str, vector: &[f32]) -> String {
+fn line(slug: &str, digest: &str, vector: &[f32]) -> String {
     let values: Vec<String> = vector
         .iter()
         .map(|x| {
@@ -203,17 +244,20 @@ fn line(slug: &str, vector: &[f32]) -> String {
             text
         })
         .collect();
-    format!("{{\"slug\": \"{slug}\", \"v\": [{}]}}", values.join(", "))
+    format!("{{\"slug\": \"{slug}\", \"h\": \"{digest}\", \"v\": [{}]}}", values.join(", "))
 }
 
 #[derive(serde::Deserialize)]
 struct Line {
     slug: String,
+    /// Absent from indexes written before 2026-09-21: they regenerate once.
+    #[serde(default)]
+    h: Option<String>,
 }
 
 /// Put one vector into the index, in slug order, replacing the slug's line
 /// if it has one. Returns the path written, for the commit.
-pub fn write_vector(dir: &Path, slug: &str, vector: &[f32]) -> Result<PathBuf, String> {
+pub fn write_vector(dir: &Path, slug: &str, text: &str, vector: &[f32]) -> Result<PathBuf, String> {
     let path = index_path(dir);
     let existing = std::fs::read_to_string(&path).unwrap_or_default();
     let mut lines: Vec<(String, String)> = Vec::new();
@@ -223,7 +267,7 @@ pub fn write_vector(dir: &Path, slug: &str, vector: &[f32]) -> Result<PathBuf, S
             lines.push((parsed.slug, text.to_string()));
         }
     }
-    lines.push((slug.to_string(), line(slug, vector)));
+    lines.push((slug.to_string(), line(slug, &digest(text), vector)));
     lines.sort_by(|a, b| a.0.cmp(&b.0));
     write_index(&path, lines.iter().map(|(_, l)| l.as_str()))?;
     Ok(path)
@@ -244,9 +288,36 @@ fn write_index<'a>(path: &Path, lines: impl Iterator<Item = &'a str>) -> Result<
 pub fn regenerate(dir: &Path, cards: &HashMap<String, Card>) -> Result<usize, String> {
     let mut slugs: Vec<&String> = cards.keys().collect();
     slugs.sort();
+    // Composing the texts is cheap; running the model is not — and the
+    // model is not reproducible to the last digit: regenerating everything
+    // rewrote 358 lines out of 360 for nothing (2026-09-21). So keep every
+    // line whose text has not moved, byte for byte, and run the model only
+    // over the rest. A card's text carries its neighbours' links, so a new
+    // link does make both sides stale, as it should.
+    let path = index_path(dir);
+    let known = known_lines(&path);
     let texts: Vec<String> = slugs.iter().map(|slug| text_of(slug, &cards[*slug], cards)).collect();
-    let vectors = embed(&texts)?;
-    let lines: Vec<String> = slugs.iter().zip(&vectors).map(|(slug, v)| line(slug, v)).collect();
+    let digests: Vec<String> = texts.iter().map(|text| digest(text)).collect();
+    let todo = stale(&slugs, &digests, &known);
+
+    let mut computed: HashMap<usize, String> = HashMap::new();
+    if !todo.is_empty() {
+        let fresh: Vec<String> = todo.iter().map(|i| texts[*i].clone()).collect();
+        let vectors = embed(&fresh)?;
+        if vectors.len() != todo.len() {
+            return Err(format!("the model returned {} vectors for {} texts", vectors.len(), todo.len()));
+        }
+        for (vector, i) in vectors.iter().zip(&todo) {
+            computed.insert(*i, line(slugs[*i], &digests[*i], vector));
+        }
+    }
+    let lines: Vec<String> = (0..slugs.len())
+        .map(|i| match computed.remove(&i) {
+            Some(fresh) => fresh,
+            // unchanged: the line we already had, to the byte
+            None => known[slugs[i]].1.clone(),
+        })
+        .collect();
     write_index(&index_path(dir), lines.iter().map(String::as_str))?;
     let meta = format!(
         "model = \"{MODEL}\"\ndimensions = {DIMENSIONS}\npooling = \"mean\"\nmax_length = {MAX_LENGTH}\nnormalized = true\ncards = {}\n",
@@ -259,6 +330,39 @@ pub fn regenerate(dir: &Path, cards: &HashMap<String, Card>) -> Result<usize, St
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The fingerprint is what tells a current line from a stale one, so it
+    /// must depend on the text and on nothing else that drifts.
+    #[test]
+    fn the_fingerprint_follows_the_text() {
+        let one = digest("The Cure. Genres : post-punk");
+        assert_eq!(one, digest("The Cure. Genres : post-punk"), "same text, same fingerprint");
+        assert_ne!(one, digest("The Cure. Genres : post-punk, 80s"), "a word more, another fingerprint");
+        assert_eq!(one.len(), 16, "sixteen hex characters");
+        assert!(one.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// 2026-09-21: only what moved goes back through the model. An index
+    /// written before the fingerprints has none, so it regenerates once.
+    #[test]
+    fn only_the_cards_whose_text_moved_are_recomputed() {
+        let (a, b, c) = ("air".to_string(), "blur".to_string(), "cure".to_string());
+        let slugs = vec![&a, &b, &c];
+        let digests = vec![digest("air"), digest("blur"), digest("cure")];
+        let known: HashMap<String, (String, String)> = HashMap::from([
+            // unchanged
+            (a.clone(), (digest("air"), "{\"slug\": \"air\"}".to_string())),
+            // its text moved
+            (b.clone(), (digest("blur, once"), "{\"slug\": \"blur\"}".to_string())),
+            // 'cure' has no line at all
+        ]);
+        assert_eq!(stale(&slugs, &digests, &known), vec![1, 2]);
+
+        // an index with no fingerprints: everything is stale, once
+        let old: HashMap<String, (String, String)> =
+            HashMap::from([(a.clone(), (String::new(), String::new()))]);
+        assert_eq!(stale(&slugs, &digests, &old), vec![0, 1, 2]);
+    }
 
     fn card(text: &str) -> Card {
         toml::from_str(text).unwrap()
@@ -299,13 +403,17 @@ mod tests {
     fn a_vector_lands_in_slug_order_and_replaces_its_own() {
         let dir = std::env::temp_dir().join(format!("forkstify-embed-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("vectors")).unwrap();
-        write_vector(&dir, "pulp", &[0.5, -0.25]).unwrap();
-        write_vector(&dir, "air", &[0.1, 0.0]).unwrap();
-        write_vector(&dir, "pulp", &[0.123456789, 1.0]).unwrap();
+        write_vector(&dir, "pulp", "Pulp", &[0.5, -0.25]).unwrap();
+        write_vector(&dir, "air", "Air", &[0.1, 0.0]).unwrap();
+        write_vector(&dir, "pulp", "Pulp", &[0.123456789, 1.0]).unwrap();
         let text = std::fs::read_to_string(index_path(&dir)).unwrap();
         assert_eq!(
             text,
-            "{\"slug\": \"air\", \"v\": [0.1, 0.0]}\n{\"slug\": \"pulp\", \"v\": [0.123457, 1.0]}\n"
+            format!(
+                "{{\"slug\": \"air\", \"h\": \"{}\", \"v\": [0.1, 0.0]}}\n{{\"slug\": \"pulp\", \"h\": \"{}\", \"v\": [0.123457, 1.0]}}\n",
+                digest("Air"),
+                digest("Pulp")
+            )
         );
         std::fs::remove_dir_all(dir).unwrap();
     }
