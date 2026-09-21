@@ -1,422 +1,417 @@
-# Raccourcis
+# Keybindings
 
-**Référence unique des touches de forkstify.** Ce document fait foi : la
-table a vécu en trois exemplaires (le code, `forme-de-l-application.md`,
-`retours-usage.md`) jusqu'au 05/09/2026, et c'est ce qui avait laissé
-s'installer huit collisions. Les autres notes y renvoient désormais.
+**The single reference for forkstify's keys.** This document is
+authoritative: the table lived in three copies (the code,
+`forme-de-l-application.md`, `retours-usage.md`) until 2026-09-05, and that
+is what let eight collisions settle in. The other notes now point here.
 
-La grammaire est fixée par la décision
-[0015](decisions/0015-grammaire-clavier-namespaces.md) ; ce document est
-seul juge de la table elle-même, qui s'ajuste sans rouvrir la décision.
+The grammar is set by decision
+[0015](decisions/0015-keyboard-grammar-namespaces.md); this document alone
+rules on the table itself, which is adjusted without reopening the
+decision.
 
-## La règle, en une ligne
+## The rule, in one line
 
-> **`f` la branche · `e` encore · `t` le morceau · `a` l'artiste** —
-> le reste du clavier ne sert qu'à naviguer et à piloter la session.
+> **`f` the branch · `e` encore · `t` the track · `a` the artist** —
+> the rest of the keyboard only navigates and drives the session.
 
-Le premier caractère dit *sur quoi* on agit, le second *ce qu'on fait*.
-**Espace est le leader** : hors grammaire, il ouvre l'**aide à la saisie**
-— tout ce qu'on peut taper, ou seulement le namespace en cours de frappe,
-comme which-key dans LazyVim. Ce n'est pas une affiche : la séquence reste
-en cours, et la touche tapée dans l'aide fait l'action (`espace`, `e`, `3`
-= `e3`). `⌫` remonte d'un niveau, `échap` ferme (Joel, 07/09/2026).
+The first character says *what* you act on, the second *what you do*.
+**Space is the leader**: outside the grammar, it opens the **input hints** —
+everything you can type, or only the namespace being typed, like which-key
+in LazyVim. It is not a poster: the sequence is still running, and the key
+pressed in the hints performs the action (`space`, `e`, `3` = `e3`). `⌫`
+goes one level up, `escape` closes (Joel, 2026-09-07).
 
-Chaque touche vient d'un **mot anglais**, à la vim (`y` yank, `c` change) :
-`f` fork, `e` encore, `t` track, `a` artist, puis `l` like, `s` skip,
+Every key comes from an **English word**, vim-style (`y` yank, `c` change):
+`f` fork, `e` encore, `t` track, `a` artist, then `l` like, `s` skip,
 `b` ban, `m` mark, `t` top, `d` door, `e` edit, `L` link, `p` peek/pause,
 `r` reroll, `w` wander, `u` undo.
 
-> **Chemins renommés le 06/09/2026.** Le catalogue parle anglais sur disque,
-> comme `AGENTS.md` et [0010](decisions/0010-format-revise-links-sans-portes.md)
-> l'exigent : `fiches/` → `cards/`, `outillage/` → `tools/`, `vecteurs/` →
-> `vectors/`, `catalogue.toml` → `catalog.toml`. Les décisions antérieures
-> sont **immuables** et mentionnent les anciens noms : y lire les nouveaux.
-> Le vocabulaire français ne change pas — on dit toujours « une fiche ».
+> **Paths renamed on 2026-09-06.** The catalog speaks English on disk, as
+> `AGENTS.md` and [0010](decisions/0010-revised-format-links-without-doors.md)
+> require: `fiches/` → `cards/`, `outillage/` → `tools/`, `vecteurs/` →
+> `vectors/`, `catalogue.toml` → `catalog.toml`. Earlier decisions are
+> **immutable** and mention the old names: read the new ones there.
 
-## Légende
+## Legend
 
-| Marque | Sens |
+| Mark | Meaning |
 |---|---|
-| ✅ | Câblé, utilisable dans `listen` |
-| 📋 | Décidé (0015), **pas encore câblé** — la touche répond « not wired yet » au lieu de ne rien faire |
+| ✅ | Wired, usable in `listen` |
+| 📋 | Decided (0015), **not wired yet** — the key answers "not wired yet" instead of doing nothing |
 
-## `f` — la branche
+## `f` — the branch
 
-| Touche | Mot | Action | |
+| Key | Word | Action | |
 |---|---|---|---|
-| `f<n>` | **fork** | Branche n, **ajoutée à la suite de ce qui est déjà décidé** — on enchaîne les choix et la soirée se construit | ✅ |
-| `fn<n>` | fork **now** | …après le morceau en cours, le reste conservé | ✅ |
-| `f!<n>` | fork now, **force** | …après le morceau en cours, le reste retiré | ✅ |
-| `fg<n>` | fork **generate** | **Générer la fiche d'un creux sans le prendre** : la ligne « ○ no card yet » devient une **branche jouable**, à la suite des branches, les autres ne bougent pas ; puis les creux se rafraîchissent autour de la fiche fraîche — ses propres liens vers le vide apparaissent en gris. `f<n>` la prend ensuite, `⏎` peut la tirer (Joel, 19–20/09/2026) | ✅ |
-| `fp` | fork **peek** | Sans emploi depuis le 06/09 : les branches sont **affichées en permanence**, à droite. La touche le dit plutôt que de ne rien faire | ✅ |
-| `fr` | fork **reroll** | Reproposer trois autres branches, **depuis la fin de la liste telle qu'elle est** : un titre inséré par `ti`, mis en file par le `e` de la discographie ou déplacé par `J`/`K` compte — comme contexte et comme déjà joué (Joel, 17/09/2026) | ✅ |
-| `fu` | fork **undo** | Revenir à la branche précédente | ✅ |
-| `fw` | fork **wander** | Partir loin, hors de l'univers courant : ouvre la ligne `:wander ` déjà remplie — **entrée** seule tire une tête parmi les artistes les plus loin du parcours (sous le plancher du confort, hors du parcours et de ses voisins de graphe), `fw <artiste>` part chez cet artiste du catalogue. La branche va en fin de ce qui est décidé, comme `f<n>` (Joel, 11/09/2026) | ✅ |
-| `1`…`9` | | Raccourci de `f1`…`f9` | ✅ |
-| entrée | | Auto : tire au sort parmi les branches affichées | ✅ |
+| `f<n>` | **fork** | Branch n, **appended after whatever is already decided** — choices chain up and the evening builds itself | ✅ |
+| `fn<n>` | fork **now** | …after the current track, the rest kept | ✅ |
+| `f!<n>` | fork now, **force** | …after the current track, the rest dropped | ✅ |
+| `fg<n>` | fork **generate** | **Generate the card for a gap without taking it**: the "○ no card yet" row becomes a **playable branch**, appended after the branches, the others do not move; then the gaps refresh around the fresh card — its own links into the void appear in grey. `f<n>` takes it afterwards, `⏎` may draw it (Joel, 2026-09-19/20) | ✅ |
+| `fp` | fork **peek** | Unused since 09-06: branches are **shown permanently**, on the right. The key says so rather than doing nothing | ✅ |
+| `fr` | fork **reroll** | Propose three other branches, **from the end of the list as it stands**: a track inserted by `ti`, queued by the discography's `e` or moved by `J`/`K` counts — both as context and as already played (Joel, 2026-09-17) | ✅ |
+| `fu` | fork **undo** | Back to the previous branch | ✅ |
+| `fw` | fork **wander** | Go far away, out of the current universe: opens the `:wander ` line already filled in — **enter** alone draws a head among the artists furthest from the journey (below the comfort floor, outside the journey and its graph neighbors), `fw <artist>` sets off from that catalog artist. The branch goes at the end of what is decided, like `f<n>` (Joel, 2026-09-11) | ✅ |
+| `1`…`9` | | Shortcut for `f1`…`f9` | ✅ |
+| enter | | Auto: draws at random among the branches shown | ✅ |
 
-**Les numéros continuent sur les creux** (09/09/2026,
-[0016](decisions/0016-base-large-et-generation-a-la-volee.md)). Un lien de la
-fiche vers un artiste **qui n'a pas encore de fiche** n'est plus jeté : il
-s'affiche en gris au bas de la colonne, marqué « ○ fiche à générer », et se
-prend au chiffre suivant. Le prendre **génère la fiche** — MusicBrainz puis
-Deezer, quelques secondes — puis la branche part comme les autres ; `fg<n>`
-génère **sans prendre**. La branche née d'un creux est une **marche** comme
-toute branche proposée — la fiche fraîche en tête, puis un morceau par
-artiste traversé — et non un encore de l'artiste généré (Joel,
-20/09/2026 ; jusque-là `f<n>` sur un creux donnait n morceaux du seul
-artiste). La génération est une **édition** : elle commite, et la fiche
-porte `generated = true`. Voir
-[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
+**The numbers carry on over the gaps** (2026-09-09,
+[0016](decisions/0016-broad-base-and-on-the-fly-generation.md)). A link from
+the card towards an artist **who has no card yet** is no longer thrown away:
+it shows in grey at the bottom of the column, marked "○ no card yet", and is
+taken with the next digit. Taking it **generates the card** — MusicBrainz
+then Deezer, a few seconds — then the branch sets off like the others;
+`fg<n>` generates **without taking**. A branch born from a gap is a **walk**
+like any proposed branch — the fresh card at the head, then one track per
+artist crossed — not an encore of the generated artist (Joel, 2026-09-20;
+until then `f<n>` on a gap gave n tracks by that one artist). Generation is
+an **edit**: it commits, and the card carries `generated = true`. See
+[design/on-the-fly-generation.md](design/on-the-fly-generation.md).
 
-`entrée` ne tire jamais un creux : elle choisit parmi ce qui peut sonner
-tout de suite.
+`enter` never draws a gap: it chooses among what can play right away.
 
-Le `!` est le *force* de vim (`:w!`) : « et tant pis pour ce qui suivait ».
-Le `n` est *now*. Ça se lit à voix haute : « fork now 3 », « fork force 3 ».
+The `!` is vim's *force* (`:w!`): "and never mind what followed". The `n` is
+*now*. It reads out loud: "fork now 3", "fork force 3".
 
-Après `f`, un **chiffre** désigne une branche, une **lettre** une opération.
+After `f`, a **digit** names a branch, a **letter** an operation.
 
 ## `e` — encore
 
-| Touche | Mot | Action | |
+| Key | Word | Action | |
 |---|---|---|---|
-| `e<n>` | **encore** | n morceaux de plus de l'artiste **visé**, en fin de file | ✅ |
-| `en<n>` | encore **now** | …derrière la ligne surlignée si elle est à venir, sinon après le morceau en cours ; le reste conservé | ✅ |
-| `e!<n>` | encore now, **force** | …au même endroit, le reste retiré | ✅ |
+| `e<n>` | **encore** | n more tracks by the **targeted** artist, at the end of the queue | ✅ |
+| `en<n>` | encore **now** | …behind the highlighted row if it is still to come, otherwise after the current track; the rest kept | ✅ |
+| `e!<n>` | encore now, **force** | …in the same place, the rest dropped | ✅ |
 
-L'artiste visé est celui de la ligne **surlignée**, sinon celui du morceau
-qui sonne ([0020](decisions/0020-la-cible-d-un-geste.md)) — pas le bout
-de la chaîne des branches, qui n'est plus ce qui sonne depuis que choisir
-une branche s'ajoute à la file (Joel, 09/09/2026).
+The targeted artist is the one on the **highlighted** row, otherwise the one
+of the track that is playing ([0020](decisions/0020-the-target-of-a-gesture.md))
+— not the end of the branch chain, which has not been what is playing since
+choosing a branch started appending to the queue (Joel, 2026-09-09).
 
-`e` seul n'est pas une commande : le compte est obligatoire.
+`e` alone is not a command: the count is mandatory.
 
-`f` et `e` sont les namespaces de **lecture** — ils décident de ce qui va
-sonner. `t` et `a` sont ceux de l'**affinage** — ils décident de ce que le
-moteur retient.
+`f` and `e` are the **playback** namespaces — they decide what will play.
+`t` and `a` are the **tuning** ones — they decide what the engine keeps.
 
-## `t` — le morceau visé
+## `t` — the targeted track
 
-**La cible d'un geste** ([0020](decisions/0020-la-cible-d-un-geste.md)) :
-la ligne **surlignée** s'il y en a une (↑↓, `gg`, `G`), le morceau qui
-sonne sinon. Vaut pour `t`, `a` et `e`. `ts` et `tb` ne font avancer la
-musique que s'ils visent ce qui sonne ; sur une ligne à venir, `ts` la
-sort de la file. Échap efface le surlignage.
+**The target of a gesture** ([0020](decisions/0020-the-target-of-a-gesture.md)):
+the **highlighted** row if there is one (↑↓, `gg`, `G`), otherwise the track
+that is playing. True for `t`, `a` and `e`. `ts` and `tb` only move the
+music forward if they target what is playing; on an upcoming row, `ts` pulls
+it out of the queue. Escape clears the highlight.
 
-| Touche | Mot | Action | Nature | |
+| Key | Word | Action | Kind | |
 |---|---|---|---|---|
-| `tl` | track **like** | **Bascule aimé / non-aimé.** Aimé = plus souvent (prime sur les tops dans le tirage, ×10 au cocon, ×2 grand ouvert, et efface les « moins souvent ») ; sur un morceau déjà aimé, `tl` **retire l'aimé**, sans pénalité — au contraire de `ts` (Joel, 14/09/2026) | mesure | ✅ |
-| `ts` | track **skip** | **Moins souvent** — il ne m'intéresse pas : note, retire l'aimé, et passe | mesure | ✅ |
-| `tb` | track **ban** | « Plus jamais celui-là » — le retire aussi de la file | mesure | ✅ |
-| `tm` | track **mark** | Mettre dans `learned/marks/inbox.toml` | mesure | ✅ |
-| `tx` | track **remove** | Retirer de la file le morceau sélectionné — il reste proposable, ce n'est pas un ban | file | ✅ |
-| `J` / `K` | | **Déplacer** la ligne surlignée d'un cran vers le bas / le haut, tout de suite — seul ce qui est à venir bouge, le nom de branche voyage avec son morceau, la touche contraire annule (Joel, 08/09/2026) | file | ✅ |
-| `td` | track **door** | En faire une door vers la direction où l'on va (les tags de l'artiste suivant) | édition | ✅ |
-| `ta` | track **about** | Album, featuring, année (quand la discographie les a), tags, familiarité, poids, et la première branche d'ici — remplace `?` (Joel, 14/09/2026) | ✅ |
-| `ti` | track **insert** | **Insérer un titre** là où l'on est : la même modale, ancrée — avant la ligne surlignée si elle est à venir, sinon juste après ce qui sonne. L'ancre est écrite en haut ; le titre inséré porte « inséré (ti) » dans la liste. Un artiste choisi insère son meilleur morceau non joué. Un titre **hors catalogue** s'insère tout de suite et sa fiche se génère derrière ; à son arrivée, le morceau — même s'il joue déjà — est rattaché à la fiche, et `tl` a où écrire (Joel, 10/09/2026) | file | ✅ |
+| `tl` | track **like** | **Toggles liked / not liked.** Liked = more often (outranks the tops in the draw, ×10 at the cocoon, ×2 wide open, and erases the "less often"); on an already liked track, `tl` **removes the like**, with no penalty — unlike `ts` (Joel, 2026-09-14) | measurement | ✅ |
+| `ts` | track **skip** | **Less often** — it does not interest me: takes note, removes the like, and skips | measurement | ✅ |
+| `tb` | track **ban** | "Never that one again" — also removes it from the queue | measurement | ✅ |
+| `tm` | track **mark** | Put into `learned/marks/inbox.toml` | measurement | ✅ |
+| `tx` | track **remove** | Take the selected track out of the queue — it can still be proposed, this is not a ban | queue | ✅ |
+| `J` / `K` | | **Move** the highlighted row one notch down / up, right away — only what is still to come moves, the branch name travels with its track, the opposite key undoes it (Joel, 2026-09-08) | queue | ✅ |
+| `td` | track **door** | Make it a door towards the direction we are heading in (the next artist's tags) | edit | ✅ |
+| `ta` | track **about** | Album, featuring, year (when the discography has them), tags, familiarity, weight, and the first branch out of here — replaces `?` (Joel, 2026-09-14) | ✅ |
+| `ti` | track **insert** | **Insert a track** where you are: the same modal, anchored — before the highlighted row if it is still to come, otherwise right after what is playing. The anchor is written at the top; the inserted track carries "inserted (ti)" in the list. Choosing an artist inserts their best unplayed track. A track **outside the catalog** is inserted at once and its card is generated behind it; when it arrives, the track — even if it is already playing — is attached to the card, and `tl` has somewhere to write (Joel, 2026-09-10) | queue | ✅ |
 
-**Plus de `tt` / `tT` en écoute** (Joel, 08/09/2026,
-[0018](decisions/0018-un-seul-geste-pour-le-gout.md)) : les tops ne sont que
-les portes d'entrée d'un fork vierge, et se corrigent dans la discographie
-(`ad`) ou à la main dans la fiche. À l'écoute, un seul geste simple dit
-« je veux entendre ce morceau plus souvent », et son contraire.
+**No more `tt` / `tT` while listening** (Joel, 2026-09-08,
+[0018](decisions/0018-one-gesture-for-taste.md)): tops are only the entry
+doors of a fresh fork, and are fixed in the discography (`ad`) or by hand in
+the card. While listening, one simple gesture says "I want to hear this
+track more often", and its opposite.
 
-## `a` — l'artiste en cours
+## `a` — the current artist
 
-**À l'accueil aussi** : tout le namespace `a` vise la ligne surlignée de la
-collection (Joel, 10/09/2026) — `ad` ouvre la modale sur l'accueil, les
-mesures écrivent dans l'appris, `ag` marche même sans fiche, `ae` et `aL`
-demandent une fiche.
+**On the home screen too**: the whole `a` namespace targets the highlighted
+row of the collection (Joel, 2026-09-10) — `ad` opens the modal over home,
+measurements write into the learned layer, `ag` works even without a card,
+`ae` and `aL` need one.
 
-| Touche | Mot | Action | Nature | |
+| Key | Word | Action | Kind | |
 |---|---|---|---|---|
-| `al` | artist **like** | Cet artiste, plus souvent (poids ×1.43, plafond 3) — et de retour parmi les aimés. **À l'accueil aussi**, sur la ligne surlignée (Joel, 09/09/2026) | mesure | ✅ |
-| `as` | artist **skip** | Cet artiste, moins souvent (poids ×0.7, plancher 0.1) — et **hors des aimés** : un drapeau `unliked` dans `learned/`, qui prime sur les aimés Spotify et survit aux récoltes. À l'accueil aussi | mesure | ✅ |
-| `ab` | artist **ban** | Plus jamais cet artiste — vide aussi la file. À l'accueil aussi | mesure | ✅ |
-| `ae` | artist **edit** | **La fiche dans `$EDITOR`, sur place** (Joel, 20/09/2026) : le lecteur de touches se gare, le terminal et l'écran reviennent à l'éditeur ; à sa fermeture la fiche est relue — changée et lisible, elle est **commitée** (« … — edited by hand ») et le moteur la suit sur-le-champ ; illisible, c'est dit, rien n'est commité, `ae` à nouveau. Sans `$EDITOR`/`$VISUAL`, l'éditeur du bureau (`xdg-open`). La boucle attend l'éditeur : le son continue, une fin de morceau attend | édition | ✅ |
-| `aL` | artist **link** | **Les liens, dans les deux sens** (Joel, 20/09/2026, à l'image de `tl`). La modale liste d'abord les liens que la fiche **a déjà**, marqués ✓ avec leur type et leur note — **entrée sur l'un le retire** (commit « … — unlink: → Beirut (similar) ») ; en dessous la recherche, catalogue et Spotify : entrée sur un résultat écrit un lien `similar` vers l'artiste choisi, catalogue ou hors catalogue (le lien vers une fiche absente est une proposition, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)) ; un commit lisible ([0010](decisions/0010-format-revise-links-sans-portes.md)). Dans les deux sens, **le moteur suit sur-le-champ**. Remplace l'ancien geste qui liait, sans le dire, à l'artiste d'où l'on venait (Joel, 14/09/2026) | édition | ✅ |
-| `ad` | artist **discography** | Ouvrir la **modale de la discographie** : les albums pliés, ce que la fiche et l'appris savent de chaque morceau, `A` pour promouvoir un album. Elle a sa propre table, ci-dessous. **À l'accueil aussi**, sur la ligne surlignée de la collection, posée sur l'accueil ; un artiste **sans fiche** la reçoit d'abord ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)), la discographie s'ouvre dès qu'elle est là (Joel, 10/09/2026) | édition | ✅ |
-| `ag` | artist **google** | Chercher l'artiste visé (surligné, sinon en cours) dans le navigateur par défaut, via `xdg-open` (Joel, 08/09/2026) | session | ✅ |
+| `al` | artist **like** | This artist, more often (weight ×1.43, ceiling 3) — and back among the liked. **On home too**, on the highlighted row (Joel, 2026-09-09) | measurement | ✅ |
+| `as` | artist **skip** | This artist, less often (weight ×0.7, floor 0.1) — and **out of the liked**: an `unliked` flag in `learned/`, which outranks the Spotify likes and survives the harvests. On home too | measurement | ✅ |
+| `ab` | artist **ban** | Never this artist again — also empties the queue. On home too | measurement | ✅ |
+| `ae` | artist **edit** | **The card in `$EDITOR`, in place** (Joel, 2026-09-20): the key reader parks itself, the terminal and the screen go back to the editor; on close the card is read again — changed and readable, it is **committed** ("… — edited by hand") and the engine follows it immediately; unreadable, that is said, nothing is committed, `ae` again. With no `$EDITOR`/`$VISUAL`, the desktop editor (`xdg-open`). The loop waits for the editor: the sound carries on, the end of a track waits | edit | ✅ |
+| `aL` | artist **link** | **Links, both ways** (Joel, 2026-09-20, after the model of `tl`). The modal first lists the links the card **already has**, marked ✓ with their type and note — **enter on one removes it** (commit "… — unlink: → Beirut (similar)"); below it the search, catalog and Spotify: enter on a result writes a `similar` link towards the chosen artist, in the catalog or outside it (a link towards a missing card is a proposal, [0016](decisions/0016-broad-base-and-on-the-fly-generation.md)); a readable commit ([0010](decisions/0010-revised-format-links-without-doors.md)). Both ways, **the engine follows immediately**. Replaces the old gesture, which linked — without saying so — to the artist you had come from (Joel, 2026-09-14) | edit | ✅ |
+| `ad` | artist **discography** | Open the **discography modal**: albums folded, what the card and the learned layer know of each track, `A` to promote an album. It has its own table, below. **On home too**, on the highlighted row of the collection, laid over home; an artist **without a card** gets one first ([0016](decisions/0016-broad-base-and-on-the-fly-generation.md)), and the discography opens as soon as it is there (Joel, 2026-09-10) | edit | ✅ |
+| `ag` | artist **google** | Search the targeted artist (highlighted, otherwise current) in the default browser, through `xdg-open` (Joel, 2026-09-08) | session | ✅ |
 
-Les trois verbes forment sur l'artiste une **échelle lisible** : `al` plus
-souvent, `as` moins souvent, `ab` plus jamais.
+The three verbs make a **readable scale** on the artist: `al` more often,
+`as` less often, `ab` never again.
 
-**Les mesures des deux namespaces écrivent dans `learned/`** depuis le
-05/09/2026 ([0014](decisions/0014-forme-de-l-appris.md)) : un fichier TOML
-par artiste dans le catalogue, compteurs à décroissance intégrée
-(demi-vie six mois), écrit à chaque geste, silencieux et jamais reversé.
+**The measurements of both namespaces write into `learned/`** since
+2026-09-05 ([0014](decisions/0014-shape-of-the-learned.md)): one TOML file
+per artist in the catalog, counters with decay built in (half-life six
+months), written on every gesture, silent and never contributed back.
 
-**Les éditions écrivent dans les fiches depuis le 06/09/2026** : `tt`,
-`tT`, `td`, `aL` et `ae` modifient une fiche **et produisent un commit lisible**
-(`src/edit.rs`). La fiche est retouchée textuellement, jamais réécrite —
-c'est une interface publique, et une relecture par serde perdrait tout ce
-que le code ne modélise pas — sauf `ae`, où c'est l'éditeur qui écrit.
-Une édition de tops ne compte pour le moteur qu'au **prochain
-lancement**, et le produit le dit ; la génération d'une fiche
-(09/09/2026), un lien posé ou retiré et une fiche éditée à la main
-(20/09/2026) entrent dans le catalogue de la session **sur-le-champ**.
+**Edits write into the cards since 2026-09-06**: `tt`, `tT`, `td`, `aL` and
+`ae` change a card **and produce a readable commit** (`src/edit.rs`). The
+card is patched textually, never rewritten — it is a public interface, and a
+round trip through serde would lose everything the code does not model —
+except for `ae`, where the editor does the writing. An edit to the tops only
+counts for the engine at the **next launch**, and the product says so;
+generating a card (2026-09-09), adding or removing a link and editing a card
+by hand (2026-09-20) enter the session's catalog **immediately**.
 
-## `C` — le catalogue
+## `C` — the catalog
 
-**Le premier namespace en majuscule** (Joel, 19/09/2026 ; conçu dans
-[conception/sortie.md](conception/sortie.md) chantier B, câblé le
-20/09/2026 d'après `Catalogue.dc.html`). `c` est le confort ; partager la
-lettre à la façon de `f` a été écarté — deux sens sous une lettre ne se
-lisent pas. La majuscule marque le geste **rare et lourd**, comme `A`
-promeut un album entier. Trois gestes, sur les deux écrans, qui tournent
-hors de la boucle : la lecture continue.
+**The first uppercase namespace** (Joel, 2026-09-19; designed in
+[design/before-release.md](design/before-release.md) workstream B, wired on
+2026-09-20 after `Catalogue.dc.html`). `c` is comfort; sharing the letter
+the way `f` does was ruled out — two meanings under one letter do not read.
+The capital marks the **rare and heavy** gesture, as `A` promotes a whole
+album. Three gestures, on both screens, running outside the loop: playback
+carries on.
 
-| Touche | Mot | Action | |
+| Key | Word | Action | |
 |---|---|---|---|
-| `Cd` | catalog **diff** | **Ce que ce catalogue a de plus que la référence** — l'ancien `:mine`, renommé : en overlay, le compte et la date de la dernière mise à jour, les fiches **nouvelles** (générées ou écrites, tags, liens) puis les **retouchées** (+n −m, les sections touchées, la note de provenance). Les fiches seulement — ni `learned/`, ni `vectors/`. **Tout s'affiche, et ça déroule** : `j`/`k` ou ↑↓, `gg`/`G`, le titre dit ce qu'il y a au-dessus et en dessous ; échap ferme (Joel, 20/09/2026) | ✅ |
-| `Cp` | catalog **propose** | **Proposer ces fiches à la référence** : fetch, une branche `proposal` depuis `upstream/main` dans un worktree à part (le clone de la session ne change pas de branche), l'**état des fiches** — jamais l'appris, jamais les vecteurs —, un commit écrit pour le relecteur (les nouvelles à survoler, les retouchées à lire), `push --force`. Puis, avec `gh` connecté : la PR telle qu'elle partira et **`y`** l'ouvre, toute autre touche n'envoie rien ; sans `gh` : la page de comparaison dans le navigateur, titre et corps pré-remplis. Une proposition déjà ouverte est mise à jour par le push, le toast donne son URL | ✅ |
-| `Cu` | catalog **update** | **Rapatrier la référence** : l'appris commité d'abord, fetch, **fusion** (pas un rebase : `main` est partagé par deux postes), l'index régénéré si des fiches ont changé, le catalogue de la session rechargé — un creux peut devenir une branche sans relancer. Une fiche modifiée **des deux côtés** arrête la fusion : l'overlay nomme les fiches et ce que chaque côté a changé, `o` ouvre la première, `:catalog` reprend après `git add` et `git commit`. `vectors/` prend l'amont (régénéré), `learned/` reste à soi, `tools/` prend l'amont | ✅ |
-| `o` | **open** | La première fiche sur laquelle une fusion s'est arrêtée, dans l'éditeur du bureau (`xdg-open` — le lecteur de touches tient `stdin`, comme pour `ae`) | ✅ |
+| `Cd` | catalog **diff** | **What this catalog has beyond the reference** — the old `:mine`, renamed: in an overlay, the count and the date of the last update, the **new** cards (generated or written, tags, links) then the **touched** ones (+n −m, the sections affected, the provenance note). Cards only — neither `learned/` nor `vectors/`. **Everything is shown, and it scrolls**: `j`/`k` or ↑↓, `gg`/`G`, the title says what lies above and below; escape closes (Joel, 2026-09-20) | ✅ |
+| `Cp` | catalog **propose** | **Propose these cards to the reference**: fetch, a `proposal` branch from `upstream/main` in a separate worktree (the session's clone does not change branch), the **state of the cards** — never the learned layer, never the vectors —, a commit written for the reviewer (the new ones to skim, the touched ones to read), `push --force`. Then, with `gh` connected: the PR as it will go out and **`y`** opens it, any other key sends nothing; without `gh`: the comparison page in the browser, title and body prefilled. A proposal already open is updated by the push, and the toast gives its URL | ✅ |
+| `Cu` | catalog **update** | **Bring the reference in**: the learned layer committed first, fetch, **merge** (not a rebase: `main` is shared by two machines), the index regenerated if cards changed, the session's catalog reloaded — a gap can become a branch without relaunching. A card changed **on both sides** stops the merge: the overlay names the cards and what each side changed, `o` opens the first one, `:catalog` resumes after `git add` and `git commit`. `vectors/` takes upstream (regenerated), `learned/` stays yours, `tools/` takes upstream | ✅ |
+| `o` | **open** | The first card a merge stopped on, in the desktop editor (`xdg-open` — the key reader holds `stdin`, as for `ae`) | ✅ |
 
-## Navigation et session
+## Navigation and session
 
-| Touche | Mot | Action | |
+| Key | Word | Action | |
 |---|---|---|---|
-| `h` / `l` | | Morceau **précédent / suivant** — vim, axe horizontal | ✅ |
-| ← / `h` sur un morceau en cours | | **Recommence** le morceau ; une seconde fois — ou dans ses trois premières secondes — revient au précédent (Joel, 08/09/2026) | ✅ |
-| ← / → | | Idem, pour les doigts hors de la rangée d'accueil | ✅ |
-| `p` | **pause** | Pause / lecture | ✅ |
-| ↑ / ↓ | | Déplacer la **sélection** dans l'axe — elle surligne, elle ne joue pas. **Sous un overlay** (`Cd`, `:catalog`, `ta`…), elles le **déroulent**, comme `j`/`k`, `gg`, `G` (20/09/2026) | ✅ |
-| entrée | | Jouer la sélection ; sans sélection, tirer une branche | ✅ |
-| `c<n>` | **comfort** | La zone de confort d'un coup, 5 cocon → 0 exploration — à l'accueil aussi (Joel, 08/09/2026) | ✅ |
-| `cc` | **comfort** | Régler la zone de confort aux flèches : ↑↓ bougent, entrée valide, échap annule — à l'accueil aussi depuis le 11/09/2026. La jauge est **toujours en haut à droite sur les deux écrans, avec l'apparence d'édition** ; `cc` ajoute « ↑↓ » (Joel, 14/09/2026) | ✅ |
-| échap | | Annuler la sélection, fermer un bloc — l'aide comprise | ✅ |
-| espace | | **Le leader** : ouvre l'aide à la saisie — tout, ou le namespace en cours de frappe ; la séquence continue dedans, une touche fait l'action. Espace au niveau d'entrée la referme. **À l'accueil aussi**, avec sa propre table (Joel, 10/09/2026) | ✅ |
-| ⌫ | | Effacer la dernière touche de la séquence — dans l'aide, remonter d'un niveau | ✅ |
-| `/texte` | | **Filtrer** une liste — la collection à l'accueil, la discographie ; échap efface (Joel, 08/09/2026) | ✅ |
-| `:search` | | **La modale de recherche** (maquette `Recherche.dc.html`, 08/09/2026) : une ligne de saisie `⟩`, les résultats se recalculent à chaque caractère — le catalogue d'abord (artistes et titres connus des fiches et de l'appris), Spotify derrière, jamais mêlés. ↑↓ choisissent, **entrée** branche sur un artiste ou joue un titre, **tab** masque Spotify, **échap** ferme. `:search <texte>` l'ouvre déjà remplie, et la frappe continue le mot. **Elle s'ouvre aussi de l'accueil** (Joel, 09/09/2026), où entrée démarre un parcours — sur l'artiste, ou sur le morceau puis les branches de son artiste ; un résultat **hors catalogue** génère la fiche de son artiste avant de partir (09/09/2026, [0016](decisions/0016-base-large-et-generation-a-la-volee.md)). Chaque ligne Spotify dit **album · année · durée**, pour distinguer les versions d'un même titre (09/09/2026) | ✅ |
-| `q` | **quit** | En écoute : **revenir à l'accueil**, l'écoute continue en dessous avec son pied de lecture. À l'accueil : quitter (affiche le parcours) — Joel, 08/09/2026 | ✅ |
-| `r` | **resume** | À l'accueil : **retour à l'écran d'écoute** si une session joue ; sinon **reprendre tout le dernier parcours** — historique, morceau en cours et morceaux à venir (Joel, 14/09/2026). Échap sans curseur fait de même | ✅ |
-| `p` | **pause** | À l'accueil aussi : la session joue en dessous | ✅ |
-| `s` | **sort** | Changer l'ordre de la collection : familiarité → a-z → dernière écoute — **accueil seulement** | ✅ |
-| `v` | **vue** | La collection montre **les aimés** par défaut — artiste ou titre aimé ici, titre, album ou suivi sur Spotify — ou **tous** les artistes du catalogue (Joel, 09/09/2026). Accueil seulement ; le même mot que dans la discographie | ✅ |
-| `gg` / `G` | | Les deux bouts d'une liste, comme dans vim — la collection à l'accueil, l'axe en écoute. `g` seul attend son second | ✅ |
-| `b` | **browse** | Parcourir à sec — **écrans non connectés seulement** | 📋 |
-| `u` | **undo** | Annuler la dernière action : mesure ou édition (0013) | 📋 |
-| `.` | | Répéter la dernière action (son sens vim) | 📋 |
+| `h` / `l` | | **Previous / next** track — vim, the horizontal axis | ✅ |
+| ← / `h` on a playing track | | **Restarts** the track; a second time — or within its first three seconds — goes back to the previous one (Joel, 2026-09-08) | ✅ |
+| ← / → | | Likewise, for fingers off the home row | ✅ |
+| `p` | **pause** | Pause / play | ✅ |
+| ↑ / ↓ | | Move the **selection** along the axis — it highlights, it does not play. **Under an overlay** (`Cd`, `:catalog`, `ta`…), they **scroll** it, like `j`/`k`, `gg`, `G` (2026-09-20) | ✅ |
+| enter | | Play the selection; with no selection, draw a branch | ✅ |
+| `c<n>` | **comfort** | The comfort zone in one go, 5 cocoon → 0 exploration — on home too (Joel, 2026-09-08) | ✅ |
+| `cc` | **comfort** | Set the comfort zone with the arrows: ↑↓ move, enter confirms, escape cancels — on home too since 2026-09-11. The gauge is **always at the top right on both screens, with the editing look**; `cc` adds "↑↓" (Joel, 2026-09-14) | ✅ |
+| escape | | Clear the selection, close a block — hints included | ✅ |
+| space | | **The leader**: opens the input hints — everything, or the namespace being typed; the sequence carries on inside, one key does the action. Space at the entry level closes it again. **On home too**, with its own table (Joel, 2026-09-10) | ✅ |
+| ⌫ | | Erase the last key of the sequence — in the hints, go one level up | ✅ |
+| `/text` | | **Filter** a list — the collection on home, the discography; escape clears (Joel, 2026-09-08) | ✅ |
+| `:search` | | **The search modal** (mockup `Recherche.dc.html`, 2026-09-08): a `⟩` input line, results recomputed on every character — the catalog first (artists and titles known to the cards and the learned layer), Spotify behind, never mixed. ↑↓ choose, **enter** branches on an artist or plays a track, **tab** hides Spotify, **escape** closes. `:search <text>` opens it already filled, and typing carries the word on. **It opens from home too** (Joel, 2026-09-09), where enter starts a journey — on the artist, or on the track then the branches of its artist; a result **outside the catalog** generates its artist's card before setting off (2026-09-09, [0016](decisions/0016-broad-base-and-on-the-fly-generation.md)). Every Spotify row says **album · year · length**, to tell versions of the same title apart (2026-09-09) | ✅ |
+| `q` | **quit** | While listening: **back to home**, listening carries on underneath with its playback footer. On home: quit (prints the journey) — Joel, 2026-09-08 | ✅ |
+| `r` | **resume** | On home: **back to the listening screen** if a session is playing; otherwise **resume the whole last journey** — history, current track and upcoming tracks (Joel, 2026-09-14). Escape with no cursor does the same | ✅ |
+| `p` | **pause** | On home too: the session plays underneath | ✅ |
+| `s` | **sort** | Change the collection's order: familiarity → a-z → last played — **home only** | ✅ |
+| `v` | **view** | The collection shows **the liked** by default — artist or track liked here, track, album or follow on Spotify — or **all** the catalog's artists (Joel, 2026-09-09). Home only; the same word as in the discography | ✅ |
+| `gg` / `G` | | The two ends of a list, as in vim — the collection on home, the axis while listening. `g` alone waits for its second | ✅ |
+| `b` | **browse** | Browse dry — **disconnected screens only** | 📋 |
+| `u` | **undo** | Undo the last action: measurement or edit (0013) | 📋 |
+| `.` | | Repeat the last action (its vim meaning) | 📋 |
 
-**`u` et `fu` ne sont pas la même chose** : `u` annule le dernier *geste*
-(un top posé de travers, un ban), `fu` remonte d'un cran dans le *parcours*.
+**`u` and `fu` are not the same thing**: `u` undoes the last *gesture* (a top
+set by mistake, a ban), `fu` steps one notch back up the *journey*.
 
-## D'où vient chaque morceau
+## Where each track comes from
 
-Toute chanson affichée — dans la file, dans les branches, sur la ligne `▶`
-— porte la marque de sa **provenance**. Le réservoir d'un artiste cumule
-plusieurs sources ([0012](decisions/0012-rotation-des-morceaux.md) §1 :
-« le top est un poids, pas une liste fermée »), et la marque dit laquelle
-a gagné le tirage.
+Every song shown — in the queue, in the branches, on the `▶` line — carries
+the mark of its **provenance**. An artist's pool adds up several sources
+([0012](decisions/0012-track-rotation.md) §1: "a top is a weight, not a
+closed list"), and the mark says which one won the draw.
 
-| Marque | Provenance |
+| Mark | Provenance |
 |---|---|
-| `♪` | Un **top** de la fiche |
-| `♥` | Un titre **aimé** ici (`tl`), qui n'est pas un top |
-| `↳` | Une **door** ([0011](decisions/0011-doors-critere-additionnel.md)) dont la direction recoupe celle de la branche. Le glyphe lui est réservé : la recherche dit `(branche ensuite)` en toutes lettres, un glyphe ne portant qu'un sens (05/09/2026) |
-| `+` | Artiste connu, morceau **hors tops** — c'est celui que `tt` promouvrait |
-| `·` | La **longue traîne** : le reste de la discographie, qui ne pèse qu'à mesure que le confort s'ouvre |
-| `~` | **Hors catalogue** : joué depuis Spotify, sans fiche |
+| `♪` | A **top** from the card |
+| `♥` | A track **liked** here (`tl`), that is not a top |
+| `↳` | A **door** ([0011](decisions/0011-doors-an-additional-criterion.md)) whose direction overlaps the branch's. The glyph is reserved for it: the search says `(branch next)` in plain words, since a glyph carries only one meaning (2026-09-05) |
+| `+` | Known artist, track **outside the tops** — the one `tt` would promote |
+| `·` | The **long tail**: the rest of the discography, which only weighs as comfort opens up |
+| `~` | **Outside the catalog**: played from Spotify, with no card |
 
-Une door ne prend sa marque que **quand elle s'ouvre** : hors de sa
-direction, elle reste un morceau comme un autre. C'est ce que 0011 appelle
-« critère additionnel, jamais principal ».
+A door only takes its mark **when it opens**: outside its direction, it
+stays a track like any other. That is what 0011 calls "an additional
+criterion, never the main one".
 
-## Commandes `:`
+## `:` commands
 
-0013 veut que chaque touche soit le raccourci d'une commande `:`. Seule
-`:size` est servie pour l'instant — elle a remplacé l'ancien `b<n>`.
+0013 wants every key to be the shortcut of a `:` command. Only `:size` is
+served for now — it replaced the old `b<n>`.
 
-| Commande | Action | |
+| Command | Action | |
 |---|---|---|
-| `:size <n>` | Taille des branches, 1 à 9 (sans argument : l'affiche) | ✅ |
-| `:comfort <n>` | Zone de confort, **5 = cocon → 0 = exploration** ([0001](decisions/0001-confort-familiarite.md)) ; sans argument, l'affiche. **Retenue d'un lancement à l'autre** (Joel, 14/09/2026) | ✅ |
-| `:warm` | Récolter la discographie de l'artiste **sous l'aiguille** — la ligne surlignée, sinon ce qui joue (0020) — la longue traîne. Prenait à tort le dernier artiste de la chaîne (Joel, 14/09/2026) | ✅ |
-| `:wander [artiste]` | Partir loin — raccourci `fw` ; avec un nom, chez cet artiste (11/09/2026) | ✅ |
-| `:sync` / `:push` | | Commiter et pousser l'appris maintenant — sinon toutes les dix minutes, à la sortie, et pull au démarrage ([0017](decisions/0017-synchronisation-de-l-appris.md)) | ✅ |
-| `:generate <nom> [mbid]` | **Faire entrer un artiste absent** du catalogue, puis partir de chez lui — ou, s'il était proposé **en creux**, prendre sa branche en fin de file. Un MBID en dernier mot remplace la recherche par le nom quand MusicBrainz ne trouve pas ; s'il ne répond pas du tout, la fiche naît minimale (nom, id, tops Deezer), marquée à relire ([0016](decisions/0016-base-large-et-generation-a-la-volee.md)) : fiche composée depuis MusicBrainz et Deezer, **son vecteur calculé** ([0019](decisions/0019-vectorisation-par-l-application.md)), un seul commit, et le catalogue de la session l'a tout de suite. Marche à l'accueil comme en écoute. **Avec un mbid, par-dessus une lecture en cours, ne démarre plus tout seul** (Joel, 11/09/2026) : le toast de succès dure et propose — **⏎** part de l'artiste et remplace la liste, toute autre touche la garde. La modale de recherche fait la même chose sur un résultat hors catalogue, par simple `entrée` — et **`entrée` sur une ligne sans fiche de la collection** aussi (Joel, 10/09/2026, sur Kanye West) | ✅ |
-| `:catalog` | **L'état du fork en une ligne** : d'où l'on tire, où l'on pousse, commits d'avance et de retard, date de la dernière mise à jour, fiches au-delà de la référence ; en mode local, le dit. Et, après un `Cu` arrêté sur des fiches : **reprend** une fois les fiches ajoutées (ou commitées) — la fusion se termine, l'index se régénère | ✅ |
-| `:catalog diff` / `propose` / `update` | Les trois gestes, en commande — `Cd`, `Cp`, `Cu` | ✅ |
-| `:catalog fork <url>` | **Sortir du mode local** : la référence passe en `upstream`, l'URL de son fork en `origin`, `main` poussé, l'appris s'y pousse désormais — rare, pas de touche | ✅ |
-| `:discography` | La discographie de l'artiste, en modale — raccourci `ad` (Joel, 07/09/2026) | ✅ |
-| `:setup` | **Rejouer une étape du setup** — la liste des sept, cochées ou non, `⏎` ou `1-7` rejoue l'une ; la session se ferme et l'accueil revient sur le catalogue (20/09/2026, [conception/sortie.md](conception/sortie.md) chantier A) | ✅ |
-| `:library` | **Re-récolter la bibliothèque** — les étapes 4, 5 et 7 du setup à la suite : titres, albums, suivis, playlists cochées (mémorisées), fiches manquantes du haut du classement | ✅ |
+| `:size <n>` | Branch size, 1 to 9 (with no argument: shows it) | ✅ |
+| `:comfort <n>` | Comfort zone, **5 = cocoon → 0 = exploration** ([0001](decisions/0001-comfort-is-familiarity.md)); with no argument, shows it. **Kept from one launch to the next** (Joel, 2026-09-14) | ✅ |
+| `:warm` | Harvest the discography of the artist **under the needle** — the highlighted row, otherwise what is playing (0020) — the long tail. It wrongly took the last artist of the chain (Joel, 2026-09-14) | ✅ |
+| `:wander [artist]` | Go far away — the `fw` shortcut; with a name, to that artist (2026-09-11) | ✅ |
+| `:sync` / `:push` | Commit and push the learned layer now — otherwise every ten minutes, on exit, and pull on start ([0017](decisions/0017-syncing-the-learned.md)) | ✅ |
+| `:generate <name> [mbid]` | **Bring in an artist missing** from the catalog, then set off from them — or, if they were proposed **as a gap**, take their branch at the end of the queue. An MBID as the last word replaces the search by name when MusicBrainz does not find them; if it does not answer at all, the card is born minimal (name, id, Deezer tops), flagged for review ([0016](decisions/0016-broad-base-and-on-the-fly-generation.md)): a card composed from MusicBrainz and Deezer, **its vector computed** ([0019](decisions/0019-the-application-vectorizes.md)), one single commit, and the session's catalog has it right away. Works on home as while listening. **With an mbid, over ongoing playback, it no longer starts on its own** (Joel, 2026-09-11): the success toast lingers and offers — **⏎** sets off from the artist and replaces the list, any other key keeps it. The search modal does the same on a result outside the catalog, with a plain `enter` — and so does **`enter` on a collection row without a card** (Joel, 2026-09-10, on Kanye West) | ✅ |
+| `:catalog` | **The state of the fork in one line**: where we pull from, where we push to, commits ahead and behind, the date of the last update, cards beyond the reference; in local mode, it says so. And, after a `Cu` stopped on some cards: **resumes** once the cards are added (or committed) — the merge finishes, the index regenerates | ✅ |
+| `:catalog diff` / `propose` / `update` | The three gestures, as a command — `Cd`, `Cp`, `Cu` | ✅ |
+| `:catalog fork <url>` | **Leave local mode**: the reference becomes `upstream`, your fork's URL becomes `origin`, `main` is pushed, and the learned layer pushes there from then on — rare, no key | ✅ |
+| `:discography` | The artist's discography, as a modal — the `ad` shortcut (Joel, 2026-09-07) | ✅ |
+| `:setup` | **Replay a setup step** — the list of seven, ticked or not, `⏎` or `1-7` replays one; the session closes and home comes back on the catalog (2026-09-20, [design/before-release.md](design/before-release.md) workstream A) | ✅ |
+| `:library` | **Re-harvest the library** — steps 4, 5 and 7 of the setup in a row: tracks, albums, follows, ticked playlists (remembered), missing cards from the top of the ranking | ✅ |
 
-Et en sous-commande, parce qu'elles n'ont pas leur place au milieu d'une
-écoute : `forkstify import <url>` reprend les fiches d'un autre catalogue —
-celles qu'on n'a pas, jamais celles qu'on a — puis régénère les vecteurs.
+And as a subcommand, because it has no place in the middle of a listening
+session: `forkstify import <url>` takes in the cards of another catalog —
+the ones you do not have, never the ones you do — then regenerates the
+vectors.
 
-## Les écrans du setup
+## The setup screens
 
-Une table à part (`keys::parse_setup`), sans préfixe, vertical comme la
-modale, les chiffres en plus — les choix d'une étape sont numérotés — et
-`o` pour ouvrir (le navigateur, la génération). D'après
-`Installation.dc.html` (20/09/2026).
+A table of its own (`keys::parse_setup`), prefix-free, vertical like the
+modal, with the digits on top — a step's choices are numbered — and `o` to
+open (the browser, the generation). After `Installation.dc.html`
+(2026-09-20).
 
-| Touche | Action | |
+| Key | Action | |
 |---|---|---|
-| `1`…`7`, `0` | Choisir — un choix de l'étape, un pas dans la liste de `:setup`, le confort à l'étape 6 | ✅ |
-| `j` / `k`, ↑ / ↓ | Monter, descendre — la liste des playlists, celle des étapes | ✅ |
-| `h` / `l` | Le confort, d'un cran | ✅ |
-| espace | **Cocher** une playlist | ✅ |
-| `/texte` | Filtrer les playlists ; échap efface | ✅ |
-| `o` | **Ouvrir** : la page d'autorisation (étape 3), la génération (étape 7) | ✅ |
-| ⏎ | Valider l'étape, le champ, la fournée | ✅ |
-| échap | **Sauter** l'étape (ou annuler une récolte, arrêter une génération après la fiche en cours) | ✅ |
-| `q` | Quitter | ✅ |
+| `1`…`7`, `0` | Choose — one of the step's choices, a step in the `:setup` list, the comfort at step 6 | ✅ |
+| `j` / `k`, ↑ / ↓ | Up, down — the playlist list, the step list | ✅ |
+| `h` / `l` | The comfort, one notch | ✅ |
+| space | **Tick** a playlist | ✅ |
+| `/text` | Filter the playlists; escape clears | ✅ |
+| `o` | **Open**: the authorization page (step 3), the generation (step 7) | ✅ |
+| ⏎ | Confirm the step, the field, the batch | ✅ |
+| escape | **Skip** the step (or cancel a harvest, stop a generation after the current card) | ✅ |
+| `q` | Quit | ✅ |
 
-## La modale de la discographie (`ad`)
+## The discography modal (`ad`)
 
-**Un mode à part, avec sa propre table** — la première, et le patron des
-suivantes (`keys::parse_modal`). Elle est **sans préfixe** comme la
-grammaire de l'écoute, et elle emprunte à vim ce que celle-ci laissait
-libre : l'axe y est vertical, donc `j`/`k` descendent et montent, et
-`h`/`l` plient et déplient. Câblée le 07/09/2026, d'après la maquette
-**1a** de `Discographie.dc.html`.
+**A mode of its own, with its own table** — the first one, and the pattern
+for the next (`keys::parse_modal`). It is **prefix-free** like the listening
+grammar, and it borrows from vim what that one left free: its axis is
+vertical, so `j`/`k` go down and up, and `h`/`l` fold and unfold. Wired on
+2026-09-07, after mockup **1a** of `Discographie.dc.html`.
 
-Ce qui joue continue de jouer : la modale se pose sur l'écran d'écoute,
-elle ne le remplace pas. `ad` vise l'artiste de la ligne **surlignée** s'il
-y en a une, celui du morceau en cours sinon — et l'en-tête nomme l'artiste
-ouvert, pour que le doute se lève à l'écran.
+What is playing keeps playing: the modal lays over the listening screen, it
+does not replace it. `ad` targets the artist of the **highlighted** row if
+there is one, of the current track otherwise — and the header names the
+artist that is open, so any doubt is settled on screen.
 
-| Touche | Action | |
+| Key | Action | |
 |---|---|---|
-| `j` / `k`, ↑ / ↓ | Descendre, monter — l'album sous le curseur s'ouvre seul | ✅ |
-| `h` / `l` | Tout plier (douze lignes), rouvrir l'album du curseur | ✅ |
-| `gg` / `G` | Les deux bouts de la liste | ✅ |
-| `A` | **Album** : promouvoir les quatre titres les plus écoutés de l'album, hors tops — mis **en attente**. Plus de `tt` / `tT` ici non plus (Joel, 08/09/2026) : un titre seul s'aime, il ne se promeut pas | ✅ |
-| `tb` | Bannir la ligne — **mesure**, écrite tout de suite (aimer/retirer l'aimé : `tl`, bascule) | ✅ |
-| `e` | Mettre le morceau **à la file**, sans fermer | ✅ |
-| `tl` | Aimer / **retirer l'aimé** (bascule) la ligne — mesure écrite tout de suite (Joel, 14/09/2026) | ✅ |
-| `s` | L'ordre : chronologique ⇄ mes écoutes d'abord | ✅ |
-| `v` | La **vue** : tout → ♪ tops → ♥ aimés → ⊘ bannis | ✅ |
-| `/texte` | Filtrer sur un titre ou un album | ✅ |
-| `u` | Défaire la dernière édition en attente — gratuit, rien n'est écrit | ✅ |
-| ⏎ | **Écrire la fournée** — une écriture, **un seul commit** — puis, **sur un morceau, partir de lui** ; **sur une ligne d'album, écouter l'album entier** : ses morceaux ouvrent une nouvelle graine dans l'ordre, puis les branches partent de l'artiste (Joel, 14/09/2026) | ✅ |
-| échap | Fermer. Avec des éditions en attente, le premier échap prévient | ✅ |
+| `j` / `k`, ↑ / ↓ | Down, up — the album under the cursor opens by itself | ✅ |
+| `h` / `l` | Fold everything (twelve rows), reopen the album under the cursor | ✅ |
+| `gg` / `G` | The two ends of the list | ✅ |
+| `A` | **Album**: promote the album's four most played tracks, outside the tops — put **pending**. No more `tt` / `tT` here either (Joel, 2026-09-08): a single track gets liked, it does not get promoted | ✅ |
+| `tb` | Ban the row — a **measurement**, written right away (like / unlike: `tl`, a toggle) | ✅ |
+| `e` | Put the track **in the queue**, without closing | ✅ |
+| `tl` | Like / **unlike** (toggle) the row — a measurement written right away (Joel, 2026-09-14) | ✅ |
+| `s` | The order: chronological ⇄ my plays first | ✅ |
+| `v` | The **view**: all → ♪ tops → ♥ liked → ⊘ banned | ✅ |
+| `/text` | Filter on a title or an album | ✅ |
+| `u` | Undo the last pending edit — free, nothing has been written | ✅ |
+| ⏎ | **Write the batch** — one write, **one single commit** — then, **on a track, set off from it**; **on an album row, listen to the whole album**: its tracks open a new seed in order, then the branches set off from the artist (Joel, 2026-09-14) | ✅ |
+| escape | Close. With pending edits, the first escape warns | ✅ |
 
-**Pourquoi une fournée et un seul commit** : on corrige cinq tops d'une
-même pensée, et cinq commits ne se relisent pas. Ce n'est pas contradictoire
-avec [0017](decisions/0017-synchronisation-de-l-appris.md), qui commite
-**l'appris** toutes les dix minutes et à la sortie : l'appris est mesuré et
-silencieux, une édition est écrite et lisible. Les `tl`/`tb` de la modale
-suivent la règle de 0017, ses `tt`/`tT` celle de 0013.
+**Why a batch and one single commit**: you fix five tops in one single
+thought, and five commits do not read back.  That does not contradict
+[0017](decisions/0017-syncing-the-learned.md), which commits **the learned
+layer** every ten minutes and on exit: the learned layer is measured and
+silent, an edit is written and readable. The modal's `tl`/`tb` follow 0017's
+rule, its `tt`/`tT` follow 0013's.
 
-L'écran montre aussi les **tops que la discographie ne rend pas** — coquille,
-live, titre de compilation — en fin de liste : `tT` y fonctionne, et c'est
-là qu'une fiche générée se relit.
+The screen also shows the **tops the discography does not return** — a typo,
+a live version, a compilation title — at the end of the list: `tT` works
+there, and that is where a generated card gets reviewed.
 
-## Touches multimédia (MPRIS / D-Bus)
+## Media keys (MPRIS / D-Bus)
 
-Actives dès que MPRIS s'enregistre, comme pour `playerctl`.
+Active as soon as MPRIS registers, as for `playerctl`.
 
-| Touche | Action | |
+| Key | Action | |
 |---|---|---|
-| ⏭ | Suivant (= `l`) | ✅ |
-| ⏮ | Précédent (= `h`) | ✅ |
-| ⏯ | Pause / lecture (= `p`) | ✅ |
-| ⏹ | Arrêt | ✅ |
+| ⏭ | Next (= `l`) | ✅ |
+| ⏮ | Previous (= `h`) | ✅ |
+| ⏯ | Pause / play (= `p`) | ✅ |
+| ⏹ | Stop | ✅ |
 
-## Mode file d'attente
+## Queue mode
 
-Un mode à part, avec sa propre table, encore à concevoir : préparer les
-branches à l'avance, retirer un morceau, retirer une branche (**seule, ou
-toute la profondeur qui en découle**), intercaler.
+A mode of its own, with its own table, still to be designed: prepare
+branches in advance, remove a track, remove a branch (**alone, or all the
+depth that follows from it**), slot something in.
 
-Point structurant repéré : `rounds` est aujourd'hui une **liste plate**,
-alors que « retirer toute la profondeur » suppose un arbre manipulable.
+A structural point spotted: `rounds` is today a **flat list**, whereas
+"remove all the depth" assumes a tree you can manipulate.
 
-## Comment la saisie fonctionne
+## How input works
 
-Depuis le 05/09/2026, `listen` (ex-`ecouter`) lit le clavier en **mode brut** : chaque
-touche agit sans Entrée (`src/keys.rs`, termios via `libc`, garde RAII qui
-rend le terminal même sur panique). `/` et `:` quittent le mode brut pour
-une ligne éditable, où une requête a sa place.
+Since 2026-09-05, `listen` (formerly `ecouter`) reads the keyboard in **raw
+mode**: every key acts without Enter (`src/keys.rs`, termios through `libc`,
+an RAII guard that gives the terminal back even on a panic). `/` and `:`
+leave raw mode for an editable line, where a query belongs.
 
-La grammaire est **sans préfixe** : aucune commande complète n'est le début
-d'une plus longue. C'est ce qui permet de déclencher **sans délai ni
-timeout**, là où vim s'en remet à `timeoutlen`. Un test exhaustif sur
-toutes les séquences de trois touches vérifie la propriété
-(`grammar_is_prefix_free`), pour qu'un ajout futur ne la casse pas en
-silence.
+The grammar is **prefix-free**: no complete command is the beginning of a
+longer one. That is what allows firing **with no delay and no timeout**,
+where vim falls back on `timeoutlen`. An exhaustive test over every
+three-key sequence checks the property (`grammar_is_prefix_free`), so a
+future addition cannot break it silently.
 
-Cette contrainte a décidé deux choses :
+That constraint decided two things:
 
-- **Le modificateur précède le compte** (`fn3`, `f!3`), et non l'inverse :
-  `f3n` rendrait `f3` à la fois complet et préfixe.
-- **Le compte suit le namespace** (`f3`, `e3`), et non `3e` comme dans vim.
-  Une frappe de `3` serait sinon à la fois « branche 3 » et « début d'un
-  compte », indécidable sans attendre la touche suivante — ce qui
-  ralentirait le geste le plus fréquent. Avantage collatéral : `f` et `e`
-  deviennent symétriques.
+- **The modifier comes before the count** (`fn3`, `f!3`), not the other way
+  round: `f3n` would make `f3` both complete and a prefix.
+- **The count follows the namespace** (`f3`, `e3`), not `3e` as in vim.
+  Otherwise pressing `3` would be both "branch 3" and "the start of a
+  count", undecidable without waiting for the next key — which would slow
+  down the most frequent gesture. A side benefit: `f` and `e` become
+  symmetric.
 
-## Le prix à payer
+## The price to pay
 
-**Les gestes fréquents coûtent deux frappes** (`tl` pour aimer, `ts` pour
-passer), là où vim garde une touche pour ce qu'on fait le plus. C'est le
-coût de la régularité, et il ne se jugera qu'à l'usage.
+**Frequent gestures cost two keystrokes** (`tl` to like, `ts` to skip),
+where vim keeps one key for what you do most. That is the cost of
+regularity, and only use will tell.
 
-Deux garde-fous : `1`…`9` restent le raccourci de `f1`…`f9` — l'exception
-assumée, choisir une branche étant *le* geste du produit ; et le clavier nu
-est assez vide pour qu'on y promeuve plus tard un geste qui se révélerait
-constant.
+Two safeguards: `1`…`9` remain the shortcut for `f1`…`f9` — the deliberate
+exception, since choosing a branch is *the* gesture of the product; and the
+bare keyboard is empty enough to promote a gesture there later, should one
+turn out to be constant.
 
-## Ce qui reste à trancher
+## Still to settle
 
-1. **`ts` (skip track) vs `l` (suivant).** Deux gestes pour passer un
-   morceau, avec une différence invisible : `l` avance sans rien noter,
-   `ts` avance **et** le note dans `learned/`. Nuance juste sur le papier,
-   peut-être insensible dans les doigts.
-2. **`aL` ou `ac`** pour lier deux artistes. La cible n'est plus implicite
-   depuis le 14/09/2026 : `aL` ouvre la recherche et on choisit l'artiste,
-   ce qui a levé la confusion (Joel : « je ne comprends pas le geste »).
-   Reste la casse : `aL` est le seul geste dont la majuscule ne dit pas la
-   même chose qu'ailleurs — `tt`/`tT` sont un verbe et son inverse,
-   `al`/`aL` deux verbes différents. La justification tient (minuscule =
-   mesure, majuscule = édition) mais elle est plus faible. `ac` (*connect*)
-   l'éviterait, au prix du mot « link », celui du format sur disque.
+1. **`ts` (skip track) vs `l` (next).** Two gestures to skip a track, with
+   an invisible difference: `l` moves on without noting anything, `ts` moves
+   on **and** notes it in `learned/`. A distinction that is sound on paper,
+   perhaps imperceptible in the fingers.
+2. **`aL` or `ac`** to link two artists. The target has not been implicit
+   since 2026-09-14: `aL` opens the search and you choose the artist, which
+   cleared up the confusion (Joel: "I don't understand the gesture"). What
+   is left is the case: `aL` is the only gesture whose capital does not mean
+   what it means elsewhere — `tt`/`tT` are a verb and its opposite,
+   `al`/`aL` two different verbs. The justification holds (lowercase =
+   measurement, uppercase = edit) but it is weaker. `ac` (*connect*) would
+   avoid it, at the cost of the word "link", the one used by the format on
+   disk.
 
-3. ~~**Le namespace `C`**~~ (19/09/2026, [conception/sortie.md](conception/sortie.md)),
-   le catalogue (`Cd` diff, `Cp` propose, `Cu` update) — la lettre est
-   tranchée par Joel le 19/09/2026 (partager `c` avec le confort, écarté),
-   tranché et câblé le 20/09/2026 — table ci-dessus. `fg<n>`, du même
-   cahier, l'est aussi.
+3. ~~**The `C` namespace**~~ (2026-09-19,
+   [design/before-release.md](design/before-release.md)), the catalog
+   (`Cd` diff, `Cp` propose, `Cu` update) — the letter was settled by Joel
+   on 2026-09-19 (sharing `c` with comfort, ruled out), settled and wired on
+   2026-09-20 — table above. `fg<n>`, from the same workbook, is too.
 
-## Lettres libres
+## Free letters
 
-Le clavier nu ne garde que `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `C`, `o`, `u`, `q`
-— hors modale, où `j`, `k`, `s`, `v`, `e` et `A` servent (table ci-dessus).
-`Q` est parti le 08/09/2026 avec le mode file d'attente. Restent libres :
-`b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`, `x`, `y`,
-`z`, et les majuscules sauf `C`, `G`, `J`, `K` (`o` est pris le 20/09/2026,
-`C` aussi). Dans les
-namespaces, `d` a été pris chez `a` le 07/09/2026 (`ad`, discography). Le mode
-file d'attente peut s'installer sans rien déplacer.
+The bare keyboard only keeps `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `C`,
+`o`, `u`, `q` — outside the modal, where `j`, `k`, `s`, `v`, `e` and `A`
+serve (table above). `Q` left on 2026-09-08 along with queue mode. Still
+free: `b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`, `x`, `y`,
+`z`, and the capitals except `C`, `G`, `J`, `K` (`o` was taken on
+2026-09-20, and `C` too). Inside the namespaces, `d` was taken in `a` on
+2026-09-07 (`ad`, discography). Queue mode can move in without displacing
+anything.
 
-## D'où vient cette grammaire
+## Where this grammar comes from
 
-Le 05/09/2026, l'inventaire des touches a révélé **huit collisions**, dont
-six invisibles tant que la table vivait en trois exemplaires. Les
-namespaces les font toutes tomber, et par construction : deux gestes ne
-peuvent se croiser que dans un même namespace, où l'on maîtrise les lettres.
+On 2026-09-05, taking stock of the keys revealed **eight collisions**, six
+of them invisible as long as the table lived in three copies. The namespaces
+make them all fall, and by construction: two gestures can only clash inside
+one namespace, where the letters are under control.
 
-| Collision d'alors | Résolution |
+| The collision then | Resolution |
 |---|---|
-| `u` : « annuler » (0013) vs « branche précédente » (le code) | `u` annule un geste, `fu` remonte d'une branche |
-| `n` : sauter, non, et le modificateur « maintenant » | `n` = **now** ; `y`/`n` ne vit que dans une invite modale |
-| `d` à la fois action (door) et préfixe (`da`/`dt`) | `d` quitte le clavier nu : c'est `td` |
-| `dt`/`da` recouvrent `X` et `-`, déjà décidés | Absorbés par `tb`, `as` et `ab` |
-| `.` recouvre `e` (deux touches pour encore) | `.` reprend son sens vim (répéter) |
-| `h`/`l` (rassurant/aventureux) recouvrent `1 2 3` | `h`/`l` deviennent la navigation |
-| `p` à la fois action (prévoir) et préfixe (`p1`) | `p` quitte les branches : c'est `fp`, et `p` devient pause |
-| `pr` en collision avec `p<n>` | `fr`, dans le namespace |
+| `u`: "undo" (0013) vs "previous branch" (the code) | `u` undoes a gesture, `fu` steps back one branch |
+| `n`: skip, no, and the "now" modifier | `n` = **now**; `y`/`n` only lives in a modal prompt |
+| `d` both an action (door) and a prefix (`da`/`dt`) | `d` leaves the bare keyboard: it is `td` |
+| `dt`/`da` overlap `X` and `-`, already decided | Absorbed by `tb`, `as` and `ab` |
+| `.` overlaps `e` (two keys for encore) | `.` takes back its vim meaning (repeat) |
+| `h`/`l` (reassuring/adventurous) overlap `1 2 3` | `h`/`l` become navigation |
+| `p` both an action (plan) and a prefix (`p1`) | `p` leaves the branches: it is `fp`, and `p` becomes pause |
+| `pr` colliding with `p<n>` | `fr`, inside the namespace |
 
-**« Fork » a deux sens, et c'est assumé** (arbitrage de Joel, 05/09/2026) :
-forker le **catalogue** ([0008](decisions/0008-le-fork-est-la-surcouche.md))
-est un geste rare, une fois par machine, qui reste `:fork` ; forker le
-**parcours** est le geste constant de l'écoute, et c'est la touche `f`. Ils
-ne se croisent jamais. La nuance est au vocabulaire de
-[`vision.md`](vision.md).
+**"Fork" has two meanings, and that is deliberate** (Joel's call,
+2026-09-05): forking the **catalog**
+([0008](decisions/0008-the-fork-is-the-overlay.md)) is a rare gesture, once
+per machine, and stays `:fork`; forking the **journey** is the constant
+gesture of listening, and it is the `f` key. They never cross. The nuance
+is in the vocabulary of [`vision.md`](vision.md).

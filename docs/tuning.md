@@ -1,119 +1,113 @@
-# Les réglages du moteur (`[tuning]`)
+# The engine's settings (`[tuning]`)
 
-Tout nombre avec lequel le moteur décide de ce qui se joue est un réglage,
-dans la section `[tuning]` de `~/.config/forkstify/config.toml`
-([0023](decisions/0023-les-indices-du-moteur-se-reglent.md)). Cette page
-dit, pour chacun, **à quoi il sert, sa valeur par défaut, et ce que fait
-le monter ou le baisser**. Le fichier est lu au lancement : on édite, on
-relance.
+Every number the engine uses to decide what plays is a setting, in the
+`[tuning]` section of `~/.config/forkstify/config.toml`
+([0023](decisions/0023-engine-numbers-are-tunable.md)). This page says, for
+each one, **what it does, its default value, and what raising or lowering
+it does**. The file is read at launch: you edit, you relaunch.
 
-Trois règles pour tous :
+Three rules for all of them:
 
-- **Ne rien écrire, c'est garder le défaut.** Une ligne retirée du
-  fichier revient à sa valeur d'origine ; pour remettre un réglage, il
-  suffit de le remettre à la valeur de la colonne « défaut » ou d'effacer
-  la ligne.
-- **Un réglage discourage ou favorise, il n'interdit jamais.** Aucun
-  nombre ne ferme une branche ni ne retire un morceau : les seules
-  interdictions sont les bannissements (`tb`, `ab`), qui ne sont pas des
-  réglages.
-- **Une valeur absurde est remise à son défaut, seule**, et dite sur
-  stderr au lancement (part hors de 0–1, demi-vie négative, poids nul).
-  Les autres lignes restent telles qu'écrites.
+- **Writing nothing keeps the default.** A line removed from the file goes
+  back to its original value; to restore a setting, put it back at the
+  value in the "default" column or delete the line.
+- **A setting discourages or favors, it never forbids.** No number closes a
+  branch or removes a track: the only bans are the bans themselves (`tb`,
+  `ab`), which are not settings.
+- **An absurd value is reset to its default, alone**, and reported on stderr
+  at launch (a share outside 0–1, a negative half-life, a zero weight). The
+  other lines stay as written.
 
-Le gabarit complet, commenté, est celui que forkstify écrit au premier
-lancement (`src/config.rs`, `TEMPLATE`) ; sur un poste installé avant le
-17/09/2026, le copier à la main dans le fichier.
+The full commented template is the one forkstify writes on first run
+(`src/config.rs`, `TEMPLATE`); on a machine installed before 2026-09-17,
+copy it into the file by hand.
 
-## Les cooldowns (0012 §2)
+## The cooldowns (0012 §2)
 
-Ce qui vient de sonner recule dans le tirage, puis revient avec le temps.
-Chaque cooldown a un **plancher** (ce qui reste du poids le jour même) et
-une **demi-vie** en jours (le temps pour récupérer la moitié du reste).
+What has just played steps back in the draw, then comes back with time.
+Every cooldown has a **floor** (what is left of the weight on the same day)
+and a **half-life** in days (the time to recover half of the rest).
 
-| Réglage | Défaut | À quoi il sert | Monter / baisser |
+| Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
-| `track_cooldown_floor` | `0.1` | Part du poids qu'un morceau garde le jour où il a sonné. | `1.0` = aucun cooldown, un morceau peut revenir le soir même. `0.0` = il ne revient pas le jour même (le lendemain, il a déjà récupéré un peu). |
-| `track_cooldown_half_life` | `7.0` | En jours. Au défaut, un morceau joué aujourd'hui est à 55 % de son poids une semaine plus tard, 78 % à deux, 94 % au mois. | Plus long = les morceaux reviennent moins vite, la rotation s'élargit. Plus court = on réentend plus tôt. |
-| `artist_cooldown_floor` | `0.3` | Part de son attrait qu'un **artiste** entendu aujourd'hui garde comme tête de branche. | `1.0` = les mêmes artistes peuvent mener branche sur branche. Plus bas = on tourne davantage entre artistes. |
-| `artist_cooldown_half_life` | `4.0` | En jours : le temps pour l'artiste de redevenir une tête de branche à part entière. | Plus long = un artiste entendu cette semaine mène moins ; plus court = il revient vite. |
+| `track_cooldown_floor` | `0.1` | The share of its weight a track keeps on the day it played. | `1.0` = no cooldown at all, a track can come back the same evening. `0.0` = it does not come back that day (by the next one, it has already recovered a little). |
+| `track_cooldown_half_life` | `7.0` | In days. At the default, a track played today is at 55 % of its weight a week later, 78 % at two, 94 % at a month. | Longer = tracks come back more slowly, the rotation widens. Shorter = you hear them again sooner. |
+| `artist_cooldown_floor` | `0.3` | The share of their appeal an **artist** heard today keeps as a branch head. | `1.0` = the same artists can lead branch after branch. Lower = you cycle more between artists. |
+| `artist_cooldown_half_life` | `4.0` | In days: the time for the artist to become a full branch head again. | Longer = an artist heard this week leads less; shorter = they come back quickly. |
 
-Le cooldown d'artiste ne touche que le choix des **têtes de branche** et
-de la branche `stay` ; il ne retire pas les morceaux de l'artiste du
-réservoir. Le cooldown de morceau multiplie le poids du morceau dans le
-réservoir de son artiste.
+The artist cooldown only touches the choice of **branch heads** and of the
+`stay` branch; it does not remove that artist's tracks from the pool. The
+track cooldown multiplies the track's weight inside its artist's pool.
 
-## Le goût (0018) : `al` / `as`, `tl` / `ts`
+## Taste (0018): `al` / `as`, `tl` / `ts`
 
-Chaque artiste porte un **poids** dans `learned/`, à 1 au départ. « Plus
-souvent » et « moins souvent » le multiplient ; ce poids multiplie
-ensuite celui des branches qui commencent par cet artiste.
+Every artist carries a **weight** in `learned/`, starting at 1. "More often"
+and "less often" multiply it; that weight then multiplies the weight of the
+branches that start from that artist.
 
-| Réglage | Défaut | À quoi il sert | Monter / baisser |
+| Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
-| `less_often` | `0.7` | Ce par quoi `as` / `ts` multiplie le poids de l'artiste. | Plus près de 1 = geste plus doux, il en faut plusieurs pour sentir la différence. Plus bas = un seul geste écarte franchement. |
-| `more_often` | `0` | Ce par quoi `al` / `tl` multiplie le poids. `0` = le miroir de `less_often` (1 ÷ 0.7 ≈ 1.43), pour qu'un `al` défasse exactement un `as`. | Une valeur propre (≥ 1) casse la symétrie : `2.0` = « plus souvent » pèse plus lourd que « moins souvent ». |
-| `weight_floor` | `0.1` | Le poids ne descend jamais sous cette valeur : un artiste « moins souvent » dix fois reste possible. | Plus bas = on peut presque effacer un artiste au clavier. Plus haut = le geste plafonne vite. |
-| `weight_ceiling` | `3.0` | Le poids ne monte jamais au-dessus : une touche ne peut pas s'emballer. | Plus haut = un artiste aimé peut dominer les propositions. |
+| `less_often` | `0.7` | What `as` / `ts` multiplies the artist's weight by. | Closer to 1 = a gentler gesture, it takes several to feel the difference. Lower = a single gesture clearly sets the artist aside. |
+| `more_often` | `0` | What `al` / `tl` multiplies the weight by. `0` = the mirror of `less_often` (1 ÷ 0.7 ≈ 1.43), so that one `al` exactly undoes one `as`. | A value of its own (≥ 1) breaks the symmetry: `2.0` = "more often" weighs more than "less often". |
+| `weight_floor` | `0.1` | The weight never goes below this value: an artist marked "less often" ten times stays possible. | Lower = you can almost erase an artist from the keyboard. Higher = the gesture tops out quickly. |
+| `weight_ceiling` | `3.0` | The weight never goes above it: one key cannot run away with things. | Higher = a loved artist can dominate what gets proposed. |
 
-## La familiarité (0001, 0014)
+## Familiarity (0001, 0014)
 
-La familiarité d'un artiste (0 à 1) vient de la bibliothèque importée
-**ou** des écoutes dans forkstify, la plus forte des deux. C'est elle que
-la zone de confort lit : au cocon, elle attire ; ouvert, elle repousse.
+An artist's familiarity (0 to 1) comes from the imported library **or** from
+plays inside forkstify, whichever is higher. That is what the comfort zone
+reads: at the cocoon it attracts, wide open it repels.
 
-| Réglage | Défaut | À quoi il sert | Monter / baisser |
+| Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
-| `plays_reference` | `5.0` | Nombre d'écoutes (décrues) auquel la familiarité par l'écoute atteint la moitié. À 10 écoutes, 75 % ; à 20, 94 %. | Plus bas = un artiste devient « familier » vite ; plus haut = il faut l'avoir beaucoup écouté. |
-| `plays_half_life` | `182.5` | En jours : la demi-vie des compteurs d'écoute (six mois, 0014). Une écoute d'il y a un an compte pour un quart. | Plus court = la familiarité suit l'actualité de l'écoute ; plus long = elle a de la mémoire. |
+| `plays_reference` | `5.0` | The number of (decayed) plays at which familiarity through listening reaches half. At 10 plays, 75 %; at 20, 94 %. | Lower = an artist becomes "familiar" quickly; higher = you have to have listened a lot. |
+| `plays_half_life` | `182.5` | In days: the half-life of the play counters (six months, 0014). A play from a year ago counts for a quarter. | Shorter = familiarity follows what you are listening to now; longer = it has a memory. |
 
-## Le réservoir (0012 §1)
+## The pool (0012 §1)
 
-Le réservoir d'un artiste est l'ensemble de ses morceaux tirables, chacun
-avec un poids ; le moteur y tire au sort, pondéré. Un top vaut 1 : tout
-le reste se lit par rapport à lui.
+An artist's pool is the set of their drawable tracks, each with a weight;
+the engine draws from it at weighted random. A top is worth 1: everything
+else reads relative to it.
 
-| Réglage | Défaut | À quoi il sert | Monter / baisser |
+| Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
-| `top_weight` | `1.0` | Le poids d'un top. La norme des autres ; le changer seul revient à changer tous les autres en sens inverse. | À laisser à 1 sauf raison précise. |
-| `liked_weight_cocoon` | `10.0` | Le poids d'un morceau aimé (`tl`) au confort 5. Un aimé prime sur les tops : les tops ne sont que les portes d'entrée d'un fork vierge (0018). | Plus haut = au cocon, on n'entend presque que ses aimés. Plus bas = les tops reprennent leur place. |
-| `liked_weight_open` | `2.0` | Le même, au confort 0 ; entre les deux, le curseur glisse de l'un à l'autre. | Plus bas = ouvert, l'aimé ne compte presque plus que comme un top : on cherche l'inconnu. |
-| `door_weight` | `0.4` | Le poids d'une door (0011) qui n'est pas un top, quand la branche ne va pas dans sa direction. | Plus haut = les doors sortent souvent, même sans direction. |
-| `door_bonus` | `2.5` | Ce par quoi une door est multipliée quand la branche **va** dans sa direction (un tag de la tête de branche correspond). | Plus haut = la door devient le passage obligé vers cette direction. |
-| `tail_weight` | `0.25` | Le poids d'**un** morceau de la longue traîne (le reste de la discographie), avant que le curseur et la familiarité le réduisent. Une traîne a dix fois plus de morceaux qu'une fiche n'a de tops : bas par morceau, elle pèse lourd en cumul. | Plus haut = plus de fonds de tiroir, même à confort moyen. Plus bas = la traîne n'apparaît qu'ouvert, chez les artistes familiers. |
+| `top_weight` | `1.0` | The weight of a top. The yardstick for the others; changing it alone amounts to changing all the others the other way. | Leave it at 1 unless there is a precise reason. |
+| `liked_weight_cocoon` | `10.0` | The weight of a liked track (`tl`) at comfort 5. A liked track outranks the tops: tops are only the entry doors of a fresh fork (0018). | Higher = at the cocoon, you hear almost nothing but your liked tracks. Lower = the tops take their place back. |
+| `liked_weight_open` | `2.0` | The same, at comfort 0; in between, the dial slides from one to the other. | Lower = wide open, a liked track counts for barely more than a top: you are after the unknown. |
+| `door_weight` | `0.4` | The weight of a door (0011) that is not a top, when the branch does not go in its direction. | Higher = doors come out often, even with no direction. |
+| `door_bonus` | `2.5` | What a door is multiplied by when the branch **does** go in its direction (one of the branch head's tags matches). | Higher = the door becomes the mandatory way into that direction. |
+| `tail_weight` | `0.25` | The weight of **one** long-tail track (the rest of the discography), before the dial and familiarity cut it down. A tail has ten times more tracks than a card has tops: low per track, it weighs a lot in aggregate. | Higher = more deep cuts, even at middling comfort. Lower = the tail only shows up wide open, with familiar artists. |
 
-La part de la traîne vaut `tail_weight × ouverture × familiarité` : nulle
-au confort 5 (rien à régler ici, c'est le curseur), et nulle chez un
-artiste inconnu, qui est mené par ses tops.
+The tail's share is `tail_weight × openness × familiarity`: nil at comfort 5
+(nothing to tune here, that is the dial), and nil with an unknown artist,
+who is led by their tops.
 
-## Le saut aventureux
+## The adventurous leap
 
-Chaque tour propose une branche « par le graphe » (les liens des fiches)
-et une branche « aventureuse » : un artiste hors du graphe, proche dans
-l'espace des vecteurs. La proximité est un cosinus, de −1 à 1 ; en
-pratique les voisins utiles sont entre 0.5 et 0.9. Chaque seuil a une
-valeur au cocon (confort 5) et une ouvert (confort 0) ; entre les deux,
-le curseur glisse.
+Every round proposes a branch "through the graph" (the cards' links) and an
+"adventurous" branch: an artist outside the graph, close in vector space.
+Proximity is a cosine, from −1 to 1; in practice the useful neighbors sit
+between 0.5 and 0.9. Every threshold has a value at the cocoon (comfort 5)
+and one wide open (comfort 0); in between, the dial slides.
 
-| Réglage | Défaut | À quoi il sert | Monter / baisser |
+| Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
-| `leap_floor_cocoon` | `0.80` | Au confort 5, sous cette proximité, pas de saut hors du graphe. | Plus haut = presque jamais d'aventureuse au cocon. Plus bas = elle va plus loin. |
-| `leap_floor_open` | `0.60` | Le même au confort 0. C'est aussi le plancher sous lequel `fw` va chercher ses « loin ». | Plus bas = ouvert, on saute très loin. |
-| `leap_trust_cocoon` | `0.86` | Au confort 5, au-dessus de cette proximité, un saut n'a plus besoin d'un tag de genre commun avec la branche. | Plus bas = on fait confiance aux vecteurs seuls plus tôt. |
-| `leap_trust_open` | `0.70` | Le même au confort 0. | Idem, ouvert. |
+| `leap_floor_cocoon` | `0.80` | At comfort 5, below this proximity there is no leap outside the graph. | Higher = almost never an adventurous branch at the cocoon. Lower = it reaches further. |
+| `leap_floor_open` | `0.60` | The same at comfort 0. It is also the floor below which `fw` goes looking for its "far away" ones. | Lower = wide open, you leap very far. |
+| `leap_trust_cocoon` | `0.86` | At comfort 5, above this proximity a leap no longer needs a genre tag in common with the branch. | Lower = you trust the vectors alone sooner. |
+| `leap_trust_open` | `0.70` | The same at comfort 0. | Likewise, wide open. |
 
-Entre plancher et confiance, un saut demande **un tag de genre partagé**
-(pays et décennie ne comptent pas). Un plancher plus haut que la confiance
-n'a pas de sens : la confiance ne servirait jamais.
+Between floor and trust, a leap requires **a shared genre tag** (country and
+decade do not count). A floor higher than the trust threshold makes no
+sense: the trust threshold would never be used.
 
-## Ce qui n'est pas un réglage, et pourquoi
+## What is not a setting, and why
 
-- **Les délais de l'interface** (durée d'un toast, seuil de redémarrage
-  d'un morceau, offre de graine) : ils ne décident rien de ce qui se joue.
-- **Les formes du tirage** : le nombre de candidats gardés avant le sort
-  (`6` têtes, `12` pour `stay` et `fw`), les puissances qui creusent la
-  pondération (`poids²` sur le graphe, `(proximité − 0,5)³` sur les
-  vecteurs), le poids fixe `4.0` de la branche `stay`, la fourchette
-  `0,25`–`2` de ce que le confort fait à une familiarité. Ce sont des
-  mécaniques, pas des indices ; en ouvrir un, c'est une ligne de plus dans
-  `[tuning]` et une ligne ici.
+- **Interface delays** (how long a toast lasts, the threshold for restarting
+  a track, the seed offer): they decide nothing about what plays.
+- **The shapes of the draw**: the number of candidates kept before the draw
+  (`6` heads, `12` for `stay` and `fw`), the powers that deepen the
+  weighting (`weight²` on the graph, `(proximity − 0.5)³` on the vectors),
+  the fixed `4.0` weight of the `stay` branch, the `0.25`–`2` range of what
+  comfort does to a familiarity. Those are mechanics, not numbers; opening
+  one up is one more line in `[tuning]` and one more line here.

@@ -1,39 +1,38 @@
-# Atouts — impressions à l'usage
+# Strengths — impressions from use
 
-Ce que l'écoute apprend du produit, au fil de l'eau, dans les mots de Joel.
-Ni bugs ni demandes (ça, c'est [`conception/retours-usage.md`](conception/retours-usage.md)) :
-ici, ce qui **marche**, ce qui distingue le projet, pour en avoir la liste
-le moment venu — pitch, README, présentation.
+What listening teaches about the product, as it comes, in Joel's own words.
+Neither bugs nor requests (those live in
+[`design/usage-feedback.md`](design/usage-feedback.md)): here, what
+**works**, what sets the project apart, so the list is there when it is
+needed — pitch, README, presentation.
 
-Une entrée par impression, datée. On ne réécrit pas une entrée : si une
-impression se confirme ou se nuance, on en ajoute une.
+One entry per impression, dated. An entry is never rewritten: if an
+impression is confirmed or qualified, another one is added.
 
-## 09/09/2026 — ce que Spotify ne proposait pas
+## 2026-09-09 — what Spotify never offered
 
-> Cela me propose des artistes et des morceaux qui ne m'étaient jamais
-> proposés avec Spotify — sûrement écartés par l'algorithme Spotify, on ne
-> sait pas, on n'a pas de vue dessus. Je redécouvre certains morceaux et
-> artistes. Les enchaînements sont cohérents parce que maîtrisés. Pour
-> autant, la proposition de branches amène quand même un côté inattendu.
+> It offers me artists and tracks that Spotify never offered me — probably
+> set aside by the Spotify algorithm, we don't know, we have no view of it.
+> I'm rediscovering some tracks and artists. The sequences hang together
+> because they are under control. And yet the branches it proposes still
+> bring in something unexpected.
 
-Trois atouts dans une impression :
+Three strengths in one impression:
 
-- **La redécouverte.** Le catalogue tire dans le fond, pas dans ce qu'un
-  algorithme opaque a décidé de remonter ; des morceaux et des artistes
-  qu'on possède déjà reviennent à l'oreille.
-- **La cohérence, parce qu'elle est maîtrisée.** Les enchaînements
-  tiennent parce que chaque lien est écrit, lisible, modifiable — le
-  principe de la vision : toute décision automatique s'explique en une
-  phrase.
-- **L'inattendu quand même.** Les branches proposées gardent une part de
-  surprise ; la maîtrise n'a pas tué la découverte.
+- **Rediscovery.** The catalog draws from the depths, not from what an
+  opaque algorithm decided to surface; tracks and artists you already own
+  come back to the ear.
+- **Coherence, because it is under control.** The sequences hold because
+  every link is written, readable, changeable — the principle of the
+  vision: any automatic decision is explainable in one sentence.
+- **Unexpected all the same.** The branches on offer keep a share of
+  surprise; control has not killed discovery.
 
-## 11/09/2026 — après quelques jours
+## 2026-09-11 — after a few days
 
-> Ça fait quelques jours que j'utilise forkstify et j'en suis très content.
+> I've been using forkstify for a few days now and I'm very happy with it.
 
-L'usage tient dans la durée : l'application est devenue le lecteur du
-quotidien, pas un prototype qu'on lance pour l'essayer. Le même jour, une
-question sur le tirage (jamais de longue traîne au confort 3) — signe que
-Joel observe le moteur à l'oreille et le compare à ce que les décisions
-promettent.
+Use holds over time: the application has become the everyday player, not a
+prototype you launch to try out. The same day, a question about the draw
+(never any long tail at comfort 3) — a sign that Joel is watching the
+engine by ear and comparing it to what the decisions promise.
