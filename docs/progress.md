@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-20**. This file is the entry point for picking the work
+Updated on **2026-09-21**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -725,6 +725,43 @@ round, and could propose titles already in the queue again.
 - `fu` empties the queue **before** re-reading the state, and takes the
   previous artist from the register, not from the list.
 - Test `the_last_segment_of_the_playlist` (69 tests).
+
+## The whole repository goes English (2026-09-21)
+
+Joel: "convert every document of the project into English, and state in
+AGENTS.md that everything generated must be generated in English."
+**Decision [0024](decisions/0024-everything-in-english.md)**, which
+supersedes the "Language" part of
+[0022](decisions/0022-english-interface.md): the interface went English on
+09-10, the prose follows.
+
+- **The 44 documents are translated and renamed.** `docs/conception/` →
+  `docs/design/`, `avancement.md` → `progress.md`, `atouts.md` →
+  `strengths.md`, `reglages.md` → `tuning.md`, and every decision keeps its
+  number with an English slug. `git mv` throughout, so `git log --follow`
+  still reads on every file.
+- **A decision is translated, not revised**: same content, same date, same
+  status. Names on disk quoted in an old decision keep the spelling they had
+  that day (`catalogue.toml`, `fiches/`, `usage/`), and 0010 says in a line
+  that 0022 renamed them.
+- **The cross-links are rewritten**, in the documents and **in the code**:
+  some thirty `docs/conception/…` references and French decision slugs in
+  `src/`, including the one in `config.rs`'s `TEMPLATE`, which the user
+  reads in their `config.toml`. Zero broken links, checked over every `.md`.
+- **The last French comments** in the code are translated (`embed.rs`,
+  `validate.rs`, `listen.rs`, `engine.rs`, and "chantier" → "workstream"
+  everywhere). What does not move: `embed.rs`'s vectorized text (the index
+  depends on it, 0022 §5), artist names, track titles and Joel's quoted
+  words.
+- **`AGENTS.md` is in English** and carries the rule in one line, under "How
+  the agent works here": everything generated is generated in English,
+  including the commit messages the agent writes. French remains the
+  language of the exchange in the terminal.
+- Two duplicated 2026-09-14 headings in this file are merged along the way.
+  93 tests green, no warnings.
+
+**Left to do**: the edit commits the *application* produces still speak
+French ("Cat Power — tops : +2 −0") — see the pending fixes below.
 
 ## Installing without Docker: a GitHub release and an AUR package (2026-09-21)
 
