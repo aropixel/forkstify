@@ -197,6 +197,34 @@ A `.gitignore` now keeps makepkg's `src/`, `pkg/` and archives out of the
 repository: it is the Omarchy plugin, cloned by every user, and a stray
 build left 118 MB sitting in it.
 
+## Three scripts for the maintainer (2026-09-21)
+
+Everything we had been doing by hand, and getting wrong, is now a script in
+`bin/`. All three are maintainer tooling, not secrets: they belong in the
+open repository.
+
+- **`bin/dev-install`** makes the clone you stand in the forkstify that
+  runs: build, link on the `PATH`, link into Omarchy, enable, reload. It
+  refuses to `ln -s` over a leftover plugin **directory** — that is what
+  swallowed the link on 21/09/2026 and made the icon vanish — and it names
+  the package when one shadows the dev build, since `/usr/bin` comes before
+  `~/.local/bin` on most paths.
+- **`bin/release <version>`** sets the version in `Cargo.toml`,
+  `manifest.json` and `Cargo.lock`, checks they agree, commits, tags and
+  pushes. The tag is what fires the workflow.
+- **`bin/release-aur [version] [--publish]`** fetches the published
+  archive, **checks it against `SHA256SUMS` rather than trusting it**,
+  writes the digest into the PKGBUILD, bumps `pkgrel` when the version has
+  not moved, regenerates `.SRCINFO`, and builds the package to prove it —
+  all in a temporary directory, because makepkg leaves 100+ MB next to the
+  PKGBUILD and this repository is the plugin everyone clones. Proven
+  end-to-end against `v0.1.0`.
+
+`.gitignore` also gains `/scratch/`, a drawer for throwaway scripts and
+notes that is never committed. What has to follow you between machines
+belongs in a private repository instead: a gitignored folder dies with the
+clone, as this one nearly did.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

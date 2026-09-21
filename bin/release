@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Cut a release: set the version in the three places that must agree, update
+# the lock file, commit, tag, push. The tag is what fires
+# `.github/workflows/release.yml`, which builds the binary and attaches it.
+#
+#   bin/release 0.2.0
+#   bin/release 0.2.0 --yes   no confirmation
+#
+# Afterwards, `bin/release-aur` refreshes the Arch package from the
+# published archive.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+say()  { printf '%s\n' "$*"; }
+die()  { printf '%s\n' "$*" >&2; exit 1; }
+
+version="${1:-}"
+[ -n "$version" ] || die "usage: bin/release <version> [--yes]"
+case "$version" in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) die "a version looks like 0.2.0, not '$version'" ;;
+esac
+yes=false
+[ "${2:-}" = "--yes" ] && yes=true
+
+# --- the tree must be in a state worth tagging ------------------------------
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = "main" ] || die "on '$branch': a release is cut from main"
+[ -z "$(git status --porcelain)" ] || die "uncommitted changes — commit or stash them first"
+git fetch -q origin
+[ -z "$(git log --oneline HEAD..origin/main)" ] || die "behind origin/main — pull first"
+git rev-parse -q --verify "refs/tags/v$version" >/dev/null && die "tag v$version already exists"
+
+current=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
+say "forkstify $current → $version"
+
+# --- the three places -------------------------------------------------------
+sed -i "0,/^version = /s/^version = .*/version = \"$version\"/" Cargo.toml
+sed -i "0,/\"version\"/s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"$version\"/" manifest.json
+
+# the lock file carries the version too; cargo rewrites it
+if command -v docker >/dev/null 2>&1; then
+  say "updating Cargo.lock…"
+  bin/build check >/dev/null
+else
+  say "⚠ docker missing: Cargo.lock keeps $current, CI will update it"
+fi
+
+for f in Cargo.toml manifest.json; do
+  got=$(sed -n "s/.*[\"]\?version[\"]\?[[:space:]]*[:=][[:space:]]*\"\([^\"]*\)\".*/\1/p" "$f" | head -1)
+  [ "$got" = "$version" ] || die "$f still says '$got' — fix it by hand"
+done
+say "Cargo.toml, manifest.json and Cargo.lock agree on $version"
+
+# --- commit, tag, push ------------------------------------------------------
+git --no-pager diff --stat
+if ! $yes; then
+  printf 'commit "Version %s", tag v%s, and push both to origin? [y/N] ' "$version" "$version"
+  read -r answer
+  case "$answer" in [yY]*) ;; *) git checkout -- Cargo.toml manifest.json Cargo.lock 2>/dev/null; die "aborted, nothing changed" ;; esac
+fi
+
+git add Cargo.toml manifest.json Cargo.lock 2>/dev/null || git add Cargo.toml manifest.json
+git commit -qm "Version $version"
+git tag "v$version"
+git push -q origin main
+git push -q origin "v$version"
+say "pushed. The workflow is building:"
+say "  gh run watch --repo \$(git remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git\$##')"
+say "  then: bin/release-aur $version"

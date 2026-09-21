@@ -83,6 +83,10 @@ ln -s "$PWD/target/release/forkstify" ~/.local/bin/forkstify
 forkstify
 ```
 
+To develop against Omarchy, `bin/dev-install` does all of that and links
+the clone in as the bar widget, so the plugin you see is the code you are
+editing.
+
 The binary runs on the host and needs only `libasound.so.2` and
 `libstdc++.so.6`. Its glibc floor is Debian 12's (2.36): Arch and anything
 newer run it, older distributions build from source.

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Make the clone you are standing in the forkstify that runs: build it, put
+# it on the PATH, and link it into Omarchy as the bar widget.
+#
+# The mirror image of `omarchy/install.sh`, which installs a *release* for
+# someone who just wants to listen. This one is for the machine you develop
+# on — and it encodes the three traps that cost an afternoon on 21/09/2026:
+# a leftover plugin directory that swallows the symlink, a packaged
+# forkstify that shadows the dev build, and a link that is not enabled.
+#
+#   bin/dev-install             build, link, enable, reload the shell
+#   bin/dev-install --no-build  use the binary already in target/release
+set -euo pipefail
+cd "$(dirname "$0")/.."
+ROOT="$PWD"
+ID="io.github.aropixel.forkstify"
+PLUGIN="$HOME/.config/omarchy/plugins/$ID"
+BIN="$HOME/.local/bin/forkstify"
+
+say()  { printf '%s\n' "$*"; }
+warn() { printf '%s\n' "$*" >&2; }
+die()  { printf '%s\n' "$*" >&2; exit 1; }
+
+[ -f manifest.json ] && [ -d omarchy ] || die "not a forkstify clone: $ROOT"
+
+case "${1:-}" in
+  ""|--no-build) ;;
+  *) die "usage: bin/dev-install [--no-build]" ;;
+esac
+
+# --- the binary -------------------------------------------------------------
+if [ "${1:-}" != "--no-build" ]; then
+  say "building…"
+  bin/build
+fi
+[ -x target/release/forkstify ] || die "no target/release/forkstify — run without --no-build"
+
+mkdir -p "$(dirname "$BIN")"
+ln -sfn "$ROOT/target/release/forkstify" "$BIN"
+say "binary linked: $BIN -> $ROOT/target/release/forkstify"
+
+# A package installed in /usr/bin wins over ~/.local/bin on most PATHs, so
+# the dev build would never run. Say which one, and who owns it.
+found=$(command -v forkstify 2>/dev/null || true)
+if [ -n "$found" ] && [ "$found" != "$BIN" ]; then
+  warn "⚠ another forkstify comes first on the PATH: $found"
+  if command -v pacman >/dev/null 2>&1; then
+    owner=$(pacman -Qoq "$found" 2>/dev/null || true)
+    [ -n "$owner" ] && warn "  it belongs to the package '$owner' — sudo pacman -Rns $owner"
+  fi
+  warn "  until it goes, the dev build will not be the one that runs."
+fi
+
+# --- the bar widget ---------------------------------------------------------
+mkdir -p "$(dirname "$PLUGIN")"
+if [ -L "$PLUGIN" ]; then
+  rm -f "$PLUGIN"
+elif [ -e "$PLUGIN" ]; then
+  # `ln -s` into an existing directory drops the link *inside* it and the
+  # plugin silently stops being one. The leftover often holds root-owned
+  # build output, which is why a plain rm will not clear it.
+  die "$PLUGIN exists and is not a link. Clear it first:
+    sudo rm -rf $PLUGIN
+  then run bin/dev-install again."
+fi
+ln -s "$ROOT" "$PLUGIN"
+say "plugin linked: $PLUGIN -> $ROOT"
+
+if command -v omarchy >/dev/null 2>&1; then
+  # a fresh link is discovered but not enabled: `omarchy plugin remove`
+  # took the placement with it
+  omarchy plugin enable "$ID" right >/dev/null 2>&1 || true
+  omarchy plugin list 2>/dev/null | grep -q "^$ID.*enabled" \
+    && say "plugin enabled" \
+    || warn "⚠ plugin not enabled — omarchy plugin enable $ID right"
+  say "reloading the shell (a second of flicker)…"
+  omarchy restart shell >/dev/null 2>&1 || warn "⚠ omarchy restart shell failed"
+else
+  warn "omarchy not found: the widget is linked but nothing reloaded it"
+fi
+
+say "done. QML changes need 'omarchy restart shell'; Rust changes need bin/build."

@@ -1,1 +1,7 @@
 /target
+
+# A drawer for what is yours alone: throwaway scripts, notes, captures.
+# Never committed, so nothing personal can slip into a public repository.
+# What must follow you between machines belongs in a private repository
+# instead — a gitignored folder dies with the clone.
+/scratch/
