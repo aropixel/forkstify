@@ -1,200 +1,199 @@
-# Explorer la discographie d'un artiste
+# Exploring an artist's discography
 
-Note ouverte le **07/09/2026**, sur un retour de Joel (retour n° 12 de
-[`retours-usage.md`](retours-usage.md)) :
+Note opened on **2026-09-07**, on feedback from Joel (item no. 12 of
+[`usage-feedback.md`](usage-feedback.md)):
 
-> « J'ai lancé une graine "Cat Power", et cela m'a sorti 3 morceaux de cet
-> artiste et le premier s'est lancé. Il se trouve que je n'aime quasiment
-> que des morceaux de l'album *What Would the Community Think*. J'aurais
-> aimé avoir une commande (`:explore` ?) pour avoir la liste visuelle des
-> morceaux disponibles classés par albums, et pouvoir faire des `tt` sur
-> les morceaux que j'aime et `tT` sur les morceaux tops existants que je
-> veux enlever. »
+> "I started a 'Cat Power' seed, and it gave me 3 tracks by that artist and
+> the first one started. As it happens I like almost nothing but tracks from
+> the album *What Would the Community Think*. I would have liked a command
+> (`:explore`?) to get a visual list of the available tracks sorted by
+> album, and to be able to `tt` the tracks I like and `tT` the existing tops
+> I want to remove."
 
-**Câblée le 07/09/2026**, forme **1a** de la maquette
-`Discographie.dc.html` (arbitrage de Joel). Ce qui suit garde le
-raisonnement ; ce qui a été tranché est marqué comme tel, et la table des
-touches vit dans [`keybindings.md`](../keybindings.md).
+**Wired on 2026-09-07**, in form **1a** of the `Discographie.dc.html`
+mockup (Joel's call). What follows keeps the reasoning; what was settled is
+marked as such, and the key table lives in
+[`keybindings.md`](../keybindings.md).
 
-## Ce que le retour dit vraiment
+## What the feedback really says
 
-Trois morceaux sont sortis parce que la **taille de branche** vaut 3
-(`:size`, `src/listen.rs`), pas parce que la fiche a trois tops — c'est un
-détail, mais il déplace la question : le problème n'est pas le nombre, c'est
-que **le réservoir de Cat Power ne ressemble pas à ce que Joel aime d'elle**.
+Three tracks came out because the **branch size** is 3 (`:size`,
+`src/listen.rs`), not because the card has three tops — a detail, but it
+shifts the question: the problem is not the number, it is that **Cat
+Power's pool does not look like what Joel likes about her**.
 
-Or c'est exactement le geste que 0013 promet : `tt` promeut, `tT` retire.
-Ce qui manque n'est pas l'édition — elle est câblée depuis le 06/09 et elle
-commite — c'est **le fait de ne pouvoir l'exercer que sur le morceau qui
-sonne**. Pour redresser un artiste, il faudrait le poncer entièrement, une
-écoute par correction. La commande demandée retourne le rapport : on montre
-tout, on corrige d'un coup d'œil.
+Yet that is exactly the gesture 0013 promises: `tt` promotes, `tT` removes.
+What is missing is not the edit — it has been wired since 09-06 and it
+commits — it is **only being able to perform it on the track that is
+playing**. To straighten out an artist, you would have to grind them
+entirely, one listen per fix. The command asked for flips the ratio: show
+everything, fix it at a glance.
 
-C'est aussi le premier écran où l'on **regarde le catalogue au lieu de
-l'écouter**. Il vaut donc mieux qu'il dise tout ce que le moteur sait d'un
-morceau, pas seulement son titre : c'est là qu'une fiche se relit.
+It is also the first screen where you **look at the catalog instead of
+listening to it**. It had better, then, say everything the engine knows
+about a track, not just its title: that is where a card gets read back.
 
-## Ce sur quoi ça repose — presque tout est déjà là
+## What it rests on — almost everything is already there
 
-| Brique | Où | État |
+| Brick | Where | State |
 |---|---|---|
-| La discographie complète, albums et singles, avec l'album de chaque titre et son `uri` | `src/spotify.rs::discography`, `src/discography.rs` | ✅ récoltée par `:warm`, en cache hors dépôt, régénérable |
-| Promouvoir / retirer un top, et le commit qui va avec | `src/edit.rs::add_top`, `remove_top` | ✅ |
-| Ce que l'usage sait d'un morceau (écoutes, passages, aimé, banni) | `src/learned.rs` | ✅ |
-| Confondre « A Forest » et « A Forest - 2005 Remaster » | `discography::normalize` | ✅ |
-| Une liste qui se parcourt à la flèche, plein écran | `tui.rs::render_collection` (la collection de l'accueil) | ✅ le modèle est écrit |
+| The full discography, albums and singles, with each title's album and its `uri` | `src/spotify.rs::discography`, `src/discography.rs` | ✅ harvested by `:warm`, cached outside the repository, regenerable |
+| Promoting / removing a top, and the commit that goes with it | `src/edit.rs::add_top`, `remove_top` | ✅ |
+| What usage knows of a track (plays, skips, liked, banned) | `src/learned.rs` | ✅ |
+| Conflating "A Forest" and "A Forest - 2005 Remaster" | `discography::normalize` | ✅ |
+| A list you walk with the arrows, full screen | `tui.rs::render_collection` (home's collection) | ✅ the model is written |
 
-**La fonctionnalité est donc un écran, pas un moteur.** C'est ce qui la rend
-petite — et ce qui plaide pour la faire avant les chantiers lourds (le
-cooldown daté, l'arbre de la file).
+**The feature is therefore a screen, not an engine.** That is what makes it
+small — and what argues for doing it before the heavy workstreams (the dated
+cooldown, the queue tree).
 
-## La forme retenue
+## The form chosen
 
-**Arbitrage de Joel, 07/09/2026 : la touche est `ad`, et c'est une
-modale.** Pas un écran qui remplace l'écoute — une **modale posée sur
-l'écran d'écoute**, qui prend le clavier tant qu'elle est ouverte et le
-rend à `échap`, comme le réglage du confort prend la main sur les touches
-(`comfort_before`). Ce qui joue reste visible derrière : on ne quitte pas
-l'écoute pour redresser une fiche, et le son n'a de toute façon jamais
-cessé.
+**Joel's call, 2026-09-07: the key is `ad`, and it is a modal.** Not a
+screen that replaces listening — a **modal laid over the listening
+screen**, which takes the keyboard for as long as it is open and gives it
+back on `escape`, the way the comfort setting takes over the keys
+(`comfort_before`). What is playing stays visible behind: you do not leave
+listening to straighten out a card, and the sound never stopped anyway.
 
-`ad` se lit **a**rtist **d**iscography ; `d` était libre dans le namespace
-`a`, et 0013 veut que toute touche soit le raccourci d'une commande — c'est
+`ad` reads **a**rtist **d**iscography; `d` was free in the `a` namespace,
+and 0013 wants every key to be the shortcut of a command — it is
 `:discography`.
 
 ```
- Cat Power — 214 titres, 19 albums · 3 tops · confort 2
+ Cat Power — 214 tracks, 19 albums · 3 tops · comfort 2
  ────────────────────────────────────────────────────────
   What Would the Community Think (1996)
-   ♪  Nude As the News                        12 écoutes
-   ♥  Good Clean Fun                           4 écoutes
+   ♪  Nude As the News                        12 plays
+   ♥  Good Clean Fun                           4 plays
       They Tell Me                             ·
-   ⊘  Enough                                   2 passages
+   ⊘  Enough                                   2 skips
   Moon Pix (1998)
-   ♪  Cross Bones Style                        8 écoutes
+   ♪  Cross Bones Style                        8 plays
       Metal Heart                              ·
  ────────────────────────────────────────────────────────
-  ↑↓ parcourir · tt top · tT retirer · tl ♥ · tb ⊘ · échap
+  ↑↓ browse · tt top · tT remove · tl ♥ · tb ⊘ · escape
 ```
 
-- **Groupé par album, du plus ancien au plus récent** — c'est ainsi qu'on
-  se souvient d'un artiste, et c'est la demande.
-- **Les glyphes sont ceux de la table** (`keybindings.md`, « d'où vient
-  chaque morceau ») : `♪` un top de la fiche, `♥` aimé ici, `↳` une door,
-  `⊘` banni, rien pour le reste. Un glyphe ne porte qu'un sens, ici comme
-  ailleurs.
-- **La colonne de droite est ce que l'appris sait** : écoutes, passages,
-  dernière fois. C'est ce qui permet de trancher « je crois que je n'aime
-  que cet album » en le vérifiant.
-- **Une section finale, « tops introuvables dans la discographie »** : les
-  titres que la fiche déclare et que Spotify ne rend pas sous ce nom —
-  coquille, live, compilation. C'est la moitié « audit » de l'écran, et
-  `tT` doit y fonctionner comme ailleurs.
+- **Grouped by album, oldest to newest** — that is how you remember an
+  artist, and it is what was asked for.
+- **The glyphs are the table's** (`keybindings.md`, "where each track comes
+  from"): `♪` a top from the card, `♥` liked here, `↳` a door, `⊘` banned,
+  nothing for the rest. A glyph carries one meaning, here as elsewhere.
+- **The right-hand column is what the learned layer knows**: plays, skips,
+  last time. That is what lets you settle "I think I only like this album"
+  by checking it.
+- **A final section, "tops not found in the discography"**: the titles the
+  card declares and that Spotify does not return under that name — a typo,
+  a live version, a compilation. That is the screen's "audit" half, and
+  `tT` must work there as elsewhere.
 
-### Les gestes, dans l'écran
+### The gestures, inside the screen
 
-| Touche | Effet | Pourquoi |
+| Key | Effect | Why |
 |---|---|---|
-| ↑ ↓, `gg`, `G` | Déplacer la ligne courante | Comme partout |
-| `tt` / `tT` | Promouvoir / retirer des tops **la ligne** | La demande, et les mêmes doigts qu'en écoute |
-| `tl` / `tb` | Aimer / bannir **la ligne** | Des mesures : elles n'écrivent que dans `learned/`, rien à commiter |
-| `/texte` | Filtrer la liste | Habitude déjà prise pour chercher |
-| `échap` | Fermer | Comme un bloc |
+| ↑ ↓, `gg`, `G` | Move the current row | As everywhere |
+| `tt` / `tT` | Promote / remove **the row** from the tops | The request, and the same fingers as while listening |
+| `tl` / `tb` | Like / ban **the row** | Measurements: they only write into `learned/`, nothing to commit |
+| `/text` | Filter the list | A habit already formed for searching |
+| `escape` | Close | Like a block |
 
-`td` (door) n'y est **pas** : une door pointe vers la direction où l'on va
-(0011), et cet écran n'a pas de « suivant ». Le geste garde son sens en
-écoute, où il en a un.
+`td` (door) is **not** there: a door points at the direction you are heading
+in (0011), and this screen has no "next". The gesture keeps its meaning
+while listening, where it has one.
 
-## Ce que le code a gagné
+## What the code gained
 
-1. **Quatre champs à `TailTrack`** (faits) : `album_id`, `release_date`,
-   `track_number`, `group` (album/single). Sans la date, pas d'ordre
-   chronologique ; sans le numéro, pas d'ordre dans l'album. Le cache est
-   **régénérable et hors dépôt** — une entrée sans date se relit avec
-   `#[serde(default)]` et déclenche une nouvelle récolte, sans migration.
-2. **La déduplication à l'affichage.** Spotify livre le même morceau cinq
-   fois (album, single, réédition). `normalize` sait déjà les confondre :
-   on garde **la plus ancienne occurrence de type album**, on masque les
-   autres. Sans cela, Cat Power fait trois cents lignes de doublons.
-3. **Le titre écrit dans la fiche doit être propre.** `tt` sur « Nude As
-   the News - 2015 Remaster » ne doit pas inscrire ce titre-là : il faut la
-   coupe que `normalize` fait déjà, mais qui rend le titre lisible plutôt
-   qu'un mot-clé (`clean_title`).
-4. **`tT` retire la chaîne de la fiche, pas celle de Spotify.** Elles ne
-   sont pas toujours identiques ; la ligne doit donc porter le titre du top
-   qu'elle a reconnu, apparié par `normalize`. Sinon `remove_top` ne trouve
-   rien et dit « n'est pas dans les tops » alors que le `♪` est affiché.
-5. **La récolte à l'ouverture** : si la traîne de l'artiste n'est pas en
-   cache, l'écran la récolte (`harvest`) au lieu d'exiger un `:warm`
-   préalable. Hors ligne ou sans identifiant Spotify, il le dit et n'ouvre
-   que ce qu'il a : les tops de la fiche.
+1. **Four fields on `TailTrack`** (facts): `album_id`, `release_date`,
+   `track_number`, `group` (album/single). Without the date, no
+   chronological order; without the number, no order within the album. The
+   cache is **regenerable and outside the repository** — an entry with no
+   date reads back with `#[serde(default)]` and triggers a new harvest, with
+   no migration.
+2. **Deduplication at display time.** Spotify delivers the same track five
+   times (album, single, reissue). `normalize` already knows how to conflate
+   them: we keep **the oldest occurrence of album type** and hide the
+   others. Without that, Cat Power is three hundred rows of duplicates.
+3. **The title written into the card must be clean.** `tt` on "Nude As the
+   News - 2015 Remaster" must not write that title: it needs the cut
+   `normalize` already makes, but one that leaves the title readable rather
+   than a keyword (`clean_title`).
+4. **`tT` removes the card's string, not Spotify's.** They are not always
+   identical; the row must therefore carry the title of the top it
+   recognized, matched by `normalize`. Otherwise `remove_top` finds nothing
+   and says "not in the tops" while the `♪` is on screen.
+5. **Harvesting on open**: if the artist's tail is not cached, the screen
+   harvests it (`harvest`) instead of demanding a prior `:warm`. Offline or
+   with no Spotify identifier, it says so and opens only what it has: the
+   card's tops.
 
-Soit, en volume : `discography.rs` et `spotify.rs` retouchés, un état de
-plus dans `Live`, un `render_explore` calqué sur `render_collection`, et
-rien de neuf dans `edit.rs` hormis le titre propre.
+In volume, that is: `discography.rs` and `spotify.rs` touched up, one more
+piece of state in `Live`, a `render_explore` modelled on
+`render_collection`, and nothing new in `edit.rs` but the clean title.
 
-## Tranché le 07/09/2026, et câblé
+## Settled on 2026-09-07, and wired
 
-1. **La cible.** `ad` vise l'artiste de la ligne **surlignée** s'il y en a
-   une, celui du morceau en cours sinon — et l'en-tête de la modale nomme
-   l'artiste ouvert. Le reste du namespace `t`/`a` agissait sur le morceau
-   en cours, sauf `tx` ; **unifié le 09/09/2026**
-   ([0020](../decisions/0020-la-cible-d-un-geste.md)) : tout geste vise la
-   ligne surlignée, sinon ce qui sonne.
-2. **Le nom et la forme.** `ad` / `:discography`, et une **modale** posée
-   sur l'écran d'écoute — pas un écran qui le remplace. La lecture n'a
-   jamais cessé, et on la voit derrière.
-3. **Un commit pour la fournée.** Les `tt`/`tT` s'accumulent en bas de la
-   modale et partent à ⏎ en **une écriture, un commit**
-   (`edit::set_tops`) : cinq commits pour une seule pensée ne se relisent
-   pas. `u` défait la dernière tant que rien n'est écrit, et le premier
-   échap prévient s'il en reste.
+1. **The target.** `ad` aims at the artist of the **highlighted** row if
+   there is one, of the current track otherwise — and the modal's header
+   names the artist that is open. The rest of the `t`/`a` namespace acted on
+   the current track, except `tx`; **unified on 2026-09-09**
+   ([0020](../decisions/0020-the-target-of-a-gesture.md)): every gesture
+   targets the highlighted row, otherwise what is playing.
+2. **The name and the form.** `ad` / `:discography`, and a **modal** laid
+   over the listening screen — not a screen that replaces it. Playback never
+   stopped, and you see it behind.
+3. **One commit for the batch.** The `tt`/`tT` accumulate at the bottom of
+   the modal and go out on ⏎ as **one write, one commit**
+   (`edit::set_tops`): five commits for one single thought do not read back.
+   `u` undoes the last one as long as nothing is written, and the first
+   escape warns if any are left.
 
-   *Question de Joel, ce jour : « pour les commits, il me semblait qu'on
-   avait dit à la fermeture, et toutes les dix minutes ».* C'est
-   [0017](../decisions/0017-synchronisation-de-l-appris.md), et elle porte
-   sur **l'appris** — mesuré, silencieux, jamais relu ligne à ligne. Les
-   **éditions** relèvent de 0013 : écrites et commitées au geste, parce
-   qu'elles laissent une trace lisible et annulable. La fournée ne change
-   pas cette règle, elle en groupe les gestes d'un même écran.
-4. **Entrée écrit** — et c'est `e` qui met à la file, sans fermer. Une
-   édition ne compte pour le moteur qu'au prochain lancement : `e` est la
-   réponse à « je veux l'entendre maintenant ». **Depuis le 11/09/2026,
-   entrée sur un morceau part aussi de lui** (Joel : « démarrer une
-   nouvelle graine depuis une chanson de l'écran de discographie ») : la
-   fournée est écrite d'abord s'il y en a une, puis la graine remplace le
-   parcours — le morceau joue, les branches partent de son artiste, comme
-   la modale de recherche. Sur une ligne d'album, entrée écrit seulement ;
-   un morceau banni ne part pas. Choix réversible : si écrire sans partir
-   manque sur un morceau, une touche à part (`w`) le rendra.
-5. **Les quatre ajouts retenus** (Joel) : `s` bascule l'ordre
-   (chronologique ⇄ mes écoutes d'abord), `v` cycle la vue (tout, ♪ tops,
-   ♥ aimés, ⊘ bannis), `A` promeut les quatre titres les plus écoutés de
-   l'album, `e` met à la file.
+   *Joel's question, that day: "for the commits, I thought we had said on
+   close, and every ten minutes".* That is
+   [0017](../decisions/0017-syncing-the-learned.md), and it covers **the
+   learned layer** — measured, silent, never read back line by line.
+   **Edits** fall under 0013: written and committed per gesture, because
+   they leave a readable, revertible trace. The batch does not change that
+   rule, it groups the gestures of one screen.
+4. **Enter writes** — and it is `e` that queues, without closing. An edit
+   only counts for the engine at the next launch: `e` is the answer to "I
+   want to hear it now". **Since 2026-09-11, enter on a track also sets off
+   from it** (Joel: "start a new seed from a song on the discography
+   screen"): the batch is written first if there is one, then the seed
+   replaces the journey — the track plays, the branches set off from its
+   artist, like the search modal. On an album row, enter only writes; a
+   banned track does not set off. A reversible choice: if writing without
+   setting off turns out to be missed on a track, a separate key (`w`) will
+   bring it back.
+5. **The four additions retained** (Joel): `s` toggles the order
+   (chronological ⇄ my plays first), `v` cycles the view (all, ♪ tops,
+   ♥ liked, ⊘ banned), `A` promotes the album's four most played titles,
+   `e` queues.
 
-## Ce qui reste ouvert
+## What is still open
 
-- **Le repli des albums** ne se juge qu'à l'usage : pas de pliage par album
-  mémorisé, `h` plie tout et `l` rouvre celui du curseur.
-- **Les compilations et les participations** restent hors récolte
-  (`include_groups=album,single`) : un titre qui n'existe que sur une
-  compilation n'apparaît pas — sauf s'il est un top de la fiche, auquel cas
-  il tombe dans « tops hors discographie ».
-- **Le cache de la traîne** a gagné quatre champs (date, rang, durée,
-  single). Une récolte d'avant est **refaite en silence** à l'ouverture :
-  le cache est régénérable et hors dépôt, il n'y a rien à migrer.
+- **Folding the albums** can only be judged in use: no per-album fold is
+  remembered, `h` folds everything and `l` reopens the one under the cursor.
+- **Compilations and guest appearances** stay out of the harvest
+  (`include_groups=album,single`): a title that only exists on a compilation
+  does not show up — unless it is one of the card's tops, in which case it
+  lands in "tops outside the discography".
+- **The tail cache** gained four fields (date, position, length, single). An
+  older harvest is **redone silently** on open: the cache is regenerable and
+  outside the repository, there is nothing to migrate.
 
-## Ce que ça ne fait pas
+## What it does not do
 
-- **Ni renommer, ni éditer une fiche à la main** : `ae` reste le geste pour
-  ça, et il attend toujours une saisie interrogée.
-- **Ni toucher aux liens ni aux tags** : cet écran est celui des morceaux.
-- **Ni proposer l'amont** : ce qui est corrigé ici part dans le fork, et
-  `:mine` le montre déjà ([0008](../decisions/0008-le-fork-est-la-surcouche.md)).
+- **Neither rename nor edit a card by hand**: `ae` remains the gesture for
+  that, and it still awaits a prompted input.
+- **Neither touch the links nor the tags**: this screen is the tracks'.
+- **Nor propose upstream**: what gets fixed here goes into the fork, and
+  `:mine` already shows it
+  ([0008](../decisions/0008-the-fork-is-the-overlay.md)).
 
-`ad`, `:discography` et la table de la modale sont dans
-[`keybindings.md`](../keybindings.md), marqués ✅. Ce que le code a coûté :
-quatre champs de plus dans le cache de la traîne, `edit::set_tops` (la
-fournée), `explore.rs` (l'état, dix tests), une table de touches modale
-dans `keys.rs`, et `render_explore` dans `tui.rs`. **Non vérifié en session
-réelle** — comme tout ce qui a été livré ces deux jours.
+`ad`, `:discography` and the modal's table are in
+[`keybindings.md`](../keybindings.md), marked ✅. What the code cost: four
+more fields in the tail cache, `edit::set_tops` (the batch), `explore.rs`
+(the state, ten tests), a modal key table in `keys.rs`, and `render_explore`
+in `tui.rs`. **Not verified in a real session** — like everything delivered
+over these two days.

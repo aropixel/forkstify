@@ -1,206 +1,204 @@
-# Spotify : lecture, authentification, API
+# Spotify: playback, authentication, API
 
-Note de travail. **Décidé** = acté dans `docs/decisions/` ; **orientation** =
-proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
-**Vérifié** = lu dans une source citée le 30/08/2026.
+Working note. **Decided** = recorded in `docs/decisions/`; **direction** =
+proposed, uncontradicted, not yet recorded; **to settle** = open question.
+**Verified** = read in a source cited on 2026-08-30.
 
-## Deux besoins distincts
+## Two distinct needs
 
-1. **Faire sortir le son.** Spotify ne laisse jouer sa musique qu'à travers
-   un client Spotify : l'appli officielle, le téléphone, une enceinte, ou un
-   client compatible comme librespot. Un programme tiers ne lit jamais
-   l'audio lui-même autrement.
-2. **Savoir des choses et agir** : lire la bibliothèque de l'utilisateur
-   (artistes et albums aimés, pour choisir la graine), chercher un morceau,
-   résoudre un titre en identifiant, pousser dans la file. C'est l'**API
-   Web**.
+1. **Getting the sound out.** Spotify only lets its music play through a
+   Spotify client: the official app, the phone, a speaker, or a compatible
+   client such as librespot. A third-party program never reads the audio
+   itself any other way.
+2. **Knowing things and acting**: reading the user's library (liked artists
+   and albums, to choose the seed), searching for a track, resolving a title
+   into an identifier, pushing into the queue. That is the **Web API**.
 
-## Ce qui est vérifié
+## What is verified
 
-- **Modes de quota de l'API Web** ([doc officielle](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)) :
-  mode développement = « *Up to 5 authenticated Spotify users* », déclarés
-  à la main, propriétaire Premium. Mode étendu, depuis mai 2025 : « *Spotify
-  only accepts applications from organizations (not individuals)* »,
-  entreprise établie, service lancé, « *at least 250k MAUs* ».
-  **Conséquence** : forkstify ne peut pas obtenir de client id partageable.
-- **Ce que fait l'écosystème libre** ([spotify-player](https://github.com/aome510/spotify-player),
-  Rust, ratatui + rspotify + librespot) : « *By default, spotify-player uses
-  ncspot's client ID* », un client id historique déjà en mode étendu, et
-  déconseille d'en créer un : « *clients registered today start in the
-  restricted default quota mode and commonly hit 429 / 403 errors* ».
-  Zone grise tolérée, non garantie.
-- **librespot** ([README](https://github.com/librespot-org/librespot)) :
-  « *act as a Spotify Connect receiver* », découverte zeroconf incluse par
-  défaut ; « *librespot only works with Spotify Premium. This will remain
-  the case.* » Pas de dashboard développeur.
-- **Le son sans rien installer** : spotify-player, via librespot, s'enregistre
-  comme appareil Connect (« *registering a spotify-player device accessible
-  via Spotify Connect* »). Forkstify peut faire pareil.
+- **Web API quota modes** ([official docs](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)):
+  development mode = "*Up to 5 authenticated Spotify users*", declared by
+  hand, with a Premium owner. Extended mode, since May 2025: "*Spotify only
+  accepts applications from organizations (not individuals)*", an
+  established company, a launched service, "*at least 250k MAUs*".
+  **Consequence**: forkstify cannot obtain a shareable client id.
+- **What the free ecosystem does** ([spotify-player](https://github.com/aome510/spotify-player),
+  Rust, ratatui + rspotify + librespot): "*By default, spotify-player uses
+  ncspot's client ID*", a historical client id already in extended mode, and
+  it advises against creating one: "*clients registered today start in the
+  restricted default quota mode and commonly hit 429 / 403 errors*". A grey
+  area, tolerated, not guaranteed.
+- **librespot** ([README](https://github.com/librespot-org/librespot)):
+  "*act as a Spotify Connect receiver*", zeroconf discovery included by
+  default; "*librespot only works with Spotify Premium. This will remain the
+  case.*" No developer dashboard.
+- **Sound with nothing installed**: spotify-player, through librespot,
+  registers as a Connect device ("*registering a spotify-player device
+  accessible via Spotify Connect*"). Forkstify can do the same.
 
-## Comment fait Omarchy-Spotify (lu dans le code, 30/08/2026)
+## How Omarchy-Spotify does it (read in the code, 2026-08-30)
 
 [stappmus/Omarchy-Spotify](https://github.com/stappmus/Omarchy-Spotify),
-MIT, ~23 000 lignes dont ~2 000 de Rust. Trois morceaux :
+MIT, ~23,000 lines of which ~2,000 are Rust. Three pieces:
 
-1. **Interface** : plugin QML dans le processus de la barre Omarchy
-   (`Panel.qml` 6 600 lignes, `Service.qml` 4 000). Appelle l'API Web
-   directement.
-2. **Son** : `omarchy-spotify-backend`, processus Rust qui embarque un fork
-   épinglé de librespot (`engine.rs`, ~800 lignes). C'est l'appareil Spotify
-   Connect. Socket Unix privé en JSON par ligne (`load`, `add_to_queue`,
-   `play`, `pause`, `seek`, `set_volume`…) + MPRIS. Lancé à la demande par
-   une unité systemd utilisateur, arrêté après inactivité. `spotifyd` en
-   repli, jamais en même temps.
-3. **Données** : API Web depuis le QML.
+1. **Interface**: a QML plugin in the Omarchy bar's process (`Panel.qml`
+   6,600 lines, `Service.qml` 4,000). Calls the Web API directly.
+2. **Sound**: `omarchy-spotify-backend`, a Rust process embedding a pinned
+   fork of librespot (`engine.rs`, ~800 lines). That is the Spotify Connect
+   device. A private Unix socket, JSON per line (`load`, `add_to_queue`,
+   `play`, `pause`, `seek`, `set_volume`…) + MPRIS. Started on demand by a
+   user systemd unit, stopped after inactivity. `spotifyd` as a fallback,
+   never at the same time.
+3. **Data**: the Web API from the QML.
 
-**Authentification : deux OAuth PKCE dans le navigateur, aucun dashboard.**
+**Authentication: two browser OAuth PKCE flows, no dashboard.**
 
-- *API Web* : client id `d420a117a32841c2b3474932e49fb54b`, « *the public
-  application identity also used by spotify-player and ncspot* » — celui de
-  ncspot, historique, en mode étendu. Callback `127.0.0.1:8989/login`,
-  refresh token dans GNOME Keyring, scopes limités aux fonctions visibles.
-- *Son* : `backend authenticate` → `librespot_oauth` avec
-  `SessionConfig::default().client_id`, c'est-à-dire **le client id du client
-  officiel Spotify desktop** (`65b708073fc0480ea92a077233ca87bd`). Librespot
-  se présente comme l'application officielle. Le jeton ouvre une session
-  librespot, stockée comme identifiant réutilisable dans `~/.local/state`.
-- **Pas de jeton d'API tiré de la session librespot** : deux grants, deux
-  stockages. Indice fort que ce n'est pas simple — sinon un projet aussi
-  soigné l'aurait fait.
-- **Découverte zeroconf entrante désactivée** (`disable_discovery = true`) :
-  on ne se connecte pas depuis le téléphone, on passe par le navigateur.
-  Zeroconf est utilisé *vers l'extérieur* pour activer Sonos / JBL (helper
-  Python de 700 lignes, échange de clés Diffie-Hellman à la main).
+- *Web API*: client id `d420a117a32841c2b3474932e49fb54b`, "*the public
+  application identity also used by spotify-player and ncspot*" — ncspot's,
+  historical, in extended mode. Callback `127.0.0.1:8989/login`, refresh
+  token in the GNOME Keyring, scopes limited to the visible functions.
+- *Sound*: `backend authenticate` → `librespot_oauth` with
+  `SessionConfig::default().client_id`, that is, **the client id of the
+  official Spotify desktop client** (`65b708073fc0480ea92a077233ca87bd`).
+  Librespot presents itself as the official application. The token opens a
+  librespot session, stored as a reusable credential in `~/.local/state`.
+- **No API token derived from the librespot session**: two grants, two
+  stores. A strong hint that this is not simple — otherwise a project this
+  careful would have done it.
+- **Incoming zeroconf discovery disabled** (`disable_discovery = true`): you
+  do not connect from the phone, you go through the browser. Zeroconf is
+  used *outwards* to activate Sonos / JBL (a 700-line Python helper, a
+  Diffie-Hellman key exchange done by hand).
 
-**Autres faits utiles :**
+**Other useful facts:**
 
-- Spotify a encore changé l'API en 2026 : endpoint *top tracks d'un artiste*
-  supprimé, recherche limitée à 10 résultats, certaines playlists non
-  possédées illisibles. Le tuyau s'appauvrit ; le catalogue, lui, nous
-  appartient.
-- Spotify refuse parfois un morceau à librespot (`audio_key_unavailable`) ;
-  leur interface a un cas d'erreur dédié. À prévoir.
-- 320 kbps maximum ; Spotify a demandé à librespot de ne pas contourner.
-- Sécurité sérieuse : provenance GitHub du binaire vérifiée, pas de mot de
-  passe ni de secret client, tokens redactés dans les erreurs. Modèle à
-  suivre.
+- Spotify changed the API again in 2026: the *artist top tracks* endpoint
+  removed, search limited to 10 results, some non-owned playlists
+  unreadable. The pipe is getting poorer; the catalog, though, is ours.
+- Spotify sometimes refuses a track to librespot
+  (`audio_key_unavailable`); their interface has a dedicated error case. To
+  be planned for.
+- 320 kbps maximum; Spotify asked librespot not to work around it.
+- Serious security: the binary's GitHub provenance verified, no password and
+  no client secret, tokens redacted in errors. A model to follow.
 
-## Ce que le spike a tranché (03/09/2026)
+## What the spike settled (2026-09-03)
 
-Spike `src/bin/spike-connect.rs`, lancé par Joel avec un vrai compte
-Premium et l'appli Spotify du téléphone (plus Omarchy-Spotify installé).
+Spike `src/bin/spike-connect.rs`, run by Joel with a real Premium account
+and the Spotify app on the phone (plus Omarchy-Spotify installed).
 
-- **Découverte zeroconf entrante : ✓ ça marche avec l'appli actuelle.**
-  « forkstify (spike) » apparaît dans la liste des appareils du téléphone,
-  un toucher envoie les identifiants par le réseau local, la session
-  librespot s'ouvre. Ce qu'Omarchy-Spotify avait désactivé n'était donc
-  pas cassé. `librespot-discovery` 0.8, backend `libmdns` (Rust pur), TLS
-  rustls — rien à installer sur l'hôte. Les identifiants sont réutilisables
-  (cache librespot), le toucher du téléphone n'a lieu qu'une fois.
-- **Jeton d'API Web tiré de la session librespot : ✗ inexploitable.**
-  Deux voies testées, toutes deux avec le client id du client officiel
-  desktop (celui de la session) :
-  - *keymaster* (mercury, `get_token`) → **403 « Invalid request »**. La
-    voie héritée, que librespot lui-même annonce en cours de remplacement.
-  - *login5* (`login5().auth_token()`, la voie moderne) → le jeton **sort**
-    (expire dans 3600 s) mais l'API Web le refuse **au premier appel** :
-    `/v1/me` → **429 « API rate limit exceeded »**, `Retry-After: 47`, et
-    **le 429 persiste après la fenêtre**. C'est le symptôme exact du client
-    id en quota restreint décrit par le README de spotify-player. Le client
-    id du desktop n'est pas habilité à porter nos appels d'API Web.
+- **Incoming zeroconf discovery: ✓ it works with the current app.**
+  "forkstify (spike)" appears in the phone's device list, one tap sends the
+  credentials over the local network, and the librespot session opens. What
+  Omarchy-Spotify had disabled was therefore not broken.
+  `librespot-discovery` 0.8, `libmdns` backend (pure Rust), rustls TLS —
+  nothing to install on the host. The credentials are reusable (librespot
+  cache), and the tap on the phone only happens once.
+- **A Web API token derived from the librespot session: ✗ unusable.**
+  Two routes tested, both with the official desktop client's client id (the
+  session's):
+  - *keymaster* (mercury, `get_token`) → **403 "Invalid request"**. The
+    legacy route, which librespot itself announces as being replaced.
+  - *login5* (`login5().auth_token()`, the modern route) → the token **does
+    come out** (expires in 3600 s) but the Web API refuses it **on the first
+    call**: `/v1/me` → **429 "API rate limit exceeded"**, `Retry-After: 47`,
+    and **the 429 persists past the window**. That is the exact symptom of a
+    restricted-quota client id described by spotify-player's README. The
+    desktop client id is not entitled to carry our Web API calls.
 
-  **Conclusion : le son passe par librespot (validé de bout en bout), mais
-  l'API Web ne peut pas s'appuyer sur le jeton de session.** La voie 2 de
-  l'ordre de préférence ci-dessous est donc morte ; on part sur la voie 1
-  (client id de ncspot, comme tout l'écosystème), voie 3 en repli.
+  **Conclusion: the sound goes through librespot (validated end to end), but
+  the Web API cannot rely on the session token.** Route 2 in the order of
+  preference below is therefore dead; we go with route 1 (ncspot's client
+  id, like the whole ecosystem), route 3 as a fallback.
 
-- **Lecture par lecteur librespot embarqué : ✓ validée**
-  (`src/bin/spike-play.rs`, `librespot-playback` 0.8, backend rodio → alsa,
-  `libasound.so.2` présent sur l'hôte). forkstify **embarque le lecteur**
-  (pas seulement découverte + jeton), charge un `spotify:track:` et **le
-  son sort du binaire** — testé par Joel le 03/09/2026 (« ça marche très
-  bien »). C'est l'archi cible : forkstify est lui-même l'appareil, on ne
-  pilote aucun autre appareil par l'API. Construction : `rust:1-slim` +
-  `pkg-config` + `libasound2-dev` (à figer dans un Dockerfile).
-- **API Web par OAuth navigateur + client id de ncspot : ✓ validée**
+- **Playback through an embedded librespot player: ✓ validated**
+  (`src/bin/spike-play.rs`, `librespot-playback` 0.8, rodio backend → alsa,
+  `libasound.so.2` present on the host). forkstify **embeds the player**
+  (not just discovery + token), loads a `spotify:track:` and **the sound
+  comes out of the binary** — tested by Joel on 2026-09-03 ("it works very
+  well"). That is the target architecture: forkstify is itself the device,
+  we drive no other device through the API. Build: `rust:1-slim` +
+  `pkg-config` + `libasound2-dev` (to be pinned in a Dockerfile).
+- **The Web API through browser OAuth + ncspot's client id: ✓ validated**
   (`src/bin/spike-webapi.rs`, `librespot-oauth` 0.8, PKCE, callback
-  `127.0.0.1:8989/login`). Le navigateur s'ouvre une fois, on autorise, le
-  refresh token est mis en cache (le navigateur ne se rouvre plus). Testé :
-  `/v1/me` (Joël, premium), `/v1/search` (« The Cure A Forest » →
-  `spotify:track:4iVTSRiJAA18d3QglhyJ6Q`), `/v1/me/albums` (247 albums
-  aimés). Le refresh avec ce client id rend **tous** les scopes de ncspot
-  (playlist, user-top-read, library-modify…), plus large que demandé.
-- **Leçon 429 : le throttle est au niveau compte/IP, pas par client id.**
-  Nos premiers essais ont pris des 429 « rate limit exceeded » sur *les
-  deux* client ids, avec un `Retry-After` **décroissant** (47 → 24 → 16 s)
-  qui se résorbe au repos — c'est un throttle temporaire déclenché en
-  martelant l'API, pas un blocage de quota (qui serait un 403 permanent).
-  **À retenir pour le client réel : respecter `Retry-After` et réessayer**
-  (le spike le fait), et ne pas enchaîner les appels inutiles.
+  `127.0.0.1:8989/login`). The browser opens once, you authorize, the
+  refresh token is cached (the browser never opens again). Tested: `/v1/me`
+  (Joël, premium), `/v1/search` ("The Cure A Forest" →
+  `spotify:track:4iVTSRiJAA18d3QglhyJ6Q`), `/v1/me/albums` (247 liked
+  albums). The refresh with that client id returns **all** of ncspot's
+  scopes (playlist, user-top-read, library-modify…), broader than asked for.
+- **The 429 lesson: the throttle is at the account/IP level, not per client
+  id.** Our first attempts took 429 "rate limit exceeded" on *both* client
+  ids, with a **decreasing** `Retry-After` (47 → 24 → 16 s) that clears with
+  rest — that is a temporary throttle triggered by hammering the API, not a
+  quota block (which would be a permanent 403). **To remember for the real
+  client: respect `Retry-After` and retry** (the spike does), and do not
+  chain useless calls.
 
-## Orientations
+## Directions
 
-### Forkstify est lui-même l'appareil Connect
+### Forkstify is itself the Connect device
 
-Plutôt que de dépendre de `spotifyd` ou du client officiel, forkstify
-**embarque librespot** ([0006](../decisions/0006-rust.md) le permet sans
-réécriture) et apparaît comme un appareil dans la liste Connect. L'utilisateur
-n'installe rien d'autre. Ça remplace l'orientation « séparer le cerveau du
-son » de [forme-de-l-application.md](forme-de-l-application.md) — la
-séparation reste vraie dans le code (le moteur ignore comment le son sort),
-mais le son sort du même binaire.
+Rather than depending on `spotifyd` or the official client, forkstify
+**embeds librespot** ([0006](../decisions/0006-rust.md) allows it without a
+rewrite) and shows up as a device in the Connect list. The user installs
+nothing else. That replaces the "separate the brain from the sound"
+direction in [application-shape.md](application-shape.md) — the separation
+stays true in the code (the engine does not know how the sound gets out),
+but the sound comes out of the same binary.
 
-### Se connecter depuis le téléphone, sans rien taper
+### Connecting from the phone, with nothing to type
 
-Il n'existe pas de connexion par QR code pour les applications tierces. La
-découverte Connect en tient lieu, et c'est plus court : lancer forkstify,
-ouvrir Spotify sur le téléphone, toucher l'icône des appareils, choisir
-« forkstify ». Les identifiants arrivent par le réseau local, rien à saisir,
-pas de navigateur. Condition : téléphone et ordinateur sur le même réseau.
-Repli : OAuth dans le navigateur, comme spotify-player.
+There is no QR code login for third-party applications. Connect discovery
+takes its place, and it is shorter: launch forkstify, open Spotify on the
+phone, tap the devices icon, choose "forkstify". The credentials arrive over
+the local network, nothing to type, no browser. Condition: phone and
+computer on the same network. Fallback: browser OAuth, like spotify-player.
 
-### L'API Web, dans l'ordre de préférence
+### The Web API, in order of preference
 
-1. **Client id historique partagé** (celui de ncspot), comme spotify-player
-   et Omarchy-Spotify — le standard de fait de l'écosystème libre Linux.
-   Zone grise, révocable par Spotify du jour au lendemain. **Voie retenue**
-   après le spike du 03/09/2026.
-2. ~~**Jeton issu de la session librespot**~~ — **écartée par le spike** :
-   keymaster répond 403, login5 sort un jeton que l'API Web refuse en 429
-   persistant (client id desktop en quota restreint). Voir le spike ci-dessus.
-3. **Chaque utilisateur crée sa propre application** sur le dashboard (cinq
-   minutes, mode développement, cinq utilisateurs) et colle son client id
-   dans la configuration. Laid mais solide ; à garder comme option de
-   configuration de toute façon, pour le jour où le client id partagé tombe.
+1. **A shared historical client id** (ncspot's), like spotify-player and
+   Omarchy-Spotify — the de facto standard of the free Linux ecosystem. A
+   grey area, revocable by Spotify overnight. **The route chosen** after the
+   spike of 2026-09-03.
+2. ~~**A token from the librespot session**~~ — **ruled out by the spike**:
+   keymaster answers 403, login5 returns a token the Web API refuses with a
+   persistent 429 (a desktop client id in restricted quota). See the spike
+   above.
+3. **Every user creates their own application** on the dashboard (five
+   minutes, development mode, five users) and pastes their client id into
+   the configuration. Ugly but solid; worth keeping as a configuration
+   option anyway, for the day the shared client id falls.
 
-Pour Joel seul, la voie 3 fonctionne toujours.
+For Joel alone, route 3 always works.
 
-### Deux façons de faire sortir le son
+### Two ways of getting the sound out
 
-1. **Embarquer librespot**, comme Omarchy-Spotify (`engine.rs`, 800 lignes
-   MIT à étudier). Forkstify est un appareil Connect, marche sur tout Linux.
-2. **Parler au backend d'Omarchy-Spotify** par son socket (`load`,
-   `add_to_queue`) : forkstify n'est que le cerveau. Beaucoup moins de code,
-   mais ne marche que sur Omarchy avec ce plugin installé. Bon pour un PoC
-   rapide, pas pour le produit — sauf à décider que forkstify est un projet
-   Omarchy avant d'être un projet Linux.
+1. **Embed librespot**, like Omarchy-Spotify (`engine.rs`, 800 MIT lines to
+   study). Forkstify is a Connect device, and it works on any Linux.
+2. **Talk to Omarchy-Spotify's backend** through its socket (`load`,
+   `add_to_queue`): forkstify is only the brain. Far less code, but it only
+   works on Omarchy with that plugin installed. Good for a quick PoC, not
+   for the product — unless we decide forkstify is an Omarchy project before
+   it is a Linux project.
 
-## À trancher
+## To settle
 
-- ~~**Étape 0 du PoC** : un *spike*~~ — **fait le 03/09/2026** (voir « Ce
-  que le spike a tranché »). Découverte zeroconf ✓, jeton de session ✗ ;
-  repli confirmé : OAuth navigateur + client id de ncspot.
-- **Chantier son : les quatre briques validées** (03/09/2026) — découverte
-  zeroconf, session librespot, API Web (client id ncspot), lecture par
-  lecteur embarqué. La lecture directe est tranchée : on **ne pilote pas**
-  l'API `/v1/me/player/*`, forkstify joue lui-même. Reste à **câbler** :
-  brancher tout ça sur `forkstify parcours` — résoudre les titres d'un
-  segment en `spotify:track:` (via `/v1/search`, fait dans spike-webapi),
-  les enchaîner dans le lecteur, et gérer `e` / les branches en temps réel.
-- **Projet Linux ou projet Omarchy ?** Décide entre embarquer librespot et
-  s'appuyer sur le backend d'Omarchy-Spotify. Le spike montre qu'embarquer
-  librespot marche sans Omarchy — Joel a d'ailleurs remplacé
-  Omarchy-Spotify par le client officiel entre-temps.
-- **Conditions d'utilisation** : librespot n'est pas supporté par Spotify.
-  fastpotify affirme n'avoir connaissance d'aucun compte suspendu ; le risque
-  existe et doit être dit à l'utilisateur.
+- ~~**PoC step 0**: a *spike*~~ — **done on 2026-09-03** (see "What the
+  spike settled"). Zeroconf discovery ✓, session token ✗; the fallback
+  confirmed: browser OAuth + ncspot's client id.
+- **Sound workstream: the four bricks validated** (2026-09-03) — zeroconf
+  discovery, the librespot session, the Web API (ncspot client id), playback
+  through the embedded player. Direct playback is settled: we **do not
+  drive** the `/v1/me/player/*` API, forkstify plays by itself. Left to
+  **wire**: hooking all of that onto `forkstify parcours` — resolving a
+  segment's titles into `spotify:track:` (through `/v1/search`, done in
+  spike-webapi), chaining them in the player, and handling `e` / the
+  branches in real time.
+- **A Linux project or an Omarchy project?** That decides between embedding
+  librespot and leaning on Omarchy-Spotify's backend. The spike shows that
+  embedding librespot works without Omarchy — Joel has in fact replaced
+  Omarchy-Spotify with the official client in the meantime.
+- **Terms of use**: librespot is not supported by Spotify. fastpotify states
+  it knows of no suspended account; the risk exists and must be told to the
+  user.

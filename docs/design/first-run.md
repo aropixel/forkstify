@@ -1,215 +1,210 @@
-# La première installation, et la vie du catalogue
+# The first install, and the life of the catalog
 
-Note ouverte le **06/09/2026**, sur une série de questions de Joel :
-que se passe-t-il quand quelqu'un d'autre installe forkstify ? faut-il
-scanner son Spotify ? créer les fiches qui manquent ? et surtout —
-« comment conjuguer catalogue de base commun à tous et ajouts de
-l'utilisateur ? ».
+Note opened on **2026-09-06**, on a series of questions from Joel: what
+happens when somebody else installs forkstify? should their Spotify be
+scanned? should the missing cards be created? and above all — "how do we
+reconcile a base catalog common to everyone with the user's own additions?".
 
-La dernière est déjà tranchée dans le dépôt, mais éparpillée entre quatre
-décisions. Cette note la rassemble, puis dit ce qui manque vraiment.
+The last one is already settled in the repository, but scattered across four
+decisions. This note gathers it, then says what is really missing.
 
-## D'où viennent les 780 noms de la colonne
+## Where the column's 780 names come from
 
-Question de départ : « il y a plus d'artistes que ce que j'avais sur
-Spotify ». Oui, et c'est exact :
+The starting question: "there are more artists than I had on Spotify". Yes,
+and that is correct:
 
 | | |
 |---|---|
-| Le classement, tiré de la bibliothèque Spotify | **741** |
-| Fiches du catalogue | **214** |
-| Fiches d'artistes **absents** du classement | **39** |
-| **La colonne = l'union des deux** | **780** |
+| The ranking, drawn from the Spotify library | **741** |
+| Cards in the catalog | **214** |
+| Cards for artists **absent** from the ranking | **39** |
+| **The column = the union of the two** | **780** |
 
-Ces 39 ne viennent pas de Spotify : ce sont des artistes que le **catalogue
-a appelés lui-même**. Le générateur suit les `links` d'une fiche vers les
-artistes qu'elle cite, si bien que Cult Hero entre parce que The Cure le
-nomme. Le catalogue n'est donc pas une copie de la bibliothèque : c'est un
-**voisinage** autour d'elle, et il déborde exprès.
+Those 39 do not come from Spotify: they are artists the **catalog called in
+itself**. The generator follows a card's `links` towards the artists it
+names, so Cult Hero comes in because The Cure names them. The catalog is
+therefore not a copy of the library: it is a **neighborhood** around it, and
+it overflows on purpose.
 
-## Le modèle est déjà décidé — trois couches, un seul dépôt
+## The model is already decided — three layers, one repository
 
-Quatre décisions le disent, chacune une pièce :
+Four decisions say it, one piece each:
 
-- **[0002](../decisions/0002-catalogue-partage-forkable.md)** — le catalogue
-  est un dépôt de fichiers texte, partagé et **forkable**.
-- **[0004](../decisions/0004-deux-depots-catalogue-ciblable.md)** —
-  **importer = cloner**, puis déclarer « c'est celui-là que j'utilise ». On
-  peut en avoir plusieurs et basculer.
-- **[0008](../decisions/0008-le-fork-est-la-surcouche.md)** — « il n'y a pas
-  de surcouche à part. Le catalogue actif est un clone git, et les
-  modifications personnelles sont des **commits dedans** ».
-- **[0014](../decisions/0014-forme-de-l-appris.md)** — l'usage vit à part,
-  dans `learned/`, versionné mais **jamais reversé**.
+- **[0002](../decisions/0002-shared-forkable-catalog.md)** — the catalog is
+  a repository of text files, shared and **forkable**.
+- **[0004](../decisions/0004-two-repositories-targetable-catalog.md)** —
+  **importing = cloning**, then declaring "this is the one I use". You can
+  have several and switch.
+- **[0008](../decisions/0008-the-fork-is-the-overlay.md)** — "there is no
+  separate overlay. The active catalog is a git clone, and personal changes
+  are **commits inside it**".
+- **[0014](../decisions/0014-shape-of-the-learned.md)** — usage lives apart,
+  in `learned/`, version controlled but **never contributed back**.
 
-D'où la réponse à « comment conjuguer la base et mes ajouts » : **on ne les
-conjugue pas, on les superpose dans le même dépôt, et git fait le travail.**
+Hence the answer to "how do we reconcile the base and my additions": **we do
+not reconcile them, we stack them in the same repository, and git does the
+work.**
 
-| Couche | Où | Partageable ? |
+| Layer | Where | Shareable? |
 |---|---|---|
-| **La base** | les fiches telles qu'elles viennent de l'amont | c'est l'amont |
-| **Le mien** | mes commits sur ces fiches — `tt`, `td`, `aL`, `ae` | **oui**, c'est ce qu'on propose en PR |
-| **L'appris** | `learned/` — compteurs, dates, poids, bans | **jamais** |
+| **The base** | the cards as they come from upstream | it *is* upstream |
+| **Mine** | my commits on those cards — `tt`, `td`, `aL`, `ae` | **yes**, that is what a PR proposes |
+| **The learned** | `learned/` — counters, dates, weights, bans | **never** |
 
-Mettre à jour la base, c'est `git pull` sur l'amont : mes commits sont
-au-dessus, les siens en dessous, et un conflit n'arrive que si nous avons
-touché la même ligne de la même fiche — ce qui est rare, une fiche par
-artiste étant justement faite pour ça. Contribuer, c'est une **PR** qui ne
-contient que des fiches. `learned/` n'y entre jamais, et l'application le
-sait.
+Updating the base is a `git pull` from upstream: my commits sit on top,
+theirs underneath, and a conflict only happens if we both touched the same
+line of the same card — which is rare, one file per artist being made
+precisely for that. Contributing is a **PR** containing nothing but cards.
+`learned/` never enters it, and the application knows that.
 
-La **promotion** est le pont entre les deux dernières couches : « tu as
-choisi six fois la branche Cocteau Twins depuis The Cure, j'ajoute la
-connexion ? ». Un signal d'usage devient une connaissance lisible, et c'est
-un commit qu'on peut relire et annuler.
+**Promotion** is the bridge between the last two layers: "you took the
+Cocteau Twins branch from The Cure six times, shall I add the link?". A
+usage signal becomes readable knowledge, and it is a commit you can read
+back and revert.
 
-## Ce qui manque vraiment
+## What is really missing
 
-Le modèle tient ; c'est son **amorce** qui n'existe pas.
+The model holds; it is its **bootstrap** that does not exist.
 
-1. **Rien ne clone le catalogue.** L'application lit
-   `~/Work/forkstify-catalog` s'il est là et échoue sinon. Un nouvel
-   utilisateur doit cloner à la main. `forkstify` devrait proposer d'importer
-   le catalogue de référence au premier lancement — c'est 0004, jamais écrit.
-2. **Rien ne scanne le Spotify de l'utilisateur.** `classement.json` a été
-   produit par sept scripts Python de `tools/`, lancés à la main par Joel,
-   avec sa session. Pour quelqu'un d'autre, ce fichier n'existe pas : il
-   n'aurait **aucune familiarité de départ**, donc un accueil sans habitués
-   ni délaissés, et une zone de confort qui ne pencherait vers rien.
-3. **Rien ne génère de fiche à la volée.** `tools/generate-cards.py` sait
-   le faire (MusicBrainz pour les faits, Deezer pour les tops et les
-   similaires), mais c'est un script hors de l'application. Or
-   [catalogue.md](catalogue.md) en fait un mécanisme central : « arrivée chez
-   un artiste sans fiche → génération d'une fiche, marquée générée jusqu'à
-   relecture ».
+1. **Nothing clones the catalog.** The application reads
+   `~/Work/forkstify-catalog` if it is there and fails otherwise. A new user
+   has to clone by hand. `forkstify` should offer to import the reference
+   catalog on first run — that is 0004, never written.
+2. **Nothing scans the user's Spotify.** `classement.json` was produced by
+   seven Python scripts in `tools/`, run by hand by Joel, with his session.
+   For somebody else, that file does not exist: they would have **no
+   starting familiarity**, so a home screen with no regulars and no
+   neglected artists, and a comfort zone that leans towards nothing.
+3. **Nothing generates a card on the fly.** `tools/generate-cards.py` knows
+   how (MusicBrainz for the facts, Deezer for the tops and the similars),
+   but it is a script outside the application. Yet
+   [catalog.md](catalog.md) makes it a central mechanism: "arriving at an
+   artist with no card → generating a card, flagged as generated until
+   reviewed".
 
-## Le point dur, qui n'est écrit nulle part
+## The hard point, which is written nowhere
 
-**La base actuelle n'est pas neutre : c'est l'univers de Joel.** Les 214
-fiches ont été générées depuis son classement et de proche en proche. Un
-utilisateur qui aime le jazz ou le rap US trouverait un catalogue qui ne
-parle pas de lui — et comme **une graine sans fiche ne peut pas démarrer**,
-il ne pourrait presque rien lancer.
+**The current base is not neutral: it is Joel's universe.** The 214 cards
+were generated from his ranking and outwards from there. A user who loves
+jazz or US rap would find a catalog that does not speak about them — and
+since **a seed without a card cannot start**, they could barely start
+anything.
 
-Trois sorties, à trancher :
+Three ways out, to be settled:
 
-- **(a) Une base neutre et large**, générée en amont sur quelques milliers
-  d'artistes courants. Coûteux à produire, mais l'installation marche pour
-  tout le monde tout de suite. C'est ce que « catalogue de référence »
-  suppose implicitement.
-- **(b) Une base mince, et la génération à la volée devient obligatoire.**
-  Le catalogue de chacun grandit vers son univers dès la première écoute.
-  Fidèle à « le catalogue couvre l'univers de l'utilisateur et grandit avec
-  ses écoutes », mais rend l'application dépendante des API au démarrage.
-- **(c) Plusieurs bases, par famille de goût**, qu'on importe selon soi
-  (0004 le permet déjà : « celui de quelqu'un d'autre parce qu'on le trouve
-  cool »). Le plus fidèle à l'esprit du projet, le plus lourd à amorcer.
+- **(a) A neutral, broad base**, generated upstream over a few thousand
+  common artists. Costly to produce, but the install works for everyone
+  right away. That is what "reference catalog" implicitly assumes.
+- **(b) A thin base, and on-the-fly generation becomes mandatory.**
+  Everyone's catalog grows towards their universe from the first listen.
+  Faithful to "the catalog covers the user's universe and grows with their
+  listening", but it makes the application depend on the APIs at startup.
+- **(c) Several bases, by family of taste**, imported to suit (0004 already
+  allows it: "somebody else's because it looks cool"). The most faithful to
+  the project's spirit, the heaviest to bootstrap.
 
-Rien n'oblige à choisir maintenant — **tant que forkstify n'a qu'un
-utilisateur, la question ne se pose pas**. Mais elle décide de ce que
-signifie « catalogue de référence », et donc de ce qu'on met dans le premier
-dépôt public.
+Nothing forces a choice now — **as long as forkstify has one user, the
+question does not arise**. But it decides what "reference catalog" means,
+and therefore what goes into the first public repository.
 
-## Tranché : (a) **et** (b) — décision [0016](../decisions/0016-base-large-et-generation-a-la-volee.md)
+## Settled: (a) **and** (b) — decision [0016](../decisions/0016-broad-base-and-on-the-fly-generation.md)
 
-Arbitrage de Joel, 06/09/2026. La base de référence vise la **largeur**, et
-l'application **génère une fiche à la volée** quand on arrive chez un artiste
-qui n'en a pas. Les deux se complètent : la largeur fait que l'installation
-marche tout de suite, la génération fait qu'elle ne reste jamais étrangère.
-(c) n'est pas écartée — 0004 permet déjà d'importer le catalogue de
-quelqu'un d'autre, aucune décision n'est nécessaire pour ça.
+Joel's call, 2026-09-06. The reference base aims for **breadth**, and the
+application **generates a card on the fly** when you arrive at an artist
+that has none. The two complete each other: breadth makes the install work
+right away, generation keeps it from ever staying foreign. (c) is not
+dismissed — 0004 already allows importing somebody else's catalog, and no
+decision is needed for that.
 
-### Un fork, pas un dépôt de différences
+### A fork, not a repository of differences
 
-Précision demandée par Joel : « chaque utilisateur a son repo de
-modifications ? ». **Non — il a un *fork*.**
+A clarification Joel asked for: "does every user have their repo of
+changes?". **No — they have a *fork*.**
 
-    aropixel/forkstify-catalog         la référence, l'amont
-        └── kbyjoel/forkstify-catalog      son fork : TOUT le catalogue, plus ses commits
-                └── ~/…/forkstify-catalog      son clone local, celui que l'application lit
+    aropixel/forkstify-catalog         the reference, upstream
+        └── kbyjoel/forkstify-catalog      their fork: the WHOLE catalog, plus their commits
+                └── ~/…/forkstify-catalog      their local clone, the one the application reads
 
-Son dépôt contient **tout le catalogue**, pas seulement ses changements.
-C'est ce qui permet les deux mouvements : `git pull` depuis l'amont pour
-recevoir les fiches des autres, et une **PR** vers l'amont pour proposer les
-siennes. Un dépôt qui ne contiendrait que les différences ne saurait faire ni
-l'un ni l'autre — et contredirait
-[0008](../decisions/0008-le-fork-est-la-surcouche.md), « il n'y a pas de
-surcouche à part ».
+Their repository holds **the whole catalog**, not only their changes. That
+is what allows both moves: `git pull` from upstream to receive other
+people's cards, and a **PR** towards upstream to propose their own. A
+repository holding only the differences could do neither — and would
+contradict [0008](../decisions/0008-the-fork-is-the-overlay.md), "there is
+no separate overlay".
 
-`learned/` vit dans ce même fork, versionné pour être portable d'une machine
-à l'autre, mais **n'entre jamais dans une PR** (0014).
+`learned/` lives in that same fork, version controlled so as to be portable
+from one machine to another, but **never enters a PR** (0014).
 
-Le chemin du catalogue actif est désormais un réglage, `[catalogue] path`,
-l'argument de ligne de commande le surchargeant.
+The active catalog's path is now a setting, `[catalogue] path`, with the
+command-line argument overriding it.
 
-Depuis le 08/09/2026, c'est exactement la situation de Joel : la référence
-est chez l'organisation `aropixel`, son catalogue est un fork dans son compte
-`kbyjoel`, avec l'amont en `upstream`.
+Since 2026-09-08, that is exactly Joel's situation: the reference is under
+the `aropixel` organization, his catalog is a fork in his `kbyjoel` account,
+with upstream as `upstream`.
 
-## À trancher
+## To settle
 
-1. ~~**(a), (b) ou (c)**~~ — tranché : (a) et (b), voir 0016.
-2. **Le scan de la bibliothèque doit-il entrer dans l'application** — ou
-   rester un outillage lancé à part ? Il demande un scope OAuth de plus
-   (`user-library-read` est déjà là ; `user-follow-read` et `user-top-read`
-   ne le sont pas) et plusieurs centaines d'appels.
-3. ~~**La génération de fiche à la volée**~~ — tranché le 09/09/2026 :
-   **les deux**, la recherche pour faire entrer quelqu'un de neuf et
-   l'arrivée pour grandir le long des liens. Le sujet a désormais sa note,
-   [generation-a-la-volee.md](generation-a-la-volee.md) ; la
-   **vectorisation** de la fiche générée est tranchée par
-   [0019](../decisions/0019-vectorisation-par-l-application.md).
-5. **Un setup fluide au premier lancement** (Joel, 09/09/2026, après
-   l'épisode des titres aimés par son fils) : aujourd'hui la bibliothèque
-   Spotify entre par quatre scripts Python lancés à la main, qui lisent le
-   trousseau, puis `classement.py`. Il faudrait, à l'installation ou au
-   premier déclenchement : **se connecter** (l'OAuth existe déjà dans
-   l'application), **importer sa bibliothèque** — artistes suivis, albums
-   aimés, titres aimés — et **choisir les playlists** à compter, à cocher
-   dans une liste. Ce que ça implique : réécrire la récolte en Rust sur
-   `WebApi` (qui sait déjà paginer), une modale de playlists sur le modèle
-   de la discographie, le classement calculé par l'application, et le
-   fichier de graine en vocabulaire anglais (0014, toujours en attente).
-   Les scripts de `tools/` se retirent alors. **Tranché par Joel le
-   09/09/2026 : au premier lancement *et* rejouable** pour re-récolter ;
-   il fournira une maquette Claude Design quand on attaquera la
-   fonctionnalité — on ne code pas avant. Reste ouvert : si les playlists
-   cochées se mémorisent dans `learned/` (probable, pour que la re-récolte
-   soit un seul geste). **Les étapes et les informations à recueillir
-   sont proposées le 19/09/2026 dans [sortie.md](sortie.md)** (chantier A),
-   pour que la maquette parte d'une liste arrêtée. **Fait le
-   20/09/2026** d'après la maquette `Installation.dc.html` : `src/setup.rs`,
+1. ~~**(a), (b) or (c)**~~ — settled: (a) and (b), see 0016.
+2. **Should the library scan go into the application** — or stay tooling run
+   separately? It needs one more OAuth scope (`user-library-read` is already
+   there; `user-follow-read` and `user-top-read` are not) and several
+   hundred calls.
+3. ~~**Generating a card on the fly**~~ — settled on 2026-09-09: **both**,
+   the search to bring somebody new in and arrival to grow along the links.
+   The subject now has its own note,
+   [on-the-fly-generation.md](on-the-fly-generation.md); the **vectorizing**
+   of a generated card is settled by
+   [0019](../decisions/0019-the-application-vectorizes.md).
+5. **A smooth setup on first run** (Joel, 2026-09-09, after the episode of
+   the tracks liked by his son): today the Spotify library comes in through
+   four Python scripts run by hand, which read the keyring, then
+   `classement.py`. What is needed, at install time or on first trigger:
+   **connecting** (the OAuth already exists in the application),
+   **importing the library** — followed artists, liked albums, liked tracks
+   — and **choosing the playlists** to count, ticked from a list. What that
+   implies: rewriting the harvest in Rust on `WebApi` (which already knows
+   how to paginate), a playlist modal on the discography's model, the
+   ranking computed by the application, and the seed file in English
+   vocabulary (0014, still pending). The `tools/` scripts then step down.
+   **Settled by Joel on 2026-09-09: on first run *and* replayable** for
+   re-harvesting; he will supply a Claude Design mockup when we take the
+   feature on — we do not code before then. Still open: whether the ticked
+   playlists are remembered in `learned/` (likely, so that re-harvesting is
+   a single gesture). **The steps and the information to gather are proposed
+   on 2026-09-19 in [before-release.md](before-release.md)** (workstream A),
+   so that the mockup starts from a settled list. **Done on 2026-09-20**
+   after the `Installation.dc.html` mockup: `src/setup.rs`,
    `src/library.rs`, `learned/library.toml`.
-4. ~~**L'import au premier lancement**~~ — tranché par la maquette du
-   20/09/2026 : les deux, et un troisième — l'URL de son fork collée,
-   le fork fait par `gh` s'il est là, ou la référence clonée en mode local.
+4. ~~**The import on first run**~~ — settled by the 2026-09-20 mockup: both,
+   and a third one — the URL of your fork pasted in, the fork made by `gh`
+   if it is there, or the reference cloned in local mode.
 
-## Mesurer l'usage à travers les forks
+## Measuring usage across the forks
 
-Depuis [0017](../decisions/0017-synchronisation-de-l-appris.md), chaque
-commit que l'application produit — appris, édition, import — porte un
-trailer git `Forkstify: <kind> <version>`. La recherche de commits de GitHub
-indexe les messages des dépôts publics, ce qui permet de compter ces commits
-à travers tous les forks sans rien demander à personne :
+Since [0017](../decisions/0017-syncing-the-learned.md), every commit the
+application produces — learned, edit, import — carries a git trailer
+`Forkstify: <kind> <version>`. GitHub's commit search indexes the messages
+of public repositories, which makes it possible to count those commits
+across every fork without asking anyone anything:
 
 ```sh
-# tous les commits produits par forkstify, dépôts publics confondus
+# every commit produced by forkstify, across public repositories
 gh api search/commits -f q='"Forkstify:"' --jq .total_count
 
-# par nature : l'appris, les éditions de fiches, les imports
+# by kind: the learned layer, card edits, imports
 gh api search/commits -f q='"Forkstify: learned"' --jq .total_count
 gh api search/commits -f q='"Forkstify: edit"'    --jq .total_count
 gh api search/commits -f q='"Forkstify: import"'  --jq .total_count
 
-# les dépôts concernés, un par ligne
+# the repositories concerned, one per line
 gh api search/commits -f q='"Forkstify:"' --paginate \
   --jq '.items[].repository.full_name' | sort | uniq -c | sort -rn
 
-# et le nombre de forks du dépôt de référence, qui compte les utilisateurs
+# and the reference repository's fork count, which counts the users
 gh api repos/aropixel/forkstify-catalog --jq .forks_count
 ```
 
-Limites : seules les **branches par défaut** des dépôts **publics** sont
-indexées ; un fork privé n'est pas compté ; le trailer dit que forkstify a
-écrit le commit, pas qui. Tant que le dépôt de référence est privé, ces
-commandes ne comptent que ce qu'on y pousse soi-même.
+Limits: only the **default branches** of **public** repositories are
+indexed; a private fork is not counted; the trailer says forkstify wrote the
+commit, not who. As long as the reference repository is private, these
+commands only count what we push to it ourselves.
