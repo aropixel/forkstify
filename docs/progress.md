@@ -171,6 +171,32 @@ back up: what is done, what is waiting on Joel, what comes next.
   for Expérience.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
+## v0.1.0 released, and the AUR package ready but held (2026-09-21)
+
+The release channel is live. The `v0.1.0` tag ran the workflow through in
+6 min 42 s and attached `forkstify-0.1.0-x86_64-linux.tar.gz` (17.4 MB) and
+`SHA256SUMS`. **Installing forkstify no longer needs Docker**: the archive
+was downloaded and checked against the published digest, and it holds
+exactly the binary and `LICENSE`, which is what `omarchy/install.sh` expects.
+
+The AUR package is finished and proven. `sha256sums` carries the real digest
+now, `options=('!strip' '!debug')` stops makepkg carving an empty debug
+package out of an already-stripped binary, and a real build produced one
+clean `forkstify-bin-0.1.0-1-x86_64.pkg.tar.zst` of 16 MB holding
+`/usr/bin/forkstify` and its licence, nothing else.
+
+**What holds it is not ours**: AUR account registration is temporarily
+closed while they deal with a wave of automated sign-ups. There is no manual
+queue and retries tell you nothing; the reopening is announced on the Arch
+news feed and on `aur-general`. Nothing is blocked by it — the release is
+the main road anyway, and any Arch user can already install the very same
+package with `makepkg -si` from a clone. A personal pacman repository stays
+the fallback if the wait drags on. All of it in `packaging/aur/README.md`.
+
+A `.gitignore` now keeps makepkg's `src/`, `pkg/` and archives out of the
+repository: it is the Omarchy plugin, cloned by every user, and a stray
+build left 118 MB sitting in it.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

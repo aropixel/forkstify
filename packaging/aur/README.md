@@ -3,6 +3,12 @@
 Two channels, in this order: a **GitHub release** that carries the binary,
 then an **AUR package** that puts it on Arch machines.
 
+**State on 21/09/2026.** The release channel is live: `v0.1.0` is published,
+with `forkstify-0.1.0-x86_64-linux.tar.gz` (17.4 MB) and `SHA256SUMS`. The
+AUR channel waits: **account registration is temporarily closed** while the
+AUR deals with a wave of automated sign-ups. Nothing is blocked by it — see
+*Publishing without an AUR account* below.
+
 ## 1. The release
 
 The `.github/workflows/release.yml` workflow fires on a `v*` tag. It checks
@@ -38,6 +44,10 @@ makepkg --printsrcinfo > .SRCINFO
 makepkg -si                           # a local try before publishing
 ```
 
+The package for `v0.1.0` is ready and was built for real on 21/09/2026:
+one clean `forkstify-bin-0.1.0-1-x86_64.pkg.tar.zst` of 16 MB, holding
+`/usr/bin/forkstify` and its licence, and nothing else.
+
 Then you push to the AUR, which is one git repository per package:
 
 ```bash
@@ -50,9 +60,38 @@ git commit -m "forkstify-bin 0.2.0" && git push
 The first publication needs an AUR account with an SSH key declared, and the
 repository is created on the first `git push`.
 
-**`sha256sums=('SKIP')`** is temporary: it lets `makepkg` work before a
-release exists. `updpkgsums` must have been run before any publication — the
-AUR does not accept `SKIP` for a downloaded archive.
+`sha256sums` is filled in and must stay so: the AUR does not accept `SKIP`
+for a downloaded archive. `options=('!strip' '!debug')` is there because the
+binary arrives already stripped from the release — without it, `makepkg`
+carves out an empty debug package.
+
+## Publishing without an AUR account
+
+AUR registration reopening is out of our hands, and there is no manual
+queue: the announcement comes on the Arch news feed and the `aur-general`
+list. **Do not script retries against the sign-up page.** Meanwhile, two
+roads are open and neither needs an account.
+
+**The release, which is the main road anyway.** Omarchy users add the
+plugin and `omarchy/install.sh` fetches the published binary, checks its
+digest, and never needs Docker. This is what most people will do; the AUR
+only serves Arch users who are not on Omarchy.
+
+**`makepkg` straight from a clone.** Any Arch user can install the very
+package the AUR would serve, in one command, from this repository:
+
+```bash
+git clone https://github.com/aropixel/forkstify.git
+cd forkstify/packaging/aur/forkstify-bin && makepkg -si
+```
+
+Worth a line in the `README.md` so people find it.
+
+**A personal pacman repository**, if `pacman -S forkstify` matters before
+the AUR reopens: build the package in CI, run `repo-add` on it, and host the
+`.pkg.tar.zst` and the `.db` on the release or on GitHub Pages; users add it
+to `pacman.conf`. It is real work, and it duplicates what the AUR will do
+for free — worth it only if the wait drags on.
 
 ## What the package installs, and what it does not
 

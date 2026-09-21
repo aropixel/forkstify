@@ -13,7 +13,9 @@ pkgbase = forkstify-bin
 	optdepends = xdg-utils: open an artist in the browser (ag)
 	provides = forkstify=0.1.0
 	conflicts = forkstify
+	options = !strip
+	options = !debug
 	source = forkstify-0.1.0.tar.gz::https://github.com/aropixel/forkstify/releases/download/v0.1.0/forkstify-0.1.0-x86_64-linux.tar.gz
-	sha256sums = SKIP
+	sha256sums = e4a4f39e5e18e4018123a7c8e4d13006080d411b1ce6fe51cdb51e0375f08063
 
 pkgname = forkstify-bin

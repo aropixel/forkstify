@@ -1,7 +1,7 @@
 # Maintainer: Joel Gomez Caballe <joel.gomez@aropixel.com>
 #
 # The released binary, so installing forkstify needs neither Docker nor a
-# Rust toolchain. `sha256sums` is filled by `updpkgsums` once the release
+# Rust toolchain. `sha256sums` is refreshed by `updpkgsums` at each release
 # is published — see ../README.md.
 pkgname=forkstify-bin
 _pkgname=forkstify
@@ -16,10 +16,13 @@ license=('MIT')
 depends=('alsa-lib' 'gcc-libs' 'glibc' 'git')
 optdepends=('github-cli: fork the reference catalog from the setup'
             'xdg-utils: open an artist in the browser (ag)')
+# the binary arrives already stripped from the release: do not touch it,
+# and do not carve an empty debug package out of it
+options=('!strip' '!debug')
 provides=("$_pkgname=$pkgver")
 conflicts=("$_pkgname")
 source=("$_pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$_pkgname-$pkgver-x86_64-linux.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('e4a4f39e5e18e4018123a7c8e4d13006080d411b1ce6fe51cdb51e0375f08063')
 
 package() {
   install -Dm755 "$srcdir/$_pkgname" "$pkgdir/usr/bin/$_pkgname"

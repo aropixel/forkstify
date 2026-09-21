@@ -1,0 +1,7 @@
+# makepkg leaves its work next to the PKGBUILD. None of it belongs here:
+# this repository is the Omarchy plugin, cloned by every user.
+src/
+pkg/
+*.tar.gz
+*.pkg.tar.zst
+*.log
