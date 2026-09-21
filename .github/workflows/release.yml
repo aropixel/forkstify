@@ -1,0 +1,102 @@
+# Publish a Linux binary on every tag, so installing forkstify needs
+# neither Docker nor a Rust toolchain (Joel, 21/09/2026). The container
+# mirrors the Dockerfile at the repository root, so what CI ships is what
+# `bin/build` produces.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build the linux binary
+    runs-on: ubuntu-latest
+    # Debian 12 (glibc 2.36): the binary runs on Arch and on anything
+    # younger. Older distributions must build from source.
+    container: rust:1-slim
+    steps:
+      - name: build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev g++ binutils git ca-certificates
+          rm -rf /var/lib/apt/lists/*
+
+      - uses: actions/checkout@v4
+
+      - name: cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-release-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-release-
+
+      - name: the tag, Cargo.toml and the manifest must agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
+          plugin=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' manifest.json | head -1)
+          echo "tag=$tag crate=$crate manifest=$plugin"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            [ "$tag" = "$crate" ] || { echo "tag $tag != Cargo.toml $crate" >&2; exit 1; }
+            [ "$tag" = "$plugin" ] || { echo "tag $tag != manifest.json $plugin" >&2; exit 1; }
+          fi
+          echo "VERSION=$crate" >> "$GITHUB_ENV"
+
+      - name: tests
+        run: |
+          git config --global user.email "ci@forkstify.invalid"
+          git config --global user.name "forkstify ci"
+          git config --global init.defaultBranch main
+          cargo test --release
+
+      - name: build
+        run: cargo build --release
+
+      - name: package
+        run: |
+          strip target/release/forkstify
+          mkdir -p dist
+          cp target/release/forkstify LICENSE dist/
+          name="forkstify-${VERSION}-x86_64-linux.tar.gz"
+          tar -czf "$name" -C dist forkstify LICENSE
+          sha256sum "$name" > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            forkstify-*-x86_64-linux.tar.gz
+            SHA256SUMS
+
+  publish:
+    name: attach them to the release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+
+      - name: the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            forkstify-*-x86_64-linux.tar.gz SHA256SUMS \
+          || gh release upload "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" --clobber \
+            forkstify-*-x86_64-linux.tar.gz SHA256SUMS

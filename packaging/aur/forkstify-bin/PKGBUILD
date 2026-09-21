@@ -1,0 +1,27 @@
+# Maintainer: Joel Gomez Caballe <joel.gomez@aropixel.com>
+#
+# The released binary, so installing forkstify needs neither Docker nor a
+# Rust toolchain. `sha256sums` is filled by `updpkgsums` once the release
+# is published — see ../README.md.
+pkgname=forkstify-bin
+_pkgname=forkstify
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Music player that plays by branches, wired to Spotify, over a catalog you can fork'
+arch=('x86_64')
+url='https://github.com/aropixel/forkstify'
+license=('MIT')
+# libasound, libstdc++/libgcc, and git: the catalog is a git repository and
+# forkstify commits what it learns into it (0017).
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'git')
+optdepends=('github-cli: fork the reference catalog from the setup'
+            'xdg-utils: open an artist in the browser (ag)')
+provides=("$_pkgname=$pkgver")
+conflicts=("$_pkgname")
+source=("$_pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$_pkgname-$pkgver-x86_64-linux.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  install -Dm755 "$srcdir/$_pkgname" "$pkgdir/usr/bin/$_pkgname"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

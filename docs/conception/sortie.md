@@ -505,6 +505,24 @@ Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
   `forkstify vectors` commité), l'action composite qui construit forkstify
   depuis `aropixel/forkstify`, `CONTRIBUTING.md` en anglais. L'application
   est publique depuis le 20/09/2026 : le jeton du workflow suffit à l'action.
+- ~~**Installer demandait Docker**~~ — réglé le 21/09/2026 :
+  `.github/workflows/release.yml` publie sur chaque tag `v*` un binaire
+  Linux x86_64 (`forkstify-<version>-x86_64-linux.tar.gz` + `SHA256SUMS`),
+  compilé dans la même image que `bin/build` ; `omarchy/install.sh` le
+  télécharge, vérifie son empreinte, et ne retombe sur la compilation en
+  conteneur qu'à défaut. Le plancher est glibc 2.36 (Debian 12), donc Arch
+  et plus jeune. Un paquet AUR `forkstify-bin` est prêt dans
+  `packaging/aur/`, à publier une fois la première release faite.
+- **Rien ne dit d'aller cliquer sur « Install »** (Joel, 21/09/2026, en
+  éprouvant l'installation propre) : après `omarchy plugin add`, taper
+  `forkstify` dans un terminal répond `command not found`, et ni la
+  commande d'ajout ni le shell ne renvoient vers la carte de la barre. À
+  trancher : une ligne dans le `README.md`, un mot en fin de
+  `omarchy plugin add`, ou une installation qui se déclenche autrement.
+- **Un `forkstify` déjà sur le PATH masque le bouton** : le widget décide
+  entre « Install » et « Launch » sur `command -v forkstify`, donc un lien
+  périmé fait croire à une installation valide (vu le 21/09/2026 sur le
+  poste de Joel, avec le lien de l'install de dev).
 - **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
   CC BY-SA) et celle du code (`manifest.json` dit MIT).
 - **Les commits d'édition parlent français** (corrections en attente de

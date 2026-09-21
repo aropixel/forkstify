@@ -747,6 +747,35 @@ repartait du dernier round, et pouvait reproposer les titres déjà en file.
   dans le registre, pas dans la liste.
 - Test `the_last_segment_of_the_playlist` (69 tests).
 
+## Installer sans Docker : release GitHub et paquet AUR (21/09/2026)
+
+Joel, en éprouvant l'installation propre : « est-ce qu'on peut embarquer un
+binaire pour que l'utilisateur n'ait pas à avoir Docker ? ». Le binaire s'y
+prête : 56 Mo, et seulement ALSA, libstdc++, libgcc, libm et la libc en
+dépendances dynamiques — ONNX Runtime est déjà lié statiquement.
+
+- **`.github/workflows/release.yml`** : sur un tag `v*`, vérifie que le
+  tag, `Cargo.toml` et `manifest.json` s'accordent, lance les tests,
+  compile dans `rust:1-slim` (la même image que le `Dockerfile`, donc la CI
+  publie ce que `bin/build` produit), allège le binaire et attache
+  `forkstify-<version>-x86_64-linux.tar.gz` et `SHA256SUMS` à la release.
+  C'est la première CI du dépôt de l'application.
+- **`omarchy/install.sh` réécrit** : le binaire publié d'abord, empreinte
+  vérifiée — jamais d'installation passé un écart —, la compilation en
+  conteneur seulement à défaut ou sur `--from-source`. Il ne touche pas à un
+  `forkstify` posé par un gestionnaire de paquets.
+- **`packaging/aur/forkstify-bin/`** : `PKGBUILD` et `.SRCINFO` pour Arch.
+  Dépend d'`alsa-lib`, `gcc-libs`, `glibc` et `git` (le catalogue est un
+  dépôt git) ; `github-cli` et `xdg-utils` en optionnels. `sha256sums` est
+  à `SKIP` tant qu'aucune release n'existe : `updpkgsums` le remplit avant
+  publication. Marche à suivre dans `packaging/aur/README.md`.
+
+Le paquet pose `/usr/bin/forkstify` mais pas le widget, qui reste
+`omarchy plugin add` (0021) ; les deux se complètent, le widget testant
+`command -v forkstify`. **Reste à faire : tagger `v0.1.0` pour éprouver le
+workflow en vrai.** Le modèle fastembed (241 Mo) reste le gros coût du
+premier lancement, indépendant de tout ça.
+
 ## Fraîcheur d'artiste et traîne modulée par la familiarité (14/09/2026)
 
 Le retour du petit cercle (retours-usage n° 13), câblé.
