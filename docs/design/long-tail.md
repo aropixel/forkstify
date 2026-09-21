@@ -1,163 +1,159 @@
-# La longue traîne — la quatrième source du réservoir
+# The long tail — the pool's fourth source
 
-Note ouverte le **05/09/2026** sur question de Joel (« comment gérer la
-longue traîne *behind the scene* ? »), après l'ouverture du réservoir
-([0012](../decisions/0012-rotation-des-morceaux.md) §1) qui en implémente
-trois sources sur quatre.
+Note opened on **2026-09-05** on a question from Joel ("how do we handle the
+long tail *behind the scene*?"), after opening up the pool
+([0012](../decisions/0012-track-rotation.md) §1), which implements three of
+its four sources.
 
-Rien n'est codé. Cette note propose, compare et recommande ; l'arbitrage
-revient à Joel.
+Nothing is coded. This note proposes, compares and recommends; the call is
+Joel's.
 
-## Décidé — ce qu'on ne rouvre pas
+## Decided — what we do not reopen
 
-- **La traîne est la quatrième source du réservoir**, à poids faible : le
-  top est un poids, pas une liste fermée (0012 §1).
-- **C'est la zone de confort qui règle sa profondeur** — confort haut,
-  tirage serré sur les tops ; confort bas, la traîne pèse davantage
-  (0012 §4). Il n'y a **pas de second réglage** :
-  [0001](../decisions/0001-confort-familiarite.md) tient déjà ce curseur.
-- **Elle vit hors du catalogue.** 0012 la dit « hors catalogue », et
-  [catalogue.md](catalogue.md) range explicitement les caches d'API
-  (« résolution titre → identifiant, pochettes ») **hors du dépôt**. Le cas
-  des vecteurs ne fait pas jurisprudence : ils sont livrés parce que tout le
-  monde doit avoir *les mêmes* pour que « proche » veuille dire la même
-  chose partout, et parce qu'ils demandent un modèle de 100 Mo. Une
-  discographie n'a ni l'un ni l'autre problème — et redistribuer des
-  données d'un tiers dans un dépôt public poserait en plus une question de
-  conditions d'usage qu'on n'a pas à se créer.
+- **The tail is the pool's fourth source**, at a low weight: a top is a
+  weight, not a closed list (0012 §1).
+- **The comfort zone is what sets its depth** — high comfort, a tight draw
+  on the tops; low comfort, the tail weighs more (0012 §4). There is **no
+  second setting**: [0001](../decisions/0001-comfort-is-familiarity.md)
+  already holds that dial.
+- **It lives outside the catalog.** 0012 calls it "outside the catalog", and
+  [catalog.md](catalog.md) explicitly puts the API caches ("title →
+  identifier resolution, cover art") **outside the repository**. The vectors
+  set no precedent: they ship because everyone has to have *the same* ones
+  for "close" to mean the same thing everywhere, and because they need a
+  100 MB model. A discography has neither problem — and redistributing a
+  third party's data in a public repository would raise a terms-of-use
+  question we have no reason to create for ourselves.
 
-## Le fait qui tranche la source
+## The fact that settles the source
 
-Les fiches portent **`mbid` (214/214)** et **`spotify` (212/214)**.
-**Aucune ne porte d'identifiant Deezer.**
+The cards carry **`mbid` (214/214)** and **`spotify` (212/214)**. **None
+carries a Deezer identifier.**
 
-Passer par Deezer — ce que fait `tools/generate-cards.py` avec
-`artist/{id}/top` — imposerait donc un `search/artist` par artiste, avec le
-risque d'homonymie que le catalogue a déjà payé une fois (« Experience »
-résolu à tort en The Jimi Hendrix Experience, corrigé le 02/09).
+Going through Deezer — as `tools/generate-cards.py` does with
+`artist/{id}/top` — would therefore mean a `search/artist` per artist, with
+the risk of homonymy the catalog has already paid for once ("Experience"
+wrongly resolved to The Jimi Hendrix Experience, fixed on 09-02).
 
-Passer par Spotify part d'un identifiant **déjà présent et déjà vérifié**,
-et rend des `spotify:track:` directement — donc **pas de résolution
-titre → identifiant**, et pas le « introuvable sur Spotify » qui l'accompagne.
+Going through Spotify starts from an identifier **already present and
+already verified**, and returns `spotify:track:` directly — so **no title →
+identifier resolution**, and none of the "not found on Spotify" that comes
+with it.
 
-**Recommandation : la traîne vient de Spotify**, par le `spotify` de la
-fiche.
+**Recommendation: the tail comes from Spotify**, through the card's
+`spotify` field.
 
-Conséquence acceptée : `parcours` (le mode à sec, sans Premium) ne
-*récolte* pas la traîne. Mais il **lit le cache** que les sessions
-d'écoute ont rempli, donc il continue de fonctionner, avec la traîne des
-artistes déjà rencontrés.
+An accepted consequence: `parcours` (the dry mode, without Premium) does not
+*harvest* the tail. But it **reads the cache** that listening sessions have
+filled, so it keeps working, with the tail of the artists already met.
 
-## Orientation — la forme proposée
+## Direction — the proposed shape
 
-- **Où** : `~/.cache/forkstify/discography/<slug>.json` (XDG). Régénérable,
-  jamais commité, non synchronisé (le retour n° 10 ne le concerne pas).
-- **Quoi** : titre + `spotify:track:` + album, dédupliqué par titre
-  normalisé, **les tops de la fiche retirés** — la traîne, c'est ce qui
-  n'est *pas* déjà dans le réservoir.
-- **Le moteur reste synchrone.** Il lit une discographie déjà chargée ; la
-  remplir est le travail de l'application, en fond. C'est la même règle que
-  « séparer le cerveau du son » : le moteur produit, l'application va
-  chercher.
-- **Marque d'affichage** : une cinquième provenance à côté de `♪ ♥ ↳ + ~`.
+- **Where**: `~/.cache/forkstify/discography/<slug>.json` (XDG).
+  Regenerable, never committed, not synced (feedback item no. 10 does not
+  apply to it).
+- **What**: title + `spotify:track:` + album, deduplicated by normalized
+  title, **with the card's tops removed** — the tail is what is *not*
+  already in the pool.
+- **The engine stays synchronous.** It reads an already loaded discography;
+  filling it is the application's job, in the background. Same rule as
+  "separate the brain from the sound": the engine produces, the application
+  goes and fetches.
+- **A display mark**: a fifth provenance alongside `♪ ♥ ↳ + ~`.
 
-## Câblé le 05/09/2026
+## Wired on 2026-09-05
 
-Joel a validé les arbitrages ; les deux points que la note laissait ouverts
-ont été pris au plus sobre, et dits comme tels : **récolte au moment du
-besoin** et **pas de péremption**.
+Joel approved the calls; the two points the note left open were taken the
+most sober way, and said so: **harvest at the moment of need** and **no
+expiry**.
 
-- `src/discography.rs` — le cache, `~/.cache/forkstify/discography/<slug>.json`,
-  chargé une fois au démarrage. Le moteur le lit **synchroniquement** ;
-  l'application le remplit.
-- `WebApi::discography()` — albums et singles, puis leurs pistes par lots de
-  vingt : quelques appels par artiste, une fois. Une récolte partielle est
-  gardée — la traîne est un réservoir, pas un inventaire.
-- **Quand** : automatiquement quand `e<n>` demande plus de profondeur que la
-  fiche n'en a, et `:warm` pour la forcer sur l'artiste en cours.
-- **Le curseur trouve son troisième levier** : la part de la traîne dans le
-  réservoir est exactement l'ouverture du confort (0012 §4). **Zéro au
-  cocon**, pleine à l'exploration. Un test le fige.
-- **Déduplication par titre normalisé** : Spotify livre la même chanson sous
-  dix habillages (« - 2004 Remaster », « (Remastered) »), et un titre déjà
-  dans les tops n'entre pas dans la traîne — la traîne, c'est ce qui n'est
-  *pas* déjà dans le réservoir.
-- **Marque `·`**, à côté de `♪ ♥ ↳ + ~`.
+- `src/discography.rs` — the cache,
+  `~/.cache/forkstify/discography/<slug>.json`, loaded once at startup. The
+  engine reads it **synchronously**; the application fills it.
+- `WebApi::discography()` — albums and singles, then their tracks in batches
+  of twenty: a few calls per artist, once. A partial harvest is kept — the
+  tail is a pool, not an inventory.
+- **When**: automatically when `e<n>` asks for more depth than the card has,
+  and `:warm` to force it on the current artist.
+- **The dial finds its third lever**: the tail's share of the pool is
+  exactly the comfort's openness (0012 §4). **Zero at the cocoon**, full at
+  exploration. A test pins it down.
+- **Deduplication by normalized title**: Spotify delivers the same song in
+  ten guises ("- 2004 Remaster", "(Remastered)"), and a title already in the
+  tops does not enter the tail — the tail is what is *not* already in the
+  pool.
+- **The `·` mark**, alongside `♪ ♥ ↳ + ~`.
 
-Le champ `spotify` des fiches, présent depuis toujours et jamais lu par le
-code, l'est enfin : c'est lui qui ouvre la porte.
+The cards' `spotify` field, present from the start and never read by the
+code, finally is: it is what opens the door.
 
-## Câblé le 11/09/2026 — la récolte suit les branches
+## Wired on 2026-09-11 — the harvest follows the branches
 
-Joel, après quelques jours d'écoute au confort 3 : « toujours des morceaux
-tops ou likés, jamais de longue traîne ». Le diagnostic : **une branche
-n'allait jamais chercher la traîne** — seuls `e<n>`, `:warm` et `ad` la
-récoltaient, et 16 artistes sur 314 en avaient une. Là où elle existait,
-le poids était bon (au confort 3, un morceau de traîne pèse 0,1 contre 1
-pour un top et 6,8 pour un aimé, mais deux cents morceaux cumulent).
+Joel, after a few days of listening at comfort 3: "always top or liked
+tracks, never any long tail". The diagnosis: **a branch never went looking
+for the tail** — only `e<n>`, `:warm` and `ad` harvested it, and 16 artists
+out of 314 had one. Where it existed, the weight was right (at comfort 3, a
+tail track weighs 0.1 against 1 for a top and 6.8 for a liked one, but two
+hundred tracks add up).
 
-Option retenue par Joel (la 1 des deux proposées ; l'autre était le
-préchargement au démarrage) : **récolter, en fond, les artistes que les
-branches proposées traversent**, dès que le confort ouvre la traîne
-(ouverture > 0, donc tout sauf le cocon). Une requête par artiste, mise en
-cache pour toujours, silencieuse — ni toast ni « loading » collant, qui
-restent aux récoltes demandées.
+The option Joel chose (the first of the two proposed; the other was
+preloading at startup): **harvest, in the background, the artists the
+proposed branches cross**, as soon as comfort opens the tail up (openness >
+0, so anything but the cocoon). One request per artist, cached forever,
+silent — no toast and no sticky "loading", which stay with requested
+harvests.
 
-Le point délicat : **les morceaux d'une branche sont tirés quand elle est
-proposée**. Un premier câblage retirait au sort les branches encore sur la
-table à l'arrivée de la traîne ; à l'usage, « les chansons des branches
-changent immédiatement » (Joel, 11/09/2026), et il n'en veut pas. Deux
-options posées par Joel : attendre la récolte avant d'afficher les
-branches, ou afficher la première version avec les tops et laisser le
-cache servir les suivantes. **Retenue : la seconde**, la plus simple et
-réversible — une proposition affichée ne bouge plus ; la traîne d'un
-artiste sert dès le prochain tirage qui passe par lui, dans cette session
-ou les suivantes. La première option reste ouverte si le délai de la
-première proposition d'une session finit par gêner : elle demanderait un
-`recompute` qui attend ses récoltes.
+The delicate point: **a branch's tracks are drawn when it is proposed**. A
+first wiring redrew the branches still on the table when the tail arrived;
+in use, "the songs in the branches change immediately" (Joel, 2026-09-11),
+and he does not want that. Two options put forward by Joel: wait for the
+harvest before showing the branches, or show the first version with the tops
+and let the cache serve the next ones. **Chosen: the second**, the simplest
+and most reversible — a proposal once shown does not move; an artist's tail
+serves from the next draw that goes through them, in this session or the
+ones after. The first option stays open if the delay of a session's first
+proposal ends up being a nuisance: it would need a `recompute` that waits
+for its harvests.
 
-**Conséquence trouvée à l'usage (11/09/2026)** : la traîne apporte des
-morceaux que Spotify peut refuser de jouer (indisponibles dans la région).
-Un tel morceau finit à l'instant où il commence, et sans intervention
-`auto_advance` enchaînait les branches sans un son. Un garde-fou dans
-`listen.rs` (`MAX_DRY_ADVANCES`) arrête après quelques branches muettes
-d'affilée et rend la main. Il ne trie pas la traîne — on ne connaît la
-disponibilité qu'en essayant — il empêche seulement l'emballement.
+**A consequence found in use (2026-09-11)**: the tail brings in tracks that
+Spotify may refuse to play (unavailable in the region). Such a track ends
+the instant it starts, and with no intervention `auto_advance` chained
+branches without a sound. A guard in `listen.rs` (`MAX_DRY_ADVANCES`) stops
+after a few silent branches in a row and hands control back. It does not
+filter the tail — availability is only known by trying — it only prevents
+the runaway.
 
-## À trancher — ce qui reste
+## To settle — what is left
 
-*(Les trois points ci-dessous sont tranchés ; conservés pour mémoire du
-raisonnement.)*
+*(The three points below are settled; kept as a record of the reasoning.)*
 
-1. **La profondeur.** ~~Le top élargi~~ (`/v1/artists/{id}/top-tracks`, 10
-   titres, un appel) recoupe largement les tops de la fiche et n'est donc
-   presque pas une traîne. La vraie traîne demande la **discographie** :
-   `/v1/artists/{id}/albums` puis `/v1/albums?ids=` par lots de 20 — de
-   l'ordre de 3 à 10 appels par artiste, une fois, puis c'est en cache.
-2. **Le moment de la récolte.** En fond dès qu'une branche est affichée
-   (les artistes proposés sont connus d'avance) ; ou seulement à
-   `e<n>` quand les tops d'un artiste sont épuisés — le moment où la
-   profondeur sert vraiment ; ou une commande de préchauffage
-   (`:warm`) qui fait tout le catalogue en une fois.
-3. **La péremption.** Jamais (une discographie bouge peu, et un `:warm`
-   force la mise à jour), ou un TTL.
+1. **The depth.** ~~The extended top~~ (`/v1/artists/{id}/top-tracks`, 10
+   titles, one call) largely overlaps the card's tops and is therefore
+   barely a tail at all. The real tail needs the **discography**:
+   `/v1/artists/{id}/albums` then `/v1/albums?ids=` in batches of 20 — on
+   the order of 3 to 10 calls per artist, once, then it is cached.
+2. **When to harvest.** In the background as soon as a branch is shown (the
+   proposed artists are known in advance); or only at `e<n>` when an
+   artist's tops run out — the moment depth really serves; or a warm-up
+   command (`:warm`) that does the whole catalog in one go.
+3. **Expiry.** Never (a discography barely moves, and a `:warm` forces the
+   update), or a TTL.
 
-## L'ordre, et pourquoi il compte
+## The order, and why it matters
 
-**La zone de confort (0001) devrait venir avant la traîne.**
+**The comfort zone (0001) should come before the tail.**
 
-0012 §4 est explicite : le confort *est* le volume de la traîne, et il n'y
-a pas de second réglage. Livrer la traîne sans lui, c'est lui donner un
-poids fixe arbitraire — donc soit elle ne s'entend jamais, soit elle
-déborde, et dans les deux cas on ne peut pas la régler autrement qu'en
-recompilant.
+0012 §4 is explicit: comfort *is* the tail's volume, and there is no second
+setting. Shipping the tail without it means giving it an arbitrary fixed
+weight — so either it is never heard, or it floods everything, and in both
+cases it cannot be adjusted except by recompiling.
 
-0001 est déjà décidée et `learned/` fournit depuis aujourd'hui la
-familiarité dont elle a besoin. La brancher d'abord donne à la traîne son
-bouton de volume le jour où elle arrive.
+0001 is already decided and `learned/` has, as of today, supplied the
+familiarity it needs. Wiring it first gives the tail its volume knob the day
+it arrives.
 
-**Fait le 05/09/2026** (arbitrage de Joel) : `engine::Comfort` existe, il
-pilote le plancher de l'aventureuse et le tirage des têtes. Il lui manque
-son troisième levier — **la profondeur du tirage dans le réservoir**
-(0012 §4), qui n'a rien à régler tant que la traîne n'existe pas. Le
-bouton attend son volume.
+**Done on 2026-09-05** (Joel's call): `engine::Comfort` exists, it drives
+the adventurous branch's floor and the draw of the heads. What it lacks is
+its third lever — **the depth of the draw within the pool** (0012 §4), which
+has nothing to set as long as the tail does not exist. The knob is waiting
+for its volume.

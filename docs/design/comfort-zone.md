@@ -1,100 +1,98 @@
-# Zone de confort
+# Comfort zone
 
-Note de travail. **Décidé** = acté dans `docs/decisions/` ; **orientation** =
-proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
+Working note. **Decided** = recorded in `docs/decisions/`; **direction** =
+proposed, uncontradicted, not yet recorded; **to settle** = open question.
 
-## Décidé
+## Decided
 
-- Réglage de **0 à 5**, défini **à l'ouverture**.
-- Mesure la **familiarité** ([0001](../decisions/0001-confort-familiarite.md)) :
-  **5 = cocon, 0 = exploration** — *retourné le 06/09/2026*. La note disait
-  l'inverse ; au premier usage réel, Joel : « si je veux le cocon, je devrais
-  mettre le confort à 5 — le confort, c'est ce qu'on connaît bien ». Il a
-  raison, et le dépôt était l'intrus : [0012](../decisions/0012-rotation-des-morceaux.md) §4
-  écrit « confort haut : tirage serré sur les tops », ce qui se lit désormais
-  au pied de la lettre. Une note de conception cède devant l'usage.
-- Sert à **choisir seul** la branche à un embranchement quand l'utilisateur ne
-  choisit pas activement. L'application ne bloque jamais.
+- A dial from **0 to 5**, set **at launch**.
+- It measures **familiarity** ([0001](../decisions/0001-comfort-is-familiarity.md)):
+  **5 = cocoon, 0 = exploration** — *flipped on 2026-09-06*. The note said
+  the opposite; on the first real use, Joel: "if I want the cocoon, I should
+  set comfort to 5 — comfort is what you know well". He is right, and the
+  repository was the odd one out:
+  [0012](../decisions/0012-track-rotation.md) §4 writes "high comfort: a
+  tight draw on the tops", which now reads literally. A design note yields
+  to use.
+- It is what **chooses on its own** at a fork point when the user does not
+  actively choose. The application never blocks.
 
-## Câblé le 05/09/2026
+## Wired on 2026-09-05
 
-`engine::Comfort` (0 à 5), lu dans `~/.config/forkstify/config.toml`
-(`[journey] comfort`) et réglable en écoute par `:comfort <n>`. Il agit sur
-deux leviers, ceux que `avancement.md` désignait déjà comme « constantes à
-piloter par le confort » :
+`engine::Comfort` (0 to 5), read from `~/.config/forkstify/config.toml`
+(`[journey] comfort`) and adjustable while listening with `:comfort <n>`. It
+acts on two levers, the ones `avancement.md` already called "constants to be
+driven by comfort":
 
-- **Le plancher de la branche aventureuse** s'abaisse quand on ouvre :
-  cosinus ≥ 0.80 au cocon, ≥ 0.60 à l'exploration. **Le confort 2 reproduit
-  exactement le réglage fixe d'avant** (0.72 / 0.80) — l'ancien accord
-  devient le milieu du curseur, pas une valeur perdue.
-- **La familiarité penche le tirage des têtes de branche** (0001 : le
-  confort *est* la familiarité). Au cocon, un artiste familier passe devant
-  un inconnu ; ouvert, c'est l'inverse. Le facteur est borné à [0.25, 2.0] :
-  **on décourage, on n'interdit jamais** — l'application ne décide pas à la
-  place de l'oreille.
+- **The floor of the adventurous branch** drops as you open up: cosine ≥
+  0.80 at the cocoon, ≥ 0.60 at exploration. **Comfort 2 reproduces exactly
+  the fixed setting from before** (0.72 / 0.80) — the old agreement becomes
+  the middle of the dial, not a lost value.
+- **Familiarity tilts the draw of branch heads** (0001: comfort *is*
+  familiarity). At the cocoon, a familiar artist goes ahead of an unknown
+  one; wide open, the reverse. The factor is bounded to [0.25, 2.0]: **we
+  discourage, we never forbid** — the application does not decide in the
+  ear's place.
 
-**Le piège de polarité, à ne jamais rouvrir sans lire ceci.**
-[0012](../decisions/0012-rotation-des-morceaux.md) §4 écrit « confort haut :
-tirage serré sur les tops ; confort bas : la longue traîne pèse davantage ».
-Ce « confort haut » désigne le **sentiment** de confort — le cocon — c'est-à-dire
-la valeur **0** de cette échelle, pas 5. Lu à la lettre avec « 5 =
-exploration », le curseur s'inverse entièrement. Un test le fige
+**The polarity trap, never to be reopened without reading this.**
+[0012](../decisions/0012-track-rotation.md) §4 writes "high comfort: a tight
+draw on the tops; low comfort: the long tail weighs more". That "high
+comfort" means the **feeling** of comfort — the cocoon — that is, the value
+**0** on that scale, not 5. Read literally with "5 = exploration", the dial
+inverts entirely. A test pins it down
 (`le_cocon_penche_vers_le_connu_et_l_exploration_vers_l_inconnu`).
 
-Détail de forme : avec six valeurs entières, **il n'y a pas de milieu
-exact**. 2 penche encore un peu vers le connu, 3 déjà un peu vers l'inconnu ;
-la bascule tombe entre les deux.
+A detail of shape: with six integer values, **there is no exact middle**. 2
+still leans a little towards the known, 3 already a little towards the
+unknown; the tipping point falls between the two.
 
-## Orientations
+## Directions
 
-- **Le réglage structure l'éventail proposé**, pas seulement le choix par
-  défaut : à chaque embranchement, les branches sont étalées sur l'axe — une
-  plus rassurante que le réglage, une au niveau, une plus aventureuse.
-  L'utilisateur acquiert un modèle mental stable (« à gauche je me rassure,
-  à droite je m'aventure ») et choisit sans lire.
-- **Le réglage est ajustable en cours de parcours.** La valeur à l'ouverture
-  n'est qu'un point de départ.
-- **Techniquement, le confort est une distance** entre un artiste candidat et
-  le centre de gravité de ce que l'utilisateur connaît, dans l'espace
-  vectoriel décrit dans [moteur-de-branches.md](moteur-de-branches.md).
+- **The dial structures the range on offer**, not just the default choice:
+  at every fork point, the branches are spread along the axis — one more
+  reassuring than the setting, one at its level, one more adventurous. The
+  user builds a stable mental model ("left reassures me, right takes me
+  out") and chooses without reading.
+- **The dial can be adjusted mid-journey.** The value at launch is only a
+  starting point.
+- **Technically, comfort is a distance** between a candidate artist and the
+  center of gravity of what the user knows, in the vector space described in
+  [branch-engine.md](branch-engine.md).
 
-## À trancher
+## To settle
 
-- ~~Comment l'application sait ce que l'utilisateur **connaît**~~ —
-  **tranché de fait par [0014](../decisions/0014-forme-de-l-appris.md)** :
-  c'est `learned/`. Nos écoutes décrues d'abord (saturantes — la dixième
-  écoute dit beaucoup moins que la première), et à défaut `classement.json`,
-  ramené sur la même échelle 0–1 par son propre maximum, puisque l'un est un
-  compte et l'autre un score composite. Restent hors du calcul : les fiches
-  modifiées dans le fork, qui pourraient peser un jour.
-- Combien de temps l'application attend à un embranchement avant de choisir
-  seule : jusqu'à la fin du segment, un délai fixe, ou pas d'attente du tout
-  (elle enchaîne et l'utilisateur peut dévier à tout moment) ?
-- Le confort est-il un curseur réglé par l'utilisateur, un indicateur affiché
-  par l'application, ou les deux ?
+- ~~How the application knows what the user **knows**~~ — **settled de facto
+  by [0014](../decisions/0014-shape-of-the-learned.md)**: it is `learned/`.
+  Our decayed plays first (saturating — the tenth play says much less than
+  the first), and failing that `classement.json`, brought onto the same 0–1
+  scale by its own maximum, since one is a count and the other a composite
+  score. Left out of the computation: the cards changed in the fork, which
+  could weigh in one day.
+- How long the application waits at a fork point before choosing on its own:
+  until the end of the segment, a fixed delay, or no wait at all (it carries
+  on and the user can deviate at any time)?
+- Is comfort a dial set by the user, an indicator shown by the application,
+  or both?
 
-## Sa place à l'écran (14/09/2026)
+## Its place on screen (2026-09-14)
 
-Joel : la jauge doit être **toujours au même endroit sur les deux écrans,
-en haut à droite, et toujours avec l'apparence qu'elle a en édition**. Fait.
-Un seul rendu (`comfort_spans` dans `tui.rs`) sert l'accueil et l'écoute :
-les blocs gardent leur couleur, le libellé reste allumé en permanence (le
-noir sur cyan qui ne servait qu'en mode `cc`), et `cc` ajoute « ↑↓ » pour
-dire que la jauge est vive. À l'accueil, la jauge prend la place qu'avaient
-les indicateurs de statut.
+Joel: the gauge must be **always in the same place on both screens, at the
+top right, and always with the look it has while editing**. Done. A single
+rendering (`comfort_spans` in `tui.rs`) serves home and listening: the
+blocks keep their color, the label stays lit permanently (the black on cyan
+that only served in `cc` mode), and `cc` adds "↑↓" to say the gauge is live.
+On home, the gauge takes the place the status indicators had.
 
-**Le statut de l'accueil ne s'affiche plus que dégradé** (question de Joel :
-« est-ce que ces infos sont vraiment utiles ? »). librespot, l'API web et la
-sync ne s'affichent que lorsqu'un d'eux cloche (en rouge, sur la deuxième
-ligne devant le census) : tout vert, on ne montre rien, la place va au
-confort. C'est là qu'ils servent — perte d'auth, API injoignable, sync en
-échec.
+**Home's status is only shown when degraded** (Joel's question: "are these
+pieces of information really useful?"). librespot, the web API and the sync
+only show up when one of them is off (in red, on the second line ahead of
+the census): all green, we show nothing and the space goes to comfort. That
+is where they are useful — a lost auth, an unreachable API, a failed sync.
 
-**Le confort est retenu d'un lancement à l'autre** (Joel, 14/09/2026). Un
-fichier d'état `~/.local/state/forkstify/comfort` garde la dernière valeur
-choisie ; il est écrit à chaque changement (`c<n>`, `:comfort`, `cc` validé,
-à l'accueil comme à l'écoute) et relu au démarrage. Le `comfort` de
-`config.toml` n'est plus que la graine du tout premier lancement : dès qu'on
-l'ajuste, l'état l'emporte. Cela répond à la troisième question ouverte
-ci-dessus — le confort est bien un curseur réglé par l'utilisateur, qui
-persiste.
+**Comfort is kept from one launch to the next** (Joel, 2026-09-14). A state
+file `~/.local/state/forkstify/comfort` holds the last chosen value; it is
+written on every change (`c<n>`, `:comfort`, a confirmed `cc`, on home as
+while listening) and read back at startup. The `comfort` in `config.toml` is
+now only the seed of the very first launch: as soon as you adjust it, the
+state wins. That answers the third open question above — comfort is indeed a
+dial set by the user, and it persists.

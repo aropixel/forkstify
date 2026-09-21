@@ -1,119 +1,117 @@
-# La barre Omarchy — l'icône qui bouge, et la popover du morceau
+# The Omarchy bar — the moving icon, and the track popover
 
-Note de travail, ouverte le 10/09/2026. **Décidé** = acté ; **orientation** =
-proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
+Working note, opened on 2026-09-10. **Decided** = recorded; **direction** =
+proposed, uncontradicted, not yet recorded; **to settle** = open question.
 
-## Ce que Joel veut
+## What Joel wants
 
-Reprendre ce qu'il avait sous waybar : une animation de petites barres
-(`▂▄▆`, cinq images, 100 ms) dans la barre quand ça joue, rien quand c'est
-en pause. Et au clic, une popover **sous l'icône, comme tous les plugins
-Omarchy** : titre, artiste, progression, prochain morceau.
+To get back what he had under waybar: an animation of little bars (`▂▄▆`,
+five frames, 100 ms) in the bar when music is playing, nothing when it is
+paused. And on click, a popover **under the icon, like every Omarchy
+plugin**: title, artist, progress, next track.
 
-L'ancien script : `dotfiles/.config/waybar/custom_modules/media/media-animation.sh`
-du dépôt `kbyjoel/arch-linux` — une boucle `playerctl status`.
+The old script:
+`dotfiles/.config/waybar/custom_modules/media/media-animation.sh` from the
+`kbyjoel/arch-linux` repository — a `playerctl status` loop.
 
-## Ce qui existe déjà, des deux côtés
+## What already exists, on both sides
 
-- **Omarchy a un widget média MPRIS** (`omarchy.media`, service +
-  bar-widget, désactivé chez Joel) : caché tant qu'aucun lecteur n'a de
-  métadonnées, puis une icône ▶/⏸ et « titre · artiste » dans la barre, et
-  une `PopupCard` au clic avec pochette, titre, artiste, album,
-  précédent / pause / suivant. **Pas de progression, pas de prochain
-  morceau, pas d'animation.** Quickshell expose d'un lecteur `position`,
-  `length`, `isPlaying`, `trackTitle`, `trackArtist` et la **map brute
-  `metadata`** — une clé maison y passe.
-- **forkstify est déjà un lecteur MPRIS** (`src/mediakeys.rs`) — mais ne
-  publie que « joue » à l'ouverture : **ni titre, ni artiste, ni position,
-  ni changement d'état** en pause. Le widget d'Omarchy le verrait vide.
-- Les plugins tiers s'installent par `omarchy plugin add <git-url>`, qui
-  attend un `manifest.json` **à la racine du dépôt**, et vivent dans
-  `~/.config/omarchy/plugins/<id>/` (rechargés à chaque sauvegarde). Le
-  plugin `io.github.sspaeti.neomd` de Joel en est un exemple : un
-  `BarWidget.qml`, une `PopupCard`, un `Model.js`.
+- **Omarchy has an MPRIS media widget** (`omarchy.media`, service +
+  bar-widget, disabled on Joel's machine): hidden as long as no player has
+  metadata, then a ▶/⏸ icon and "title · artist" in the bar, and a
+  `PopupCard` on click with cover art, title, artist, album, previous /
+  pause / next. **No progress, no next track, no animation.** Quickshell
+  exposes a player's `position`, `length`, `isPlaying`, `trackTitle`,
+  `trackArtist` and the **raw `metadata` map** — a house key goes through
+  it.
+- **forkstify is already an MPRIS player** (`src/mediakeys.rs`) — but only
+  publishes "playing" on start: **no title, no artist, no position, no state
+  change** on pause. Omarchy's widget would see it empty.
+- Third-party plugins are installed with `omarchy plugin add <git-url>`,
+  which expects a `manifest.json` **at the root of the repository**, and
+  live in `~/.config/omarchy/plugins/<id>/` (reloaded on every save). Joel's
+  `io.github.sspaeti.neomd` plugin is one example: a `BarWidget.qml`, a
+  `PopupCard`, a `Model.js`.
 
-## Décidé le 10/09/2026 — [0021](../decisions/0021-le-depot-est-le-plugin-omarchy.md)
+## Decided on 2026-09-10 — [0021](../decisions/0021-the-repository-is-the-omarchy-plugin.md)
 
-Joel a tranché les quatre questions : le widget ne regarde que forkstify ;
-**le dépôt est lui-même le plugin** (`manifest.json` à la racine,
-`omarchy/` pour le widget), et c'est le plugin qui **installe et lance** le
-binaire, puisque `omarchy plugin add` ne fait que cloner, valider et
-activer ; pochette plus tard ; rien sur le clic milieu ni la molette.
-Trois étages, **tous faits le 10/09/2026** : les métadonnées MPRIS ; les
-jetons et caches sous `~/.local/state/forkstify` (repris depuis `target/`
-au premier lancement, sans ré-autoriser) ; le plugin — `manifest.json` à
-la racine, `omarchy/BarWidget.qml`, `omarchy/install.sh`. Un écart assumé
-avec l'ancien script : **l'icône reste visible** en pause et quand forkstify ne
-tourne pas — le même escalier `▂▄▆`, fixe et atténué (Joel : des barres à
-plat « donnent l'impression d'un bug ») — sinon rien ne permettrait de
-cliquer pour lancer ou installer. Chez Joel, le dépôt est
-**lié** dans `~/.config/omarchy/plugins/io.github.aropixel.forkstify` ;
-ailleurs, `omarchy plugin add git@github.com:aropixel/forkstify.git`.
+Joel settled the four questions: the widget only watches forkstify; **the
+repository is itself the plugin** (`manifest.json` at the root, `omarchy/`
+for the widget), and it is the plugin that **installs and launches** the
+binary, since `omarchy plugin add` only clones, validates and enables; cover
+art later; nothing on middle click or scroll. Three floors, **all done on
+2026-09-10**: the MPRIS metadata; tokens and caches under
+`~/.local/state/forkstify` (moved over from `target/` on first run, with no
+re-authorization); the plugin — `manifest.json` at the root,
+`omarchy/BarWidget.qml`, `omarchy/install.sh`. One deliberate departure from
+the old script: **the icon stays visible** when paused and when forkstify is
+not running — the same `▂▄▆` staircase, fixed and dimmed (Joel: flat bars
+"look like a bug") — otherwise there would be nothing to click to launch or
+install. On Joel's machine, the repository is **linked** into
+`~/.config/omarchy/plugins/io.github.aropixel.forkstify`; elsewhere,
+`omarchy plugin add git@github.com:aropixel/forkstify.git`.
 
-**Recharger le widget après une modification du QML** : le shell surveille
-`~/.config/omarchy/plugins/` avec `inotifywait -r`, qui ne descend pas dans
-un dossier lié, et son cache de composants survit à `rescanPlugins` et
-même au « Local plugin changed » que provoque la recréation du lien.
-Seul **`omarchy restart shell`** fait prendre un nouveau QML (vérifié le
-10/09/2026 par capture de la barre). Une seconde de clignotement.
+**Reloading the widget after a QML change**: the shell watches
+`~/.config/omarchy/plugins/` with `inotifywait -r`, which does not descend
+into a linked folder, and its component cache survives `rescanPlugins` and
+even the "Local plugin changed" that recreating the link triggers. Only
+**`omarchy restart shell`** picks up new QML (verified on 2026-09-10 by
+capturing the bar). One second of flicker.
 
-**La position dans Quickshell** (11/09/2026) : `MprisPlayer.position` se
-calcule à chaque lecture (dernier échantillon + temps écoulé), mais le
-signal `positionChanged` n'est émis qu'à un `Seeked` ou un changement
-d'état — jamais pendant la lecture. Une liaison QML (`root.position:
-player.position`) reste donc figée sur la dernière valeur signalée, 0 au
-début du morceau, et la carte affichait 0:00. Le widget demande le signal
-lui-même : un `Timer` d'une seconde, actif carte ouverte et morceau en
-lecture, appelle `player.positionChanged()`. Le service média d'Omarchy
-n'affiche pas la position et n'a pas ce problème.
+**Position in Quickshell** (2026-09-11): `MprisPlayer.position` is computed
+on every read (last sample + elapsed time), but the `positionChanged` signal
+is only emitted on a `Seeked` or a state change — never during playback. A
+QML binding (`root.position: player.position`) therefore stays frozen on the
+last signalled value, 0 at the start of the track, and the card showed 0:00.
+The widget asks for the signal itself: a one-second `Timer`, active while
+the card is open and the track is playing, calls
+`player.positionChanged()`. Omarchy's media service does not show the
+position and does not have this problem.
 
-**Revenir à la fenêtre** (Joel, 11/09/2026) : la carte gagne un bouton
-« Show forkstify » quand forkstify tourne, par
-`omarchy-launch-or-focus-tui forkstify` — l'app-id `org.omarchy.forkstify`,
-comme « Launch ». Un premier essai visait le mot nu `forkstify` pour
-attraper aussi un terminal lancé à la main : il attrapait surtout un
-terminal ouvert dans `~/Work/forkstify`, dont le titre porte le chemin, et
-le focus partait sur ce shell au lieu de lancer quand forkstify était
-éteint (Joel, le jour même). L'app-id est précis, on s'y tient.
+**Going back to the window** (Joel, 2026-09-11): the card gains a "Show
+forkstify" button when forkstify is running, through
+`omarchy-launch-or-focus-tui forkstify` — the app-id
+`org.omarchy.forkstify`, like "Launch". A first attempt aimed at the bare
+word `forkstify` so as to catch a terminal started by hand too: it mostly
+caught a terminal open in `~/Work/forkstify`, whose title carries the path,
+and focus went to that shell instead of launching when forkstify was off
+(Joel, the same day). The app-id is precise, we stick to it.
 
-## Orientation : deux étages, le premier portable
+## Direction: two floors, the first one portable
 
-1. **forkstify publie tout ce qu'un bureau attend** (portable, hors
-   Omarchy) : titre, artiste, durée (`xesam:` / `mpris:length`), position
-   et `Seeked`, l'état à chaque pause / reprise, et une clé maison dans les
-   métadonnées, **`forkstify:next`** = « titre — artiste » du prochain
-   morceau de la file. GNOME, KDE, waybar + playerctl en profitent
-   d'emblée ; le widget média d'Omarchy s'allume tel quel. C'est
-   `mpris-server` : `set_metadata`, `set_playback_status`, `set_position`.
-   La pochette (`mpris:artUrl`) demanderait l'image d'album du morceau
-   résolu — la recherche Spotify la donne, à garder pour plus tard.
-2. **Un plugin Omarchy `forkstify`**, bar-widget, calqué sur `omarchy.media`
-   mais **ne regardant que le lecteur `forkstify`** : dans la barre, les
-   cinq images de l'animation sur un `Timer` de 100 ms quand `isPlaying`,
-   une image fixe en pause, rien si forkstify ne tourne pas. Au clic, la
-   `PopupCard` : titre, artiste, une barre de progression `position /
-   length`, « à suivre : … » lu dans `metadata["forkstify:next"]`, et les
-   trois boutons. Les autres lecteurs restent au widget d'Omarchy, s'il
-   veut l'activer.
+1. **forkstify publishes everything a desktop expects** (portable, outside
+   Omarchy): title, artist, length (`xesam:` / `mpris:length`), position and
+   `Seeked`, the state on every pause / resume, and a house key in the
+   metadata, **`forkstify:next`** = "title — artist" of the next track in
+   the queue. GNOME, KDE, waybar + playerctl benefit right away; Omarchy's
+   media widget lights up as is. This is `mpris-server`: `set_metadata`,
+   `set_playback_status`, `set_position`. Cover art (`mpris:artUrl`) would
+   require the album image of the resolved track — the Spotify search gives
+   it, to be kept for later.
+2. **An Omarchy `forkstify` plugin**, a bar-widget, modelled on
+   `omarchy.media` but **watching only the `forkstify` player**: in the bar,
+   the animation's five frames on a 100 ms `Timer` when `isPlaying`, a fixed
+   frame when paused, nothing if forkstify is not running. On click, the
+   `PopupCard`: title, artist, a `position / length` progress bar, "up
+   next: …" read from `metadata["forkstify:next"]`, and the three buttons.
+   Other players stay with Omarchy's widget, should he want to enable it.
 
-Pourquoi deux étages : l'étage 1 sert tout le monde et ne dépend de rien ;
-l'étage 2 est le seul morceau lié à Omarchy, et il reste petit.
+Why two floors: floor 1 serves everyone and depends on nothing; floor 2 is
+the only piece tied to Omarchy, and it stays small.
 
-## Tranché (voir ci-dessus) — gardé pour l'historique
+## Settled (see above) — kept for the record
 
-1. **Le plugin regarde-t-il seulement forkstify**, ou tout lecteur comme
-   l'ancien script waybar ? Recommandation : seulement forkstify — le
-   « prochain morceau » n'a de sens que chez lui, et `omarchy.media`
-   existe pour le reste.
-2. **Où vit le plugin ?** `omarchy plugin add` veut le manifeste à la
-   racine d'un dépôt git : (a) un dépôt `forkstify-omarchy` à part,
-   installable en une commande, ou (b) un dossier `omarchy/` dans ce dépôt,
-   copié ou lié à la main dans `~/.config/omarchy/plugins/`. (b) pour
-   développer, (a) pour distribuer — les deux se cumulent (un dépôt qui ne
-   contient que ce dossier). Recommandation : commencer en (b).
-3. **La pochette** dans la popover : tout de suite (une image d'album de
-   plus à résoudre par morceau) ou plus tard ? Recommandation : plus tard,
-   l'étage 1 d'abord.
-4. **Un clic milieu / molette** sur l'icône ? L'ancien script n'en avait
-   pas ; les widgets Omarchy n'en font pas un usage régulier. Rien pour
-   commencer.
+1. **Does the plugin watch only forkstify**, or every player like the old
+   waybar script? Recommendation: only forkstify — "next track" only makes
+   sense there, and `omarchy.media` exists for the rest.
+2. **Where does the plugin live?** `omarchy plugin add` wants the manifest
+   at the root of a git repository: (a) a separate `forkstify-omarchy`
+   repository, installable in one command, or (b) an `omarchy/` folder in
+   this repository, copied or linked by hand into
+   `~/.config/omarchy/plugins/`. (b) to develop, (a) to distribute — the two
+   stack (a repository holding only that folder). Recommendation: start with
+   (b).
+3. **Cover art** in the popover: right away (one more album image to resolve
+   per track) or later? Recommendation: later, floor 1 first.
+4. **A middle click / scroll** on the icon? The old script had none; Omarchy
+   widgets do not use them regularly. Nothing to begin with.
