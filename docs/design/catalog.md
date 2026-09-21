@@ -1,48 +1,50 @@
-# Catalogue
+# Catalog
 
-Note de travail. **Décidé** = acté dans `docs/decisions/` ; **orientation** =
-proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
+Working note. **Decided** = recorded in `docs/decisions/`; **direction** =
+proposed, uncontradicted, not yet recorded; **to settle** = open question.
 
-## Décidé
+## Decided
 
-- **Fichiers texte versionnés, un par artiste**, partagés et forkables
-  ([0002](../decisions/0002-catalogue-partage-forkable.md)).
-- **Pas de surcouche à part : le fork est la surcouche.** Le catalogue
-  actif est un clone git, les modifications personnelles sont des commits
-  dedans ([0008](../decisions/0008-le-fork-est-la-surcouche.md)).
-- **TOML**, `format = 1` en tête de fiche
-  ([0007](../decisions/0007-fiches-en-toml.md)).
-- Chaque fiche porte des **tops** ([0003](../decisions/0003-titres-tops-et-portes.md)) ;
-  et, occasionnellement, des **`doors`** — morceaux ciblés comme sortie vers
-  une direction (tags), **critère additionnel jamais principal**
-  ([0011](../decisions/0011-doors-critere-additionnel.md)).
-- **Champs en anglais, liens typés en une ligne, proximités par défaut dans
-  `catalog.toml`** ([0010](../decisions/0010-format-revise-links-sans-portes.md)).
-- **Le format est une interface publique** : stable, documenté, éditable à la
-  main.
-- **Deux dépôts** : l'application d'un côté, le catalogue de l'autre.
-  **Importer = cloner** un catalogue et le déclarer actif ; un seul actif à
-  la fois, on bascule quand on veut
-  ([0004](../decisions/0004-deux-depots-catalogue-ciblable.md)).
-- **Chaque fiche porte la version de son format** (`format: 1`), pas de son
-  contenu ([0005](../decisions/0005-version-dans-les-fiches.md)).
+- **Version-controlled text files, one per artist**, shared and forkable
+  ([0002](../decisions/0002-shared-forkable-catalog.md)).
+- **No separate overlay: the fork is the overlay.** The active catalog is a
+  git clone, and personal changes are commits inside it
+  ([0008](../decisions/0008-the-fork-is-the-overlay.md)).
+- **TOML**, `format = 1` at the head of the card
+  ([0007](../decisions/0007-cards-in-toml.md)).
+- Every card carries **tops**
+  ([0003](../decisions/0003-tracks-tops-and-doors.md)); and, occasionally,
+  **`doors`** — tracks targeted as an exit towards a direction (tags), **an
+  additional criterion, never the main one**
+  ([0011](../decisions/0011-doors-an-additional-criterion.md)).
+- **English fields, typed links on one line, default proximities in
+  `catalog.toml`**
+  ([0010](../decisions/0010-revised-format-links-without-doors.md)).
+- **The format is a public interface**: stable, documented, editable by
+  hand.
+- **Two repositories**: the application on one side, the catalog on the
+  other. **Importing = cloning** a catalog and declaring it active; one
+  active at a time, switch whenever you like
+  ([0004](../decisions/0004-two-repositories-targetable-catalog.md)).
+- **Every card carries its format's version** (`format: 1`), not its
+  content's ([0005](../decisions/0005-version-in-the-cards.md)).
 
-## Orientations
+## Directions
 
-### Un dépôt git
+### A git repository
 
-Le catalogue est un dépôt git : portable (cloner suffit), diffable,
-versionné, forkable au sens propre. S'approprier une fiche = un commit.
-Reverser une amélioration = une PR.
+The catalog is a git repository: portable (cloning is enough), diffable,
+version controlled, forkable in the literal sense. Making a card your own =
+a commit. Contributing an improvement back = a PR.
 
-### Forme d'une fiche
+### The shape of a card
 
-Le format 1, tel qu'appliqué au premier lot :
+Format 1, as applied to the first batch:
 
 ```toml
 # cards/the-cure.toml
 format = 1
-generated = true          # disparaît à la relecture humaine
+generated = true          # goes away on human review
 name = "The Cure"
 mbid = "69ee3720-a7cb-4402-b48d-a02c366f2bcf"
 spotify = "7bu3H8JO7d0UbMoVzbo70s"
@@ -61,7 +63,7 @@ links = [
   { to = "depeche-mode", type = "scene", note = "new wave, versant synthétique", proximity = 2 },
 ]
 
-# optionnel : bonus de choix de morceau quand on part dans cette direction
+# optional: a track-choice bonus when heading in this direction
 doors = [
   { track = "A Forest", to = ["post-punk", "atmospherique"], note = "la porte vers le sombre" },
 ]
@@ -71,434 +73,430 @@ Post-punk puis pop sombre, Crawley, depuis 1977. ...
 """
 ```
 
-Et à la racine du catalogue, `catalog.toml` porte l'identité et les
-réglages — dont la grille type → proximité, que chacun ajuste dans son fork.
+And at the root of the catalog, `catalog.toml` carries the identity and the
+settings — including the type → proximity grid, which everyone adjusts in
+their fork.
 
-Sémantique du format, précisée à la relecture du premier lot :
+The format's semantics, clarified when reviewing the first batch:
 
-- **Fiche minimale : `format`, `name`, `mbid`. Tout le reste est
-  optionnel**, avec dégradation douce : sans `spotify`, résolution via
-  MusicBrainz ; sans `tags` ni `links`, l'artiste flotte dans l'espace ;
-  sans `tops`, le moteur pioche dans l'usage. La prose (description, notes)
-  complète l'expérience, jamais requise.
-- **`begin` / `end`** : chaînes à précision libre (`"1977"`,
-  `"1960-03-27"`), comme MusicBrainz. La tranche d'activité, c'est le
-  couple ; pas de `end` = toujours actif. Le moteur ne lit que l'année.
-- **`origin` est informatif** (couche humaine) : la ville ne croise rien.
-  Les croisements géographiques passent par les tags (`fr`, `uk`,
-  `belgique`…), au bon grain.
-- **L'ordre des `links` n'a aucun sens.** La priorité est `proximity`
-  (défaut par type dans `catalog.toml`, correctif local) — pas de
-  sémantique invisible, pas de fragilité au merge.
-- **Résolution de `proximity`, en cascade** : la valeur sur le lien s'il y
-  en a une ; sinon la grille `[proximity]` du `catalog.toml` du catalogue
-  actif ; sinon les défauts embarqués dans l'application (identiques à la
-  grille du catalogue de référence). Le cas normal est de ne rien écrire :
-  le type suffit. Changer une valeur de la grille re-règle d'un coup tous
-  les liens de ce type sans correctif local.
+- **A minimal card: `format`, `name`, `mbid`. Everything else is
+  optional**, with graceful degradation: with no `spotify`, resolution goes
+  through MusicBrainz; with no `tags` and no `links`, the artist floats in
+  space; with no `tops`, the engine draws from usage. Prose (description,
+  notes) completes the experience, never required.
+- **`begin` / `end`**: free-precision strings (`"1977"`, `"1960-03-27"`),
+  like MusicBrainz. The active period is the pair; no `end` = still active.
+  The engine only reads the year.
+- **`origin` is informational** (the human layer): the city crosses nothing.
+  Geographic crossing goes through the tags (`fr`, `uk`, `belgique`…), at
+  the right grain.
+- **The order of the `links` means nothing.** Priority is `proximity` (per
+  type in `catalog.toml`, with a local override) — no invisible semantics,
+  no fragility on merge.
+- **Resolving `proximity`, in cascade**: the value on the link if there is
+  one; otherwise the `[proximity]` grid of the active catalog's
+  `catalog.toml`; otherwise the defaults built into the application
+  (identical to the reference catalog's grid). The normal case is to write
+  nothing: the type is enough. Changing a value in the grid re-tunes every
+  link of that type at once, with no local override.
 
-S'approprier une fiche = l'éditer et commiter : mes tops deviennent
-`["A Forest", "10:15 Saturday Night"]`, et `generated` saute.
+Making a card your own = editing it and committing: my tops become
+`["A Forest", "10:15 Saturday Night"]`, and `generated` goes away.
 
-### On écrit pour les humains, la machine lit la structure
+### We write for humans, the machine reads the structure
 
-La description et les notes ne sont **pas** écrites « pour l'embedding » —
-personne ne sait faire ça, et il ne faut pas le demander :
+The description and the notes are **not** written "for the embedding" —
+nobody knows how to do that, and it must not be asked for:
 
-- **Le texte vectorisé est composé par l'application** à partir des champs
-  structurés : tags, origine, dates, types de liens et voisins. La
-  description, si elle est bonne, ajoute de la nuance ; vide ou plate, le
-  plancher est garanti par la structure. Éditer des tags est à la portée de
-  tous.
-- **La prose garde son rôle humain** : la description dit qui est l'artiste,
-  la note dit pourquoi le lien existe — c'est elle qui s'affiche quand une
-  branche s'explique.
-- **Le retour remplace l'effort** : `forkstify check` affichera, pour une
-  fiche, ses voisins dans l'espace (« The Cure est proche de : Siouxsie,
-  Joy Division… ça te va ? »). On ne juge pas son texte, on juge ses
-  effets, et on ajuste un tag ou une proximité.
+- **The vectorized text is composed by the application** from the structured
+  fields: tags, origin, dates, link types and neighbors. The description, if
+  it is good, adds nuance; empty or flat, the floor is guaranteed by the
+  structure. Editing tags is within everyone's reach.
+- **The prose keeps its human role**: the description says who the artist
+  is, the note says why the link exists — it is the note that shows when a
+  branch explains itself.
+- **Feedback replaces effort**: `forkstify check` will show, for a card, its
+  neighbors in the space ("The Cure is close to: Siouxsie, Joy Division…
+  does that work for you?"). You do not judge your text, you judge its
+  effects, and you adjust a tag or a proximity.
 
-### Ce qu'on fournit : les fiches et leurs vecteurs
+### What we ship: the cards and their vectors
 
-- **Les fiches TOML sont la source.** Ce qu'un humain écrit, lit, corrige,
-  forke : description, tags, tops, portes, connexions, identifiant Spotify.
-- **Les vecteurs sont un index dérivé des fiches, livré avec la base.**
-  Dérivé, parce qu'on peut toujours le refaire depuis les fiches. Livré,
-  parce que calculer un embedding demande un modèle (~100 Mo) et surtout
-  parce que tout le monde doit avoir *les mêmes* vecteurs pour que « proche »
-  veuille dire la même chose partout. Le dépôt contient donc les vecteurs et,
-  dans ses métadonnées, le nom et la version du modèle qui les a produits.
-  L'application recalcule localement le vecteur d'une fiche modifiée ;
-  l'amont régénère tout à chaque changement de modèle. **Fait le
-  09/09/2026** ([0019](../decisions/0019-vectorisation-par-l-application.md)) :
-  `embed.rs` vectorise dans l'application — une fiche générée naît avec
-  son vecteur, `forkstify vectors` régénère l'index et a remplacé
-  `vectoriser.py` (troncature à 128 jetons, vecteurs normalisés). Prototypé le
-  02/09/2026 (`tools/vectoriser.py` et `voisins.py`) : modèle
+- **The TOML cards are the source.** What a human writes, reads, fixes,
+  forks: description, tags, tops, doors, links, Spotify identifier.
+- **The vectors are an index derived from the cards, shipped with the
+  base.** Derived, because it can always be rebuilt from the cards. Shipped,
+  because computing an embedding needs a model (~100 MB) and above all
+  because everyone has to have *the same* vectors for "close" to mean the
+  same thing everywhere. The repository therefore holds the vectors and, in
+  its metadata, the name and version of the model that produced them. The
+  application recomputes a changed card's vector locally; upstream
+  regenerates everything on every model change. **Done on 2026-09-09**
+  ([0019](../decisions/0019-the-application-vectorizes.md)): `embed.rs`
+  vectorizes inside the application — a generated card is born with its
+  vector, `forkstify vectors` regenerates the index and has replaced
+  `vectoriser.py` (truncation at 128 tokens, normalized vectors).
+  Prototyped on 2026-09-02 (`tools/vectoriser.py` and `voisins.py`): model
   `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, mean pooling,
-  supporté par fastembed en Python comme en Rust), index dans
-  `vectors/vectors.jsonl` + `meta.toml`. Le texte composé cite les
-  voisins des liens **sortants et entrants** (la relation vaut dans les
-  deux sens, seul `influence` se retourne en « a influencé »).
-- **Hors du dépôt** : caches de l'API Spotify (résolution titre → identifiant,
-  pochettes), jetons.
+  supported by fastembed in Python as in Rust), index in
+  `vectors/vectors.jsonl` + `meta.toml`. The composed text names the
+  neighbors of **outgoing and incoming** links (a relation holds both ways,
+  only `influence` flips into "influenced").
+- **Outside the repository**: Spotify API caches (title → identifier
+  resolution, cover art), tokens.
 
-### Ce que le catalogue apprend
+### What the catalog learns
 
-Le catalogue **s'automodifie avec l'usage**. On ne pré-remplit pas Spotify
-entier : le catalogue couvre l'univers de l'utilisateur et grandit avec ses
-écoutes. Signaux et effets :
+The catalog **modifies itself with use**. We do not pre-fill the whole of
+Spotify: the catalog covers the user's universe and grows with their
+listening. Signals and effects:
 
-| Signal | Ce que ça dit | Ce que ça modifie |
+| Signal | What it says | What it changes |
 |---|---|---|
-| Choix d'une branche à un embranchement | cette direction me parle | poids de la connexion empruntée |
-| Morceau sauté | pas celui-là, pas maintenant | poids du top, ou de l'artiste dans ce contexte |
-| Morceau écouté en entier, souvent | il fait partie de mes tops | ordre des tops, proposition d'en faire un top |
-| Branche née des vecteurs (sans connexion) qui plaît | le lien mérite d'exister | **écriture d'une connexion** dans la fiche |
-| Arrivée chez un artiste sans fiche | il fait partie de mon univers | **génération d'une fiche** (Spotify, Last.fm, LLM), marquée générée jusqu'à relecture |
+| Choosing a branch at a fork point | this direction speaks to me | the weight of the link taken |
+| Track skipped | not that one, not now | the weight of the top, or of the artist in this context |
+| Track played in full, often | it is one of my tops | the order of the tops, an offer to make it a top |
+| A branch born of the vectors (with no link) that pleases | the link deserves to exist | **writing a link** into the card |
+| Arriving at an artist with no card | they are part of my universe | **generating a card** (Spotify, Last.fm, LLM), flagged as generated until reviewed |
 
-Les deux dernières lignes sont le mécanisme central : **l'espace implicite
-alimente le graphe explicite**. Ce que les vecteurs devinent et que l'écoute
-confirme devient une connexion lisible, dans un fichier texte, relisible et
-reversable à l'amont.
+The last two rows are the central mechanism: **the implicit space feeds the
+explicit graph**. What the vectors guess and listening confirms becomes a
+readable link, in a text file, readable back and contributable upstream.
 
-### Base, mien, appris — et ce qui est partageable
+### Base, mine, learned — and what is shareable
 
-Si le fork s'automodifie avec l'usage et qu'on le reverse à l'amont, on
-pollue la base avec ses propres écoutes. Il faut séparer la **connaissance**
-(partageable : une connexion, une description, un top consensuel) de
-l'**usage** (personnel : poids, compteurs, dates). Trois états, tous dans le
-fork, tous dans git :
+If the fork modifies itself with use and we contribute it back upstream, we
+pollute the base with our own listening. Knowledge (shareable: a link, a
+description, a consensual top) has to be separated from usage (personal:
+weights, counters, dates). Three states, all in the fork, all in git:
 
-1. **La base** — ce qui vient de l'amont.
-2. **Le mien** — ce que j'ai écrit ou validé explicitement dans les fiches.
-   C'est ce que je peux proposer à l'amont.
-3. **L'appris** — ce que l'usage a produit, dans un dossier à part
-   (`learned/`), versionné pour être portable, que l'application sait ne
-   jamais inclure dans une PR.
+1. **The base** — what comes from upstream.
+2. **Mine** — what I explicitly wrote or validated in the cards. That is
+   what I can propose upstream.
+3. **The learned** — what usage produced, in a separate folder
+   (`learned/`), version controlled so as to be portable, which the
+   application knows never to include in a PR.
 
-### Tout « le mien » n'est pas également partageable (06/09/2026)
+### Not all of "mine" is equally shareable (2026-09-06)
 
-Question de Joel : « si je modifie les links d'artistes, cela ferait partie
-de la PR ? Ce serait problématique ? ». Oui pour la première, **pas
-forcément** pour la seconde — et la réponse tient dans la liste fermée des
-types de [0010](../decisions/0010-format-revise-links-sans-portes.md), qui
-se coupe en deux d'elle-même :
+Joel's question: "if I change artists' links, would that be part of the PR?
+Would that be a problem?". Yes to the first, **not necessarily** to the
+second — and the answer lies in the closed list of types of
+[0010](../decisions/0010-revised-format-links-without-doors.md), which
+splits in two by itself:
 
-| Type | Ce que c'est | En amont |
+| Type | What it is | Upstream |
 |---|---|---|
-| `member` `collab` `family` | des **faits** — qui a joué où, avec qui | précieux pour tout le monde |
-| `scene` `influence` | une lecture критique, discutable mais argumentable | défendable, avec sa note |
-| `similar` | **un rapprochement de goût** | c'est celui qui tire la base vers une oreille |
+| `member` `collab` `family` | **facts** — who played where, with whom | valuable to everybody |
+| `scene` `influence` | a critical reading, debatable but arguable | defensible, with its note |
+| `similar` | **a matching of taste** | the one that pulls the base towards one ear |
 
-`aL` écrit `similar` : c'est honnête — on rapproche deux artistes parce
-qu'ils vont bien ensemble *pour soi* — mais c'est donc le type le moins
-partageable qui est le plus facile à produire.
+`aL` writes `similar`: that is honest — you bring two artists together
+because they go well together *for you* — but it means the least shareable
+type is the easiest to produce.
 
-**Ce qui protège déjà** : une PR est une **proposition**, relue en amont.
-Rien n'est reversé automatiquement, et l'auteur choisit les commits qu'il
-propose. Le modèle git suffit à empêcher la dérive ; ce n'est pas une
-faille.
+**What already protects us**: a PR is a **proposal**, reviewed upstream.
+Nothing is contributed back automatically, and the author chooses which
+commits to propose. The git model is enough to prevent drift; this is not a
+flaw.
 
-**Ce qui manque vraiment**, c'est de quoi *trier*. Rien ne disait pourquoi
-une ligne existait, si bien que ni l'auteur ni le relecteur ne pouvaient
-distinguer un fait vérifié d'un rapprochement d'un soir. Depuis le
-06/09/2026, une ligne écrite pendant une écoute porte sa **provenance et sa
-date** dans sa note — `note = "rapproché à l'écoute, 2026-09-06"` — ce que
-0010 demandait déjà en substance : « le type nomme et explique la branche ».
+**What is really missing** is the means to *sort*. Nothing said why a line
+existed, so neither the author nor the reviewer could tell a verified fact
+from a one-evening matching. Since 2026-09-06, a line written during a
+listening session carries its **provenance and its date** in its note —
+`note = "linked while listening, 2026-09-06"` — which 0010 already asked for
+in substance: "the type names and explains the branch".
 
-### La surcouche par duplication : le besoin est juste, le mécanisme existe déjà
+### An overlay by duplication: the need is sound, the mechanism already exists
 
-Proposition de Joel (06/09/2026) : plutôt qu'un fork où tout se mélange,
-**dupliquer la fiche** — une fiche modifiée est copiée dans un espace
-personnel, on y met ses doors et ses links, et l'application **additionne les
-deux, la surcharge gagnant**. « On ne serait plus sur un fork pur, mais ce
-serait plus clean, non ? »
+Joel's proposal (2026-09-06): rather than a fork where everything mixes,
+**duplicate the card** — a changed card is copied into a personal space, you
+put your doors and links there, and the application **adds the two together,
+with the override winning**. "We would no longer be on a pure fork, but it
+would be cleaner, no?"
 
-Le besoin derrière est réel et mal servi aujourd'hui : **savoir ce qui est à
-soi**. Rien dans forkstify ne le montre.
+The need behind it is real and poorly served today: **knowing what is
+yours**. Nothing in forkstify shows it.
 
-Mais la duplication le paierait cher :
+But duplication would pay dearly for it:
 
-- **Elle fige la fiche au jour de la copie.** L'amont corrige un MBID,
-  ajoute un top, réécrit une description : la copie personnelle ne le voit
-  jamais. Il faudrait alors fusionner champ par champ — c'est-à-dire
-  réimplémenter git, en moins bien.
-- **Elle demande un second format.** Ou bien la copie est une fiche entière,
-  et modifier un lien fige tout le reste ; ou bien c'est un format de
-  correctif, à concevoir, documenter, versionner. Or
-  [0002](../decisions/0002-catalogue-partage-forkable.md) fait du format de
-  fiche une **interface publique** : il y en aurait deux.
-- **Elle éloigne le débat que Joel dit vouloir.** Proposer en amont
-  demanderait d'extraire la ligne de la surcouche pour la reporter dans la
-  fiche de base — de la friction exactement là où l'on veut de la fluidité.
+- **It freezes the card on the day of the copy.** Upstream fixes an MBID,
+  adds a top, rewrites a description: the personal copy never sees it. You
+  would then have to merge field by field — that is, reimplement git, worse.
+- **It requires a second format.** Either the copy is a whole card, and
+  changing one link freezes all the rest; or it is a patch format, to be
+  designed, documented, versioned. Yet
+  [0002](../decisions/0002-shared-forkable-catalog.md) makes the card format
+  a **public interface**: there would be two of them.
+- **It pushes away the very debate Joel says he wants.** Proposing upstream
+  would require extracting the line from the overlay to carry it into the
+  base card — friction exactly where we want fluidity.
 
-**Et surtout : la surcouche existe déjà, elle est simplement invisible.**
-Dans un fork, ce qui est à soi, ce sont **ses commits** — `git diff
-upstream/main` les rend, fiche par fiche et ligne par ligne. C'est une
-surcouche *calculée* plutôt que *stockée* : rien à fusionner, rien à figer,
-rien à versionner en double. Ce que la duplication apporterait de « clean »,
-git le donne déjà ; ce qui manque, c'est que forkstify le **montre**.
+**And above all: the overlay already exists, it is simply invisible.** In a
+fork, what is yours is **your commits** — `git diff upstream/main` returns
+them, card by card and line by line. It is an overlay *computed* rather than
+*stored*: nothing to merge, nothing to freeze, nothing to version twice.
+What duplication would bring in "clean", git already gives; what is missing
+is for forkstify to **show** it.
 
-**Proposition, à trancher** : garder
-[0008](../decisions/0008-le-fork-est-la-surcouche.md) et ajouter de quoi
-voir sa propre couche — une commande `:mine` qui liste ce qui diffère de
-l'amont, fiche par fiche, et d'où chaque ligne vient (la provenance étant
-désormais dans les notes). Coût : quelques lignes autour de `git diff`.
+**Proposal, to be settled**: keep
+[0008](../decisions/0008-the-fork-is-the-overlay.md) and add the means to
+see your own layer — a `:mine` command listing what differs from upstream,
+card by card, and where each line comes from (provenance now being in the
+notes). Cost: a few lines around `git diff`.
 
-Si la duplication reste préférée malgré tout, elle demande une **décision
-qui remplace 0008**, et il faudra y trancher : granularité de la copie,
-format du correctif, comportement quand l'amont change la fiche d'origine,
-et chemin de contribution.
+If duplication is preferred nonetheless, it needs a **decision superseding
+0008**, and it will have to settle: the granularity of the copy, the patch
+format, the behavior when upstream changes the original card, and the
+contribution path.
 
-### Reprendre une partie du catalogue de quelqu'un d'autre
+### Taking part of somebody else's catalog
 
-Question de Joel (06/09/2026) : « si quelqu'un a un gros catalogue jazz, je
-serai intéressé pour le récupérer — pour autant, je ne serai peut-être pas
-intéressé par tous ses commits ».
+Joel's question (2026-09-06): "if somebody has a big jazz catalog, I'd be
+interested in taking it — and yet I might not be interested in all their
+commits".
 
-**C'est un cas que le format sert déjà**, et sans rien inventer :
-[0010](../decisions/0010-format-revise-links-sans-portes.md) impose
-`cards/` **plat, une fiche par artiste**. Reprendre « son jazz » n'est donc
-pas reprendre des *commits* mais des **fichiers** — et git sait faire :
+**That is a case the format already serves**, with nothing to invent:
+[0010](../decisions/0010-revised-format-links-without-doors.md) requires
+`cards/` to be **flat, one card per artist**. Taking "their jazz" is
+therefore not taking *commits* but **files** — and git knows how:
 
-    git remote add untel git@github.com:untel/forkstify-catalog.git
-    git fetch untel
-    # voir ce qu'il a que je n'ai pas
-    git diff --stat HEAD untel/main -- cards/
-    # ne prendre que ce qu'on veut, par fichier
-    git checkout untel/main -- cards/john-coltrane.toml cards/alice-coltrane.toml
-    git commit -m "importe le jazz d'untel"
+    git remote add someone git@github.com:someone/forkstify-catalog.git
+    git fetch someone
+    # see what they have that I do not
+    git diff --stat HEAD someone/main -- cards/
+    # take only what we want, file by file
+    git checkout someone/main -- cards/john-coltrane.toml cards/alice-coltrane.toml
+    git commit -m "import someone's jazz"
 
-Un seul commit chez soi, choisi, qui dit ce qu'il fait. Aucun de ses commits
-à lui n'entre — on prend l'**état** de ses fiches, pas son histoire.
+One commit of your own, chosen, that says what it does. None of their
+commits comes in — you take the **state** of their cards, not their history.
 
-Pour les trouver par famille plutôt qu'un par un, c'est le champ `tags` qui
-sert : lister les fiches de son dépôt dont les `tags` contiennent `jazz`,
-puis les passer à `git checkout`. Un script de `tools/` ferait ça en
-quelques lignes.
+To find them by family rather than one by one, the `tags` field is what
+serves: list the cards in their repository whose `tags` contain `jazz`, then
+pass them to `git checkout`. A script in `tools/` would do that in a few
+lines.
 
-**Deux propriétés du moteur rendent l'import partiel sûr**, et c'est
-important puisqu'on prend un morceau d'un tout :
+**Two properties of the engine make a partial import safe**, and that
+matters since we are taking a piece of a whole:
 
-- **Un lien pendant est ignoré, pas fatal.** `graph_neighbors` cherche la
-  cible d'un `link` avec `.get()` : un lien vers une fiche qu'on n'a pas
-  passe simplement son tour. On peut donc prendre dix fiches d'un ensemble
-  de cent sans rien casser.
-- **Une fiche sans vecteur ne casse rien non plus** — elle est seulement
-  invisible à la branche aventureuse, `vector_neighbors` ne travaillant que
-  sur ce que `vectors.jsonl` contient. **L'import régénère donc l'index
-  dans son commit** ([0019](../decisions/0019-vectorisation-par-l-application.md)) ;
-  à la main, `forkstify vectors`.
+- **A dangling link is ignored, not fatal.** `graph_neighbors` looks for a
+  `link`'s target with `.get()`: a link towards a card we do not have simply
+  sits out. So you can take ten cards out of a set of a hundred without
+  breaking anything.
+- **A card with no vector breaks nothing either** — it is merely invisible
+  to the adventurous branch, since `vector_neighbors` only works on what
+  `vectors.jsonl` holds. **An import therefore regenerates the index within
+  its commit**
+  ([0019](../decisions/0019-the-application-vectorizes.md)); by hand,
+  `forkstify vectors`.
 
-Cette tolérance n'est pas un hasard : elle vient de « un fichier par
-artiste » et du fait que le graphe et l'espace vectoriel sont deux chemins
-indépendants vers le même artiste.
+That tolerance is no accident: it comes from "one file per artist" and from
+the fact that the graph and the vector space are two independent paths to
+the same artist.
 
-**Reste ouvert** : faut-il un lien **personnel**, qui ne parte jamais en PR ?
-Deux façons, aucune tranchée — un champ dans la ligne (`personal = true`),
-ou rien du tout, la relecture en amont faisant le tri. La seconde est plus
-sobre et conforme à « pas d'abstraction avant le deuxième usage » ; la
-première dit la chose plutôt que de compter sur la vigilance.
+**Still open**: do we need a **personal** link, one that never goes into a
+PR? Two ways, neither settled — a field on the line (`personal = true`), or
+nothing at all, with upstream review doing the sorting. The second is more
+sober and consistent with "no abstraction before the second use"; the first
+says the thing rather than relying on vigilance.
 
-Entre les deux derniers, la **promotion** : transformer un signal d'usage en
-connaissance. « Tu as choisi 6 fois la branche Cocteau Twins depuis The Cure,
-j'ajoute la connexion `voisinage` à la fiche ? » Une promotion = un commit
-lisible. C'est ce qui empêche le catalogue de devenir une boîte noire : tout
-ce qu'il a appris seul est un diff qu'on peut relire et annuler.
+Between the last two states sits **promotion**: turning a usage signal into
+knowledge. "You took the Cocteau Twins branch from The Cure 6 times, shall I
+add the `neighborhood` link to the card?" A promotion = a readable commit.
+That is what keeps the catalog from becoming a black box: everything it
+learned on its own is a diff you can read back and revert.
 
-### Forme de l'appris (acté le 04/09/2026, [0014](../decisions/0014-forme-de-l-appris.md))
+### The shape of the learned layer (recorded 2026-09-04, [0014](../decisions/0014-shape-of-the-learned.md))
 
-Comment la couche *appris* (dossier `learned/`) stocke ce que l'écoute
-apprend, et ce que le moteur en lit. Le vocabulaire sur disque est en
-**anglais**, comme le format de fiche (le dépôt vise l'open source). Trois
-principes qui découlent du reste :
+How the *learned* layer (the `learned/` folder) stores what listening
+teaches, and what the engine reads from it. Vocabulary on disk is in
+**English**, like the card format (the repository aims at open source).
+Three principles that follow from the rest:
 
-- **Un fichier par artiste**, `learned/artists/<slug>.toml`, en miroir des
-  fiches. Comme une fiche par artiste, ça diffe proprement, ça ne crée
-  **jamais de conflit** avec l'amont (chacun le sien), et ça scale. Un seul
-  gros fichier grossirait sans fin et casserait à chaque merge.
-- **Des compteurs qui décroissent tout seuls dans le temps.** Plutôt que
-  garder l'historique de chaque écoute, on garde **un compte décru** : à
-  chaque écoute, `plays = plays × ½^((maintenant − last)/demi-vie) + 1`, et
-  `last = maintenant`. Un seul flottant et une date par artiste (et par top),
-  et une écoute d'il y a trois ans ne pèse presque plus — la question de la
-  décroissance est réglée par construction. Demi-vie par défaut : **6 mois**,
-  réglable.
-- **Silencieux, jamais reversé.** L'appris se modifie sans rien demander
-  (c'est de la mesure), et l'application ne l'inclut jamais dans une PR.
+- **One file per artist**, `learned/artists/<slug>.toml`, mirroring the
+  cards. Like one card per artist, it diffs cleanly, it **never** creates a
+  conflict with upstream (everyone has their own), and it scales. A single
+  big file would grow without end and break on every merge.
+- **Counters that decay by themselves over time.** Rather than keeping the
+  history of every play, we keep **a decayed count**: on every play,
+  `plays = plays × ½^((now − last)/half-life) + 1`, and `last = now`. One
+  float and one date per artist (and per top), and a play from three years
+  ago barely weighs at all — the decay question is settled by construction.
+  Default half-life: **6 months**, adjustable.
+- **Silent, never contributed back.** The learned layer changes without
+  asking (it is measurement), and the application never includes it in a PR.
 
-Forme d'un fichier :
+The shape of a file:
 
 ```toml
 # learned/artists/the-cure.toml
-plays = 12.4          # écoutes, décrues dans le temps (familiarité)
-last  = "2026-09-04"  # dernière écoute (récence + cooldown)
-weight = 0.8          # correctif « - » (moins souvent) ; 1.0 = neutre
-blacklisted = false   # « X » sur l'artiste entier
+plays = 12.4          # plays, decayed over time (familiarity)
+last  = "2026-09-04"  # last play (recency + cooldown)
+weight = 0.8          # the "-" correction (less often); 1.0 = neutral
+blacklisted = false   # "X" on the whole artist
 
 [tops."A Forest"]
 plays = 5.0
 last  = "2026-09-04"
-liked = true          # « a »
-skipped = 2           # « x » cumulés
+liked = true          # "a"
+skipped = 2           # accumulated "x"
 
 [tops."Killing an Arab"]
-blacklisted = true    # « X » sur ce morceau
+blacklisted = true    # "X" on this track
 ```
 
-Les **récoltes** (touche `m`, à trier plus tard) vivent à part, transverses
-aux artistes : `learned/marks/<name>.toml` (liste de `{artist, title, at}`).
+**Marks** (the `m` key, to be sorted later) live apart, across artists:
+`learned/marks/<name>.toml` (a list of `{artist, title, at}`).
 
-**Ce que chaque touche de [0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)
-écrit** — mesures dans `learned/artists/`, éditions dans la fiche (commit) :
+**What each key of [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md)
+writes** — measurements into `learned/artists/`, edits into the card (a
+commit):
 
-| Touche | Effet | Où |
+| Key | Effect | Where |
 |---|---|---|
-| écoute complète (auto) | `plays += 1`, `last` | appris (mesure) |
-| `x` sauter | `tops.<t>.skipped += 1` | appris (mesure) |
-| `X` écarter | `blacklisted = true` (top ou artiste) | appris (mesure) |
-| `a` aimer | `tops.<t>.liked = true` (+ titre aimé Spotify) | appris (mesure) |
-| `-` moins souvent | `weight ×= 0.7` (plancher) | appris (mesure) |
-| `m` marquer | ligne dans `learned/marks/` | appris (mesure) |
-| `t`/`T` top | ajoute/retire des `tops` | **fiche (commit)** |
-| `d` door | ajoute une `door` | **fiche (commit)** |
-| `E` éditer | ouvre la fiche dans `$EDITOR` | **fiche (commit)** |
+| full play (auto) | `plays += 1`, `last` | learned (measurement) |
+| `x` skip | `tops.<t>.skipped += 1` | learned (measurement) |
+| `X` set aside | `blacklisted = true` (top or artist) | learned (measurement) |
+| `a` like | `tops.<t>.liked = true` (+ Spotify liked track) | learned (measurement) |
+| `-` less often | `weight ×= 0.7` (floor) | learned (measurement) |
+| `m` mark | a line in `learned/marks/` | learned (measurement) |
+| `t`/`T` top | adds/removes from the `tops` | **card (commit)** |
+| `d` door | adds a `door` | **card (commit)** |
+| `E` edit | opens the card in `$EDITOR` | **card (commit)** |
 
-**Ce que le moteur lit** de l'appris, en plus de la fiche :
+**What the engine reads** from the learned layer, on top of the card:
 
-- **exclusion** des `blacklisted` (artiste et top) ;
-- **familiarité** = `plays` décru (+ l'amorce `learned/classement.json` pour
-  un artiste sans appris encore) → nourrit la **zone de confort** (0001) et
-  les seuils de l'aventureuse ;
-- **cooldown** (0012) : un `last` récent baisse le poids / suspend, pour que
-  ce qu'on vient d'écouter tourne (le « sans remise » d'une session, lui,
-  reste en mémoire) ;
-- **poids** : `weight` multiplie le poids de branche de l'artiste ; un top
-  souvent `skipped` recule dans le segment, un top `liked` avance.
+- **exclusion** of the `blacklisted` (artist and top);
+- **familiarity** = decayed `plays` (+ the `learned/classement.json`
+  bootstrap for an artist with no learned data yet) → feeds the **comfort
+  zone** (0001) and the adventurous branch's thresholds;
+- **cooldown** (0012): a recent `last` lowers the weight / suspends, so that
+  what we have just listened to rotates (a session's "without replacement"
+  stays in memory);
+- **weight**: `weight` multiplies the artist's branch weight; a top often
+  `skipped` moves back in the segment, a `liked` top moves forward.
 
-`classement.json` (l'amorce, 741 artistes scorés depuis la bibliothèque)
-devient donc **la familiarité de départ** ; `learned/artists/` la prolonge
-et la corrige au fil de l'écoute.
+`classement.json` (the bootstrap, 741 artists scored from the library)
+therefore becomes **the starting familiarity**; `learned/artists/` extends
+and corrects it as listening goes on.
 
-> Vocabulaire : la couche « appris » est le dossier **`learned/`** (renommé
-> depuis `learned/` le 04/09/2026 — pas de terme français dans les chemins ni
-> le format). Les fichiers d'amorce encore nommés en français dans
-> `learned/` (`amis/`, `artistes-*.json`) et leurs clés seront traduits avec
-> les scripts de `tools/`.
+> Vocabulary: the "learned" layer is the **`learned/`** folder (renamed from
+> `usage/` on 2026-09-04 — no French term in the paths or the format). The
+> bootstrap files in `learned/` still named in French (`amis/`,
+> `artistes-*.json`) and their keys will be translated along with the
+> `tools/` scripts.
 
-Orientation : l'*appris* se modifie seul en silence (c'est de la mesure) ;
-la *promotion* se propose par défaut et peut passer en automatique par
-réglage — l'application n'exige jamais de décision, mais rend les siennes
-visibles.
+Direction: the *learned* layer changes on its own, silently (it is
+measurement); *promotion* is proposed by default and can be made automatic
+by a setting — the application never demands a decision, but it makes its
+own visible.
 
-### Une base artiste libre
+### A free artist database
 
-- **L'identité d'un artiste est son MBID**
-  ([0009](../decisions/0009-identite-mbid.md)) ; Spotify est une
-  implémentation parmi d'autres, Deezer ou d'autres viendront sans toucher
-  au catalogue.
-- **Le catalogue de référence est proposé au téléchargement par
-  l'application** : au premier lancement, forkstify propose de le cloner,
-  et chacun se crée sa propre version à partir de là
-  ([0004](../decisions/0004-deux-depots-catalogue-ciblable.md),
-  [0008](../decisions/0008-le-fork-est-la-surcouche.md)).
-- **« Complète » se construit par l'usage, pas par un dump.** On ne descend
-  pas MusicBrainz entier. Chaque fiche naît parce que quelqu'un est arrivé
-  chez cet artiste — bibliothèque, parcours, PR des autres. Le catalogue est
-  complet *au sens de ses usagers*.
-- **Deux niveaux de qualité, visibles** : *générée* et *relue*. Une fiche
-  relue par un humain vaut plus, et le moteur peut le savoir.
-- **Les faits et le sens ne viennent pas du même endroit.** Les faits (nom,
-  MBID, identifiants, pays, années, tags, artistes liés) viennent de sources
-  libres et vérifiables — MusicBrainz, Wikidata, Last.fm pour les
-  similaires — jamais d'un modèle de langage : pas de faits inventés dans une
-  base libre. Le sens (description, connexions typées et commentées, portes)
-  est là où un modèle aide, et où la relecture humaine compte.
+- **An artist's identity is their MBID**
+  ([0009](../decisions/0009-mbid-identity.md)); Spotify is one
+  implementation among others, and Deezer or others will come without
+  touching the catalog.
+- **The reference catalog is offered for download by the application**: on
+  first run, forkstify offers to clone it, and everyone builds their own
+  version from there
+  ([0004](../decisions/0004-two-repositories-targetable-catalog.md),
+  [0008](../decisions/0008-the-fork-is-the-overlay.md)).
+- **"Complete" is built by use, not by a dump.** We do not pull down the
+  whole of MusicBrainz. Every card is born because somebody arrived at that
+  artist — library, journey, other people's PRs. The catalog is complete *in
+  the sense of its users*.
+- **Two visible quality levels**: *generated* and *reviewed*. A card
+  reviewed by a human is worth more, and the engine can know it.
+- **The facts and the meaning do not come from the same place.** The facts
+  (name, MBID, identifiers, country, years, tags, linked artists) come from
+  free and verifiable sources — MusicBrainz, Wikidata, Last.fm for the
+  similars — never from a language model: no invented facts in a free
+  database. Meaning (description, typed and annotated links, doors) is where
+  a model helps, and where human review counts.
 
-### Le démarrage à froid et la base disponible
+### The cold start and the available base
 
-Un nouvel utilisateur ne doit rien avoir à écrire :
+A new user must have nothing to write:
 
-1. **Au premier lancement, l'application propose de cloner le catalogue de
-   référence** (déjà acté). Personne ne part de zéro.
-2. **Puis l'import personnel** (son Spotify ou son Deezer — les scripts
-   de `tools/` en sont le prototype) : les artistes déjà dans la base ne
-   coûtent rien (leurs signaux calibrent la zone de confort, dans
-   `learned/`) ; les absents passent par le pipeline de génération.
+1. **On first run, the application offers to clone the reference catalog**
+   (already recorded). Nobody starts from zero.
+2. **Then the personal import** (their Spotify or their Deezer — the
+   `tools/` scripts are the prototype): artists already in the base cost
+   nothing (their signals calibrate the comfort zone, in `learned/`); the
+   missing ones go through the generation pipeline.
 
-**Le pipeline de génération** — mêmes sources vérifiées le 31/08/2026 :
+**The generation pipeline** — the same sources verified on 2026-08-31:
 
-| Champ | Source |
+| Field | Source |
 |---|---|
-| identité, dates, origine, tags | MusicBrainz / Wikidata |
-| tops | Deezer `/artist/top` (sans clé) + titres aimés de l'utilisateur |
-| links `member` / `collab` / `family` | relations MusicBrainz (typées, factuelles) |
-| links `similar` | Deezer `/artist/related` (sans clé), Last.fm en renfort |
-| links `scene` | recoupement époque + pays + genres |
-| notes, description | modèle de langage, ou absentes (tout est optionnel) |
+| identity, dates, origin, tags | MusicBrainz / Wikidata |
+| tops | Deezer `/artist/top` (no key) + the user's liked tracks |
+| `member` / `collab` / `family` links | MusicBrainz relations (typed, factual) |
+| `similar` links | Deezer `/artist/related` (no key), Last.fm as backup |
+| `scene` links | cross-referencing era + country + genres |
+| notes, description | a language model, or absent (everything is optional) |
 
-Tout est marqué `generated`. « Tout optionnel » et « on écrit pour les
-humains » rendent la génération automatique *suffisante* pour un produit
-utilisable, et la relecture *améliorante* plutôt qu'obligatoire.
+Everything is flagged `generated`. "Everything optional" and "we write for
+humans" make automatic generation *sufficient* for a usable product, and
+review *an improvement* rather than an obligation.
 
-**Un seul pipeline, trois moments** : ensemencer la référence, importer au
-premier lancement, générer en cours d'écoute (catalogue vivant).
+**One pipeline, three moments**: seeding the reference, importing on first
+run, generating while listening (a living catalog).
 
-**La base disponible se travaille sur trois chantiers :**
+**The available base is worked on three workstreams:**
 
-1. **Le noyau relu** — en cours : la bibliothèque de Joel (741 artistes
-   scorés, 30 fiches écrites), ses amis, le lot 2 (les fiches appelées par
-   les links).
-2. **L'ensemencement** — le pipeline en batch sur les artistes les plus
-   écoutés (charts Last.fm / ListenBrainz), pour couvrir la bibliothèque de
-   n'importe quel nouveau venu au jour 1.
-3. **La mutualisation** — quand l'application d'un utilisateur génère une
-   fiche absente de la référence, elle propose de la reverser à l'amont
-   (PR pré-mâchée). Chaque démarrage à froid enrichit le commun.
+1. **The reviewed core** — in progress: Joel's library (741 scored artists,
+   30 cards written), his friends, batch 2 (the cards called in by the
+   links).
+2. **Seeding** — the pipeline in batch over the most played artists (Last.fm
+   / ListenBrainz charts), to cover any newcomer's library on day 1.
+3. **Pooling** — when a user's application generates a card missing from the
+   reference, it offers to contribute it upstream (a pre-chewed PR). Every
+   cold start enriches the commons.
 
-## À trancher
+## To settle
 
-- **Suivre l'amont.** Le scénario de Joel : « j'ai téléchargé le catalogue
-  initial, je l'ai fait évoluer selon mes goûts ; six mois plus tard, le
-  catalogue initial a doublé en volume et en qualité — comment en
-  profiter ? » C'est une fusion git de l'amont dans le fork, et la structure
-  aide : une fiche par artiste (les nouvelles fiches arrivent sans aucun
-  conflit), l'appris dans `learned/` (jamais en conflit avec l'amont), le mien
-  concentré sur les fiches que j'ai touchées. Les conflits réels se limitent
-  donc aux fiches modifiées des deux côtés — et là, une commande `forkstify
-  catalogue sync` doit guider champ par champ (« l'amont a enrichi la
-  description de The Cure, tu as changé les tops : je prends les deux ? »).
-  À concevoir sérieusement le moment venu ; dans l'autre sens, faciliter la
-  PR pour reverser une fiche.
-- **Ergonomie de l'import** : `forkstify catalogue add <url>`, `forkstify
-  catalogue use <nom>`, `forkstify catalogue list` ? Et où vivent les clones
-  (`~/.local/share/forkstify/catalogues/<nom>` ?).
-- **Identité des morceaux** : par titre (lisible, ambigu — versions live,
-  remasters) ou par identifiant Spotify (précis, illisible) ? Probablement
-  le titre dans la fiche, résolu en identifiant au moment de jouer, avec
-  mise en cache.
-- **Vocabulaire des tags** : libres, avec une liste recommandée à publier ?
-  (Les types de liens sont fermés depuis [0010](../decisions/0010-format-revise-links-sans-portes.md).)
-- **Nom du fichier** : le slug (`the-cure.toml`) est aussi la clé des
-  connexions (`vers = "the-cure"`). Règle de slugification à fixer
-  (accents, articles, homonymes).
-- **Promotion automatique ou avec confirmation** : réglage par défaut, et
-  granularité (par type de promotion ?).
-- **Forme de l'appris** : proposée le 04/09/2026 (voir l'orientation
-  « Forme de l'appris » plus haut — un fichier par artiste, compteurs
-  décrus). Restent à régler au fil du PoC : la **demi-vie** de décroissance
-  (6 mois par défaut), la **fenêtre de cooldown** (0012), et la formule
-  familiarité → zone de confort 0–5 (0001).
-- **Marquage des fiches générées** : un champ (`generee = true`), un
-  dossier à part, ou les deux ?
-- **Licence** du catalogue partagé : une licence de données (ODbL comme
-  OpenStreetMap, ou CC BY-SA), et vérifier la compatibilité des sources
-  versées — MusicBrainz et Wikidata oui, Last.fm plus flou.
-- **Le modèle de langage à l'exécution** (fiche d'un artiste inconnu) :
-  quel fournisseur, quelle clé, quel repli hors-ligne ?
-- **L'ensemencement** : combien d'artistes (mille ? cinq mille ?), quelle
-  source de charts, et Last.fm nécessite une clé d'API — Deezer non.
-- **Prochain pas concret** : prototyper le générateur dans `tools/` et
-  le lancer sur les 61 fiches appelées par les links du lot 1 — construit
-  le lot 2 et valide le démarrage à froid.
+- **Following upstream.** Joel's scenario: "I downloaded the initial
+  catalog, I evolved it to my taste; six months later, the initial catalog
+  has doubled in volume and quality — how do I benefit?" That is a git merge
+  of upstream into the fork, and the structure helps: one card per artist
+  (new cards arrive with no conflict at all), the learned layer in
+  `learned/` (never in conflict with upstream), "mine" concentrated on the
+  cards I touched. Real conflicts are therefore limited to cards changed on
+  both sides — and there, a `forkstify catalogue sync` command must guide
+  field by field ("upstream enriched The Cure's description, you changed the
+  tops: shall I take both?"). To be designed seriously when the time comes;
+  in the other direction, make the PR easy for contributing a card back.
+- **Import ergonomics**: `forkstify catalogue add <url>`,
+  `forkstify catalogue use <name>`, `forkstify catalogue list`? And where
+  the clones live (`~/.local/share/forkstify/catalogues/<name>`?).
+- **Track identity**: by title (readable, ambiguous — live versions,
+  remasters) or by Spotify identifier (precise, unreadable)? Probably the
+  title in the card, resolved into an identifier at play time, with caching.
+- **Tag vocabulary**: free, with a recommended list to publish? (Link types
+  have been closed since
+  [0010](../decisions/0010-revised-format-links-without-doors.md).)
+- **File name**: the slug (`the-cure.toml`) is also the key of the links
+  (`to = "the-cure"`). A slugification rule to settle (accents, articles,
+  homonyms).
+- **Automatic promotion or with confirmation**: the default setting, and the
+  granularity (per promotion type?).
+- **The shape of the learned layer**: proposed on 2026-09-04 (see the "shape
+  of the learned layer" direction above — one file per artist, decayed
+  counters). Still to settle along the PoC: the decay **half-life** (6
+  months by default), the **cooldown window** (0012), and the familiarity →
+  comfort zone 0–5 formula (0001).
+- **Flagging generated cards**: a field (`generated = true`), a separate
+  folder, or both?
+- **The shared catalog's licence**: a data licence (ODbL like
+  OpenStreetMap, or CC BY-SA), and checking the compatibility of the sources
+  poured in — MusicBrainz and Wikidata yes, Last.fm blurrier.
+- **The language model at runtime** (the card of an unknown artist): which
+  provider, which key, which offline fallback?
+- **Seeding**: how many artists (a thousand? five thousand?), which chart
+  source, and Last.fm requires an API key — Deezer does not.
+- **The next concrete step**: prototype the generator in `tools/` and run it
+  on the 61 cards called in by batch 1's links — it builds batch 2 and
+  validates the cold start.
