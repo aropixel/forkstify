@@ -1,2344 +1,2278 @@
-# Avancement
+# Progress
 
-Mis à jour le **20/09/2026**. Ce fichier est le point d'entrée pour reprendre
-le travail : ce qui est fait, ce qui attend Joel, ce qui vient ensuite.
+Updated on **2026-09-20**. This file is the entry point for picking the work
+back up: what is done, what is waiting on Joel, what comes next.
 
-## Fait
+## Done
 
-- **Conception** : vision et philosophie (« Reprendre la main sur
-  l'algorithme »), vocabulaire, 13 décisions (`docs/decisions/`), 5 notes
-  vivantes (`docs/conception/`, 12 aujourd'hui). Rust, TOML, MBID, deux dépôts, format de
-  fiche v1 (links typés anglais + proximité en cascade, doors en critère
-  additionnel, tout optionnel sauf `format`/`name`/`mbid`). 14 décisions ;
-  dernière le 04/09/2026 : **forme de l'appris** — dossier `learned/`, un
-  fichier par artiste, compteurs décrus (demi-vie 6 mois) (0014). Le
-  vocabulaire sur disque (chemins, champs) est en anglais comme le code.
-- **Catalogue amorcé** (`~/Work/forkstify-catalog`, GitHub privé) :
-  `catalog.toml` (grille type → proximité), **30 fiches** écrites
-  (`generated = true`, le haut du classement de Joel), **tools/** —
-  7 scripts Python d'amorçage (lecture bibliothèque/playlists Spotify via la
-  session Omarchy-Spotify, récolte amis Spotify/Deezer, résolution MBID,
-  classement), **learned/** — 741 artistes scorés (titres aimés, albums,
-  #fipway, road trip BDX//ATX, suivis), 728 MBID résolus.
-- **Analyse d'Omarchy-Spotify** (code lu) : deux OAuth PKCE navigateur sans
-  dashboard (client id ncspot pour l'API Web, client id desktop Spotify pour
-  librespot), backend Rust ~800 lignes autour de librespot. Voir
-  `docs/conception/spotify.md`.
-- **Démarrage à froid conçu** : pipeline de génération de fiches (faits
-  MusicBrainz, tops Deezer `/artist/top`, similaires Deezer
-  `/artist/related` — vérifiés sans clé), trois chantiers de la base. Voir
-  `docs/conception/catalogue.md`.
-- **Générateur de fiches prototypé** (01/09/2026,
-  `tools/generate-cards.py`) et **lot 2 généré : 58 fiches** — les
-  slugs appelés par les links du lot 1 (56 réels, pas 61) plus 2 membres de
-  Destiny's Child appelés en cascade. Faits, dates, origine et relations
-  typées MusicBrainz ; tops et similaires Deezer ; tags genres + pays +
-  décennie (groupes seulement — le begin d'une personne est sa naissance) ;
-  liens scene par recoupement. Descriptions absentes des fiches générées :
-  la relecture enrichit.
-- **Lot 3 élargi généré** (02/09/2026) : **126 fiches** — les 89 slugs
-  appelés par les links du lot 2, plus les artistes du classement à
-  score ≥ 5 sans fiche. Correction en route : « Experience » (bibliothèque
-  de Joel) résolu à tort en The Jimi Hendrix Experience — c'est
-  **Expérience** (Michel Cloup, Toulouse), MBID corrigé dans
-  `learned/mbid.json`. Le catalogue compte **214 fiches** ; le lot 3 appelle
-  à son tour **100 slugs** (lot 4, non généré — la traîne du classement à
-  score 1–4 est aussi laissée de côté : ces artistes entreront quand un
-  link les appellera).
-- **Vecteurs prototypés** (02/09/2026) : `tools/vectoriser.py`
-  compose le texte de chaque fiche depuis sa structure (tags, dates,
-  origine, liens sortants et entrants, description si présente) et
-  calcule les vecteurs dans un conteneur — modèle
-  `paraphrase-multilingual-MiniLM-L12-v2` (fastembed, 384 dimensions,
-  mean pooling, dispo en Python et en Rust). Index dérivé commité :
-  `vectors/vectors.jsonl` (214 fiches) + `meta.toml`.
-  `tools/voisins.py` (stdlib) = prototype de `forkstify check` :
-  voisins cohérents (The Cure → Joy Division/Siouxsie ; IAM → le rap
-  français ; Nina Simone → Ella/Nat King Cole) ; les fiches maigres ont
-  des voisins flous à scores bas, ce que `check` doit justement révéler.
-- **Le son câblé sur la navigation** (04/09/2026) : `forkstify ecouter
-  <graine>` — même moteur et mêmes menus que `parcours`, mais **ça joue**.
-  Modules `sound.rs` (lecteur librespot embarqué), `spotify.rs` (Web API
-  ncspot : résolution titre → `spotify:track:`, cache disque, backoff 429)
-  et `listen.rs` (boucle async : lecture en fond, menu par-dessus, segment
-  fini → auto-avance pour ne jamais s'arrêter ; `1-3` saute vers une
-  branche, `j`/`k` morceau suivant/précédent (player classique, timeline
-  passé/courant/file, événements filtrés par `play_request_id`), `e`/`<n>e`
-  intercale, `b<n>` la taille, `u` branche précédente, `q` quitte). **Touches
-  multimédia** ⏮ ⏭ ⏯ prises en charge via **MPRIS** (D-Bus, module
-  `mediakeys.rs`, crate `mpris-server`) — comme `playerctl` ; boucle passée
-  en runtime current-thread + LocalSet pour héberger le serveur MPRIS.
-  Affichage (04/09/2026) : la **file des morceaux à venir** s'affiche (le
-  courant sur la ligne `▶`), les **branches ne s'affichent qu'au dernier
-  morceau** du segment, et `p` les prévoit à la demande (la vraie
-  « prévisualisation + choix à l'avance » viendra avec l'interface).
-  Recherche `/texte` (04/09/2026) : cherche dans le catalogue **et** sur
-  l'API Spotify, liste fusionnée `[catalogue]`/`[spotify]` — un artiste du
-  catalogue démarre un segment, une piste Spotify se joue et se raccroche à
-  la fiche de son artiste s'il en a une (sinon hors catalogue). Choisir une
-  branche **ne coupe pas le morceau en cours** : elle est mise en attente et
-  démarre à la fin de la piste (`j`/⏭ force tout de suite). **Préchargement**
-  (04/09/2026) : la résolution titre → `spotify:track:` du morceau suivant
-  (branche en attente ou tête de file) est faite d'avance, en cache, pour
-  une transition sans attente API (le préchargement audio librespot reste en
-  réserve si besoin). **Configuration** (04/09/2026, `src/config.rs`) :
-  `~/.config/forkstify/config.toml` (créé au premier lancement), option
-  `[playback] prefer_studio` (défaut vrai) — à la résolution, on récupère
-  plusieurs résultats et on écarte les versions live (titre ou album marqués
-  live/unplugged/concert), sauf si le titre demandé est lui-même live. Le moteur reste
-  intact — il produit des morceaux, `sound`/`spotify` les jouent. `parcours`
-  reste le mode à sec (rapide, sans Premium, pour itérer sur le moteur).
-  Construction via l'image **`forkstify-build`** (`Dockerfile` : rust +
-  pkg-config + libasound2-dev).
-- **Navigation à sec prototypée** (03/09/2026) — le premier code Rust,
-  dans ce dépôt : `forkstify parcours <graine>` propose 3 branches
-  lisibles avec leurs raisons (graphe d'abord — liens typés dans les deux
-  sens, proximité en cascade —, vecteurs pour combler et pour la branche
-  aventureuse), choix `1-3`, entrée = auto pondéré, `u` retour, `q` quitter ;
-  segments = 3 tops tirés sans remise (esprit 0012). `forkstify check
-  <artiste>` = les voisins dans l'espace, liens du graphe marqués. Se
-  construit dans un conteneur (`docker run --rm -v "$PWD":/app -w /app -v
-  forkstify-cargo:/usr/local/cargo/registry rust:1-slim cargo build
-  --release`), s'exécute sur l'hôte. Parcours constatés cohérents :
-  IAM → Zebda → Fabulous Trobadors → La Rue Kétanou → Camille ;
-  The Cure → Siouxsie → Cult Hero → The Fall → Joy Division. **Code et
-  commentaires en anglais** (visée open source — règle dans AGENTS.md).
-  Retouches au test de Joel : **une branche est un segment** — poncer
-  l'artiste courant, ou une marche de n morceaux sur plusieurs artistes
-  (un par artiste traversé), taille réglable par `b<n>` — les
-  directions se proposent depuis **la branche entière** (voisins de
-  graphe cumulés, centroïde des vecteurs), pas depuis le seul dernier
-  artiste — **rien n'est déterministe** (têtes et sauts tirés au sort
-  pondéré, 0012 appliquée aux branches) — une branche **« rester dans
-  l'univers du parcours »** fait tourner dans le cluster, revisites
-  permises tant qu'il reste des morceaux non joués — la branche
-  aventureuse a un **plancher** (cosinus ≥ 0.72 + un tag de genre commun,
-  constantes à piloter par le confort) — et **poncer n'est plus une
-  branche mais la touche `e` / `<n>e`** (commande `:encore`) qui
-  intercale n morceaux de l'artiste en cours (voir
-  `docs/conception/forme-de-l-application.md`).
-- **Spike Spotify Connect fait** (03/09/2026, `src/bin/spike-connect.rs`,
-  lancé par Joel sur son compte Premium). **Découverte zeroconf entrante :
-  ✓** — l'appareil apparaît sur le téléphone, les identifiants arrivent, la
-  session librespot s'ouvre (le son est donc validé de bout en bout, sans
-  rien installer sur l'hôte, sans Omarchy). **Jeton de session pour l'API
-  Web : ✗** — keymaster répond 403, login5 sort un jeton refusé par l'API
-  en 429 persistant (client id desktop en quota restreint). Verdict : le
-  son passe par librespot embarqué, l'API Web passera par l'OAuth
-  navigateur + client id de ncspot (voie de tout l'écosystème). Détail
-  dans `docs/conception/spotify.md`.
-- **API Web validée** (03/09/2026, `src/bin/spike-webapi.rs`) : OAuth PKCE
-  navigateur avec le client id de ncspot (`librespot-oauth`), refresh token
-  en cache. `/v1/me`, `/v1/search` (titre → `spotify:track:`) et
-  `/v1/me/albums` (247 albums) répondent. Leçon : les 429 rencontrés
-  étaient un throttle **compte/IP** temporaire (Retry-After décroissant,
-  se résorbe au repos), pas un blocage de client id — le client réel doit
-  respecter `Retry-After` (le spike le fait).
-- **Lecture validée** (03/09/2026, `src/bin/spike-play.rs`) : lecteur
-  librespot embarqué (`librespot-playback`, backend rodio → alsa), charge
-  un `spotify:track:` et **le son sort du binaire** — testé par Joel, « ça
-  marche très bien ». **Les quatre briques du chantier son sont validées**
-  (zeroconf, session, API Web, lecture) ; forkstify est lui-même
-  l'appareil, on ne pilote aucun autre appareil par l'API.
-- **Panne d'authentification silencieuse corrigée** (05/09/2026, premier
-  test long d'`ecouter` par Joel) : au bout de ~2 h, tous les morceaux
-  devenaient « introuvable sur Spotify » et le parcours s'arrêtait. Cause :
-  le flux PKCE de Spotify **fait tourner les refresh tokens**, or
-  `refresh_if_needed` ne gardait que l'access token — ni en mémoire ni sur
-  disque — et `WebApi::new` prenait le refresh de la *réponse*, vide quand
-  elle n'en porte pas. Le jeton stocké devenait donc périmé, et
-  `resolve()` noyait l'erreur dans un `None` indiscernable d'un morceau
-  absent. Trois corrections : (a) `resolve()` rend un **`Resolved`**
-  (`Track` / `Absent` / `Failed`) — un échec d'appel n'est plus une absence,
-  `search_tracks` de même ; (b) le refresh renouvelé est **conservé et
-  réécrit** à chaque rotation (`keep_refresh`), et un refresh mort
-  **redemande l'autorisation navigateur** au lieu d'échouer ; (c) le cache
-  disque ne mémorise plus que les **vraies** absences — un appel qui n'a pas
-  abouti n'y entre pas (une entrée déjà empoisonnée purgée :
-  The Limiñanas — « Au début c'était le début »). Côté navigation, une panne
-  **arrête le parcours** au lieu de brûler la file : le morceau reste en
-  tête, `j` réessaie. **Et « entrée/auto » tire désormais parmi les branches
-  affichées** — `auto_advance` recalculait trois nouvelles branches et jouait
-  donc ce que Joel n'avait pas vu (arbitrage Joel, 05/09/2026).
-- **Dépôts** (déplacés le 08/09/2026) : `aropixel/forkstify` et
-  `aropixel/forkstify-catalog`, la référence, privés, branche `main` ;
-  `kbyjoel/forkstify-catalog` est le **fork** de Joel, celui que
-  l'application lit (`origin`), l'amont en `upstream`. Plan de reprise
-  chorizo à jour.
+- **Design**: vision and philosophy ("take back the algorithm"), vocabulary,
+  13 decisions (`docs/decisions/`), 5 living notes (`docs/design/`, 12
+  today). Rust, TOML, MBID, two repositories, card format v1 (typed English
+  links + cascading proximity, doors as an additional criterion, everything
+  optional but `format`/`name`/`mbid`). 14 decisions; the last on
+  2026-09-04: **the shape of the learned layer** — a `learned/` folder, one
+  file per artist, decayed counters (six-month half-life) (0014).
+  Vocabulary on disk (paths, fields) is in English like the code.
+- **Catalog bootstrapped** (`~/Work/forkstify-catalog`, private GitHub):
+  `catalog.toml` (the type → proximity grid), **30 cards** written
+  (`generated = true`, the top of Joel's ranking), **tools/** — 7 Python
+  bootstrap scripts (reading the Spotify library/playlists through the
+  Omarchy-Spotify session, harvesting Spotify/Deezer friends, MBID
+  resolution, ranking), **learned/** — 741 scored artists (liked tracks,
+  albums, #fipway, road trip BDX//ATX, follows), 728 MBIDs resolved.
+- **Analysis of Omarchy-Spotify** (code read): two browser OAuth PKCE flows
+  with no dashboard (ncspot client id for the Web API, Spotify desktop
+  client id for librespot), a ~800-line Rust backend around librespot. See
+  `docs/design/spotify.md`.
+- **Cold start designed**: the card generation pipeline (MusicBrainz facts,
+  Deezer `/artist/top` tops, Deezer `/artist/related` similars — verified
+  with no key), the base's three workstreams. See
+  `docs/design/catalog.md`.
+- **Card generator prototyped** (2026-09-01, `tools/generate-cards.py`) and
+  **batch 2 generated: 58 cards** — the slugs called in by batch 1's links
+  (56 real ones, not 61) plus 2 members of Destiny's Child called in
+  cascade. Facts, dates, origin and typed relations from MusicBrainz; tops
+  and similars from Deezer; genre + country + decade tags (bands only — a
+  person's begin is their birth); scene links by cross-referencing.
+  Descriptions absent from the generated cards: review is what enriches
+  them.
+- **Widened batch 3 generated** (2026-09-02): **126 cards** — the 89 slugs
+  called in by batch 2's links, plus the ranking's artists with a score ≥ 5
+  and no card. A fix along the way: "Experience" (Joel's library) wrongly
+  resolved to The Jimi Hendrix Experience — it is **Expérience** (Michel
+  Cloup, Toulouse), the MBID fixed in `learned/mbid.json`. The catalog holds
+  **214 cards**; batch 3 in turn calls in **100 slugs** (batch 4, not
+  generated — the ranking's tail at score 1–4 is also set aside: those
+  artists will come in when a link calls them).
+- **Vectors prototyped** (2026-09-02): `tools/vectoriser.py` composes each
+  card's text from its structure (tags, dates, origin, outgoing and incoming
+  links, description if present) and computes the vectors in a container —
+  model `paraphrase-multilingual-MiniLM-L12-v2` (fastembed, 384 dimensions,
+  mean pooling, available in Python and in Rust). The derived index
+  committed: `vectors/vectors.jsonl` (214 cards) + `meta.toml`.
+  `tools/voisins.py` (stdlib) = a prototype of `forkstify check`: coherent
+  neighbors (The Cure → Joy Division/Siouxsie; IAM → French rap; Nina Simone
+  → Ella/Nat King Cole); thin cards have blurry neighbors at low scores,
+  which is exactly what `check` is meant to reveal.
+- **The sound wired onto the navigation** (2026-09-04): `forkstify ecouter
+  <seed>` — the same engine and the same menus as `parcours`, but **it
+  plays**. Modules `sound.rs` (the embedded librespot player), `spotify.rs`
+  (ncspot Web API: title → `spotify:track:` resolution, disk cache, 429
+  backoff) and `listen.rs` (the async loop: playback in the background, the
+  menu over it, segment finished → auto-advance so it never stops; `1-3`
+  jumps to a branch, `j`/`k` next/previous track (a classic player, a
+  past/current/queue timeline, events filtered by `play_request_id`),
+  `e`/`<n>e` slots in, `b<n>` the size, `u` previous branch, `q` quits).
+  **Media keys** ⏮ ⏭ ⏯ supported through **MPRIS** (D-Bus, `mediakeys.rs`
+  module, `mpris-server` crate) — like `playerctl`; the loop moved to a
+  current-thread runtime + LocalSet to host the MPRIS server.
+  Display (2026-09-04): the **queue of upcoming tracks** is shown (the
+  current one on the `▶` line), the **branches only show on the segment's
+  last track**, and `p` previews them on demand (the real "preview +
+  choosing ahead" will come with the interface).
+  Search `/text` (2026-09-04): searches the catalog **and** the Spotify API,
+  a merged `[catalogue]`/`[spotify]` list — a catalog artist starts a
+  segment, a Spotify track plays and hooks onto its artist's card if they
+  have one (otherwise outside the catalog). Choosing a branch **does not cut
+  off the current track**: it is set pending and starts at the end of the
+  track (`j`/⏭ forces it right away). **Prefetching** (2026-09-04): the
+  title → `spotify:track:` resolution of the next track (a pending branch or
+  the head of the queue) is done in advance, cached, for a transition with
+  no API wait (librespot audio prefetching stays in reserve if needed).
+  **Configuration** (2026-09-04, `src/config.rs`):
+  `~/.config/forkstify/config.toml` (created on first run), the
+  `[playback] prefer_studio` option (default true) — on resolution, we fetch
+  several results and set aside the live versions (title or album marked
+  live/unplugged/concert), unless the requested title is itself live. The
+  engine stays untouched — it produces tracks, `sound`/`spotify` play them.
+  `parcours` stays the dry mode (fast, no Premium needed, for iterating on
+  the engine). Built through the **`forkstify-build`** image (`Dockerfile`:
+  rust + pkg-config + libasound2-dev).
+- **Dry navigation prototyped** (2026-09-03) — the first Rust code in this
+  repository: `forkstify parcours <seed>` proposes 3 readable branches with
+  their reasons (the graph first — typed links both ways, cascading
+  proximity —, the vectors to fill in and for the adventurous branch), `1-3`
+  to choose, enter = a weighted auto draw, `u` to go back, `q` to quit;
+  segments = 3 tops drawn without replacement (the spirit of 0012).
+  `forkstify check <artist>` = the neighbors in the space, with graph links
+  marked. It builds in a container (`docker run --rm -v "$PWD":/app -w /app
+  -v forkstify-cargo:/usr/local/cargo/registry rust:1-slim cargo build
+  --release`) and runs on the host. Journeys confirmed coherent: IAM → Zebda
+  → Fabulous Trobadors → La Rue Kétanou → Camille; The Cure → Siouxsie →
+  Cult Hero → The Fall → Joy Division. **Code and comments in English**
+  (aiming at open source — the rule is in AGENTS.md).
+  Touch-ups from Joel's test: **a branch is a segment** — grind the current
+  artist, or a walk of n tracks across several artists (one per artist
+  crossed), size adjustable with `b<n>` — the directions are proposed from
+  **the whole branch** (graph neighbors taken together, the vectors'
+  centroid), not from the last artist alone — **nothing is deterministic**
+  (heads and jumps drawn at weighted random, 0012 applied to the branches) —
+  a **"stay in the journey's universe"** branch circles inside the cluster,
+  with revisits allowed as long as unplayed tracks remain — the adventurous
+  branch has a **floor** (cosine ≥ 0.72 + a shared genre tag, constants to
+  be driven by comfort) — and **grinding is no longer a branch but the `e` /
+  `<n>e` key** (the `:encore` command) which slots in n tracks by the
+  current artist (see `docs/design/application-shape.md`).
+- **Spotify Connect spike done** (2026-09-03, `src/bin/spike-connect.rs`,
+  run by Joel on his Premium account). **Incoming zeroconf discovery: ✓** —
+  the device shows up on the phone, the credentials arrive, the librespot
+  session opens (so the sound is validated end to end, with nothing
+  installed on the host, without Omarchy). **A session token for the Web
+  API: ✗** — keymaster answers 403, login5 returns a token the API refuses
+  with a persistent 429 (a desktop client id in restricted quota). Verdict:
+  the sound goes through embedded librespot, the Web API will go through
+  browser OAuth + ncspot's client id (the whole ecosystem's route). Detail
+  in `docs/design/spotify.md`.
+- **Web API validated** (2026-09-03, `src/bin/spike-webapi.rs`): browser
+  OAuth PKCE with ncspot's client id (`librespot-oauth`), refresh token
+  cached. `/v1/me`, `/v1/search` (title → `spotify:track:`) and
+  `/v1/me/albums` (247 albums) answer. The lesson: the 429s we hit were a
+  temporary **account/IP** throttle (a decreasing Retry-After, clearing with
+  rest), not a client id block — the real client must respect `Retry-After`
+  (the spike does).
+- **Playback validated** (2026-09-03, `src/bin/spike-play.rs`): an embedded
+  librespot player (`librespot-playback`, rodio → alsa backend), loads a
+  `spotify:track:` and **the sound comes out of the binary** — tested by
+  Joel, "it works very well". **The sound workstream's four bricks are
+  validated** (zeroconf, session, Web API, playback); forkstify is itself
+  the device, we drive no other device through the API.
+- **Silent authentication failure fixed** (2026-09-05, Joel's first long
+  `ecouter` test): after ~2 h, every track became "not found on Spotify" and
+  the journey stopped. Cause: Spotify's PKCE flow **rotates the refresh
+  tokens**, and `refresh_if_needed` only kept the access token — neither in
+  memory nor on disk — and `WebApi::new` took the refresh from the
+  *response*, which is empty when it carries none. The stored token
+  therefore went stale, and `resolve()` drowned the error in a `None`
+  indistinguishable from a missing track. Three fixes: (a) `resolve()`
+  returns a **`Resolved`** (`Track` / `Absent` / `Failed`) — a failed call is
+  no longer an absence, and `search_tracks` likewise; (b) the renewed
+  refresh is **kept and rewritten** on every rotation (`keep_refresh`), and a
+  dead refresh **asks for browser authorization again** instead of failing;
+  (c) the disk cache only remembers **real** absences — a call that did not
+  go through does not enter it (one already poisoned entry purged: The
+  Limiñanas — "Au début c'était le début"). On the navigation side, a
+  failure **stops the journey** instead of burning through the queue: the
+  track stays at the head, `j` retries. **And "enter/auto" now draws among
+  the branches shown** — `auto_advance` was recomputing three new branches
+  and therefore playing what Joel had not seen (Joel's call, 2026-09-05).
+- **Repositories** (moved on 2026-09-08): `aropixel/forkstify` and
+  `aropixel/forkstify-catalog`, the reference, private, `main` branch;
+  `kbyjoel/forkstify-catalog` is Joel's **fork**, the one the application
+  reads (`origin`), with upstream as `upstream`. The chorizo recovery plan
+  is up to date.
 
-## En attente de Joel
+## Waiting on Joel
 
-- **Pas de relecture fiche à fiche** (décision de Joel, 02/09/2026) : il a
-  regardé l'ensemble, l'affinage se fera **à l'utilisation** (keybinds,
-  décision 0013). Les points connus restent notés pour mémoire : MBID
-  incertains (28 du lot 2, 14 du lot 3 — rapports du générateur), tops
-  vides (cabadzi, le-motel, la-ruda-salska), doublons de versions chez
-  J.P. Nataf, un top russe parasite chez Expérience.
-- Identifiants Deezer/Spotify d'**amis consentants** pour élargir la base
+- **No card-by-card review** (Joel's decision, 2026-09-02): he looked at the
+  whole, and the tuning will happen **in use** (keybinds, decision 0013).
+  The known points are kept on record: uncertain MBIDs (28 in batch 2, 14 in
+  batch 3 — the generator's reports), empty tops (cabadzi, le-motel,
+  la-ruda-salska), duplicate versions for J.P. Nataf, a stray Russian top
+  for Expérience.
+- Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
+## Keyboard grammar wired (2026-09-05)
 
-## Grammaire clavier câblée (05/09/2026)
-
-**Décision [0015](decisions/0015-grammaire-clavier-namespaces.md)** :
-quatre namespaces — `f` la branche, `e` encore, `t` le morceau, `a`
-l'artiste — la cible se préfixe, un geste fréquent a une touche et un
-réglage une commande `:`. Table unique dans
+**Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
+namespaces — `f` the branch, `e` encore, `t` the track, `a` the artist — the
+target is a prefix, a frequent gesture gets a key and a setting gets a `:`
+command. The single table is in
 [`docs/keybindings.md`](keybindings.md).
 
-Câblé le jour même (`src/keys.rs`, `src/listen.rs`) :
+Wired the same day (`src/keys.rs`, `src/listen.rs`):
 
-- **Saisie en mode brut, sans Entrée** (retour n° 1) : termios via `libc`,
-  garde RAII qui rend le terminal même sur panique, flèches ← → reconnues,
-  `/` et `:` ouvrent une ligne éditable.
-- **Grammaire sans préfixe** : aucune commande complète n'est le début
-  d'une plus longue, donc tout se déclenche sans délai. C'est ce qui a
-  déplacé le modificateur **avant** le compte (`fn3`, `f!3`, `en2`, `e!2`).
-  Un test exhaustif sur toutes les séquences de trois touches le vérifie.
-- **Les trois variantes** (retours n° 2 et 3) pour les branches et pour
-  encore : fin de branche, `n` maintenant, `!` maintenant en retirant ce
-  qui suivait. **Corrige au passage** le défaut signalé : choisir une
-  branche ne jette plus le reste du segment — c'était la variante `!` qui
-  servait de défaut.
-- **`fp` peek, `fr` reroll** (retour n° 5), **`fu`** (branche précédente),
-  **espace** (la pause au clavier qui manquait), **`h`/`l`** et les flèches.
+- **Raw-mode input, no Enter** (feedback no. 1): termios through `libc`, an
+  RAII guard that gives the terminal back even on a panic, ← → arrows
+  recognized, `/` and `:` opening an editable line.
+- **A prefix-free grammar**: no complete command is the beginning of a
+  longer one, so everything fires with no delay. That is what moved the
+  modifier **before** the count (`fn3`, `f!3`, `en2`, `e!2`). An exhaustive
+  test over every three-key sequence verifies it.
+- **The three variants** (feedback nos. 2 and 3) for the branches and for
+  encore: end of the branch, `n` now, `!` now with what followed dropped.
+  **It fixes along the way** the reported bug: choosing a branch no longer
+  throws away the rest of the segment — the `!` variant was serving as the
+  default.
+- **`fp` peek, `fr` reroll** (feedback no. 5), **`fu`** (previous branch),
+  **space** (the keyboard pause that was missing), **`h`/`l`** and the
+  arrows.
 
-Pas encore câblé, et le disant à l'écran : `t` et `a` (l'affinage, bloqué
-par `learned/` — étape 2 ci-dessous), `fw`, `u`, `.`, `?`, `Q`, `:`.
+Not yet wired, and saying so on screen: `t` and `a` (the tuning, blocked by
+`learned/` — step 2 below), `fw`, `u`, `.`, `?`, `Q`, `:`.
 
-## La longue traîne, quatrième source (05/09/2026)
+## The long tail, the fourth source (2026-09-05)
 
-`src/discography.rs` + `WebApi::discography()`. Le réservoir de 0012 §1 est
-complet : tops, aimés, doors, **et le reste de la discographie**.
+`src/discography.rs` + `WebApi::discography()`. 0012 §1's pool is complete:
+tops, liked, doors, **and the rest of the discography**.
 
-Source **Spotify**, par le champ `spotify` des fiches — présent depuis
-toujours, jamais lu jusqu'ici. Il évite le `search` par artiste qu'imposerait
-Deezer (aucune fiche ne porte d'identifiant Deezer) et rend des
-`spotify:track:` directement, donc un morceau de traîne ne peut jamais
-devenir un « introuvable sur Spotify ».
+The source is **Spotify**, through the cards' `spotify` field — present from
+the start, never read until now. It avoids the per-artist `search` Deezer
+would require (no card carries a Deezer identifier) and returns
+`spotify:track:` directly, so a tail track can never become a "not found on
+Spotify".
 
-Cache dans `~/.cache/forkstify/discography/<slug>.json` — hors du dépôt,
-comme 0012 et `catalogue.md` le demandent : régénérable, jamais commité, non
-synchronisé. Récolté **au moment du besoin** (quand `e<n>` demande plus que
-la fiche n'a) ou par `:warm`. Pas de péremption.
+Cached in `~/.cache/forkstify/discography/<slug>.json` — outside the
+repository, as 0012 and `catalog.md` require: regenerable, never committed,
+not synced. Harvested **at the moment of need** (when `e<n>` asks for more
+than the card has) or by `:warm`. No expiry.
 
-**Le curseur de confort a enfin son troisième levier** : la part de la
-traîne *est* l'ouverture du confort (0012 §4) — zéro au cocon, pleine à
-l'exploration.
+**The comfort dial finally has its third lever**: the tail's share *is* the
+comfort's openness (0012 §4) — zero at the cocoon, full at exploration.
 
-Déduplication par titre normalisé : Spotify livre la même chanson sous dix
-habillages, et un titre déjà top n'entre pas dans la traîne. Marque `·`.
+Deduplication by normalized title: Spotify delivers the same song in ten
+guises, and a title already in the tops does not enter the tail. The `·`
+mark.
 
-**Non vérifié en réseau** : la récolte demande une session Spotify, donc
-`:warm` n'a jamais tourné en vrai. Le reste est couvert par 14 tests.
+**Not verified over the network**: the harvest needs a Spotify session, so
+`:warm` has never run for real. The rest is covered by 14 tests.
 
-## La zone de confort branchée (05/09/2026)
+## The comfort zone wired up (2026-09-05)
 
-`engine::Comfort` implémente [0001](decisions/0001-confort-familiarite.md) :
-0 = cocon, 5 = exploration, lu dans `[journey] comfort` du fichier de
-config et réglable en écoute par `:comfort <n>` (avec un mot à côté du
-chiffre : cocon, prudent, équilibré, curieux, aventureux, exploration).
+`engine::Comfort` implements
+[0001](decisions/0001-comfort-is-familiarity.md): 0 = cocoon, 5 =
+exploration, read from `[journey] comfort` in the config file and adjustable
+while listening with `:comfort <n>` (with a word beside the digit: cocoon,
+cautious, balanced, curious, adventurous, exploration).
 
-Deux leviers, ceux qu'`avancement.md` désignait déjà comme « constantes à
-piloter par le confort » : le **plancher de la branche aventureuse**
-(cosinus ≥ 0.80 au cocon, ≥ 0.60 ouvert — **le confort 2 reproduit
-exactement l'ancien 0.72 / 0.80**) et la **familiarité qui penche le tirage
-des têtes**, bornée à [0.25, 2.0] : on décourage, on n'interdit pas.
+Two levers, the ones `avancement.md` already called "constants to be driven
+by comfort": the **adventurous branch's floor** (cosine ≥ 0.80 at the
+cocoon, ≥ 0.60 wide open — **comfort 2 reproduces exactly the old 0.72 /
+0.80**) and the **familiarity that tilts the draw of the heads**, bounded to
+[0.25, 2.0]: we discourage, we do not forbid.
 
-**Un piège de polarité consigné** dans
-[`zone-de-confort.md`](conception/zone-de-confort.md) et figé par un test :
-le « confort haut » de 0012 §4 désigne le *sentiment* de confort, donc la
-valeur **0**, pas 5. Lu à la lettre, tout le curseur s'inverse.
+**A polarity trap recorded** in
+[`comfort-zone.md`](design/comfort-zone.md) and pinned down by a test:
+0012 §4's "high comfort" means the *feeling* of comfort, so the value **0**,
+not 5. Read literally, the whole dial inverts.
 
-Question ouverte de 0001 **tranchée de fait** : ce que l'application sait
-de ce qu'on connaît, c'est `learned/` — nos écoutes décrues, saturantes,
-et à défaut `classement.json` ramené sur la même échelle par son maximum.
+0001's open question **settled de facto**: what the application knows of
+what you know is `learned/` — our decayed, saturating plays, and failing
+that `classement.json` brought onto the same scale by its maximum.
 
-**Il manque au curseur son troisième levier** : la profondeur du tirage
-dans le réservoir (0012 §4), qui n'aura rien à régler tant que la longue
-traîne n'existe pas — voir [`longue-traine.md`](conception/longue-traine.md).
+**The dial is missing its third lever**: the depth of the draw within the
+pool (0012 §4), which will have nothing to set as long as the long tail does
+not exist — see [`long-tail.md`](design/long-tail.md).
 
-## Le réservoir ouvert, les doors réveillées (05/09/2026)
+## The pool opened up, the doors woken (2026-09-05)
 
-Question de Joel — « est-ce qu'on a prévu que des morceaux soient joués
-sans être top ? » — qui a mis au jour un écart : **[0012](decisions/0012-rotation-des-morceaux.md) §1
-prévoyait quatre sources, le moteur n'en tirait qu'une**. Pire, le champ
-`doors` était écrit dans **13 fiches** depuis le 02/09 et le mot n'apparaissait
-nulle part dans `src/` : [0011](decisions/0011-doors-critere-additionnel.md)
-dormait.
+A question from Joel — "did we plan for tracks to be played without being
+tops?" — which brought a gap to light: **[0012](decisions/0012-track-rotation.md)
+§1 called for four sources, the engine drew from only one**. Worse, the
+`doors` field had been written in **13 cards** since 09-02 and the word
+appeared nowhere in `src/`:
+[0011](decisions/0011-doors-an-additional-criterion.md) was asleep.
 
-`engine::reservoir()` cumule désormais trois des quatre sources, chacune
-avec son poids : les **tops** (1.0), les **titres aimés** de `learned/`
-(0.8), les **doors** (0.4, ×2.5 quand la direction de la branche recoupe
-leurs tags — le bonus de 0011). Un morceau souvent passé recule
-(`poids ÷ (1 + skipped)`), un banni sort. Le tirage est pondéré, sans
-remise dans un parcours.
+`engine::reservoir()` now adds up three of the four sources, each with its
+weight: the **tops** (1.0), the **liked tracks** from `learned/` (0.8), the
+**doors** (0.4, ×2.5 when the branch's direction overlaps their tags —
+0011's bonus). A frequently skipped track steps back
+(`weight ÷ (1 + skipped)`), a banned one leaves. The draw is weighted,
+without replacement within a journey.
 
-**Chaque morceau affiché porte sa provenance** : `♪` top · `♥` aimé ·
-`↳` door · `+` hors tops · `~` hors catalogue. Vérifié à sec — depuis
-Joy Division ou The Fall, `↳ A Forest — The Cure` apparaît.
+**Every track shown carries its provenance**: `♪` top · `♥` liked · `↳` door
+· `+` outside the tops · `~` outside the catalog. Verified dry — from Joy
+Division or The Fall, `↳ A Forest — The Cure` shows up.
 
-**La quatrième source manque** : la longue traîne de la discographie
-(cache API Deezer/Spotify), qui demande une couche de cache inexistante.
-Le cooldown daté de 0012 §2 n'est pas appliqué non plus, ni la zone de
-confort de 0001 qui doit régler la profondeur du tirage.
+**The fourth source is missing**: the discography's long tail (a Deezer/
+Spotify API cache), which needs a cache layer that does not exist. 0012 §2's
+dated cooldown is not applied either, nor 0001's comfort zone which is to
+set the depth of the draw.
 
-## La boucle d'apprentissage ouverte (05/09/2026)
+## The learning loop opened (2026-09-05)
 
-`src/learned.rs` implémente [0014](decisions/0014-forme-de-l-appris.md) :
-`learned/artists/<slug>.toml` dans le catalogue, un fichier par artiste,
-**compteurs à décroissance intégrée** (`plays = plays × ½^((now−last)/6 mois) + 1`),
-`learned/marks/inbox.toml` pour les récoltes. Écrit à chaque geste,
-silencieux, jamais reversé. `classement.json` (741 artistes) sert de
-familiarité de départ.
+`src/learned.rs` implements
+[0014](decisions/0014-shape-of-the-learned.md):
+`learned/artists/<slug>.toml` in the catalog, one file per artist,
+**counters with decay built in**
+(`plays = plays × ½^((now−last)/6 months) + 1`), `learned/marks/inbox.toml`
+for the marks. Written on every gesture, silent, never contributed back.
+`classement.json` (741 artists) serves as the starting familiarity.
 
-**Sept mesures câblées** : `tl` aimer, `ts` passer (note et avance), `tb`
-bannir le morceau, `tm` récolter, `al`/`as` le poids de l'artiste, `ab`
-bannir l'artiste. Plus le **comptage automatique** d'une écoute complète —
-seul `EndOfTrack` compte, un saut n'est pas une écoute.
+**Seven measurements wired**: `tl` like, `ts` skip (notes and moves on),
+`tb` ban the track, `tm` mark, `al`/`as` the artist's weight, `ab` ban the
+artist. Plus the **automatic counting** of a full play — only `EndOfTrack`
+counts, a skip is not a play.
 
-**Trois lectures par le moteur** : exclusion des bannis (artistes et
-morceaux), poids de l'artiste appliqué aux branches qui partent de lui, et
-`?` qui affiche familiarité et poids. Les bans passent par les canaux
-d'exclusion que le moteur a déjà (`visited` par slug, `played` par titre),
-donc sans toucher à sa signature.
+**Three reads by the engine**: excluding the banned (artists and tracks),
+the artist's weight applied to the branches that start from them, and `?`
+which shows familiarity and weight. The bans go through the exclusion
+channels the engine already has (`visited` by slug, `played` by title), so
+without touching its signature.
 
-**Ce qui manque encore côté lecture** : la familiarité ne nourrit pas
-encore la zone de confort ([0001](decisions/0001-confort-familiarite.md)),
-et le cooldown de [0012](decisions/0012-rotation-des-morceaux.md) n'est pas
-appliqué. Côté écriture, les **éditions** (`tt`, `tT`, `td`, `ae`, `aL`)
-touchent les fiches et demandent la couche qui écrit et commite le
-catalogue.
+**What is still missing on the read side**: familiarity does not yet feed
+the comfort zone ([0001](decisions/0001-comfort-is-familiarity.md)), and
+[0012](decisions/0012-track-rotation.md)'s cooldown is not applied. On the
+write side, the **edits** (`tt`, `tT`, `td`, `ae`, `aL`) touch the cards and
+need the layer that writes and commits the catalog.
 
-## Les ajouts fusionnent seuls (20/09/2026)
+## Additions merge by themselves (2026-09-20)
 
-Joel : « faisons en sorte que les PR avec seulement des ajouts de cards
-soient automatiquement validées ». L'auto-fusion, gardée en réserve le
-20/09 au matin, est tranchée le soir. Sur la référence,
-`.github/workflows/automerge.yml` :
+Joel: "let's make it so that PRs with only card additions are validated
+automatically". Auto-merge, kept in reserve on the morning of 09-20, was
+settled that evening. On the reference,
+`.github/workflows/automerge.yml`:
 
-- déclenché par **`workflow_run`** quand `catalog` s'achève sur une PR —
-  dans le contexte de la référence, avec le droit de fusionner, là où le
-  jeton d'une PR venue d'un fork est en lecture seule ;
-- retrouve la PR par le sha de tête (`commits/<sha>/pulls`, car
-  `workflow_run.pull_requests` est vide pour un fork), lit ses fichiers :
-  **tous `added` dans `cards/`**, sinon « a reader decides » et rien ne
-  bouge ;
-- fusionne (`gh pr merge --merge`), le dit en commentaire, puis
-  **régénère l'index sur `main`** lui-même — un push fait avec le jeton du
-  workflow ne déclenche aucun autre workflow, le job `index` de `catalog`
-  ne le verrait pas (il reste pour les fusions à la main).
+- triggered by **`workflow_run`** when `catalog` completes on a PR — in the
+  reference's context, with the right to merge, where the token of a PR
+  coming from a fork is read-only;
+- finds the PR by its head sha (`commits/<sha>/pulls`, since
+  `workflow_run.pull_requests` is empty for a fork), reads its files: **all
+  `added` in `cards/`**, otherwise "a reader decides" and nothing moves;
+- merges (`gh pr merge --merge`), says so in a comment, then **regenerates
+  the index on `main`** itself — a push made with the workflow's token
+  triggers no other workflow, so `catalog`'s `index` job would not see it
+  (it stays for merges done by hand).
 
-`CONTRIBUTING.md` dit la règle ; la confirmation de `Cp` aussi. La PR
-n° 1 de Joel retouche trois fiches : elle attend sa lecture.
+`CONTRIBUTING.md` states the rule; so does `Cp`'s confirmation. Joel's PR
+no. 1 touches up three cards: it waits for his reading.
 
-## `aL` retire aussi, et `ae` ouvre enfin la fiche (20/09/2026)
+## `aL` also removes, and `ae` finally opens the card (2026-09-20)
 
-Joel, en relisant sa PR : King Hannah « a été liée par erreur à Beirut.
-Si je veux enlever le link depuis forkstify, comment je peux faire ? » —
-rien ne le faisait. Deux gestes câblés le jour même :
+Joel, reading his PR back: King Hannah "was linked to Beirut by mistake. If
+I want to remove the link from forkstify, how do I do it?" — nothing did.
+Two gestures wired the same day:
 
-- **`aL` dans les deux sens.** La modale liste d'abord les liens que la
-  fiche a déjà (✓, type, nom, note de provenance), filtrés par la
-  frappe ; **entrée sur l'un le retire** — `edit::remove_link`, la ligne
-  seule s'en va, commit « King Hannah — unlink: → Beirut (similar) » ;
-  en dessous, la recherche pour en ajouter un, comme avant. Un seul geste
-  pour les liens, à l'image de `tl` qui aime et retire l'aimé. Et **le
-  moteur suit sur-le-champ** : la fiche en mémoire perd ou gagne le
-  lien, les branches se recalculent — plus besoin de relancer.
-- **`ae` — la fiche dans `$EDITOR`, sur place.** Ce que le lecteur de
-  touches empêchait depuis le 05/09 : il **se gare** (`keys::suspend_reader`,
-  le lecteur attend `poll` avant de lire, aucune frappe volée), le
-  terminal quitte le mode brut (`keys::raw_pause`) et l'écran alternatif
-  (`Tui::suspend`), `$VISUAL` ou `$EDITOR` s'ouvre sur la fiche, puis
-  tout revient (`raw_resume`, `Tui::resume`, redessin complet). La fiche
-  est relue : changée et lisible, elle remplace celle de la session et
-  est **commitée** (« … — edited by hand », trailer `edit`) ; illisible,
-  le toast le dit, rien n'est commité, `ae` à nouveau. Sans éditeur
-  nommé, `xdg-open`. La boucle attend l'éditeur : le son continue dans
-  son thread, une fin de morceau attend la fermeture.
-- 93 tests verts (`a_link_is_removed_and_the_others_stay`).
-- **Premier essai de Joel** : « le `ae` marche bien mais l'écran ne se
-  redessine pas après le `:wq` ». Vérifié avec un spike
-  (`src/bin/spike-editor.rs`, dans un pty avec `stty rows 24 cols 80` —
-  sans taille, ratatui ne dessine rien, ce qui rend les tests de fumée
-  précédents muets sur l'affichage) : la séquence rendre / reprendre /
-  effacer / redessiner **est bien émise** après la sortie de nvim. Deux
-  choses corrigées à côté : nvim demande au terminal qui il est en
-  sortant (`ESC [ c`) et la réponse arrivait sur `stdin` **après** lui,
-  lue comme des touches — « 62;1;4c » aurait pris les branches 6, 2, 1,
-  4 — d'où `keys::drain_input` avant de rendre le clavier ; et l'écran
-  est repeint **sur place** à la reprise (`paint()` dans `edit_card`,
-  reprise avec styles remis à zéro et `2J`), sans attendre le geste
-  suivant. À re-éprouver ; si l'écran reste vide, regarder si une
-  touche le ramène (le repaint) ou non (le terminal).
+- **`aL` both ways.** The modal first lists the links the card already has
+  (✓, type, name, provenance note), filtered as you type; **enter on one
+  removes it** — `edit::remove_link`, the line alone goes away, commit "King
+  Hannah — unlink: → Beirut (similar)"; below it, the search to add one, as
+  before. One gesture for links, after the model of `tl` which likes and
+  unlikes. And **the engine follows immediately**: the card in memory loses
+  or gains the link, and the branches recompute — no need to relaunch.
+- **`ae` — the card in `$EDITOR`, in place.** What the key reader had
+  prevented since 09-05: it **parks itself** (`keys::suspend_reader`, the
+  reader waits for `poll` before reading, no keystroke stolen), the terminal
+  leaves raw mode (`keys::raw_pause`) and the alternate screen
+  (`Tui::suspend`), `$VISUAL` or `$EDITOR` opens on the card, then
+  everything comes back (`raw_resume`, `Tui::resume`, a full redraw). The
+  card is read again: changed and readable, it replaces the session's and is
+  **committed** ("… — edited by hand", trailer `edit`); unreadable, the
+  toast says so, nothing is committed, `ae` again. With no editor named,
+  `xdg-open`. The loop waits for the editor: the sound carries on in its
+  thread, and the end of a track waits for it to close.
+- 93 tests green (`a_link_is_removed_and_the_others_stay`).
+- **Joel's first try**: "`ae` works well but the screen does not redraw
+  after the `:wq`". Checked with a spike (`src/bin/spike-editor.rs`, in a
+  pty with `stty rows 24 cols 80` — with no size, ratatui draws nothing,
+  which is what made the previous smoke tests silent about the display): the
+  give back / resume / clear / redraw sequence **is indeed emitted** after
+  nvim exits. Two things fixed alongside: nvim asks the terminal who it is
+  on the way out (`ESC [ c`) and the answer arrived on `stdin` **after** it,
+  read as keystrokes — "62;1;4c" would have taken branches 6, 2, 1, 4 —
+  hence `keys::drain_input` before handing the keyboard back; and the screen
+  is repainted **in place** on resume (`paint()` in `edit_card`, resuming
+  with styles reset and `2J`), without waiting for the next gesture. To be
+  tried again; if the screen stays empty, look at whether a key brings it
+  back (the repaint) or not (the terminal).
 
-Pour la PR n° 1 : `aL` sur King Hannah, entrée sur Beirut, puis `Cp` —
-la branche `proposal` se réécrit et la PR se met à jour. **Fait par Joel
-le soir même**, avec un accroc : `Cp` a redemandé `y` et `gh pr create` a
-refusé, « a pull request already exists ». La détection de la PR ouverte
-passait par `gh pr list --head kbyjoel:proposal`, qui ne répond rien —
-`--head` veut le nom nu de la branche ; corrigé (`--head proposal`, le
-propriétaire filtré sur la réponse), et la PR ouverte reçoit désormais
-**le titre et le corps réécrits** (`gh pr edit`) en plus de la branche.
+For PR no. 1: `aL` on King Hannah, enter on Beirut, then `Cp` — the
+`proposal` branch rewrites itself and the PR updates. **Done by Joel that
+same evening**, with one hitch: `Cp` asked for `y` again and `gh pr create`
+refused, "a pull request already exists". Detecting the open PR went through
+`gh pr list --head kbyjoel:proposal`, which returns nothing — `--head` wants
+the bare branch name; fixed (`--head proposal`, the owner filtered on the
+answer), and the open PR now receives **the rewritten title and body**
+(`gh pr edit`) on top of the branch.
 
-## Le fork détaché : `y` refusé par GitHub, le fork refait (20/09/2026)
+## The detached fork: `y` refused by GitHub, the fork remade (2026-09-20)
 
-Joel, au `y` du `Cp` : « pull request create failed: GraphQL: Head sha
-can't be blank, Base sha can't be blank, Head repository can't be blank,
-No commits between aropixel:main and kbyjoel:proposal… ». Diagnostic par
-l'API : `kbyjoel/forkstify-catalog` n'était **plus un fork** pour GitHub
-(`fork: false`, pas de parent), et les deux dépôts du catalogue étaient
-passés en public. **Quand un dépôt privé passe en public, ses forks
-privés sont détachés** et deviennent des dépôts indépendants ; or une PR
-ne s'ouvre qu'entre dépôts d'un même réseau de forks.
+Joel, on `Cp`'s `y`: "pull request create failed: GraphQL: Head sha can't be
+blank, Base sha can't be blank, Head repository can't be blank, No commits
+between aropixel:main and kbyjoel:proposal…". Diagnosed through the API:
+`kbyjoel/forkstify-catalog` was **no longer a fork** as far as GitHub was
+concerned (`fork: false`, no parent), and both catalog repositories had gone
+public. **When a private repository goes public, its private forks are
+detached** and become independent repositories; and a PR only opens between
+repositories in the same fork network.
 
-Réparé sans toucher au clone local ni à l'autre poste : le dépôt détaché
-renommé `kbyjoel/forkstify-catalog-detached`, la référence forkée à
-nouveau sous le nom libéré (`gh repo fork`), `main` et `proposal` poussés
-dessus (même histoire, même URL d'`origin`). `compare/main...kbyjoel:proposal`
-répond « ahead 1 ». **Le dépôt détaché peut être supprimé par Joel**, il
-ne contient rien que le nouveau fork n'ait.
+Repaired without touching the local clone or the other machine: the detached
+repository renamed `kbyjoel/forkstify-catalog-detached`, the reference
+forked again under the freed name (`gh repo fork`), `main` and `proposal`
+pushed to it (same history, same `origin` URL).
+`compare/main...kbyjoel:proposal` answers "ahead 1". **The detached
+repository can be deleted by Joel**, it holds nothing the new fork does not.
 
-Et `Cp` le dit désormais en une phrase au lieu de la liste de GraphQL :
-avant de proposer, il demande à GitHub le parent d'`origin` et, s'il
-n'est pas `upstream`, explique le détachement et la sortie.
+And `Cp` now says it in one sentence instead of GraphQL's list: before
+proposing, it asks GitHub for `origin`'s parent and, if it is not
+`upstream`, explains the detachment and exits.
 
-## Le premier `Cp` en vrai : `gh` introuvable hors de mise, et les couleurs (20/09/2026)
+## The first real `Cp`: `gh` not found out of raw mode, and the colors (2026-09-20)
 
-Joel a lancé son premier `Cp` : la branche `proposal` est partie
-(« Propose 49 cards (46 generated, 3 edited) »), mais « il manque la
-demande de confirmation », et « les couleurs comme sur la maquette ».
-
-- **`gh` n'était pas trouvé.** Il n'existe sur ce poste que par les shims
-  de mise ; lancé depuis la barre d'Omarchy, forkstify n'a pas le `PATH`
-  d'un shell mise, `gh auth status` échoue, et `Cp` prend la voie du
-  navigateur — sans confirmation, c'est le clic qui en tient lieu.
-  `fork::gh_command` cherche désormais `gh` sur le `PATH`, puis dans
-  `~/.local/share/mise/shims`, `~/.local/bin`, `/usr/local/bin`,
-  `/usr/bin` ; le setup s'en sert aussi. Et le toast du chemin navigateur
-  dit désormais pourquoi (« gh not found or not logged in »).
-- **La confirmation, comme l'écran 4** : les étapes faites en tête
-  (fetch, worktree, commit, push), `from` → `to`, le titre, **tout le
-  corps** (l'overlay déroule), la commande `gh pr create`, la question
-  avec le compte `gh`, et ce que l'action vérifiera.
-- **Les couleurs** (`tui::info_line`) : un titre `##` en clair, une fiche
-  nouvelle `+` en vert, une retouchée `~` en jaune, un slug de la PR en
-  bleu, une clé (`from`, `title`, `origin`…) en bleu et sa valeur en
-  clair, le trailer estompé, une ligne à glyphe (`✓ ⏹ ⊘ ↻ → ⇅`) à la
-  couleur du toast, les touches d'une ligne d'aide (`Cd`, `Cp`, `Cu`,
-  `o`) en magenta. Valables pour `Cd`, `:catalog`, `Cu` aussi. Test
+Joel ran his first `Cp`: the `proposal` branch went out ("Propose 49 cards
+(46 generated, 3 edited)"), but "the confirmation prompt is missing", and
+"the colors like on the mockup".
+- **`gh` was not found.** It only exists on this machine through mise's
+  shims; launched from Omarchy's bar, forkstify does not have a mise
+  shell's `PATH`, `gh auth status` fails, and `Cp` takes the browser route —
+  with no confirmation, since the click stands in for it.
+  `fork::gh_command` now looks for `gh` on the `PATH`, then in
+  `~/.local/share/mise/shims`, `~/.local/bin`, `/usr/local/bin`, `/usr/bin`;
+  the setup uses it too. And the browser route's toast now says why ("gh not
+  found or not logged in").
+- **The confirmation, like screen 4**: the steps done at the head (fetch,
+  worktree, commit, push), `from` → `to`, the title, **the whole body** (the
+  overlay scrolls), the `gh pr create` command, the question with the `gh`
+  account, and what the action will check.
+- **The colors** (`tui::info_line`): a `##` title in bright, a new card `+`
+  in green, a touched-up one `~` in yellow, a PR slug in blue, a key
+  (`from`, `title`, `origin`…) in blue and its value in bright, the trailer
+  dimmed, a glyph line (`✓ ⏹ ⊘ ↻ → ⇅`) in the toast's color, the keys of a
+  hint line (`Cd`, `Cp`, `Cu`, `o`) in magenta. They apply to `Cd`,
+  `:catalog` and `Cu` too. Test
   `a_catalog_line_is_coloured_by_its_shape`.
 
-Second essai de Joel, binaire à jour, `gh` trouvé : « il manque encore
-la confirmation avec le y ». Elle était là — **sous le pli** : le corps
-entier de la PR (49 fiches) la poussait au bas d'un overlay qui déroule,
-et l'écran n'en montrait que le haut. Désormais la **question est en
-tête**, juste sous `from`/`title`, et le corps est **abrégé comme sur
-l'écran 4** — deux fiches nouvelles puis « … 44 more, one line each »,
-les retouchées entières (`abridged_body`, test). `Cd` a tout le détail.
-La branche `proposal` poussée est toujours là : le prochain `Cp` la
-réécrit et demande `y`.
+Joel's second try, binary up to date, `gh` found: "the confirmation with the
+y is still missing". It was there — **below the fold**: the PR's whole body
+(49 cards) pushed it to the bottom of an overlay that scrolls, and the
+screen only showed the top. Now the **question is at the head**, right under
+`from`/`title`, and the body is **abridged as on screen 4** — two new cards
+then "… 44 more, one line each", the touched-up ones in full
+(`abridged_body`, test). `Cd` has all the detail. The pushed `proposal`
+branch is still there: the next `Cp` rewrites it and asks for `y`.
 
-## Les overlays déroulent (20/09/2026)
+## Overlays scroll (2026-09-20)
 
-Premier retour sur `Cd`, Joel : « si mon `Cd` est grand, je ne peux pas
-scroller pour voir tout ce que le diff contient ». L'overlay coupait à
-douze fiches nouvelles et le bloc à la hauteur de l'écran. Désormais
-**tout overlay déroule** — `Cd`, `:catalog`, `ta`, la PR de `Cp`, les
-conflits de `Cu` : `j`/`k` ou ↑↓ d'une ligne, `gg`/`G` aux deux bouts,
-le titre dit ce qu'il y a au-dessus et en dessous (« ↑ 10 · ↓ 12 · j/k »),
-et la sélection de l'axe ne bouge pas tant qu'un overlay est ouvert
-(`overlay_scroll` dans `listen.rs`, `render_block` avec `scroll`). `Cd`
-affiche tout le diff. Un test de rendu (`a_long_overlay_scrolls_and_says_so`).
+The first piece of feedback on `Cd`, Joel: "if my `Cd` is large, I cannot
+scroll to see everything the diff holds". The overlay cut off at twelve new
+cards and the block at the screen's height. Now **every overlay scrolls** —
+`Cd`, `:catalog`, `ta`, `Cp`'s PR, `Cu`'s conflicts: `j`/`k` or ↑↓ by one
+line, `gg`/`G` to the two ends, the title says what lies above and below
+("↑ 10 · ↓ 12 · j/k"), and the axis's selection does not move while an
+overlay is open (`overlay_scroll` in `listen.rs`, `render_block` with
+`scroll`). `Cd` shows the whole diff. One rendering test
+(`a_long_overlay_scrolls_and_says_so`).
 
-## README, LICENSE, et un historique sans note personnelle (20/09/2026)
+## README, LICENSE, and a history with no personal note (2026-09-20)
 
-Joel veut passer l'application en public. Vérifié avant : aucun jeton,
-aucun mot de passe, aucune adresse dans les 188 commits ; l'historique
-est gardé tel quel — les décisions datées et les commits qui y renvoient
-sont la mémoire du projet, un squash dirait le contraire de ce que le
-dépôt est. Fait :
+Joel wants to make the application public. Checked beforehand: no token, no
+password, no address in the 188 commits; the history is kept as it is — the
+dated decisions and the commits that point at them are the project's memory,
+and a squash would say the opposite of what the repository is. Done:
 
-- **`README.md`** en anglais (0022) : ce que c'est, ce qu'il faut
-  (Linux, Premium, git, docker), l'installation (plugin Omarchy ou
-  `bin/build`), le premier lancement (les sept étapes), la fiche, la
-  configuration, où sont les docs. **`LICENSE`** : MIT, comme le
-  manifeste l'annonçait.
-- **Une note de travail personnelle retirée de l'historique** (Joel,
-  20/09/2026), par `git filter-branch`, et `main` poussé de force. Elle
-  vit désormais hors de tout dépôt, dans `~/Work/forkstify-private/`.
-  **L'autre poste doit refaire son clone**, ou `git fetch && git reset
-  --hard origin/main` — son historique local ne correspond plus.
-- Non fait, jugé non nécessaire : les vieux scripts `amis-*.py` restent
-  dans l'historique des deux dépôts du catalogue (Joel : « pas grave »),
-  comme les huit fichiers d'appris de la référence ; à reconsidérer
-  ensemble le jour où la référence passe en public.
+- **`README.md`** in English (0022): what it is, what it needs (Linux,
+  Premium, git, docker), installation (Omarchy plugin or `bin/build`), the
+  first run (the seven steps), the card, the configuration, where the docs
+  are. **`LICENSE`**: MIT, as the manifest announced.
+- **A personal working note removed from the history** (Joel, 2026-09-20),
+  through `git filter-branch`, and `main` force-pushed. It now lives outside
+  any repository, in `~/Work/forkstify-private/`. **The other machine has to
+  re-clone**, or `git fetch && git reset --hard origin/main` — its local
+  history no longer matches.
+- Not done, judged unnecessary: the old `amis-*.py` scripts stay in the
+  history of both catalog repositories (Joel: "no big deal"), as do the
+  reference's eight learned files; to be reconsidered together the day the
+  reference goes public.
 
-## L'action de la référence et son CONTRIBUTING (20/09/2026)
+## The reference's action and its CONTRIBUTING (2026-09-20)
 
-Joel : « mets en place l'action GitHub et le CONTRIBUTING.md sur la
-référence ». Les trois pièces de « La relecture côté référence » sont là :
+Joel: "set up the GitHub action and the CONTRIBUTING.md on the reference".
+The three pieces of "Review on the reference side" are there:
 
-- **`forkstify validate [catalog]`** (`src/validate.rs`) — chaque fiche
-  lue en TOML brut et en `Card` : `format = 1`, un `name`, un `mbid`
-  **unique dans tout le catalogue** (une même personne sous deux fichiers
-  est refusée), un nom de fichier en slug, des `links` dont la cible est
-  un slug (une cible sans fiche est une proposition, 0016) et le type dans
-  la liste fermée de 0010 ou déclaré dans `catalog.toml`. Un nom qui ne
-  correspond plus à son fichier (`Ye` à `kanye-west`) est un
-  avertissement, pas une erreur. Sortie 1 sur une erreur. Les deux
-  catalogues passent : 0 erreur, 18 avertissements de noms.
-- **`.github/workflows/catalog.yml`** sur `aropixel/forkstify-catalog` :
-  `check` sur chaque PR — seules les fiches peuvent changer, puis
-  `forkstify validate .` ; `index` sur chaque push de `main` qui touche
-  les fiches — `forkstify vectors .` et l'index commité par le bot.
-  Une action composite `.github/actions/forkstify` construit le binaire
-  depuis `aropixel/forkstify` (cache cargo, alsa) ; le modèle
-  d'embedding est mis en cache entre les runs.
-- **`CONTRIBUTING.md`** (anglais, 0022) : comment une proposition se fait
-  (`Cp`), ce que l'action vérifie, comment elle est lue — générées : un
-  coup d'œil ; retouches : les faits se prennent, un `similar` avec sa
-  note, un top s'il corrige une erreur. Le README pointe dessus.
+- **`forkstify validate [catalog]`** (`src/validate.rs`) — every card read
+  as raw TOML and as a `Card`: `format = 1`, a `name`, an `mbid` **unique
+  across the whole catalog** (the same person under two files is refused), a
+  file name in slug form, `links` whose target is a slug (a target with no
+  card is a proposal, 0016) and whose type is in 0010's closed list or
+  declared in `catalog.toml`. A name that no longer matches its file (`Ye`
+  against `kanye-west`) is a warning, not an error. Exit 1 on an error. Both
+  catalogs pass: 0 errors, 18 name warnings.
+- **`.github/workflows/catalog.yml`** on `aropixel/forkstify-catalog`:
+  `check` on every PR — only cards may change, then `forkstify validate .`;
+  `index` on every push to `main` that touches the cards — `forkstify
+  vectors .` and the index committed by the bot. A composite action
+  `.github/actions/forkstify` builds the binary from `aropixel/forkstify`
+  (cargo cache, alsa); the embedding model is cached between runs.
+- **`CONTRIBUTING.md`** (English, 0022): how a proposal is made (`Cp`), what
+  the action checks, how it is read — generated ones: a glance; touch-ups:
+  the facts are taken, a `similar` with its note, a top if it fixes an
+  error. The README points at it.
 
-~~**À faire par Joel** : le secret `FORKSTIFY_TOKEN`~~ — sans objet :
-**`aropixel/forkstify` est public depuis le 20/09/2026** (Joel), le jeton
-du workflow suffit à l'action pour cloner l'application. Le README
-installe par `https://` désormais.
+~~**For Joel to do**: the `FORKSTIFY_TOKEN` secret~~ — moot:
+**`aropixel/forkstify` has been public since 2026-09-20** (Joel), and the
+workflow's token is enough for the action to clone the application. The
+README now installs over `https://`.
 
-## Le catalogue sans outillage, la référence sans appris (20/09/2026)
+## The catalog without tooling, the reference without learned data (2026-09-20)
 
-Joel : « retire les scripts Python de `tools/` du catalogue et nettoie
-l'appris de la référence ». Fait sur les deux dépôts :
+Joel: "remove the Python scripts in `tools/` from the catalog and clean the
+reference's learned data". Done on both repositories:
 
-- **`kbyjoel/forkstify-catalog`** (le fork, celui que l'application lit) :
-  `tools/` retiré — les dix scripts ont chacun leur remplaçant dans
-  forkstify (setup et `:library`, génération à la volée, `forkstify
-  vectors`, `forkstify check`) ; `amis-*.py`, sans équivalent, partent
-  avec. `learned/` **reste** : c'est l'appris de Joel, et
-  `classement.json` est lu tant que `library.toml` n'existe pas.
-- **`aropixel/forkstify-catalog`** (la référence) : `tools/` et
-  **`learned/` entier** retirés — un fork neuf n'hérite plus de la
-  bibliothèque de Joel. Il ne reste que `cards/`, `vectors/`,
-  `catalog.toml`, `.gitattributes` (le pilote de fusion) et le README.
-- Le premier `Cu` du fork verra `learned/` modifié d'un côté, supprimé de
-  l'autre : la fusion garde les siens sans rien demander (fork.rs).
+- **`kbyjoel/forkstify-catalog`** (the fork, the one the application reads):
+  `tools/` removed — the ten scripts each have their replacement in
+  forkstify (the setup and `:library`, on-the-fly generation, `forkstify
+  vectors`, `forkstify check`); `amis-*.py`, with no equivalent, go with
+  them. `learned/` **stays**: it is Joel's learned data, and
+  `classement.json` is read as long as `library.toml` does not exist.
+- **`aropixel/forkstify-catalog`** (the reference): `tools/` and **the whole
+  of `learned/`** removed — a fresh fork no longer inherits Joel's library.
+  What is left is `cards/`, `vectors/`, `catalog.toml`, `.gitattributes`
+  (the merge driver) and the README.
+- The fork's first `Cu` will see `learned/` changed on one side and deleted
+  on the other: the merge keeps his without asking (fork.rs).
 
-## Le namespace `C` — diff, propose, update (20/09/2026)
+## The `C` namespace — diff, propose, update (2026-09-20)
 
-Le chantier B de [`conception/sortie.md`](conception/sortie.md), codé
-d'après `Catalogue.dc.html` (Claude Design, sept écrans). Tout ce qui
-avait été tranché les 19 et 20/09 est câblé, dans `src/fork.rs` :
+Workstream B of [`design/before-release.md`](design/before-release.md),
+coded after `Catalogue.dc.html` (Claude Design, seven screens). Everything
+settled on 09-19 and 09-20 is wired, in `src/fork.rs`:
 
-- **`:catalog`** — l'état en une ligne (origin, avance/retard, dernière
-  mise à jour, fiches au-delà de la référence), en mode local le dit.
-- **`Cd`** — l'overlay de `:mine`, renommé : le compte et la date, les
-  fiches nouvelles (générées / écrites, tags, liens) puis les retouchées
-  (+n −m, sections touchées lues dans le diff — tops, tags, description,
-  types de liens —, note de provenance).
-- **`Cp`** — fetch, worktree `~/.local/state/forkstify/proposal` sur une
-  branche `proposal` depuis `upstream/main`, l'état de `cards/` copié
-  depuis `main`, un commit `Propose N cards (a generated, b edited)` dont
-  le corps est en deux listes pour le relecteur, `push --force`. Avec `gh`
-  connecté : l'overlay montre la PR et **`y`** l'ouvre (`gh pr create`),
-  toute autre touche n'envoie rien ; une PR déjà ouverte est mise à jour
-  par le push. Sans `gh` : la page de comparaison GitHub, titre et corps
-  dans l'URL.
-- **`Cu`** — l'appris commité, fetch, **merge** `upstream/main` ; conflits
-  réglés seuls sur `vectors/` (amont, régénéré), `learned/` (à soi),
-  `tools/` (amont) ; une fiche modifiée des deux côtés **arrête** : la
-  fusion reste en cours, l'overlay nomme les fiches et ce que chaque côté
-  a changé, `o` ouvre la première, `:catalog` reprend après `git add`
-  (et `git commit`, ou pas). Puis l'index est régénéré si des fiches ont
-  changé, la date mémorisée, et **la session recharge son catalogue**.
-- **`:catalog fork <url>`** — sortie du mode local.
-- Les gestes tournent en `spawn_blocking`, un à la fois, la lecture
-  continue. Écarts : `:catalog` en overlay, pas dans le flux ; `Cd` ne
-  déroule pas ; `o` passe par `xdg-open`.
-- 86 tests verts, dont un **test d'intégration sur trois dépôts git
-  temporaires** (référence, fork, clone) qui enchaîne diff, propose deux
-  fois, l'update qui fusionne, l'update qui s'arrête sur une fiche et la
-  reprise — `git` est entré dans l'image `forkstify-build` pour cela
-  (`Dockerfile`, image à reconstruire : `docker build -t forkstify-build .`).
-  **Non éprouvé en vrai** : `Cp` jusqu'à `gh pr create`, `Cu` sur le fork
-  de Joel.
+- **`:catalog`** — the state in one line (origin, ahead/behind, last update,
+  cards beyond the reference), and in local mode it says so.
+- **`Cd`** — `:mine`'s overlay, renamed: the count and the date, the new
+  cards (generated / written, tags, links) then the touched-up ones (+n −m,
+  the sections affected read from the diff — tops, tags, description, link
+  types —, the provenance note).
+- **`Cp`** — fetch, a `~/.local/state/forkstify/proposal` worktree on a
+  `proposal` branch from `upstream/main`, the state of `cards/` copied from
+  `main`, a `Propose N cards (a generated, b edited)` commit whose body is
+  two lists for the reviewer, `push --force`. With `gh` connected: the
+  overlay shows the PR and **`y`** opens it (`gh pr create`), any other key
+  sends nothing; a PR already open is updated by the push. Without `gh`: the
+  GitHub comparison page, title and body in the URL.
+- **`Cu`** — the learned layer committed, fetch, **merge** `upstream/main`;
+  conflicts settled alone on `vectors/` (upstream, regenerated), `learned/`
+  (yours), `tools/` (upstream); a card changed on both sides **stops** it:
+  the merge stays in progress, the overlay names the cards and what each
+  side changed, `o` opens the first one, `:catalog` resumes after `git add`
+  (and `git commit`, or not). Then the index is regenerated if cards
+  changed, the date is remembered, and **the session reloads its catalog**.
+- **`:catalog fork <url>`** — leaving local mode.
+- The gestures run in `spawn_blocking`, one at a time, and playback carries
+  on. Departures: `:catalog` in an overlay, not in the flow; `Cd` does not
+  scroll; `o` goes through `xdg-open`.
+- 86 tests green, including an **integration test over three temporary git
+  repositories** (reference, fork, clone) chaining diff, propose twice, the
+  update that merges, the update that stops on a card and the resume —
+  `git` entered the `forkstify-build` image for that (`Dockerfile`, image to
+  rebuild: `docker build -t forkstify-build .`). **Not proved for real**:
+  `Cp` through to `gh pr create`, `Cu` on Joel's fork.
 
-## Le setup après l'installation, d'après la maquette (20/09/2026)
+## The setup after installation, after the mockup (2026-09-20)
 
-Le chantier A de [`conception/sortie.md`](conception/sortie.md), codé le
-jour même d'après `Installation.dc.html` (Claude Design, projet « Accueil
-Forkstify » — neuf écrans, importés par l'agent). La maquette a tranché
-les quatre points ouverts : mode local gardé, un seul `library.toml`,
-seuil ≥ 5 et 30 fiches au plus, les deux scopes acceptés.
+Workstream A of [`design/before-release.md`](design/before-release.md),
+coded the same day after `Installation.dc.html` (Claude Design, project
+"Accueil Forkstify" — nine screens, imported by the agent). The mockup
+settled the four open points: local mode kept, a single `library.toml`,
+threshold ≥ 5 and at most 30 cards, both scopes accepted.
 
-- **Le premier lancement** : `forkstify` sans catalogue lisible ouvre le
-  setup au lieu d'échouer (`main::accueil`). L'écran 0 liste les sept
-  étapes, `⏎` commence.
-- **`src/setup.rs`** — les sept étapes et les deux écrans de sortie.
-  1 le catalogue : l'URL d'un fork collée, `gh repo fork` + `gh repo
-  clone` si `gh` est là et connecté, ou la référence clonée en **mode
-  local** (`git config forkstify.local`, la synchro commite sans
-  pousser, l'accueil dit `⇅ local`) ; le clone va dans
-  `~/.local/share/forkstify/catalog` (XDG), `upstream` ajouté,
-  `[catalog] path` écrit dans `config.toml` (`config::set_catalog_path`,
-  textuel, les commentaires restent). 2 l'identité git, seulement si la
-  config globale n'en a pas, écrite `--local`. 3 la connexion : le
-  téléphone (zeroconf en fond, échap saute) et le navigateur (`o`) ; **sept
-  scopes** désormais (`user-follow-read`, `playlist-read-private`), et un
-  jeton accordé avec les cinq d'avant **repasse une fois par le
-  navigateur** — `spotify::needs_reauthorization`, les scopes mémorisés
-  dans l'état, l'écran dit que ce n'est pas une panne. 4 la bibliothèque :
-  `/me/tracks`, `/me/albums`, `/me/following`, une barre par source,
-  l'artiste principal seul. 5 les playlists : les siennes d'abord, espace
-  coche, `/` filtre, `⏎` récolte les cochées, mémorisées. 6 le confort à
-  la jauge. 7 la couverture : le classement croisé au catalogue par
-  tranches (≥ 20, 10–19, 5–9), `o` génère les fiches manquantes de score
-  ≥ 5 (30 au plus) — une par une en fond, vecteurs à la fin, **un seul
-  commit** `library: N cards generated`. L'écran 8 récapitule en toasts,
-  l'écran 9 (`:setup`) liste les étapes cochées et rejoue l'une ;
-  `:library` rejoue 4, 5, 7.
-- **`src/library.rs`** — `learned/library.toml`, un fichier en anglais
-  (`name`, `spotify`, `liked_tracks`, `liked_albums`, `followed`,
-  `playlist_tracks`, `score`, `sources`, la date et les playlists
-  cochées), la formule de `classement.py` inchangée ; `learned.rs` le lit
-  d'abord, `classement.json` tant qu'il n'y a pas de `library.toml`.
-- **`keys::parse_setup`** (chiffres, `j`/`k`, `o`, espace, `⏎`, échap) et
-  **`tui::render_setup`** (le pas et sa jauge à droite de l'en-tête, les
-  lignes : choix, champ, case à cocher, barre, étape, clé/valeur, noms).
-  Un champ ouvert après un autre ne garde plus la ligne du précédent
-  (génération du mode texte — bug vu au test de fumée).
-- **Écarts assumés** : la génération (7) et la récolte (4) se regardent,
-  échap arrête ; `:setup` et `:library` ferment la session (le son
-  s'arrête) et l'accueil revient sur le catalogue rejoué. Les scripts de
-  `tools/` restent dans le catalogue jusqu'à ce que `:library` ait tourné
-  sur le fork de Joel.
-- 81 tests verts, aucun avertissement ; test de fumée du fil complet
-  (clone par URL, identité, confort, récapitulatif) sur des dossiers XDG
-  temporaires. **Non éprouvé en session réelle** : la récolte, les
-  playlists, la génération de couverture, `gh`.
+- **The first run**: `forkstify` with no readable catalog opens the setup
+  instead of failing (`main::accueil`). Screen 0 lists the seven steps, `⏎`
+  starts.
+- **`src/setup.rs`** — the seven steps and the two exit screens.
+  1 the catalog: the URL of a fork pasted in, `gh repo fork` + `gh repo
+  clone` if `gh` is there and connected, or the reference cloned in **local
+  mode** (`git config forkstify.local`, the sync commits without pushing,
+  home says `⇅ local`); the clone goes into
+  `~/.local/share/forkstify/catalog` (XDG), `upstream` added,
+  `[catalog] path` written into `config.toml` (`config::set_catalog_path`,
+  textual, the comments stay). 2 the git identity, only if the global config
+  has none, written `--local`. 3 the connection: the phone (zeroconf in the
+  background, escape skips) and the browser (`o`); **seven scopes** now
+  (`user-follow-read`, `playlist-read-private`), and a token granted with
+  the previous five **goes through the browser once** —
+  `spotify::needs_reauthorization`, the scopes remembered in the state, and
+  the screen says it is not a failure. 4 the library: `/me/tracks`,
+  `/me/albums`, `/me/following`, one bar per source, the main artist alone.
+  5 the playlists: their own first, space ticks, `/` filters, `⏎` harvests
+  the ticked ones, remembered. 6 the comfort on the gauge. 7 the coverage:
+  the ranking crossed with the catalog by bands (≥ 20, 10–19, 5–9), `o`
+  generates the missing cards with a score ≥ 5 (30 at most) — one at a time
+  in the background, vectors at the end, **one single commit**
+  `library: N cards generated`. Screen 8 recaps in toasts, screen 9
+  (`:setup`) lists the ticked steps and replays one; `:library` replays 4,
+  5, 7.
+- **`src/library.rs`** — `learned/library.toml`, a file in English (`name`,
+  `spotify`, `liked_tracks`, `liked_albums`, `followed`, `playlist_tracks`,
+  `score`, `sources`, the date and the ticked playlists), with
+  `classement.py`'s formula unchanged; `learned.rs` reads it first, and
+  `classement.json` as long as there is no `library.toml`.
+- **`keys::parse_setup`** (digits, `j`/`k`, `o`, space, `⏎`, escape) and
+  **`tui::render_setup`** (the step and its gauge to the right of the
+  header, the lines: choice, field, checkbox, bar, step, key/value, names).
+  A field opened after another no longer keeps the previous one's line (a
+  text-mode generation — a bug seen in the smoke test).
+- **Accepted departures**: the generation (7) and the harvest (4) are
+  watched, escape stops them; `:setup` and `:library` close the session (the
+  sound stops) and home comes back on the replayed catalog. The `tools/`
+  scripts stay in the catalog until `:library` has run on Joel's fork.
+- 81 tests green, no warnings; a smoke test of the whole thread (clone by
+  URL, identity, comfort, summary) on temporary XDG folders. **Not proved in
+  a real session**: the harvest, the playlists, the coverage generation,
+  `gh`.
 
-**Au prochain lancement de Joel** : le navigateur s'ouvre une fois pour
-les deux scopes de plus, puis `:library` depuis l'accueil récolte sa
-bibliothèque et remplace `classement.json`.
+**On Joel's next launch**: the browser opens once for the two extra scopes,
+then `:library` from home harvests his library and replaces
+`classement.json`.
 
-## `fg<n>` — générer un creux sans le prendre, et la branche d'un creux marche (20/09/2026)
+## `fg<n>` — generating a gap without taking it, and a gap's branch walks (2026-09-20)
 
-Le chantier C de [`conception/sortie.md`](conception/sortie.md), codé le
-jour de l'arbitrage. Joel : les artistes sans fiche proposés en creux
-obligeaient à les mettre à la file pour obtenir la fiche ; il veut « les
-générer, et que cela propose de nouvelles branches en fonction », et « une
-branche régénérée comme les autres, avec un morceau de l'artiste généré et
-d'autres morceaux d'autres artistes ».
+Workstream C of [`design/before-release.md`](design/before-release.md),
+coded on the day of the call. Joel: artists without a card proposed as gaps
+forced you to queue them to get the card; he wants "to generate them, and
+have it propose new branches accordingly", and "a branch regenerated like
+the others, with one track by the generated artist and other tracks by other
+artists".
 
-- **`fg<n>`** (`Cmd::ForkGenerate`, `After::Gap`) : la fiche du creux n
-  naît — composée, vectorisée, commitée, adoptée par la session comme
-  aujourd'hui — et **rien n'est mis à la file**. À l'arrivée, la ligne
-  « ○ no card yet » devient une branche jouable à la suite des branches
-  affichées, les autres ne bougent pas (la raison pour laquelle `⏎` tire
-  parmi ce qui est affiché), et le toast dit son numéro. Sur un numéro de
-  branche, `fg<n>` répond « f<n> takes it ».
-- **Les creux se rafraîchissent** autour du contexte *et* de la fiche
-  fraîche (`refresh_gaps`) : ses propres liens vers le vide apparaissent en
-  gris à leur tour — le catalogue grandit le long de ses liens, un cran
-  plus loin. Le prochain recalcul repart de la liste telle qu'elle est,
-  comme `fr`.
-- **La branche d'un creux est une marche** (`engine::branch_from`, le
-  `walk` de `propose` et de `wander`, la fiche fraîche en tête, la raison
-  et la proximité du lien pour raison et poids). Correction au passage :
-  `branch_to` — le chemin du `f<n>` sur un creux — construisait la branche
-  avec `encore`, donc n morceaux du seul artiste généré. `f<n>` et `fg<n>`
-  passent tous deux par la marche.
-- Tests : `fg2` se lit, la grammaire reste sans préfixe ; la branche d'une
-  tête fraîche traverse plus d'un artiste, une tête inconnue ne donne rien.
-  72 tests verts, aucun avertissement. **Non éprouvé en session réelle.**
+- **`fg<n>`** (`Cmd::ForkGenerate`, `After::Gap`): gap n's card is born —
+  composed, vectorized, committed, adopted by the session as today — and
+  **nothing is queued**. On arrival, the "○ no card yet" row becomes a
+  playable branch after the branches shown, the others do not move (the
+  reason `⏎` draws among what is shown), and the toast gives its number. On
+  a branch number, `fg<n>` answers "f<n> takes it".
+- **The gaps refresh** around the context *and* the fresh card
+  (`refresh_gaps`): its own links into the void appear in grey in their turn
+  — the catalog grows along its links, one notch further. The next recompute
+  starts from the list as it stands, like `fr`.
+- **A gap's branch is a walk** (`engine::branch_from`, the `walk` behind
+  `propose` and `wander`, the fresh card at the head, the link's reason and
+  proximity as reason and weight). A fix along the way: `branch_to` — the
+  path of `f<n>` on a gap — built the branch with `encore`, hence n tracks
+  by the generated artist alone. `f<n>` and `fg<n>` both go through the
+  walk.
+- Tests: `fg2` parses, the grammar stays prefix-free; a fresh head's branch
+  crosses more than one artist, an unknown head gives nothing. 72 tests
+  green, no warnings. **Not proved in a real session.**
+## The workbook of the last three workstreams before release (2026-09-19)
 
-## Le cahier des trois derniers chantiers avant la sortie (19/09/2026)
+Joel: "refine the last things before we can release the project" — the setup
+after installation, a "catalog" namespace (`:mine` renamed diff, a PR of the
+new cards towards the reference, an update of the fork from the reference),
+and generating a gap without taking it (`fg<n>`), with the branches then
+proposed using the fresh card. The workbook is
+[`design/before-release.md`](design/before-release.md): for each
+workstream, what is asked for, what is proposed, what is left to settle; the
+proposed order (C, then B, then A); and what release needs on top.
 
-Joel : « affiner les dernières choses avant de pouvoir sortir le projet » —
-le setup après l'installation, un namespace « catalogue » (`:mine` renommé
-en diff, une PR des nouvelles fiches vers la référence, une mise à jour du
-fork depuis la référence), et générer un creux sans le prendre (`fg<n>`),
-les branches se proposant ensuite avec la fiche fraîche. Le cahier est
-[`conception/sortie.md`](conception/sortie.md) : pour chaque chantier, ce
-qui est demandé, ce qui est proposé, ce qui reste à trancher ; l'ordre
-proposé (C, puis B, puis A) ; et ce que la sortie demande en plus.
+Proposals to approve, in short: the setup in **seven steps** (a forked
+catalog or local mode, the git identity, the connection, the library, the
+playlists to tick, the comfort, the coverage by generation),
+`learned/library.toml` in English in place of `classement.json`, two more
+OAuth scopes; the **`C`** namespace for the catalog (`Cd` diff, `Cp`
+propose, `Cu` update — the letter settled by Joel that same day, after
+ruling out a `c` shared with comfort), a PR that carries **the state of the
+cards** on a `proposal` branch from `upstream/main` (never the learned
+layer, never the vectors) and opens in the browser, a **merge** rather than
+a rebase because `main` is shared by two machines; `fg<n>` which turns the
+gap into **a branch at its number** without redrawing the others, then
+refreshes the gaps. Settled the same day: `C`, the merge for `Cu`, and for
+`Cp` the PR through `gh` with confirmation when it is there and connected,
+the browser otherwise. On 2026-09-20, against the fear of laborious
+validations: on Joel's fork, 46 new cards all generated against 3 touched
+up — hence a **GitHub action** on the reference (checks, index regenerated
+on merge), a PR **composed for the reviewer** in two lists, and a **merge
+rule** written into a `CONTRIBUTING.md` (generated: a glance; touch-ups: the
+facts are taken, a `similar` with its note, a top if it fixes an error).
+Then one single `proposal` branch, rewritten, and the name `Cp` kept:
+**workstream B has nothing left to settle**. Workstream C, on 2026-09-20:
+the branch born of a gap is a **walk** like the others (`engine::walk`, the
+fresh card at the head, other artists afterwards), not an encore of the
+generated artist — which fixes the current `f<n>` on a gap along the way.
+Noted along the way: the reference still carries Joel's learned data, to be
+removed before it goes public.
 
-Propositions à valider, en bref : le setup en **sept étapes** (catalogue
-forké ou mode local, identité git, connexion, bibliothèque, playlists à
-cocher, confort, couverture par génération), `learned/library.toml` en
-anglais à la place de `classement.json`, deux scopes OAuth de plus ; le
-namespace **`C`** pour le catalogue (`Cd` diff, `Cp` propose, `Cu`
-update — la lettre tranchée par Joel le jour même, après avoir écarté un
-`c` partagé avec le confort), une PR qui porte **l'état des
-fiches** sur une branche `proposal` depuis `upstream/main` (jamais
-l'appris, jamais les vecteurs) et s'ouvre dans le navigateur, une
-**fusion** plutôt qu'un rebase parce que `main` est partagé par deux
-postes ; `fg<n>` qui fait du creux **une branche à son numéro** sans
-rejouer les autres, puis rafraîchit les creux. Tranché le jour même : `C`, la fusion pour
-`Cu`, et pour `Cp` la PR par `gh` avec confirmation quand il est là et
-connecté, le navigateur sinon. Le 20/09/2026, contre la crainte de
-validations laborieuses : sur le fork de Joel, 46 fiches nouvelles toutes
-générées pour 3 retouchées — d'où une **action GitHub** sur la référence
-(vérifications, index régénéré à la fusion), une PR **composée pour le
-relecteur** en deux listes, et une **règle de fusion** écrite dans un
-`CONTRIBUTING.md` (générées : un coup d'œil ; retouches : les faits se
-prennent, un `similar` avec sa note, un top s'il corrige une erreur).
-Puis une seule branche `proposal` réécrite, et le nom `Cp` gardé : **le
-chantier B n'a plus rien à trancher**. Chantier C, le 20/09/2026 : la branche née d'un creux est une **marche**
-comme les autres (`engine::walk`, la fiche fraîche en tête, d'autres
-artistes ensuite), pas un encore de l'artiste généré — ce qui corrige au
-passage le `f<n>` actuel sur un creux. Relevé au passage : la
-référence porte encore l'appris de Joel, à retirer avant qu'elle soit
-publique.
+## The engine's numbers are tunable in `config.toml` (2026-09-17)
 
-## Les indices du moteur se règlent dans `config.toml` (17/09/2026)
+Joel: "push the logic of *taking back the algorithm* all the way and give
+whoever installed forkstify the ability to change the value of every number
+(like `ARTIST_COOLDOWN_HALF_LIFE`, `LESS_OFTEN`, `WEIGHT_FLOOR`…) through
+the configuration file". **Decision
+[0023](decisions/0023-engine-numbers-are-tunable.md).**
 
-Joel : « pousser la logique du *reprendre la main sur l'algorithme*
-jusqu'au bout et donner la possibilité à la personne qui aura installé
-forkstify de changer les valeurs de tous les indices (comme
-`ARTIST_COOLDOWN_HALF_LIFE`, `LESS_OFTEN`, `WEIGHT_FLOOR`…) via le fichier
-de configuration ». **Décision
-[0023](decisions/0023-les-indices-du-moteur-se-reglent.md).**
-
-- **Section `[tuning]`** dans `~/.config/forkstify/config.toml`, vingt
-  réglages nommés, tous à leur ancienne valeur par défaut : les cooldowns
+- **A `[tuning]` section** in `~/.config/forkstify/config.toml`, twenty
+  named settings, all at their former default value: the cooldowns
   (`track_cooldown_floor` / `_half_life`, `artist_cooldown_floor` /
-  `_half_life`), le goût (`less_often`, `more_often` — `0` = le miroir de
-  `less_often` —, `weight_floor`, `weight_ceiling`), la familiarité
-  (`plays_reference`, `plays_half_life`), le réservoir (`top_weight`,
+  `_half_life`), taste (`less_often`, `more_often` — `0` = the mirror of
+  `less_often` —, `weight_floor`, `weight_ceiling`), familiarity
+  (`plays_reference`, `plays_half_life`), the pool (`top_weight`,
   `liked_weight_cocoon` / `_open`, `door_weight`, `door_bonus`,
-  `tail_weight`) et le saut aventureux (`leap_floor_cocoon` / `_open`,
-  `leap_trust_cocoon` / `_open`). Le gabarit du premier lancement les
-  liste tous, commentés.
-- `config::Tuning` + `config::tuning()` (chargé une fois, au lancement) ;
-  `engine.rs` et `learned.rs` n'ont plus de constante numérique. Une
-  valeur absurde est dite sur stderr et remise à son défaut, seule.
-- Hors champ, à dessein : les délais de l'interface et les formes du
-  tirage (`take(6)`, puissances). Voir la décision.
-- Deux tests de config (parsing, garde-fous). 71 tests.
+  `tail_weight`) and the adventurous leap (`leap_floor_cocoon` / `_open`,
+  `leap_trust_cocoon` / `_open`). The first run's template lists them all,
+  commented.
+- `config::Tuning` + `config::tuning()` (loaded once, at launch);
+  `engine.rs` and `learned.rs` no longer hold a numeric constant. An absurd
+  value is reported on stderr and reset to its default, alone.
+- Out of scope, deliberately: the interface delays and the shapes of the
+  draw (`take(6)`, the powers). See the decision.
+- Two config tests (parsing, guard rails). 71 tests.
 
-**Sur un poste existant** : le fichier de configuration n'est pas réécrit ;
-sans section `[tuning]`, tout est au défaut. Copier la section depuis le
-gabarit (`src/config.rs`, `TEMPLATE`) pour l'avoir sous la main.
+**On an existing machine**: the configuration file is not rewritten; with no
+`[tuning]` section, everything is at its default. Copy the section from the
+template (`src/config.rs`, `TEMPLATE`) to have it at hand.
 
-## `fr` repart de la liste telle qu'elle est (17/09/2026)
+## `fr` starts from the list as it stands (2026-09-17)
 
-Joel : « Quand je fais un `fr`, les chansons ajoutées dans la playlist via
-un `ti` ou via un `e` depuis une discographie ne sont pas prises en compte.
-Il faudrait qu'il prenne en compte l'état actuel complet de la playlist.
-Pareil pour les titres ajoutés avec `fw`. »
+Joel: "When I do an `fr`, the songs added to the playlist through a `ti` or
+through an `e` from a discography are not taken into account. It should take
+the playlist's full current state into account. Same for the titles added
+with `fw`."
 
-Cause : l'état du moteur (`state()`) ne lisait que le registre des rounds
-— branches prises, encores `e<n>`, `fw`. Un `ti`, un `e` dans la
-discographie ou un `J`/`K` touchent la file sans écrire de round : `fr`
-repartait du dernier round, et pouvait reproposer les titres déjà en file.
+The cause: the engine's state (`state()`) only read the rounds register —
+branches taken, `e<n>` encores, `fw`. A `ti`, an `e` in the discography or a
+`J`/`K` touch the queue without writing a round: `fr` started from the last
+round, and could propose titles already in the queue again.
 
-- **La liste fait foi.** `state()` fonde maintenant l'état sur l'axe (passé,
-  en cours, à venir) : le **contexte** est le dernier segment de la liste
-  (`engine::segment_of` — depuis la dernière tête de segment, branche ou
-  « inséré (ti) », jusqu'au bout ; toute la liste s'il n'y a pas de tête,
-  cas de la graine), ses artistes rejoignent l'**univers** et les visités,
-  et **tout titre de l'axe compte comme joué**. Les rounds restent le repli
-  quand l'axe n'a rien de connu (morceau hors catalogue), et le registre
-  que `fu` dépile.
-- Conséquence assumée : après `fn<n>` (branche insérée après le morceau en
-  cours, le reste gardé), les directions partent de ce qui **termine** la
-  file, pas de la branche insérée — c'est ce que dit la liste.
-- `fu` vide la file **avant** de relire l'état, et prend l'artiste d'avant
-  dans le registre, pas dans la liste.
+- **The list is authoritative.** `state()` now bases the state on the axis
+  (past, current, upcoming): the **context** is the list's last segment
+  (`engine::segment_of` — from the last segment head, a branch or "inserted
+  (ti)", to the end; the whole list if there is no head, the seed's case),
+  its artists join the **universe** and the visited, and **every title on
+  the axis counts as played**. The rounds stay the fallback when the axis
+  holds nothing known (a track outside the catalog), and the register `fu`
+  pops from.
+- An accepted consequence: after `fn<n>` (a branch inserted after the
+  current track, the rest kept), the directions set off from what **ends**
+  the queue, not from the inserted branch — that is what the list says.
+- `fu` empties the queue **before** re-reading the state, and takes the
+  previous artist from the register, not from the list.
 - Test `the_last_segment_of_the_playlist` (69 tests).
 
-## Installer sans Docker : release GitHub et paquet AUR (21/09/2026)
-
-Joel, en éprouvant l'installation propre : « est-ce qu'on peut embarquer un
-binaire pour que l'utilisateur n'ait pas à avoir Docker ? ». Le binaire s'y
-prête : 56 Mo, et seulement ALSA, libstdc++, libgcc, libm et la libc en
-dépendances dynamiques — ONNX Runtime est déjà lié statiquement.
-
-- **`.github/workflows/release.yml`** : sur un tag `v*`, vérifie que le
-  tag, `Cargo.toml` et `manifest.json` s'accordent, lance les tests,
-  compile dans `rust:1-slim` (la même image que le `Dockerfile`, donc la CI
-  publie ce que `bin/build` produit), allège le binaire et attache
-  `forkstify-<version>-x86_64-linux.tar.gz` et `SHA256SUMS` à la release.
-  C'est la première CI du dépôt de l'application.
-- **`omarchy/install.sh` réécrit** : le binaire publié d'abord, empreinte
-  vérifiée — jamais d'installation passé un écart —, la compilation en
-  conteneur seulement à défaut ou sur `--from-source`. Il ne touche pas à un
-  `forkstify` posé par un gestionnaire de paquets.
-- **`packaging/aur/forkstify-bin/`** : `PKGBUILD` et `.SRCINFO` pour Arch.
-  Dépend d'`alsa-lib`, `gcc-libs`, `glibc` et `git` (le catalogue est un
-  dépôt git) ; `github-cli` et `xdg-utils` en optionnels. `sha256sums` est
-  à `SKIP` tant qu'aucune release n'existe : `updpkgsums` le remplit avant
-  publication. Marche à suivre dans `packaging/aur/README.md`.
-
-Le paquet pose `/usr/bin/forkstify` mais pas le widget, qui reste
-`omarchy plugin add` (0021) ; les deux se complètent, le widget testant
-`command -v forkstify`. **Reste à faire : tagger `v0.1.0` pour éprouver le
-workflow en vrai.** Le modèle fastembed (241 Mo) reste le gros coût du
-premier lancement, indépendant de tout ça.
-
-## Fraîcheur d'artiste et traîne modulée par la familiarité (14/09/2026)
-
-Le retour du petit cercle (retours-usage n° 13), câblé.
-
-- **Fraîcheur au niveau de l'artiste** (`Learned::artist_freshness`,
-  demi-vie 4 jours, plancher 0,3) : un artiste entendu récemment recule
-  comme tête de branche, et récupère sur quelques jours. Appliquée aux têtes
-  du graphe, à l'aventureuse et à la branche `stay`. Casse la boucle de
-  renforcement qui resserrait le cercle.
-- **Traîne modulée par la familiarité de l'artiste** : dans `reservoir`,
-  `share = tail_share() × familiarité`. Un artiste nouveau est mené par ses
-  tops, un artiste connu ouvre sa longue traîne. Baisser le confort élargit
-  les artistes sans faire entrer des fonds de tiroir au hasard.
-- Le test de traîne est réécrit (familier ⇒ traîne, nouveau ⇒ tops), un
-  test de `artist_freshness` ajouté. 68 tests.
-- **La donnée est déjà synchronisée** : `plays`/`last` vivent dans
-  `learned/`, versionné dans le fork et synchronisé par 0017. La fraîcheur
-  voyage entre postes sans fichier nouveau (question de Joel, 14/09/2026).
-
-## `:warm` sur une traîne vide, et une fiche à l'identifiant faux (14/09/2026)
-
-Joel : impossible de récupérer la discographie de Jarvis Cocker. Deux
-causes.
-
-- **La fiche pointait vers le mauvais Spotify.** `2kTHIUipN0SYKBbmcTCLfQ`
-  est « Jarvis Branson Cocker », un homonyme quasi vide (2 176 auditeurs,
-  sans discographie propre) ; le vrai est `13W7XLRXdWeLmIu9vacE1w` (profil
-  vérifié). Vérifié sur open.spotify.com, corrigé dans le catalogue.
-  L'API répondait donc, mais avec zéro album.
-- **Une traîne vide se mettait en cache et bloquait la reprise.** `:warm`
-  voyait `[]` en cache et disait « déjà en cache, 0 morceau » sans jamais
-  réessayer. `:warm` **oublie maintenant le cache avant de récolter**, donc
-  il refait toujours l'appel ; et une récolte à zéro morceau le dit
-  clairement (« son identifiant Spotify est peut-être faux ») au lieu de
-  passer pour un succès. Le cache vide sur disque a été supprimé.
-
-## `:warm` récolte l'artiste sous l'aiguille (14/09/2026)
-## `:warm` récolte l'artiste sous l'aiguille (14/09/2026)
-
-Joel : `:warm` prenait le dernier artiste du contexte (`state().1`), pas ce
-qui joue ni la ligne surlignée. Il utilise maintenant la même cible que
-`e`/`t`/`a` (0020) : `target()` — la sélection, sinon le morceau en cours —
-avec repli sur le contexte si la cible est hors catalogue.
-
-## Un peu de couleur sur l'encart d'infos du morceau (14/09/2026)
-
-Joel : « mets un peu de couleur sur la fenêtre d'information du morceau ».
-`info_line` dans `tui.rs` teinte les libellés de l'encart `ta` (featuring,
-album, tags, from here, off-catalog) en cyan gras, éclaircit leur valeur, et
-passe la ligne de métriques (familiarité, poids, liens) en jaune avec des
-séparateurs discrets. Les lignes qui ne sont pas « libellé : valeur » — les
-rangs du menu d'aide, qui partagent le même encart — restent grises, comme
-avant. La pochette dans `ta` attend toujours le protocole graphique du
-terminal.
-
-## Reprendre reprend tout le parcours, et plus rien sur stdout (14/09/2026)
-## Reprendre reprend tout le parcours, et plus rien sur stdout (14/09/2026)
-
-Joel, deux points.
-
-- **Le « recommencer » (`r`) reprend tout le parcours en cours** :
-  historique, morceau en cours et morceaux à venir, au lieu de repartir du
-  seul dernier morceau. `LastSession` porte maintenant `past`, `current`,
-  `queue` et `rounds` (Stop/Source/Head/Round dérivent serde) ; `remember`
-  les enregistre à la sortie, `restore` les replace et rejoue le morceau qui
-  sonnait. Un `last.json` antérieur, sans ces champs, retombe sur l'ancien
-  comportement (partir du dernier morceau).
-- **Plus de parcours écrit sur stdout à la sortie.** `run` ne renvoie plus
-  la liste des artistes et les deux appelants n'impriment plus « Journey:
-  … » : l'écran alterné est rendu, rien ne s'affiche derrière.
-
-## Le confort est retenu d'un lancement à l'autre (14/09/2026)
-
-Joel : « je voudrais que forkstify se souvienne de la dernière zone de
-confort choisie ». Un fichier `~/.local/state/forkstify/comfort`, écrit à
-chaque changement (`config::remember_comfort` sur `c<n>`, `:comfort`, `cc`
-validé, accueil et écoute) et relu au démarrage (`config::comfort_at_start`,
-appelé partout où l'ancien code lisait `config.journey.comfort`). L'état
-prime sur `config.toml`, qui devient la graine du premier lancement.
-
-## Quatre retours d'usage : goût, infos, jauge, album (14/09/2026)
-
-Joel, après quelques jours.
-
-- **`tl` bascule aimé / non-aimé.** Sur un morceau déjà aimé, `tl` retire
-  l'aimé **sans pénalité** — `ts` restait « moins souvent + retire l'aimé »,
-  il manquait le simple retrait. `learned.track_liked` / `unlike_track` ;
-  vaut à l'écoute et dans la discographie.
-- **`ta` — track about**, nouvelle touche (mot anglais, pas « fiche ») :
-  album, featuring, année quand la discographie les a, plus tags,
-  familiarité, poids et la première branche. **Remplace `?`/why**, dont la
-  raison est repliée dedans. Featuring lu du titre (`feat.`/`ft.`/`with`),
-  album et année du cache de discographie, sans appel réseau.
-- **La jauge de confort** est désormais **en haut à droite sur les deux
-  écrans, apparence d'édition permanente** (`comfort_spans`), `cc` ajoutant
-  « ↑↓ ». Le **statut de l'accueil ne s'affiche que dégradé** (Joel doutait
-  de son utilité en continu) : rouge, deuxième ligne, sinon rien.
-- **⏎ sur une ligne d'album** de la discographie **écoute l'album entier** :
-  ses morceaux ouvrent une nouvelle graine dans l'ordre, puis les branches
-  partent de l'artiste (`start_album`). Sur un morceau, ⏎ garde le sens du
-  11/09 (partir de lui).
-
-La pochette dans `ta` reste pour plus tard : elle demande le protocole
-graphique du terminal (sixel/kitty), un chantier à part.
-
-## `aL` lie à un artiste choisi par la recherche (14/09/2026)
-
-Joel : « je ne comprends pas le geste à faire pour lier un artiste à un
-autre… j'écoutais King Hannah et je voulais le lier à Peter Kernel ».
-`aL` liait à l'artiste **d'où l'on venait**, une cible implicite qu'aucun
-écran n'annonçait, et qui ne pouvait pas atteindre un artiste hors du
-parcours.
-
-`aL` ouvre désormais la modale de recherche, en-tête « link <artiste> » ;
-entrée sur une ligne écrit un lien `similar` dans la fiche courante vers
-l'artiste choisi. Cible catalogue (`Hit::Artist` ou un titre avec fiche) ou
-hors catalogue (nom slugifié — un lien vers une fiche absente est une
-proposition, 0016). Un `link_from` porté par le `Finder`, résolu en tête de
-`take_found` ; l'édition se commite comme avant (compte au prochain
-lancement). Marche à l'accueil comme en écoute. Un artiste sans fiche
-courant ne peut pas être lié : le toast renvoie vers `:generate`.
-
-## `:generate <nom> <mbid>` propose au lieu d'écraser (11/09/2026)
-
-Joel : avec un mbid, `:generate` lançait une nouvelle liste et écrasait la
-lecture en cours. Désormais, s'il y a une liste en cours (un morceau joue
-ou la file n'est pas vide) et qu'un mbid est donné, la fiche est faite mais
-**le parcours ne démarre pas** : un toast de succès qui dure plus longtemps
-(`SEED_OFFER_SECONDS`, 12 s) propose de partir de l'artiste — **⏎** accepte
-et remplace la liste, toute autre touche garde la liste et fait son office.
-Nouvelle branche `After::Offer`, une graine en attente `pending_seed`
-consommée par entrée dans `on_cmd`. Sans mbid, à l'accueil ou sans rien qui
-joue, le comportement d'avant ne bouge pas. Le toast porte une durée propre
-maintenant (`linger`).
-
-## Les branches ne défilent plus dans le vide, et la card rouvre (11/09/2026)
-
-Deux retours de Joel après une vraie session.
-
-- **Les branches se choisissaient à l'infini sans jouer.** Depuis que la
-  traîne est récoltée pour les artistes proposés, une branche peut tirer un
-  morceau de traîne (au confort 3, la traîne pèse). Un morceau indisponible
-  dans la région finit à l'instant où il commence : la branche s'épuise,
-  `auto_advance` en tire une autre, sans un son — et rien ne l'arrêtait.
-  Garde-fou : `MAX_DRY_ADVANCES` (4) compte les branches enchaînées sans
-  qu'un morceau atteigne les enceintes ; passé ce seuil, la lecture
-  s'arrête et rend la main (« tracks may be unavailable in your region »).
-  Le compteur retombe à zéro dès qu'un `Playing` arrive.
-- **La card Omarchy ne rouvrait pas forkstify éteint.** Le bouton « Show
-  forkstify » pointait sur le mot nu `forkstify`, qui attrapait aussi un
-  terminal resté dans `~/Work/forkstify` : le focus partait sur ce shell au
-  lieu de lancer. Retour à `omarchy-launch-or-focus-tui forkstify`, sur
-  l'app-id `org.omarchy.forkstify` — précis, comme avant l'ajout du bouton.
-
-## Entrée dans la discographie part du morceau (11/09/2026)
-
-Joel : « je veux pouvoir démarrer une nouvelle graine depuis une chanson
-de l'écran de discographie (avec entrée ?) ». Entrée gardait le sens du
-08/09, écrire la fournée. Les deux se cumulent : entrée écrit la fournée
-s'il y en a une (un commit), puis, **sur un morceau, part de lui** —
-`start_journey` sur `Choice::Track`, comme la recherche. Sur un album,
-entrée écrit seulement ; un banni ne part pas. Le handler de la modale est
-synchrone, la graine part par `start_requested` après lui, comme `:search`
-et `:wander`. Détail dans
-[exploration-d-un-artiste.md](conception/exploration-d-un-artiste.md).
-
-## `fw` — partir loin, ou chez quelqu'un (11/09/2026)
-
-Joel : « implémentons fw. Je veux aussi pouvoir faire `fw <nom de
-l'artiste>` pour cibler un univers particulier ». Le retour n° 6 est
-tranché dans sa lecture (a), sortir de l'univers, avec une cible en
-option.
-
-- **`engine::wander`** : sans cible, la tête est tirée parmi les artistes
-  les plus loin du centre du parcours — hors du parcours et de tout ce qui
-  en est à un lien, sous le plancher du confort (ce que la branche
-  aventureuse refuse), avec des tops non joués ; le plus loin pèse le
-  plus, le curseur penche comme pour toute tête. Avec une cible, la tête
-  est cet artiste, quelle que soit la distance. Puis la même marche qu'une
-  branche. Un test fige les deux cas.
-- **La touche** : `fw` ouvre la ligne `:wander ` déjà remplie
-  (`read_line` prend un début de ligne) ; entrée seule part loin, un nom
-  part chez lui. `:wander [artiste]` est la commande épelée. Le nom se
-  résout par `search_names` sur le catalogue ; absent, le toast renvoie
-  vers `:generate`.
-- **Où** : la branche va en fin de ce qui est décidé, comme `f<n>`. À
-  trancher à l'usage : si « partir sur complètement autre chose » veut dire
-  maintenant, `fn`/`f!` ont le geste, `fw` pourrait le prendre.
-
-
-Joel, avant de relancer : « la page d'accueil évoque un random avec enter,
-c'est faux » et « cc + flèches ne marche pas ».
-
-- **Entrée à l'accueil** prenait la première porte de la page, alors que
-  l'écran et [ecran-d-accueil.md](conception/ecran-d-accueil.md) promettent
-  « au hasard — tirage pondéré, la porte qui ne demande pas de choisir ».
-  C'est maintenant vrai : un tirage sur toutes les portes de la page,
-  pondéré par ce que le curseur fait de la familiarité de l'artiste
-  (`Comfort::favours`, le même qu'au moteur) — le familier au cocon,
-  l'inconnu grand ouvert, jamais un poids nul. Une ligne surlignée garde
-  la priorité.
-- **`cc` à l'accueil** ne faisait rien : l'accueil prenait la touche avant
-  que le cadran ne soit consulté, et ne connaissait pas `ComfortMode`. Le
-  cadran passe devant l'accueil dans `on_cmd`, `cc` l'ouvre depuis
-  l'accueil, la jauge s'allume comme à l'écoute, et la validation ne
-  recalcule les branches que s'il y a une session.
-- **La jauge « bizarre » pendant le réglage** (Joel, dans la foulée) : le
-  mode cadran passait toute la jauge en noir sur cyan, donc les blocs
-  pleins devenaient noirs et les vides colorés — l'inverse. Les blocs
-  gardent leur couleur, seuls les mots s'allument, aux deux écrans.
-- **L'ordre des blocs à l'envers** (Joel : « quand je passe en cocoon,
-  les never played passent en premier… c'est contre-intuitif non ? ») :
-  [ecran-d-accueil.md](conception/ecran-d-accueil.md) dit « au cocon les
-  habitués devant, à l'exploration les délaissés », et le code testait
-  `confort ≥ 4` pour mettre les délaissés devant — un reste de l'ancien
-  sens du curseur (5 = cocon depuis le 06/09/2026). Inversé, et un test
-  fige le sens aux quatre coins (5, 3, 1, 0). Premier test de `home.rs`.
-
-## La traîne suit les branches (11/09/2026)
-
-Joel, « très content » après quelques jours d'écoute (noté dans
-[atouts.md](atouts.md)), mais au confort 3 « jamais de longue traîne ».
-Vérifié dans le code : une branche ne récoltait jamais la discographie —
-seuls `e<n>`, `:warm` et `ad` le faisaient, 16 artistes sur 314 en
-avaient une en cache. Le poids, lui, était juste.
-
-Option 1 retenue par Joel : après chaque `recompute`, les artistes des
-branches proposées sans traîne sont **récoltés en fond**, sans un mot, dès
-que le confort ouvre la traîne. `harvesting` devient une carte slug →
-silencieux, pour que le toast « discography — loading » ne serve que les
-récoltes demandées. Détail dans [longue-traine.md](conception/longue-traine.md).
-
-Un premier câblage retirait au sort les branches encore proposées à
-l'arrivée de la traîne ; à l'usage, « les chansons des branches changent
-immédiatement », et Joel n'en veut pas. Entre attendre la récolte avant
-d'afficher et afficher les tops puis laisser le cache servir les tirages
-suivants, **la seconde** est câblée (la plus simple, réversible) : une
-proposition affichée ne bouge plus. `engine::redraw` et son test sont
-retirés. **À éprouver : la marque `·` doit apparaître dès les tirages
-suivants, pas au premier d'un artiste inconnu.**
-
-## La carte de la barre suit enfin l'aiguille (11/09/2026)
-
-Joel : la barre de progression de la carte Omarchy « reste à 0:00 alors
-qu'un morceau joue bien » — le retour du bug du 10/09. Cette fois le bus
-est hors de cause : `busctl` donne la position, la durée, « Playing », et
-`Seeked` part bien à chaque morceau. Le défaut est dans Quickshell :
-`MprisPlayer.position` se **calcule à chaque lecture** (dernier échantillon
-+ temps écoulé) mais le signal `positionChanged` n'est jamais émis pendant
-la lecture — une liaison QML garde donc la valeur lue à la découverte du
-lecteur, ou celle du dernier `Seeked` : 0 au début du morceau. Vérifié dans
-une instance Quickshell à part : la propriété liée reste à 152,91 s tandis
-qu'une lecture directe avance ; un appel à `player.positionChanged()`
-resynchronise la liaison. Le widget gagne un `Timer` d'une seconde, actif
-seulement **carte ouverte et morceau en lecture**, qui demande ce signal.
-Le `Seeked` du 10/09 reste utile pour les sauts (`h`, une correction).
-Consigné dans [barre-omarchy.md](conception/barre-omarchy.md).
-
-## Ye et Kanye West ne font qu'un (10/09/2026)
-
-Après le correctif précédent, `entrée` sur « Kanye West » répondait « Ye a
-déjà une fiche » et s'arrêtait. Deux causes :
-
-- **La collection doublait l'artiste.** La fiche `kanye-west` porte le nom
-  que MusicBrainz lui donne aujourd'hui, « Ye » ; la bibliothèque Spotify
-  dit encore « Kanye West ». La collection rapprochait le classement des
-  fiches **par nom** : deux lignes, « Ye » avec fiche mais à familiarité
-  nulle, « Kanye West » sans fiche. Le seed de `learned/` est désormais
-  **indexé par slug**, et la familiarité comme les aimés se cherchent par
-  le slug de la fiche ou par celui du nom affiché : une ligne, la bonne
-  familiarité. Test `le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change`.
-- **Une fiche déjà là bloquait le geste.** `:generate` sur un artiste qui
-  a sa fiche disait « a déjà une fiche » et ne faisait rien de ce qu'on
-  voulait de lui. Désormais l'intention (`After`) s'exécute quand même,
-  par le même chemin qu'une fiche fraîche (`Job::Existing`, `after_card`) :
-  entrée démarre chez lui, `ad` ouvre sa discographie.
-
-Reste que la fiche s'appelle « Ye » : c'est le nom MusicBrainz du moment,
-la fiche est à Joel — un `ae` la renomme s'il préfère « Kanye West ».
-
-## Entrée sur un artiste sans fiche génère, et tout se dit en toast (10/09/2026)
-
-Joel, sur Kanye West surligné dans la collection : « cela me met "Kanye
-West n'a pas de fiche : rien d'où brancher" ». Or arriver chez un artiste,
-c'est lui faire une fiche (0016), comme `ad` depuis le matin et comme la
-modale de recherche : `entrée` sur une ligne sans fiche passe par
-`:generate` — la fiche naît, le parcours part de chez lui.
-
-Et « la notification apparaît en bas et n'est pas bien visible. Note-le en
-règle : toutes les notifications doivent apparaître en toast. » La règle du
-08/09 disait déjà « plus de ligne de statut », mais l'accueil gardait sa
-ligne du bas pour ce qu'il disait (`(inconnu : …)`, « rien de surligné »,
-ce que `tell` lui remontait). Désormais **tout passe par le toast**, sous
-l'accueil comme en écoute : l'accueil dépose ce qu'il a à dire, la session
-le relève après chaque touche et le pose en cartouche ; `tell` ne distingue
-plus les écrans. Règle consignée dans
-[`forme-de-l-application.md`](conception/forme-de-l-application.md) § « Tout
-se dit en toast », test `the_home_says_everything_in_a_toast`.
-
-## Le morceau suivant remonte dans la ligne d'écoute (10/09/2026)
-
-Maquettes **4a** et **4a′** de `Lecture.dc.html` (Claude Design, projet
-« Accueil Forkstify ») : la ligne « à suivre » sous la barre coûtait une
-ligne de pied pour redire ce que la liste montre deux lignes plus haut, et
-tant qu'une ligne suivait la barre, l'œil la prenait pour un séparateur.
-Câblé tel quel :
-
-- **Le pied passe de trois lignes à deux** : la ligne d'écoute porte tout
-  l'axe du temps — `▶ ce qui sonne — artiste  (2 / 10) │ then ♪ suivant —
-  artiste` à gauche, `♪ top │ 1:48 / 3:49 -2:00` à droite —, puis la barre,
-  qui ferme le pied. Même chose sous l'accueil.
-- **`→ fork in 8`** remonte dans la barre de titre avec les compteurs de
-  segment, à la place de « n ahead » : c'est un état du parcours, pas de
-  la lecture. `→ fork next` quand la file est vide.
-- **L'ordre de sacrifice de 4a′** quand la fenêtre rétrécit, le bloc de
-  droite intouchable : 1. l'artiste du suivant · 2. `then` et le compteur,
-  le `│` suffit · 3. la provenance et le restant `-20:44` · 4. le titre en
-  cours coupé à l'ellipse, jamais sous 16 caractères · 5. le suivant
-  quitte la ligne et la liste le marque **`▸` dans la gouttière** (le repli
-  de 4b : ` 2 ▸↻ ♪ Israel`). Un seul `…` par ligne ; le titre du suivant
-  n'est jamais tronqué. Pas de seuils fixes : chaque étape se prend dès
-  que la précédente ne tient pas.
-- **Tranché en attendant mieux** : si même le titre seul ne tient pas,
-  l'artiste en cours s'efface entièrement plutôt que de subir une seconde
-  ellipse (la maquette montrait les deux coupés, sa note interdit deux
-  coupes). Réversible.
-
-Tests : la ligne aux largeurs 170 / 145 / 138 / 120 / 96 / 72 ; la
-gouttière `▸` à 60 colonnes. `Bar` perd `ahead`.
-
-## L'interface passe en anglais (10/09/2026)
-
-Joel veut publier une première version sous peu, utilisable par le plus
-grand nombre : **tout ce qui s'affiche est désormais en anglais**
-([0022](decisions/0022-interface-en-anglais.md)) — TUI, toasts, tables des
-touches, sorties de la ligne de commande, gabarit de `config.toml`, widget
-Omarchy et son `install.sh`, libellés du moteur (`liked` · `tail` ·
-`non-top` · `off-catalog`, `shared members`, `close to the branch's
-center`…). Les sous-commandes suivent : **`journey`** (ex-`parcours`) et
-**`listen`** (ex-`ecouter`). La section `[catalogue]` de la configuration
-devient `[catalog]`, l'ancien nom reste lu. Les notes écrites dans les
-fiches par `td`/`aL` sont en anglais (`set while listening, <date>`). Ne
-bougent pas : le texte vectorisé d'`embed.rs` (l'index en dépend), les
-spikes de `src/bin/`, et la doc, qui reste en français. Dans la foulée,
-**tous les commentaires du code sont traduits** (~1 000 lignes, seuls des
-commentaires ont bougé, tests verts), puis les **51 noms de tests** et
-leurs messages d'assertion ; ne restent français que les sorties des spikes.
-
-## L'agent : une IA qui pilote forkstify de l'extérieur (10/09/2026)
-
-Idée de Joel : une commande `:agent` qui transmet un prompt à une IA
-connectée (le Claude Code de son poste) — « crée-moi une playlist de 20
-titres dans l'ambiance Kanye West, Drake, Kendrick Lamar » —, l'IA se
-servant des outils de forkstify, du catalogue et de la session d'écoute,
-après un échange éventuel pour éclaircir. Discutée, rien de codé ;
-orientation consignée dans [`agent.md`](conception/agent.md).
-
-En bref : **l'agent pilote, il ne choisit pas dans sa tête** — il cherche,
-génère des fiches (`:generate`), demande des branches, lit leurs raisons et
-met en file ; la playlist est le produit dérivé, le catalogue a grandi. Et
-**l'agent est dehors** : pas de client LLM ni de clé dans le binaire.
-Étage 1, sans `:agent` : un socket de contrôle et `forkstify cmd ':…'` plus
-quelques lectures JSON — l'API de l'agent, ce sont les commandes `:` de
-0013, la conversation se tient dans Claude Code. Étage 2, `:agent` dans la
-TUI avec une commande externe configurée, seulement si l'étage 1 se révèle
-trop lourd à l'usage. Six questions à trancher dans la note (plafond de
-génération, trace dans la file, morceaux « de sa tête », nom, trailer,
-nécessité de l'étage 2).
-
-## Une journée d'écoute : la file, la cible, la génération, les aimés (09/09/2026)
-
-La première vraie session d'écoute longue de Joel, et ses retours traités
-au fil de l'eau — l'étape 1 des prochaines étapes est **entamée**. Dans
-l'ordre :
-
-- **La liste de lecture montrait une file tronquée.** La file est un
-  `VecDeque` ; après un `push_front` (branche prise « maintenant », retour
-  arrière, `ti`) le tampon s'enroule et `as_slices().0` n'en rendait que la
-  première moitié : une branche choisie manquait, ou revenait quelques
-  morceaux plus tard. `make_contiguous()` avant de dessiner.
-- **`tx` existait** mais manquait dans l'aide de `t` ; ajouté, et son index
-  suit désormais le même axe que le déplacement.
-- **L'encore visait le bout de la chaîne.** Depuis que choisir une branche
-  s'ajoute à la file, le « courant » tiré des rounds est le dernier artiste
-  empilé, plus ce qui sonne : un `en3` servait le mauvais artiste. D'où la
-  **décision [0020](decisions/0020-la-cible-d-un-geste.md)** : un geste vise
-  la **ligne surlignée, sinon ce qui sonne**, pour `t`, `a` et `e` ; `ts` et
-  `tb` ne font avancer la musique que s'ils visent ce qui sonne ; `en<n>`
-  et `e!<n>` se posent **derrière la ligne surlignée** quand elle est à
-  venir. Le retour n° 12 (cible de `t`/`a`) est clos par là.
-- **La Ruda** : cinq tops posés à la main, et la fiche renommée « La Ruda
-  Salska » — le nom MusicBrainz n'est pas celui de Spotify, et la
-  résolution d'un morceau cherche par nom. Question notée dans
-  [generation-a-la-volee.md](conception/generation-a-la-volee.md).
-- **`:generate <nom> <mbid>`** : l'identifiant trouvé à la main remplace la
-  recherche par le nom ; si MusicBrainz se tait, fiche minimale marquée à
-  relire ; un artiste proposé en creux prend sa branche. Lu de l'accueil
-  comme de l'écoute.
-- **« Lojo est introuvable »**, deux causes : MusicBrainz répond 503 par
-  rafales (on patiente six essais sur une demi-minute, et on dit
-  « occupé » plutôt qu'« introuvable ») ; et un nom venu d'un slug a perdu
-  ses apostrophes (« Lojo » pour Lo’Jo) — **Deezer prête l'orthographe**,
-  vérifiée à la clé des fiches. Test réseau ignoré par défaut.
-- **`docs/atouts.md`** : les impressions positives de Joel, datées et
-  citées, pour lister les atouts le moment venu. Première entrée : la
-  redécouverte de ce que Spotify ne proposait pas, la cohérence maîtrisée,
-  l'inattendu quand même.
-- **L'accueil montre les aimés par défaut**, `v` bascule sur tout le
-  catalogue. Aimé = un « plus souvent » ou un ♥ ici, un titre, un album ou
-  un suivi sur Spotify (`classement.json`).
-- **Les invités d'un titre aimé ne sont pas des aimés** (Bosh, Bossikan,
-  Bow Wow — le fils de Joel) : les scripts de récolte ne comptent plus que
-  l'artiste principal ; récolte relancée par Joel, classement recalculé :
-  605 artistes classés au lieu de 741.
-- **`al` / `as` / `ab` à l'accueil**, sur la ligne surlignée. `as` pose un
-  drapeau `unliked` dans `learned/artists/<slug>.toml` qui prime sur
-  Spotify et survit aux récoltes ; `al` l'efface ; la fusion 0017 le
-  traite comme un ban. Un artiste sans fiche s'écrit et se relit sous le
-  slug de son nom.
-
-Deux questions de conception notées, tranchées en partie : **retirer un
-artiste des aimés** (fait, ci-dessus) et **un setup fluide** — connexion,
-import de la bibliothèque, playlists à cocher — tranché « premier
-lancement *et* rejouable », maquette Claude Design à venir de Joel avant
-de coder ([premiere-installation.md](conception/premiere-installation.md)).
-
-## Le vecteur naît avec la fiche (09/09/2026)
-
-Joel a tranché (b) : **l'application vectorise elle-même**
-([0019](decisions/0019-vectorisation-par-l-application.md)).
-
-- **`embed.rs`** : la composition du texte portée mot pour mot depuis
-  `vectoriser.py` (vérifiée identique sur les 316 textes de la référence,
-  `forkstify vectors --texts` contre `vectoriser.py --textes`), le modèle
-  par `fastembed` (features rustls, variante quantifiée, `max_length =
-  128`, cache dans `$XDG_CACHE_HOME/forkstify/fastembed`), l'écriture d'une
-  ligne dans `vectors.jsonl` en ordre de slug, la régénération complète.
-  `Card` porte désormais `begin`, `end`, `origin`, `description`.
-- **En session** : `Job::Generated` compose le texte et envoie le modèle en
-  fond (`spawn_blocking`), `Job::Vectorized` adopte la fiche **et** son
-  vecteur dans le même commit (`Edit.also`). Si le modèle manque, la fiche
-  entre quand même et le toast dit « sans vecteur ». Premier calcul : le
-  toast prévient que le modèle se télécharge.
-- **`forkstify vectors [catalogue] [--texts]`** régénère l'index et
-  `meta.toml` (clés anglaises, `max_length`, `normalized`). L'import le
-  fait dans son commit, plus de docker.
-- **Image de build** : `g++` ajouté au Dockerfile. Binaire : 23 → 58 Mo.
-- **Index de référence régénéré** par l'application et poussé sur le fork
-  (`dd82e8d` côté catalogue) : cosinus ≥ 0,999999 avec l'ancien, normes
-  à 1. `tools/vectoriser.py` marqué remplacé, gardé pour mémoire.
-
-**Reste** : une édition de lien en session ne recalcule pas les vecteurs
-(elle ne compte qu'au prochain lancement) — noté dans la note de
-conception. L'index régénéré est sur le fork, pas encore sur la référence
-`aropixel` : à pousser.
-
-## L'essai fastembed en Rust (09/09/2026)
-
-Pour trancher la vectorisation d'une fiche générée, un spike jetable dans
-`~/Work/tries/fastembed-spike` (hors dépôt) a vectorisé les 316 textes de
-la référence avec le crate `fastembed` 6 et les a comparés à
-`vectors/vectors.jsonl`. Résultat : **cosinus ≥ 0,999999 partout à
-`max_length = 128`** (à 512, défaut du crate, les fiches riches divergent
-jusqu'à 0,82), build à froid 26 s, binaire +35 Mo, `g++` requis dans
-l'image de build, modèle 241 Mo téléchargé au premier usage, 14 ms par
-texte. Les features par défaut tirent OpenSSL : prendre les variantes
-`rustls`. Découvert au passage : la référence Python **n'est pas
-normalisée** (normes 2,5–3,6), ce que le centroïde du moteur subit.
-Chiffres, conditions et orientation (b, avec repli en feature cargo) dans
-[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
-**Joel tranche.**
-
-## Les versions d'un titre se distinguent dans la recherche (09/09/2026)
-
-Retour de Joel : « quand la chanson apparaît plusieurs fois (*Quand on n'a
-que l'amour*), je ne sais pas laquelle est laquelle ». Les lignes `[spotify]`
-de la modale ne portaient que titre, artiste et une mention générique :
-cinq versions de Brel (studio, Olympia, best-of…) faisaient cinq lignes
-identiques.
-
-- `search_tracks` ramène désormais **album, année et durée** (`SearchHit`
-  dans `spotify.rs`, à la place du triplet titre/artiste/uri).
-- La note d'une ligne Spotify les dit **d'abord** — `Olympia 64 · 1964 ·
-  3:07 · branche ensuite` — puis ce que fait entrée : `branche ensuite`
-  quand l'artiste a une fiche, `⏎ génère la fiche` sinon. Les anciennes
-  parenthèses `(branche ensuite) la fiche existe` / `(hors catalogue — ⏎
-  génère la fiche)` disparaissent ; l'en-tête du groupe dit déjà « hors
-  catalogue sauf mention ».
-- Le catalogue n'est pas touché : ses titres sont déjà dédoublonnés par
-  (titre, fiche), et l'artiste suffit à les distinguer.
-
-Sur un terminal étroit, c'est la fin de la note qui se coupe — donc la
-mention, jamais l'album. Vérifié à sec (tests) ; à constater à l'usage sur
-un titre à plusieurs versions.
-
-## La génération de fiche à la volée (09/09/2026)
-
-Joel, le matin : « comment faire pour ajouter un artiste ? J'ai envie
-d'écouter Jacques Brel mais il n'est pas dans le catalogue. J'ai pu le
-trouver via la recherche Spotify, mais je ne peux pas jouer le morceau et
-cela ne crée pas la fiche artiste. » Puis : « oui je veux pouvoir faire de la
-génération à la volée. »
-
-C'était la moitié non écrite de
-[0016](decisions/0016-base-large-et-generation-a-la-volee.md). Le point que
-la décision avait laissé ouvert — **quand** la génération se déclenche — est
-tranché : **les deux**, la recherche et l'arrivée. Le sujet a sa note,
-[conception/generation-a-la-volee.md](conception/generation-a-la-volee.md).
-
-- **`src/generate.rs`** — le pipeline de `tools/generate-cards.py` porté en
-  Rust : MusicBrainz (identité, dates, origine, genres, relations typées)
-  puis Deezer sans clé (cinq tops, quatre similaires). Quatre appels, environ
-  trois secondes, en `spawn_blocking` comme la récolte de discographie. La
-  limite d'une requête par seconde de MusicBrainz est tenue, et le 503 —
-  fréquent — se réessaie au lieu de passer pour une absence.
-- **Une différence avec le script, voulue** : un lien `similar` vers un
-  artiste **sans fiche** est conservé au lieu d'être abandonné. C'est
-  précisément ce qui fait grandir le catalogue le long de ses liens.
-- **La recherche fait entrer quelqu'un de neuf** : `entrée` sur un résultat
-  hors catalogue génère la fiche, la commite, et démarre chez lui — de
-  l'accueil comme de l'écoute. `:generate <nom>` fait la même chose sans
-  passer par un morceau. Fini le « rien d'où brancher ».
-- **L'arrivée fait grandir le catalogue** : `graph_neighbors` jetait les
-  liens dont la fiche manque (Brel en avait trois). `engine::missing_neighbors`
-  les rend, la colonne les affiche en gris — « ○ fiche à générer » — et ils
-  se prennent au chiffre suivant les branches.
-- **La session possède désormais son catalogue** (`Live { catalog: Catalog }`
-  au lieu de `&'a Catalog`) et y insère la fiche fraîche : une génération
-  qu'il faudrait relancer pour voir n'en serait pas une. `listen::run` charge
-  le catalogue lui-même ; l'appelant ne le prête plus.
-- **Une fiche générée est une édition** (0013) : `edit::create_card` écrit,
-  refuse d'écraser, et commite avec le trailer `Forkstify: edit`.
-
-**Reste ouvert, et Joel décidera** : la **vectorisation** d'une fiche
-générée. Elle naît sans vecteur — elle navigue par ses liens et ses tags,
-l'écran le dit — et le rattrapage passe encore par la commande docker de
-`tools/vectoriser.py`. Les deux sorties (commande `:vectors`, ou `fastembed`
-en Rust) sont chiffrées dans la note ; aucune n'a de code à défaire.
-
-**Non éprouvé en session réelle** : le pipeline l'est (test réseau
-`le_pipeline_compose_une_vraie_fiche`, ignoré par défaut), les deux
-déclencheurs ne le sont pas.
-
-## `:search` s'ouvre aussi de l'accueil (09/09/2026)
-
-Joel : « quand on fait `:search` depuis l'accueil, la fenêtre de recherche
-ne s'ouvre pas » ; « sur l'accueil, il y a encore un ancien texte qui dit
-que `/` fait une recherche, alors que `/` filtre maintenant ».
-
-- **La modale n'existait que sur l'écran d'écoute.** À l'accueil,
-  `:search <texte>` faisait encore l'ancien geste — résoudre un nom dans le
-  catalogue et démarrer — et `:search` seul ne faisait rien du tout. C'est
-  désormais **la même modale sur les deux écrans** : le clavier lui est
-  donné **avant** l'aiguillage d'écran, et elle se dessine par-dessus le
-  corps de l'accueil, collection comprise ; le pied de lecture et l'invite
-  restent.
-- **Entrée démarre un parcours**, depuis l'accueil : sur l'artiste, ou sur
-  le morceau — le titre d'abord, puis les branches de son artiste. C'est la
-  règle de l'accueil, un chiffre y fait déjà la même chose. Un titre
-  Spotify **sans fiche** n'a rien d'où brancher : l'accueil le dit et
-  renvoie à l'écoute, où `:search` le joue quand même.
-- **Le texte de l'accueil parlait encore de l'ancien `/`** : le bloc
-  « chercher » annonçait `/` pour « catalogue et spotify ». Il annonce
-  `:search`, et une seconde ligne dit ce que `/` fait vraiment — filtrer la
-  collection, échap efface. L'écran non connecté aussi.
-- **`:search bowie` ouvre la modale remplie, et la frappe continue le
-  mot** : le mode texte du lecteur de touches vidait sa ligne au passage,
-  si bien que la première touche effaçait « bowie ». La ligne de départ est
-  posée avec le mode (`keys::set_text(true, "bowie")`).
-
-## Lot 4 : 100 fiches, la référence passe à 314 (08/09/2026)
-
-Joel : « est-ce qu'il reste des fiches à créer ? on les importe sur
-aropixel ? » Relevé : 100 slugs appelés par des liens sans fiche (le lot
-que le lot 3 appelait depuis le 02/09), 22 appelés par au moins deux fiches ;
-561 classés sans fiche, tous sous le score 5, laissés à la traîne comme
-prévu. Une fiche générée est de la connaissance, pas du goût : elle va à la
-**référence** `aropixel` (0016), le fork la reçoit par `upstream`.
-
-**Les scripts d'outillage étaient cassés depuis le renommage du 06/09** :
-`generate-cards.py`, `vectoriser.py` et `voisins.py` lisaient encore
-`fiches/` et `vecteurs/vecteurs.jsonl`. Corrigés sur la branche `lot-4`
-partie de `upstream/main`. Le générateur réessaie désormais sur un délai
-dépassé — le premier lancement était mort au premier artiste sur un
-`TimeoutError` de MusicBrainz.
-
-**Généré dans un conteneur `python:3.12-slim`** (bibliothèque standard
-seule, MusicBrainz à une requête par seconde) : **100 fiches écrites**, le
-catalogue compte **314 fiches**. Rapport : à relire, MBID incertain —
-blundetto, dalle-beton, lej, ozuna, palatine ; sans Deezer, donc sans tops —
-mahmoud-ahmed. Vecteurs recalculés dans le conteneur `fastembed` (modèle
-téléchargé, ~220 Mo, cache dans `tools/cache/`, désormais ignoré par git).
-
-Poussé sur `aropixel/main`, puis le fork `kbyjoel` rebasé dessus : les
-commits d'appris de Joel ne partent pas vers la référence.
-
-## Échap passe du premier coup (08/09/2026)
-
-Joel : « quand je veux fermer avec échap, je dois souvent appuyer plusieurs
-fois. » Le lecteur de touches, après un `ESC`, lisait **deux octets de
-plus** pour reconnaître une flèche (`ESC [ A`), en bloquant — or la touche
-échap seule n'en envoie qu'un : il fallait deux frappes de plus pour qu'elle
-passe. Corrigé : après un `ESC`, le lecteur **interroge le descripteur**
-(`poll`, vingt millisecondes) — une séquence arrive d'un bloc, un échap
-seul n'a pas de suite. Le lecteur lit désormais l'entrée **sans tampon**
-(`libc::read`), parce que le tampon de `std::io::stdin` aurait caché la
-suite d'une séquence au `poll`. Même chose en mode texte et dans les lignes
-`/` et `:`, où une flèche ne retombe plus dans la grammaire. `ESC O A`
-(mode application) est reconnu aussi.
-
-## Plus de ligne de statut : tout en toast (08/09/2026)
-
-Joel : « je ne veux plus aucune notification en dessous de à suivre, elles
-doivent toutes apparaître en toasts ; à suivre doit toujours être suivi des
-indications de raccourcis. » La ligne « dernière chose dite » disparaît du
-pied, en session comme sous l'accueil ; les touches suivent « à suivre »
-directement. Tout ce qui se dit passe en toast, parenthèses comprises (en
-gris, quatre secondes). Le journal reste en mémoire pour les blocs (`?`).
-
-## `J` / `K` déplacent un morceau de la liste (08/09/2026)
-
-Joel : « comment sélectionner un morceau de la liste de lecture et le
-déplacer ? » Trois voies proposées — `J`/`K` d'un cran tout de suite, `tg`
-saisir-poser aux flèches, `tm<n>` en position n — et la première retenue :
-un cran couvre l'usage réel, remonter un morceau qu'on veut entendre plus
-tôt, sans mode ni validation, la touche contraire annule. Seul ce qui est à
-venir bouge ; le nom de branche voyage avec son morceau ; le déplacement se
-voit dans la numérotation et ne se dit pas. `tg` viendra si les longs
-déplacements se révèlent fréquents.
-
-## La modale de recherche, et `ti` (08/09/2026)
-
-Joel : « :search se lance sans argument, une modale s'ouvre, avec une ligne
-séparant la zone de texte de la zone de résultats ; ti — track insert —
-insère une track où on est dans la liste, en ouvrant la même modale. »
-Maquette `Recherche.dc.html` (Claude Design) : 1a `:search`, 1b `ti` ancré,
-1c les deux bords.
-
-- **La modale est modale, et c'est nouveau** : tant qu'elle est ouverte, la
-  grammaire sans préfixe ne s'applique plus — sinon taper « cros »
-  déclencherait c, r, o, s. Le lecteur de touches a un **mode texte**
-  (`keys::set_text`) : tout est frappe, sauf ↑↓, entrée, tab et échap.
-  D'où l'invite `⟩`, pour dire « ici, on écrit ».
-- **Une seule règle coupe la saisie des résultats**, et porte le décompte :
-  `── catalogue 3 · spotify 5 ──`. Pas de champ encadré.
-- **Le catalogue avant Spotify, toujours**, en deux groupes jamais mêlés
-  (bleu écrit par un humain, cyan deviné). Le catalogue répond à chaque
-  caractère — artistes par nom, titres connus des fiches et de l'appris,
-  avec la provenance `♪ ♥` et les écoutes ; Spotify répond **derrière**
-  (`Job::Searched`), le groupe cyan dit « … interrogation » jusque-là, et
-  une réponse à une frappe plus ancienne est jetée : la liste ne saute
-  jamais sous le curseur.
-- **Entrée fait selon la porte** : par `:search`, un artiste branche là
-  (un segment chez lui), un titre sonne maintenant et les branches
-  repartent de son artiste s'il a une fiche ; par `ti`, le titre **entre
-  dans la file à l'ancre** — avant la ligne surlignée si elle est à venir,
-  sinon juste après ce qui sonne — marqué « inséré (ti) » en gris à côté ;
-  un artiste choisi insère son meilleur morceau non joué. Le toast dit
-  « → inséré en 4 : titre — artiste » ou « → … — via :search ».
-- **`ti` lit son ancre en haut** (« l'insertion tombe en 4 — entre X et
-  Y »), comme la maquette le voulait : insérer à l'aveugle dans une file
-  qu'on ne voit plus est le geste le plus facile à rater.
-- **Tab** masque Spotify. Vide, la modale dit quoi taper ; sans résultat,
-  elle le dit aussi.
-- L'ancienne recherche par journal (résultats numérotés, un chiffre choisit)
-  et son état `pending` disparaissent.
-
-**Écarté de la maquette** : `e` (mettre à la file), `tb`, `A`/`N` dans la
-modale — ce sont des lettres, elles se tapent ; la portée « fiches du
-parcours » de `ti` (tout le catalogue répond, avec Spotify derrière) ; les
-durées ; les cinq dernières recherches. Un test de rendu. Non vérifié en
-session réelle.
-
-## `ag` — l'artiste dans le navigateur (08/09/2026)
-
-Joel : « ajoute une commande, ag ?, pour googler l'artiste en cours dans le
-navigateur par défaut ». `ag` ouvre `https://www.google.com/search?q=…` par
-`xdg-open`, détaché (entrées et sorties fermées, pour ne rien laisser
-s'imprimer sous la TUI). Il vise comme `ad` : la ligne surlignée s'il y en a
-une, sinon ce qui sonne. Le toast dit « → artiste — dans le navigateur ».
-
-## Quatre retouches du clavier (08/09/2026)
-
-Joel : retirer le mode file d'attente de l'aide ; « je ne vois plus le
-raccourci pour intercaler un morceau, c'est moi ? » ; un raccourci `c<n>`
-pour le confort ; `/` devient filtrer, la recherche devient `:search`.
-
-- **`Q` disparaît** — de l'aide, de la grammaire, de la table. Le mode file
-  d'attente est tombé le 06/09, la file s'enchaîne dans l'écran d'écoute.
-- **Intercaler** : ce n'est pas lui. Ce qui existe : `e<n>` / `en<n>`
-  (encore, même artiste, en fin de branche ou tout de suite), `fn<n>` (une
-  branche après ce morceau), et `e` dans la discographie (à la file, à la
-  fin). **Intercaler un morceau précis à un endroit précis n'existe pas** —
-  c'était le `i` du mode file d'attente, jamais câblé. À concevoir avec
-  `:search` : un résultat pourrait s'intercaler après le morceau en cours
-  plutôt que jouer tout de suite.
-- **`c` devient un namespace** : `c<n>` règle le confort d'un coup (0 à 5,
-  à l'accueil aussi), `cc` ouvre la jauge aux flèches. `c` seul ne pouvait
-  plus être complet sans casser la grammaire sans préfixe.
-- **`/texte` filtre, `:search <texte>` cherche.** À l'accueil, `/` filtre la
-  collection (échap efface, ↑↓ entrée démarrent) ; dans la discographie il
-  filtrait déjà ; en écoute, il n'y a pas de liste à filtrer et il le dit.
-  `:search` fait ce que `/` faisait : catalogue + Spotify en écoute, un
-  chiffre choisit ; catalogue seul à l'accueil, l'artiste trouvé démarre.
-
-## Plus de `tt` dans la modale, et des toasts (08/09/2026)
-
-Joel : « les raccourcis tt et tT sont toujours présents dans la modale de
-discographie, je veux les retirer. Les messages de chargement doivent être
-plus visibles — des toasts en bas d'une des deux colonnes, avec de la
-couleur ? »
-
-- **`tt` / `tT` quittent la modale** (grammaire `parse_modal`, touches,
-  légende, `Explore::top` / `untop` et leurs tests). Reste `A`, qui promeut
-  d'un coup les titres les plus écoutés d'un album ; un titre seul s'aime
-  (`tl`), il ne se promeut plus. Le test d'écriture passe par `A`.
-- **Les toasts** : un cartouche cadré de la couleur du message, texte en
-  gras, en bas à droite du corps, au-dessus des touches de la colonne des
-  branches — par-dessus la modale aussi. **Collant tant que ça charge**
-  (« ⏳ en cours — chargement — titre — artiste », « discographie de X — en
-  cours de chargement », en cyan, la couleur de l'attente réseau), sinon
-  **quatre secondes** pour la dernière chose dite (`✓` vert, `⏹` rouge, `↻`
-  jaune, `→` magenta — `tui::tone_of`, la même lecture que la ligne du
-  pied). Les parenthèses restent sur la ligne du pied, sans toast. Le tic
-  d'une seconde l'efface.
-
-## « Précédent » recommence d'abord (08/09/2026)
-
-Joel : « quand je fais flèche pour morceau précédent et qu'un morceau est en
-cours, je veux que cela recommence le morceau au début ; on appuie une
-deuxième fois pour revenir au morceau d'avant. » Comme tout lecteur : passé
-trois secondes (`RESTART_AFTER_MS`), ← et ⏮ remettent l'aiguille à zéro
-(`Sound::restart`, un `seek(0)` de librespot — la progression suit son
-`Seeked`) ; dans les trois premières secondes, ou en pressant deux fois, on
-remonte au morceau d'avant comme avant.
-
-## L'accueil devient un écran de la session (08/09/2026)
-
-Joel : « les deux écrans accueil et lecture sont indépendants : quand je
-quitte l'écran lecture, ma session s'arrête et elle est perdue. Je voudrais
-lancer une session, revenir à l'accueil, conserver l'écoute et la barre en
-bas, et revenir sur mon écran de session sans jamais perdre ma session. »
-
-Avant, `main.rs` bouclait : l'accueil rendait un choix, la session naissait
-(son, API, MPRIS), vivait, mourait, et l'accueil revenait. Désormais **la
-session est l'application**, et l'accueil l'un de ses deux écrans
-(`Screen::Home` / `Screen::Session`) :
-
-- **`q` en écoute rend l'accueil**, l'écoute continue en dessous : le son,
-  la file, les branches, l'appris, tout reste. **`r`** (ou échap sans
-  curseur) **ramène à l'écran de session**. `q` à l'accueil quitte pour de
-  bon, avec le commit et le push de 0017.
-- **Le pied de lecture s'affiche sous l'accueil** — ce qui sonne, sa barre,
-  ce qui suit, la dernière chose dite — sur les quatre lignes au-dessus de
-  l'invite (`tui::Bar`, le même pied qu'en session, `render_bar`). `p` y
-  tient la pause ; les touches multimédia marchent partout.
-- **Choisir une graine à l'accueil pendant qu'une session joue démarre un
-  nouveau parcours** qui remplace l'ancien (`Live::start_journey`) — sans
-  reconnecter quoi que ce soit, donc sans l'écran d'attente.
-- `home::run` devient `home::Home` (un état : ce qui est tapé, le tri, le
-  curseur) avec `draw` et `on_cmd` → `Outcome::{Stay, Start, Back, Quit}` ;
-  la boucle unique de `listen.rs` route les touches selon l'écran. Le son
-  et l'API web ne se connectent qu'une fois par lancement.
-
-Un test de rendu de l'accueil avec le pied. Non vérifié en session réelle.
-
-## L'écran d'abord, Spotify derrière (08/09/2026)
-
-Joel : « au lancement d'une session d'écoute, ou à l'ouverture et à la
-fermeture de la modale de discographie, il y a souvent de gros temps de
-latence. J'aimerais mieux gérer cela : via du cache quand c'est possible, et
-en affichant d'abord puis en chargeant après, en indiquant qu'un chargement
-est en cours. »
-
-**La cause** : chaque appel à l'API Spotify — la résolution d'un titre en
-adresse `spotify:track:`, la discographie d'un artiste — était **attendu
-dans la boucle de commandes**, qui ne redessine qu'une fois le geste fini.
-Le repli sur un 429 (quota compte/IP, fréquent juste après la rafale d'une
-discographie) dort jusqu'à soixante secondes dans cette même attente : c'est
-le gel à la fermeture de la modale, quand `prefetch_next` résolvait le
-morceau suivant. Le cache existait déjà (résolutions dans
-`target/resolve-cache.json`, discographies dans `~/.cache/forkstify/`), il
-n'évitait que la seconde fois.
-
-**Ce qui change** : l'API web est partagée derrière un verrou
-(`Arc<Mutex<WebApi>>`) et les appels partent en **tâches de fond**
-(`spawn_local`), qui rendent leur résultat à la boucle par un canal
-(`Job::Resolved`, `Job::Harvested`), comme le push de 0017.
-
-- **Jouer un morceau** : si le cache connaît son adresse, il sonne tout de
-  suite ; sinon il **s'affiche tout de suite** avec « · chargement… » dans
-  le pied, et sonne quand la réponse arrive. Un morceau sauté pendant
-  l'attente n'entre pas dans le passé ; un introuvable passe au suivant ;
-  une panne le remet en tête de file, comme avant. Le préchargement du
-  suivant ne bloque plus rien.
-- **La discographie** s'ouvre à l'instant sur ce qu'on a — les tops et
-  l'appris — avec « … discographie en cours de chargement » et le mot
-  « chargement… » dans son titre ; les albums arrivent derrière et l'écran
-  se reconstruit sans perdre tri, filtre ni éditions en attente
-  (`Explore::reload`). Une récolte ne se lance jamais deux fois.
-- **`e<n>` et `:warm`** lancent la récolte derrière et le disent : « sa
-  traîne arrive — refais e<n> dans un instant ».
-
-**Reste attendu dans la boucle** : la recherche `/texte`, dont on attend le
-résultat par nature, et la connexion au démarrage (librespot, jeton), que
-l'écran d'attente montre étape par étape. Non vérifié en session réelle :
-c'est à toi de dire si les gels ont disparu.
-
-## Le catalogue devient un fork, la référence part chez aropixel (08/09/2026)
-
-Joel : « pour régler le problème du catalogue qui n'est pas un fork parce que
-je suis le concepteur, je voudrais déplacer forkstify et forkstify-catalog
-dans mon GitHub aropixel. Comme ça, je le publierai en tant qu'aropixel, ce
-qui me permet de faire un fork avec mon compte kbyjoel. »
-
-Fait par l'API GitHub : les deux dépôts sont **transférés** à l'organisation
-`aropixel` (ils restent privés), et `aropixel/forkstify-catalog` est **forké**
-en `kbyjoel/forkstify-catalog`, qui reprend le nom libéré. En local,
-`~/Work/forkstify` pointe sur `aropixel/forkstify` ; `~/Work/forkstify-catalog`
-pointe sur le fork en `origin` — c'est lui que le pull du démarrage tire et
-que l'appris rejoint — et sur la référence en `upstream`, que `:mine` compare
-déjà en premier. Joel est enfin un utilisateur comme les autres (0016) : ses
-éditions vivent sur son fork, et remontent à la référence par une PR.
-
-Les deux commits Cat Power sont restés sur la référence ; à reporter sur le
-fork ou à y laisser, au choix de Joel. Le plan de reprise de chorizo clone
-désormais les bons dépôts.
-
-## Le cooldown daté (08/09/2026)
-
-Joel : « applique le cooldown daté de 0012 alors ». §2 disait : chaque
-lecture est datée, un morceau joué récemment est pénalisé, la pénalité
-décroît avec le temps. Les dates étaient là depuis 0014 (`last` par top),
-le réservoir ne les lisait pas.
-
-`Learned::freshness` : **un dixième de son poids le jour où il a sonné**,
-retrouvé avec une **demi-vie d'une semaine** — 55 % à sept jours, 78 % à
-quinze, 94 % à un mois ; entier s'il n'a jamais sonné ici. Le réservoir
-multiplie par ce facteur, après les « moins souvent ». Un aimé écouté hier
-(6,8 × 0,13 ≈ 0,9) pèse donc comme un top jamais joué, et reprend sa place
-au fil de la semaine. Deux constantes (`COOLDOWN_FLOOR`,
-`COOLDOWN_HALF_LIFE`), « à régler au fil du PoC » comme 0012 le prévoyait.
-Deux tests.
-
-## Un seul geste pour le goût (08/09/2026)
-
-Joel, après une journée d'écoute : « j'avais du mal à savoir s'il valait
-mieux que je like ou que je mette en top : pour moi c'était la même
-chose. » Puis : « je ne mettrais même pas de raccourci tt. On laisse la
-possibilité de modifier les tops sur son fork, mais on ne laisse qu'un seul
-geste simple pour dire je veux voir ce morceau plus souvent. En
-contrepartie, il faut aussi pouvoir dire ce morceau ne m'intéresse pas, et
-les likes doivent être entièrement prioritaires sur les tops, qui ne
-deviennent plus que des portes d'entrée sur un fork vierge. »
-
-Décision [0018](decisions/0018-un-seul-geste-pour-le-gout.md), câblée :
-
-- **`tl` plus souvent, `ts` moins souvent**, et l'un défait l'autre (aimer
-  remet les sauts à zéro, sauter retire l'aimé). `tb` reste le plus jamais.
-- **Un aimé prime sur les tops** dans le réservoir : ×10 au cocon, ×2 grand
-  ouvert, le curseur entre les deux (`liked_weight`). Un top aimé prend ce
-  poids et porte `♥`. Avant, un aimé pesait 0,8 et un top aimé restait un
-  top ordinaire — c'est ce qui rendait `tl` inaudible.
-- **Plus de `tt` / `tT` à l'écoute** : la session les refuse et renvoie à
-  la discographie ; la grammaire les lit encore, parce que c'est là, dans
-  `ad`, qu'ils servent (`edit::set_tops`) — une première version les avait
-  retirés de l'analyseur et cassait la modale, corrigé dans la foulée. `add_top` / `remove_top`, qui
-  ne servaient qu'à `tt` / `tT`, sont retirés.
-
-Trois tests (réservoir, appris, grammaire). Le sujet du dépôt de référence
-contre le fork personnel (une organisation GitHub pour l'amont, ton clone
-devenant ton fork) reste à faire de ta main ; l'application n'a besoin de
-rien pour ça, sauf plus tard un `:upstream`.
-
-## Compiler soi-même, et compter l'usage (08/09/2026)
-
-Deux wrappers dans `bin/` — la convention de la machine, mise les met dans
-le `PATH` dès qu'on entre dans le dossier : **`build`** (cargo build
---release dans le conteneur `forkstify-build`, construit au premier appel,
-registre cargo dans le volume `forkstify-cargo`) et **`test`**. Les trois
-commits rapatriés de l'autre poste (l'exploration d'un artiste, « ad »)
-compilent sans avertissement, 41 tests verts.
-
-Les commandes qui comptent les commits produits par forkstify à travers les
-forks publics (trailer `Forkstify:`) sont notées dans
-[`premiere-installation.md`](conception/premiere-installation.md), section
-« Mesurer l'usage à travers les forks ».
-
-## L'appris se synchronise tout seul (07/09/2026)
-
-Joel, en changeant de poste : « learned s'est enrichi, mais sans aucun
-commit ; je n'ai plus mes enregistrements. On met en place des commits
-automatiques et un pull automatique à l'ouverture ? Une meilleure
-solution ? » Puis : « je valide, mais je veux que le message soit en
-anglais. Comment identifier le nombre de commits des dépôts publics des
-différents utilisateurs ? »
-
-Décision [0017](decisions/0017-synchronisation-de-l-appris.md), câblée le
-jour même (`src/sync.rs`, `learned::merge_artist`, sous-commande
-`merge-learned`) :
-
-- **Pull au démarrage** (accueil et `ecouter`), après avoir commité ce qui a
-  été appris ici ; l'en-tête de l'accueil dit `⇅ à jour` / `⇅ appris
-  commité, catalogue mis à jour` / `⇅ hors ligne`. **Commit toutes les dix
-  minutes** si `learned/` a bougé, push en fond, résultat dans le pied.
-  **Commit et push à la sortie**, affiché une seconde. **`:sync`** à la
-  demande. Délais réseau courts : hors ligne, rien ne se suspend.
-- **Fusion par compteur** : le pilote git `merge=learned` appelle
-  `forkstify merge-learned`, qui additionne ce que chaque côté a compté
-  depuis l'ancêtre (décru au jour), garde le ban ou l'aimé posé d'un côté,
-  suit le poids qui a bougé, laisse entrer les tops nouveaux. Trois tests
-  unitaires, **et un scénario git réel** : deux clones, deux écoutes
-  concurrentes du même artiste, `pull --rebase` sans conflit, `plays`
-  passé de 3 à 6,01 (5 + 4 − 3 décru d'un jour).
-- **Les tops sont écrits triés** (`BTreeMap`) : l'ordre de hachage faisait
-  de chaque écriture un faux diff.
-- **Messages en anglais, trailer `Forkstify: <kind> <version>`** sur les
-  commits de l'appris, des éditions et des imports. Pour compter l'usage :
-  `gh api search/commits -f q='"Forkstify:"' --jq .total_count` (dépôts
-  publics, branche par défaut) et `forks_count` du dépôt de référence.
-
-**Reste à faire de la main de Joel** : lancer forkstify sur l'autre poste —
-il commitera son appris, rebasera sur ce que ce poste a poussé, et le
-pilote fusionnera. Ce poste a poussé le sien à l'occasion de ce commit.
-
-## La discographie s'ouvre en modale (07/09/2026)
-
-Joel, après une graine Cat Power : « je n'aime quasiment que des morceaux
-de l'album *What Would the Community Think* ; j'aurais aimé une commande
-pour avoir la liste visuelle des morceaux classés par albums, et pouvoir
-faire des `tt` sur ceux que j'aime et `tT` sur les tops que je veux
-enlever. » Puis, sur la maquette : « partons sur `ad` et une modale », forme
-**1a** de `Discographie.dc.html`.
-
-Conçu dans
-[`conception/exploration-d-un-artiste.md`](conception/exploration-d-un-artiste.md),
-câblé le jour même :
-
-- **`ad` (ou `:discography`) pose une modale sur l'écoute** — elle ne la
-  remplace pas, le son ne cesse pas, l'en-tête et le pied restent. Elle vise
-  l'artiste de la ligne **surlignée**, celui du morceau en cours à défaut.
-- **Les albums sont pliés** : cent quatre-vingt-sept titres deviennent douze
-  lignes, celui du curseur s'ouvre seul, avec sa part des écoutes en jauge.
-  L'en-tête répond à la question qu'on vient poser — « 2 albums portent
-  79 % des 118 écoutes — 6 albums jamais ouverts ».
-- **La modale a sa propre table** (`keys::parse_modal`, la première du
-  produit) : `j`/`k` descendent, `h`/`l` plient et déplient, `tt`/`tT`
-  corrigent les tops, `A` promeut les quatre titres les plus écoutés de
-  l'album, `tl`/`tb` mesurent, `e` met à la file, `s` change l'ordre, `v` la
-  vue (tout, ♪, ♥, ⊘), `/` filtre, `u` défait, ⏎ écrit, échap ferme.
-- **Une fournée, un commit** (`edit::set_tops`) : les éditions s'accumulent
-  en bas avec le sujet du commit à venir, et partent en une écriture. Le
-  premier échap prévient s'il en reste. Cela ne contredit pas 0017, qui
-  porte sur l'appris : mesures et éditions n'ont jamais eu la même règle.
-- **Les tops que la discographie ne rend pas** tombent en fin de liste
-  (« tops hors discographie ») et restent retirables : c'est là qu'une
-  fiche générée se relit.
-- **Le cache de la traîne** gagne la date, le rang, la durée et le type
-  (album/single) ; une récolte d'avant est refaite en silence — le cache est
-  régénérable et hors dépôt.
-
-Dix tests de plus (dédoublonnage des rééditions, appariement des tops par
-titre normalisé, gestes contraires qui s'annulent, curseur qui survit au
-pliage, et un rendu complet de la modale). **Non vérifié en session
-réelle.**
-
-## Le pied ne grandit jamais, le geste se voit dans la liste (07/09/2026)
-
-Joel, après un `e3` : « il ne m'a ajouté qu'un morceau ; je voudrais
-enlever la notification de l'action : le pied ne grandit jamais, et le geste
-est vérifiable — on voit ce qui a été ajouté par une icône spéciale devant
-le morceau, ↻ à la place de →. Une action sans effet visible dans la liste
-(un ban, une édition de fiche, une erreur de lecture) doit quand même
-apparaître ; il faut mettre en forme un peu plus cette notification. »
-
-- **Ce qui se voit ne se dit plus** : prendre une branche (elle apparaît
-  avec sa raison), un encore (ses morceaux portent **`↻`** en jaune à la
-  place de `→` — `Stop::encore`), retirer de la file, pause et reprise (le
-  glyphe du pied). Neuf `say!` tombent.
-- **Ce qui ne se voit pas s'affiche mieux** : la ligne « dernière chose
-  dite » est mise en forme par nature, au glyphe qui l'ouvre, comme le
-  composant Notice du design system — `✓` vert, `⏹` `⊘` rouge, `↻` `⚑`
-  jaune, `→` magenta, une parenthèse en gris, « pas encore câblé » en
-  italique estompé ; le détail après « — » ou entre parenthèses finales
-  s'estompe. Testé.
-- **L'encore qui n'ajoute qu'un morceau.** Deux causes possibles, toutes
-  deux traitées. La récolte de la traîne se décidait sur le nombre de tops
-  de la fiche moins un plafond global, pas sur les tops **non joués de cet
-  artiste** — corrigé. Et quand la traîne manquait (pas d'identifiant
-  Spotify, API injoignable, traîne fermée au cocon ou épuisée), l'encore
-  servait ce qu'il pouvait **sans le dire** — la ligne unique du pied étant
-  aussitôt écrasée par « ↻ encore… ». Désormais `harvest` rend son résultat
-  au lieu de parler, et l'encore ne parle **que** s'il ne sert pas la
-  demande : « (1 seulement chez X — sa traîne est épuisée) ». `:warm` dit
-  `✓ discographie de X — n titres en cache` ou `⏹ …`.
-
-## L'aide à la saisie (07/09/2026)
-
-Joel : « je veux changer le fonctionnement de la fenêtre des raccourcis :
-on l'ouvre avec espace et on la ferme avec échap ; si je l'ouvre et que
-j'appuie sur e, cela affiche la fenêtre des raccourcis de e, je dois pouvoir
-revenir en arrière ; si j'appuie ensuite sur 3, cela déclenche l'action
-voulue — ce n'est plus une simple fenêtre de raccourcis, mais une aide à la
-saisie. »
-
-C'est which-key pour de vrai. Le leader ne **vidait** plus rien : il
-effaçait la séquence en cours pour montrer un menu, et il fallait tout
-retaper. Désormais :
-
-- **espace** ouvre l'aide sur le niveau en cours (tout, ou le namespace à
-  moitié tapé) **et laisse la séquence en cours** ; espace au niveau
-  d'entrée la referme, **échap** la ferme de partout.
-- **Chaque touche tapée dans l'aide passe par la grammaire** : `e` fait
-  descendre l'aide au niveau de e (la session suit `Cmd::Pending`), `3`
-  complète `e3` — la commande part et l'aide se ferme.
-- **⌫ remonte d'un niveau** : le lecteur de touches efface la dernière
-  touche de la séquence et le dit ; hors de l'aide, c'est simplement
-  effacer.
-
-Le pied de chaque niveau le rappelle : « une touche = l'action · ⌫ retour ·
-échap fermer ». Les entrées du niveau d'entrée disent « tape f pour ses
-touches » au lieu de « espace pour le détail ».
-
-Côté code, `Live::help_open` est le seul état ajouté ; un bloc posé sur
-l'écran tombait au geste suivant, l'aide fait exception tant que la séquence
-n'a pas abouti. Non vérifié en session réelle.
-
-## L'écran de lecture d'après la maquette 2b (07/09/2026)
-
-Joel, `Lecture.dc.html` enrichie de deux variantes d'en-tête et de pied :
-« retravaille l'écran de lecture d'après la maquette **2b**. Finalement on
-enlève le filet vertical. Concernant la colonne des branches, la
-présentation que nous avons me convient, ne la modifie pas. Passe juste les
-raisons en gris. »
-
-2b : « la graine en bloc — et une progression pleine largeur ». Le parcours
-d'artistes disparaît du haut (la liste jouée le dit déjà) ; à sa place, une
-ligne d'en-tête et le bloc de la graine ; en bas, ce qui sonne et ce qui
-suit, puis l'invite. L'écran tient désormais ainsi :
-
-    forkstify ecouter the-cure     segment 2 · 6 morceaux · 3 à venir · confort 3 ███░░ équilibré
-
-    ── graine ──────────────
-    The Cure  [catalogue]  fiche écrite · 41 liens · 12 tops  dernière écoute -3s
-    1 embranchement depuis — 2 artistes traversés
-          ♪ A Forest — The Cure  graine : the-cure        1 écoute · hier │ ── branches 2
-     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees        jamais joué │   1  The Creatures
-     2 →  ♪ Israel — Siouxsie and the Banshees                jamais joué │      membres en commun — …
-                                                                          │      ♪ Right Now — The Creatures
-     3    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche    │      █████ membres en commun
-    ▶ Cities in Dust — Siouxsie and the Banshees  (2 / 3)                 ♪ top │ 2:34 / 3:47 -1:13
-    ████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-    à suivre  Israel — Siouxsie and the Banshees                  → embranchement dans 1 morceau
-    (la dernière chose dite)
-    [1-3 branche · h/l · p · espace = les touches · q] █
-
-- **L'en-tête sur une ligne** : la commande à gauche, l'état à droite —
-  segment, morceaux, à venir, et la jauge de confort, qui quitte l'invite
-  (elle s'inverse là quand `c` la règle).
-- **La graine en bloc**, sous sa règle : le nom, `[catalogue]`, ce que dit
-  sa fiche (écrite ou générée, liens, tops — `Card` lit désormais
-  `generated`), sa dernière écoute d'après `learned/`, et le compte des
-  embranchements pris et des artistes traversés.
-- **La liste sans filet** : le demi-trait du matin tombe, les morceaux se
-  suivent ; le numéro passe en gris, seule la flèche garde sa couleur ; un
-  blanc avant l'horizon.
-- **Le pied** : ce qui sonne avec sa position dans la liste et sa
-  provenance en toutes lettres (`♪ top`, `♥ aimé`, `↳ door`, `· traîne`…
-  — `Source::word()`), puis ce qui suit et « embranchement dans n
-  morceaux ». La dernière chose dite garde sa ligne, l'invite reste la
-  dernière avec un curseur bloc.
-- **La colonne des branches ne change pas**, sauf le mot sous la jauge
-  (`membres en commun`, `0.78`) qui passe en gris comme la raison : seules
-  les cellules de la jauge disent encore la nature du lien.
-
-**La progression, finalement** (Joel : « on ne peut vraiment pas avoir une
-barre de progression ? »). Si : librespot dit la position à chaque
-démarrage, pause et saut (`Playing`, `Paused`, `Seeked`,
-`PositionCorrection`) et la durée à chaque changement de piste
-(`TrackChanged`). `Live::follow_needle` les suit — pour la requête en cours
-seulement, un morceau sauté parle encore — et **un tic par seconde**
-redessine tant que ça joue, la position étant extrapolée depuis le dernier
-échantillon. Le pied gagne `♪ top │ 2:34 / 3:47 -1:13` et une **barre
-pleine largeur** en cyan, comme le module media de waybar. Sans donnée
-encore (avant le premier `Playing`), la barre est vide et les temps
-absents.
-
-**Pas fait, faute de donnée** : « 1 door écartée par le confort » — le
-moteur ne compte pas ce qu'il écarte.
-
-## La liste de lecture sur la grille de la chaîne (07/09/2026)
-
-Joel, maquette `File d'attente.dc.html` : « est-ce qu'on peut présenter la
-liste de lecture un peu comme la maquette **3a** ? C'était une ancienne
-maquette du projet de file d'attente avorté, mais j'aime bien le graphisme
-et je veux le récupérer pour la liste de lecture. » Puis, sur un premier
-essai qui faisait un maillon par branche : « je voudrais reprendre l'idée de
-numérotation devant les morceaux en cours et à venir, et la séparation avec
-le tiret vertical. Si on peut trouver des petites stats ou infos
-intéressantes à mettre sur le côté en gris comme sur la maquette, ce serait
-pas mal. »
-
-3a dessinait « la chaîne » sur une grille à quatre colonnes : le numéro et
-la flèche, le nom, la raison en gris, une info à droite ; un filet `│` entre
-les lignes ; l'horizon au bout. Le mode file d'attente est tombé le 06/09,
-mais la grille convient à ce que l'axe est devenu. **Chaque morceau y est
-une ligne** :
-
-          ♪ A Forest — The Cure  graine : the-cure          1 écoute · hier
+## Installing without Docker: a GitHub release and an AUR package (2026-09-21)
+
+Joel, while trying a clean install: "can we ship a binary so the user does
+not have to have Docker?". The binary lends itself to it: 56 MB, and only
+ALSA, libstdc++, libgcc, libm and libc as dynamic dependencies — ONNX
+Runtime is already statically linked.
+
+- **`.github/workflows/release.yml`**: on a `v*` tag, checks that the tag,
+  `Cargo.toml` and `manifest.json` agree, runs the tests, compiles in
+  `rust:1-slim` (the same image as the `Dockerfile`, so CI publishes what
+  `bin/build` produces), strips the binary and attaches
+  `forkstify-<version>-x86_64-linux.tar.gz` and `SHA256SUMS` to the release.
+  It is the application repository's first CI.
+- **`omarchy/install.sh` rewritten**: the published binary first, with its
+  digest verified — never an install past a mismatch —, and building in a
+  container only as a fallback or on `--from-source`. It does not touch a
+  `forkstify` put there by a package manager.
+- **`packaging/aur/forkstify-bin/`**: `PKGBUILD` and `.SRCINFO` for Arch.
+  Depends on `alsa-lib`, `gcc-libs`, `glibc` and `git` (the catalog is a git
+  repository); `github-cli` and `xdg-utils` optional. `sha256sums` is at
+  `SKIP` as long as no release exists: `updpkgsums` fills it before
+  publishing. The procedure is in `packaging/aur/README.md`.
+
+The package puts `/usr/bin/forkstify` in place but not the widget, which
+stays `omarchy plugin add` (0021); the two complement each other, the widget
+testing `command -v forkstify`. **Left to do: tag `v0.1.0` to try the
+workflow for real.** The fastembed model (241 MB) remains the big cost of
+the first run, independent of all this.
+
+## Artist freshness and a tail modulated by familiarity (2026-09-14)
+
+The small-circle feedback (usage-feedback no. 13), wired.
+
+- **Freshness at the artist level** (`Learned::artist_freshness`, half-life
+  4 days, floor 0.3): an artist heard recently steps back as a branch head,
+  and recovers over a few days. Applied to the graph's heads, to the
+  adventurous branch and to the `stay` branch. It breaks the reinforcement
+  loop that was tightening the circle.
+- **A tail modulated by the artist's familiarity**: in `reservoir`,
+  `share = tail_share() × familiarity`. A new artist is led by their tops, a
+  known artist opens up their long tail. Lowering comfort widens the artists
+  without bringing in deep cuts at random.
+- The tail test is rewritten (familiar ⇒ tail, new ⇒ tops), with an
+  `artist_freshness` test added. 68 tests.
+- **The data is already synced**: `plays`/`last` live in `learned/`, version
+  controlled in the fork and synced by 0017. Freshness travels between
+  machines with no new file (Joel's question, 2026-09-14).
+
+## `:warm` on an empty tail, and a card with the wrong identifier (2026-09-14)
+
+Joel: impossible to get Jarvis Cocker's discography. Two causes.
+
+- **The card pointed at the wrong Spotify.** `2kTHIUipN0SYKBbmcTCLfQ` is
+  "Jarvis Branson Cocker", an almost empty homonym (2,176 listeners, with no
+  discography of their own); the real one is `13W7XLRXdWeLmIu9vacE1w` (the
+  profile verified). Checked on open.spotify.com, fixed in the catalog. The
+  API was answering, then, but with zero albums.
+- **An empty tail was cached and blocked the retry.** `:warm` saw `[]` in
+  the cache and said "already cached, 0 tracks" without ever trying again.
+  `:warm` now **forgets the cache before harvesting**, so it always makes
+  the call again; and a harvest with zero tracks says so clearly ("its
+  Spotify identifier may be wrong") instead of passing for a success. The
+  empty cache on disk was deleted.
+
+## `:warm` harvests the artist under the needle (2026-09-14)
+
+Joel: `:warm` was taking the context's last artist (`state().1`), not what
+is playing or the highlighted row. It now uses the same target as
+`e`/`t`/`a` (0020): `target()` — the selection, otherwise the current track
+— falling back on the context if the target is outside the catalog.
+
+## A little color on the track info panel (2026-09-14)
+
+Joel: "put a little color on the track information window". `info_line` in
+`tui.rs` tints the labels of the `ta` panel (featuring, album, tags, from
+here, off-catalog) in bold cyan, brightens their value, and turns the
+metrics line (familiarity, weight, links) yellow with discreet separators.
+Lines that are not "label: value" — the rows of the help menu, which shares
+the same panel — stay grey, as before. Cover art in `ta` is still waiting
+for the terminal's graphics protocol.
+
+## Resume resumes the whole journey, and nothing goes to stdout any more (2026-09-14)
+
+Joel, two points.
+
+- **"Resume" (`r`) picks the whole current journey back up**: history,
+  current track and upcoming tracks, instead of starting from the last track
+  alone. `LastSession` now carries `past`, `current`, `queue` and `rounds`
+  (Stop/Source/Head/Round derive serde); `remember` records them on exit,
+  `restore` puts them back and replays the track that was playing. An older
+  `last.json`, without those fields, falls back on the old behavior
+  (starting from the last track).
+- **No journey written to stdout on exit any more.** `run` no longer returns
+  the artist list and neither caller prints "Journey: …": the alternate
+  screen is given back, and nothing shows behind it.
+
+## Comfort is kept from one launch to the next (2026-09-14)
+
+Joel: "I'd like forkstify to remember the last comfort zone chosen". A
+`~/.local/state/forkstify/comfort` file, written on every change
+(`config::remember_comfort` on `c<n>`, `:comfort`, a confirmed `cc`, home
+and listening) and read back at startup (`config::comfort_at_start`, called
+everywhere the old code read `config.journey.comfort`). The state outranks
+`config.toml`, which becomes the first run's seed.
+
+## Four pieces of usage feedback: taste, info, gauge, album (2026-09-14)
+
+Joel, after a few days.
+
+- **`tl` toggles liked / not liked.** On an already liked track, `tl`
+  removes the like **with no penalty** — `ts` remained "less often + remove
+  the like", and the plain removal was missing. `learned.track_liked` /
+  `unlike_track`; it holds while listening and in the discography.
+- **`ta` — track about**, a new key (an English word, not "fiche"): album,
+  featuring, year when the discography has them, plus tags, familiarity,
+  weight and the first branch. **It replaces `?`/why**, whose reason is
+  folded into it. Featuring read from the title (`feat.`/`ft.`/`with`),
+  album and year from the discography cache, with no network call.
+- **The comfort gauge** is now **at the top right on both screens, with the
+  editing look permanently** (`comfort_spans`), with `cc` adding "↑↓".
+  **Home's status only shows when degraded** (Joel doubted its usefulness
+  continuously): red, second line, otherwise nothing.
+- **⏎ on an album row** in the discography **listens to the whole album**:
+  its tracks open a new seed in order, then the branches set off from the
+  artist (`start_album`). On a track, ⏎ keeps the 09-11 meaning (set off
+  from it).
+
+Cover art in `ta` is left for later: it needs the terminal's graphics
+protocol (sixel/kitty), a separate workstream.
+
+## `aL` links to an artist chosen from the search (2026-09-14)
+
+Joel: "I don't understand the gesture for linking one artist to another… I
+was listening to King Hannah and I wanted to link them to Peter Kernel".
+`aL` linked to the artist **you had come from**, an implicit target no
+screen announced, and one that could not reach an artist outside the
+journey.
+
+`aL` now opens the search modal, with the header "link <artist>"; enter on a
+row writes a `similar` link in the current card towards the chosen artist. A
+catalog target (`Hit::Artist` or a title with a card) or one outside the
+catalog (a slugified name — a link towards a missing card is a proposal,
+0016). A `link_from` carried by the `Finder`, resolved at the head of
+`take_found`; the edit commits as before (it counts at the next launch). It
+works on home as while listening. A current artist with no card cannot be
+linked: the toast points at `:generate`.
+## `:generate <name> <mbid>` offers instead of overwriting (2026-09-11)
+
+Joel: with an mbid, `:generate` started a new list and overwrote what was
+playing. Now, if there is a list in progress (a track playing or a non-empty
+queue) and an mbid is given, the card is made but **the journey does not
+start**: a success toast that lingers longer (`SEED_OFFER_SECONDS`, 12 s)
+offers to set off from the artist — **⏎** accepts and replaces the list, any
+other key keeps the list and does its job. A new `After::Offer` branch, a
+pending seed `pending_seed` consumed by enter in `on_cmd`. With no mbid, on
+home or with nothing playing, the previous behavior does not move. The toast
+now carries a duration of its own (`linger`).
+
+## Branches no longer scroll past into the void, and the card reopens (2026-09-11)
+
+Two pieces of feedback from Joel after a real session.
+
+- **Branches could be chosen endlessly without playing.** Since the tail is
+  harvested for the proposed artists, a branch can draw a tail track (at
+  comfort 3, the tail weighs). A track unavailable in the region ends the
+  instant it starts: the branch runs out, `auto_advance` draws another, with
+  no sound — and nothing stopped it. A safeguard: `MAX_DRY_ADVANCES` (4)
+  counts the branches chained without a track reaching the speakers; past
+  that threshold, playback stops and hands control back ("tracks may be
+  unavailable in your region"). The counter falls back to zero as soon as a
+  `Playing` arrives.
+- **The Omarchy card did not reopen forkstify when it was off.** The "Show
+  forkstify" button pointed at the bare word `forkstify`, which also caught
+  a terminal left in `~/Work/forkstify`: focus went to that shell instead of
+  launching. Back to `omarchy-launch-or-focus-tui forkstify`, on the app-id
+  `org.omarchy.forkstify` — precise, as before the button was added.
+
+## Enter in the discography sets off from the track (2026-09-11)
+
+Joel: "I want to be able to start a new seed from a song on the discography
+screen (with enter?)". Enter kept the 09-08 meaning, writing the batch. The
+two stack: enter writes the batch if there is one (a commit), then, **on a
+track, sets off from it** — `start_journey` on `Choice::Track`, like the
+search. On an album, enter only writes; a banned track does not set off. The
+modal's handler is synchronous, so the seed goes out through
+`start_requested` after it, like `:search` and `:wander`. Detail in
+[artist-exploration.md](design/artist-exploration.md).
+
+## `fw` — going far away, or to someone (2026-09-11)
+
+Joel: "let's implement fw. I also want to be able to do `fw <artist name>`
+to aim at a particular universe". Feedback no. 6 is settled in its (a)
+reading, leaving the universe, with an optional target.
+
+- **`engine::wander`**: with no target, the head is drawn among the artists
+  furthest from the journey's center — outside the journey and everything
+  one link away from it, below the comfort floor (what the adventurous
+  branch refuses), with unplayed tops; the furthest weighs the most, and the
+  dial leans as for any head. With a target, the head is that artist,
+  whatever the distance. Then the same walk as a branch. A test pins both
+  cases down.
+- **The key**: `fw` opens the `:wander ` line already filled in (`read_line`
+  takes the start of a line); enter alone goes far away, a name goes to
+  them. `:wander [artist]` is the spelled-out command. The name resolves
+  through `search_names` on the catalog; if absent, the toast points at
+  `:generate`.
+- **Where**: the branch goes at the end of what is decided, like `f<n>`. To
+  settle in use: if "go off to something completely different" means now,
+  `fn`/`f!` have the gesture, and `fw` could take it.
+
+Joel, before relaunching: "the home page mentions a random with enter, which
+is not true" and "cc + arrows does not work".
+
+- **Enter on home** took the page's first door, whereas the screen and
+  [home-screen.md](design/home-screen.md) promise "at random — a weighted
+  draw, the door that asks you to choose nothing". It is now true: a draw
+  over all the page's doors, weighted by what the dial does to the artist's
+  familiarity (`Comfort::favours`, the engine's own) — the familiar at the
+  cocoon, the unknown wide open, never a zero weight. A highlighted row
+  keeps priority.
+- **`cc` on home** did nothing: home took the key before the dial was
+  consulted, and did not know about `ComfortMode`. The dial now goes ahead
+  of home in `on_cmd`, `cc` opens it from home, the gauge lights up as while
+  listening, and confirming only recomputes the branches if there is a
+  session.
+- **The gauge looked "odd" while setting it** (Joel, right after): dial mode
+  turned the whole gauge black on cyan, so the full blocks went black and
+  the empty ones colored — the reverse. The blocks keep their color, only
+  the words light up, on both screens.
+- **The blocks in reverse order** (Joel: "when I go to cocoon, the never
+  played come first… that's counter-intuitive, no?"):
+  [home-screen.md](design/home-screen.md) says "at the cocoon the regulars
+  first, at exploration the neglected", and the code tested `comfort ≥ 4` to
+  put the neglected first — a leftover of the dial's old meaning (5 = cocoon
+  since 2026-09-06). Inverted, and a test pins the meaning down at the four
+  corners (5, 3, 1, 0). `home.rs`'s first test.
+
+## The tail follows the branches (2026-09-11)
+
+Joel, "very happy" after a few days of listening (noted in
+[strengths.md](strengths.md)), but at comfort 3 "never any long tail".
+Checked in the code: a branch never harvested the discography — only `e<n>`,
+`:warm` and `ad` did, and 16 artists out of 314 had one cached. The weight
+itself was right.
+
+Option 1 chosen by Joel: after every `recompute`, the artists of the
+proposed branches with no tail are **harvested in the background**, without
+a word, as soon as comfort opens the tail up. `harvesting` becomes a map
+slug → silent, so that the "discography — loading" toast only serves
+requested harvests. Detail in [long-tail.md](design/long-tail.md).
+
+A first wiring redrew the branches still proposed when the tail arrived; in
+use, "the songs in the branches change immediately", and Joel does not want
+that. Between waiting for the harvest before showing and showing the tops
+then letting the cache serve the next draws, **the second** is wired (the
+simplest, reversible): a proposal once shown does not move. `engine::redraw`
+and its test are removed. **To be tried: the `·` mark should appear from the
+next draws on, not on an unknown artist's first one.**
+
+## The bar's card finally follows the needle (2026-09-11)
+
+Joel: the Omarchy card's progress bar "stays at 0:00 while a track is
+clearly playing" — the return of the 09-10 bug. This time the bus is not at
+fault: `busctl` gives the position, the length, "Playing", and `Seeked` does
+go out on every track. The fault is in Quickshell: `MprisPlayer.position` is
+**computed on every read** (last sample + elapsed time) but the
+`positionChanged` signal is never emitted during playback — a QML binding
+therefore keeps the value read when the player was discovered, or the one
+from the last `Seeked`: 0 at the start of the track. Verified in a separate
+Quickshell instance: the bound property stays at 152.91 s while a direct
+read advances; a call to `player.positionChanged()` resynchronizes the
+binding. The widget gains a one-second `Timer`, active only **while the card
+is open and the track is playing**, that asks for that signal. The 09-10
+`Seeked` stays useful for seeks (`h`, a correction). Recorded in
+[omarchy-bar.md](design/omarchy-bar.md).
+
+## Ye and Kanye West are one (2026-09-10)
+
+After the previous fix, `enter` on "Kanye West" answered "Ye already has a
+card" and stopped. Two causes:
+
+- **The collection doubled the artist.** The `kanye-west` card carries the
+  name MusicBrainz gives them today, "Ye"; the Spotify library still says
+  "Kanye West". The collection matched the ranking against the cards **by
+  name**: two rows, "Ye" with a card but zero familiarity, "Kanye West" with
+  no card. The `learned/` seed is now **indexed by slug**, and familiarity
+  and likes are looked up by the card's slug or by the displayed name's
+  slug: one row, the right familiarity. Test
+  `le_seed_se_retrouve_par_le_slug_quand_le_nom_a_change`.
+- **An existing card blocked the gesture.** `:generate` on an artist who has
+  a card said "already has a card" and did none of what was wanted of it.
+  Now the intent (`After`) runs anyway, through the same path as a fresh
+  card (`Job::Existing`, `after_card`): enter sets off from them, `ad` opens
+  their discography.
+
+The card is still called "Ye": that is MusicBrainz's name of the moment, and
+the card is Joel's — an `ae` renames it if he prefers "Kanye West".
+
+## Enter on an artist with no card generates, and everything is said in a toast (2026-09-10)
+
+Joel, on Kanye West highlighted in the collection: "it tells me 'Kanye West
+has no card: nothing to branch from'". Yet arriving at an artist means
+making them a card (0016), as `ad` has since that morning and as the search
+modal does: `enter` on a row with no card goes through `:generate` — the
+card is born, and the journey sets off from them.
+
+And "the notification appears at the bottom and is not very visible. Note it
+as a rule: every notification must appear as a toast." The 09-08 rule
+already said "no more status line", but home kept its bottom line for what
+it had to say (`(unknown: …)`, "nothing highlighted", whatever `tell` handed
+it). Now **everything goes through the toast**, under home as while
+listening: home drops what it has to say, the session picks it up after
+every key and lays it out as a panel; `tell` no longer distinguishes the
+screens. The rule is recorded in
+[`application-shape.md`](design/application-shape.md) § "Everything is said
+in a toast", test `the_home_says_everything_in_a_toast`.
+
+## The next track moves up into the playback line (2026-09-10)
+
+Mockups **4a** and **4a′** of `Lecture.dc.html` (Claude Design, project
+"Accueil Forkstify"): the "up next" line under the bar cost a footer line to
+repeat what the list shows two lines higher, and as long as a line followed
+the bar, the eye took it for a separator. Wired as is:
+
+- **The footer goes from three lines to two**: the playback line carries the
+  whole time axis — `▶ what is playing — artist  (2 / 10) │ then ♪ next —
+  artist` on the left, `♪ top │ 1:48 / 3:49 -2:00` on the right —, then the
+  bar, which closes the footer. Same thing under home.
+- **`→ fork in 8`** moves up into the title bar with the segment counters,
+  in place of "n ahead": it is a state of the journey, not of playback.
+  `→ fork next` when the queue is empty.
+- **4a′'s order of sacrifice** as the window shrinks, with the right-hand
+  block untouchable: 1. the next track's artist · 2. `then` and the counter,
+  the `│` is enough · 3. the provenance and the remaining `-20:44` · 4. the
+  current title cut with an ellipsis, never below 16 characters · 5. the
+  next track leaves the line and the list marks it **`▸` in the gutter**
+  (4b's fallback: ` 2 ▸↻ ♪ Israel`). One `…` per line at most; the next
+  track's title is never truncated. No fixed thresholds: every step is taken
+  as soon as the previous one does not fit.
+- **Settled pending better**: if even the title alone does not fit, the
+  current artist disappears entirely rather than take a second ellipsis (the
+  mockup showed both cut, but its note forbids two cuts). Reversible.
+
+Tests: the line at widths 170 / 145 / 138 / 120 / 96 / 72; the `▸` gutter at
+60 columns. `Bar` loses `ahead`.
+
+## The interface goes English (2026-09-10)
+
+Joel wants to publish a first version soon, usable by as many people as
+possible: **everything shown is now in English**
+([0022](decisions/0022-english-interface.md)) — TUI, toasts, key tables,
+command-line output, the `config.toml` template, the Omarchy widget and its
+`install.sh`, the engine's labels (`liked` · `tail` · `non-top` ·
+`off-catalog`, `shared members`, `close to the branch's center`…). The
+subcommands follow: **`journey`** (formerly `parcours`) and **`listen`**
+(formerly `ecouter`). The configuration's `[catalogue]` section becomes
+`[catalog]`, with the old name still read. The notes written into the cards
+by `td`/`aL` are in English (`set while listening, <date>`). What does not
+move: `embed.rs`'s vectorized text (the index depends on it), the spikes in
+`src/bin/`, and the documentation, which stays in French. In the same pass,
+**all the code comments are translated** (~1,000 lines, only comments
+moved, tests green), then the **51 test names** and their assertion
+messages; only the spikes' output is left in French.
+
+## The agent: an AI driving forkstify from the outside (2026-09-10)
+
+An idea of Joel's: an `:agent` command that passes a prompt to a connected
+AI (the Claude Code on his machine) — "build me a playlist of 20 tracks in
+the mood of Kanye West, Drake, Kendrick Lamar" —, with the AI using
+forkstify's tools, the catalog and the listening session, after an exchange
+if it needs clearing up. Discussed, nothing coded; the direction is recorded
+in [`agent.md`](design/agent.md).
+
+In short: **the agent drives, it does not choose in its head** — it
+searches, generates cards (`:generate`), asks for branches, reads their
+reasons and queues; the playlist is the by-product, and the catalog has
+grown. And **the agent is outside**: no LLM client and no key in the binary.
+Floor 1, with no `:agent`: a control socket and `forkstify cmd ':…'` plus a
+few JSON reads — the agent's API is 0013's `:` commands, and the
+conversation happens in Claude Code. Floor 2, `:agent` in the TUI with an
+external command configured, only if floor 1 turns out to be too heavy in
+use. Six questions to settle in the note (the generation ceiling, the trace
+in the queue, "off the top of its head" tracks, the name, the trailer,
+whether floor 2 is necessary).
+## A day of listening: the queue, the target, generation, the liked (2026-09-09)
+
+Joel's first real long listening session, and his feedback handled as it
+came — step 1 of the next steps is **under way**. In order:
+
+- **The playlist showed a truncated queue.** The queue is a `VecDeque`;
+  after a `push_front` (a branch taken "now", going back, `ti`) the buffer
+  wraps and `as_slices().0` only returned its first half: a chosen branch
+  was missing, or came back a few tracks later. `make_contiguous()` before
+  drawing.
+- **`tx` existed** but was missing from `t`'s hints; added, and its index
+  now follows the same axis as the movement.
+- **The encore targeted the end of the chain.** Since choosing a branch
+  appends to the queue, the "current" drawn from the rounds is the last
+  artist stacked, not what is playing: an `en3` served the wrong artist.
+  Hence **decision [0020](decisions/0020-the-target-of-a-gesture.md)**: a
+  gesture targets the **highlighted row, otherwise what is playing**, for
+  `t`, `a` and `e`; `ts` and `tb` only move the music forward if they target
+  what is playing; `en<n>` and `e!<n>` land **behind the highlighted row**
+  when it is still to come. Feedback no. 12 (the target of `t`/`a`) is
+  closed by this.
+- **La Ruda**: five tops set by hand, and the card renamed "La Ruda Salska"
+  — the MusicBrainz name is not Spotify's, and resolving a track searches by
+  name. The question is noted in
+  [on-the-fly-generation.md](design/on-the-fly-generation.md).
+- **`:generate <name> <mbid>`**: an identifier found by hand replaces the
+  search by name; if MusicBrainz stays silent, a minimal card flagged for
+  review; an artist proposed as a gap takes their branch. Read from home as
+  from listening.
+- **"Lojo not found"**, two causes: MusicBrainz answers 503 in bursts (we
+  wait through six attempts over half a minute, and say "busy" rather than
+  "not found"); and a name coming from a slug has lost its apostrophes
+  ("Lojo" for Lo’Jo) — **Deezer lends the spelling**, verified against the
+  cards' key. A network test, ignored by default.
+- **`docs/atouts.md`**: Joel's positive impressions, dated and quoted, to
+  list the strengths when the time comes. First entry: rediscovering what
+  Spotify never offered, coherence under control, unexpected all the same.
+- **Home shows the liked by default**, `v` switches to the whole catalog.
+  Liked = a "more often" or a ♥ here, a track, an album or a follow on
+  Spotify (`classement.json`).
+- **The guests on a liked track are not liked** (Bosh, Bossikan, Bow Wow —
+  Joel's son): the harvest scripts now count only the main artist; the
+  harvest relaunched by Joel, the ranking recomputed: 605 ranked artists
+  instead of 741.
+- **`al` / `as` / `ab` on home**, on the highlighted row. `as` sets an
+  `unliked` flag in `learned/artists/<slug>.toml` that outranks Spotify and
+  survives the harvests; `al` clears it; the 0017 merge treats it like a
+  ban. An artist with no card is written and read back under the slug of
+  their name.
+
+Two design questions noted, partly settled: **removing an artist from the
+liked** (done, above) and **a smooth setup** — connection, library import,
+playlists to tick — settled as "first run *and* replayable", with a Claude
+Design mockup to come from Joel before coding
+([first-run.md](design/first-run.md)).
+
+## The vector is born with the card (2026-09-09)
+
+Joel chose (b): **the application does its own vectorizing**
+([0019](decisions/0019-the-application-vectorizes.md)).
+
+- **`embed.rs`**: the text composition carried over word for word from
+  `vectoriser.py` (verified identical over the reference's 316 texts,
+  `forkstify vectors --texts` against `vectoriser.py --textes`), the model
+  through `fastembed` (rustls features, the quantized variant,
+  `max_length = 128`, cache in `$XDG_CACHE_HOME/forkstify/fastembed`),
+  writing one line into `vectors.jsonl` in slug order, and full
+  regeneration. `Card` now carries `begin`, `end`, `origin`, `description`.
+- **In session**: `Job::Generated` composes the text and sends the model to
+  the background (`spawn_blocking`), `Job::Vectorized` adopts the card
+  **and** its vector in the same commit (`Edit.also`). If the model is
+  missing, the card comes in anyway and the toast says "without vector". On
+  the first computation, the toast warns that the model is downloading.
+- **`forkstify vectors [catalog] [--texts]`** regenerates the index and
+  `meta.toml` (English keys, `max_length`, `normalized`). The import does it
+  within its commit, with no docker.
+- **Build image**: `g++` added to the Dockerfile. Binary: 23 → 58 MB.
+- **The reference index regenerated** by the application and pushed to the
+  fork (`dd82e8d` on the catalog side): cosine ≥ 0.999999 against the old
+  one, norms at 1. `tools/vectoriser.py` marked as replaced, kept on record.
+
+**Left**: editing a link in session does not recompute the vectors (it only
+counts at the next launch) — noted in the design note. The regenerated index
+is on the fork, not yet on the `aropixel` reference: to be pushed.
+
+## The fastembed trial in Rust (2026-09-09)
+
+To settle how a generated card gets vectorized, a throwaway spike in
+`~/Work/tries/fastembed-spike` (outside the repository) vectorized the
+reference's 316 texts with the `fastembed` 6 crate and compared them to
+`vectors/vectors.jsonl`. Result: **cosine ≥ 0.999999 everywhere at
+`max_length = 128`** (at 512, the crate's default, the rich cards diverge
+down to 0.82), cold build 26 s, binary +35 MB, `g++` required in the build
+image, a 241 MB model downloaded on first use, 14 ms per text. The default
+features pull OpenSSL in: take the `rustls` variants. Found along the way:
+the Python reference **is not normalized** (norms 2.5–3.6), which the
+engine's centroid suffers from. Figures, conditions and the direction (b,
+with a cargo-feature fallback) in
+[design/on-the-fly-generation.md](design/on-the-fly-generation.md).
+**Joel's call.**
+
+## A title's versions are told apart in the search (2026-09-09)
+
+Feedback from Joel: "when the song appears several times (*Quand on n'a que
+l'amour*), I cannot tell which is which". The modal's `[spotify]` rows
+carried only title, artist and a generic mention: five Brel versions
+(studio, Olympia, a best-of…) made five identical rows.
+
+- `search_tracks` now brings back **album, year and length** (`SearchHit` in
+  `spotify.rs`, in place of the title/artist/uri triple).
+- A Spotify row's note says them **first** — `Olympia 64 · 1964 · 3:07 ·
+  branch next` — then what enter does: `branch next` when the artist has a
+  card, `⏎ generates the card` otherwise. The old parentheses
+  `(branch next) the card exists` / `(off-catalog — ⏎ generates the card)`
+  go away; the group's header already says "off-catalog unless stated".
+- The catalog is untouched: its titles are already deduplicated by (title,
+  card), and the artist is enough to tell them apart.
+
+On a narrow terminal, it is the end of the note that gets cut — so the
+mention, never the album. Verified dry (tests); to be confirmed in use on a
+title with several versions.
+
+## Generating a card on the fly (2026-09-09)
+
+Joel, that morning: "how do I add an artist? I feel like listening to
+Jacques Brel but he is not in the catalog. I could find him through the
+Spotify search, but I cannot play the track and it does not create the
+artist card." Then: "yes, I want to be able to generate on the fly."
+
+That was the unwritten half of
+[0016](decisions/0016-broad-base-and-on-the-fly-generation.md). The point
+the decision had left open — **when** generation fires — is settled:
+**both**, the search and arrival. The subject has its own note,
+[design/on-the-fly-generation.md](design/on-the-fly-generation.md).
+
+- **`src/generate.rs`** — `tools/generate-cards.py`'s pipeline ported to
+  Rust: MusicBrainz (identity, dates, origin, genres, typed relations) then
+  Deezer with no key (five tops, four similars). Four calls, about three
+  seconds, in `spawn_blocking` like the discography harvest. MusicBrainz's
+  one-request-per-second limit is respected, and the 503 — frequent — is
+  retried instead of passing for an absence.
+- **One deliberate difference from the script**: a `similar` link towards an
+  artist **with no card** is kept instead of being dropped. That is
+  precisely what grows the catalog along its links.
+- **The search brings somebody new in**: `enter` on a result outside the
+  catalog generates the card, commits it, and sets off from them — from home
+  as from listening. `:generate <name>` does the same without going through
+  a track. No more "nothing to branch from".
+- **Arrival grows the catalog**: `graph_neighbors` was throwing away links
+  whose card is missing (Brel had three). `engine::missing_neighbors`
+  returns them, the column shows them in grey — "○ no card yet" — and they
+  are taken with the digit after the branches.
+- **The session now owns its catalog** (`Live { catalog: Catalog }` instead
+  of `&'a Catalog`) and inserts the fresh card into it: a generation you
+  would have to relaunch to see would not be one. `listen::run` loads the
+  catalog itself; the caller no longer lends it.
+- **A generated card is an edit** (0013): `edit::create_card` writes,
+  refuses to overwrite, and commits with the `Forkstify: edit` trailer.
+
+**Still open, and Joel will decide**: the **vectorizing** of a generated
+card. It is born with no vector — it navigates through its links and its
+tags, and the screen says so — and catching up still goes through
+`tools/vectoriser.py`'s docker command. Both ways out (a `:vectors` command,
+or `fastembed` in Rust) are measured in the note; neither has code to undo.
+
+**Not proved in a real session**: the pipeline is (network test
+`le_pipeline_compose_une_vraie_fiche`, ignored by default), the two triggers
+are not.
+
+## `:search` opens from home too (2026-09-09)
+
+Joel: "when you do `:search` from home, the search window does not open";
+"on home, there is still some old text saying `/` does a search, whereas `/`
+now filters".
+
+- **The modal only existed on the listening screen.** On home,
+  `:search <text>` still did the old gesture — resolve a name in the catalog
+  and start — and `:search` alone did nothing at all. It is now **the same
+  modal on both screens**: the keyboard is given to it **before** the screen
+  switch, and it draws over home's body, collection included; the playback
+  footer and the prompt stay.
+- **Enter starts a journey**, from home: on the artist, or on the track —
+  the title first, then its artist's branches. That is home's rule, and a
+  digit already does the same there. A Spotify title **with no card** has
+  nothing to branch from: home says so and points at listening, where
+  `:search` plays it anyway.
+- **Home's text still spoke of the old `/`**: the "search" block announced
+  `/` for "catalog and spotify". It now announces `:search`, and a second
+  line says what `/` really does — filter the collection, escape clears. The
+  disconnected screen too.
+- **`:search bowie` opens the modal filled in, and typing carries the word
+  on**: the key reader's text mode was emptying its line on the way, so the
+  first key erased "bowie". The starting line is set along with the mode
+  (`keys::set_text(true, "bowie")`).
+
+## Batch 4: 100 cards, the reference reaches 314 (2026-09-08)
+
+Joel: "are there cards left to create? do we import them onto aropixel?"
+Taking stock: 100 slugs called in by links with no card (the batch that
+batch 3 had been calling since 09-02), 22 called by at least two cards; 561
+ranked with no card, all below score 5, left to the tail as planned. A
+generated card is knowledge, not taste: it goes to the **reference**
+`aropixel` (0016), and the fork receives it through `upstream`.
+
+**The tooling scripts had been broken since the 09-06 rename**:
+`generate-cards.py`, `vectoriser.py` and `voisins.py` still read `fiches/`
+and `vecteurs/vecteurs.jsonl`. Fixed on the `lot-4` branch off
+`upstream/main`. The generator now retries on a timeout — the first run had
+died on the first artist with a MusicBrainz `TimeoutError`.
+
+**Generated in a `python:3.12-slim` container** (standard library only,
+MusicBrainz at one request per second): **100 cards written**, and the
+catalog holds **314 cards**. Report: to review, uncertain MBID — blundetto,
+dalle-beton, lej, ozuna, palatine; with no Deezer, hence no tops —
+mahmoud-ahmed. Vectors recomputed in the `fastembed` container (the model
+downloaded, ~220 MB, cached in `tools/cache/`, now ignored by git).
+
+Pushed to `aropixel/main`, then the `kbyjoel` fork rebased onto it: Joel's
+learned commits do not go out towards the reference.
+
+## Escape gets through on the first press (2026-09-08)
+
+Joel: "when I want to close with escape, I often have to press several
+times." After an `ESC`, the key reader read **two more bytes** to recognize
+an arrow (`ESC [ A`), blocking — but the escape key alone only sends one: it
+took two more keystrokes for it to get through. Fixed: after an `ESC`, the
+reader **polls the descriptor** (`poll`, twenty milliseconds) — a sequence
+arrives in one block, a lone escape has no sequel. The reader now reads
+input **unbuffered** (`libc::read`), because `std::io::stdin`'s buffer would
+have hidden the rest of a sequence from the `poll`. Same thing in text mode
+and in the `/` and `:` lines, where an arrow no longer falls back into the
+grammar. `ESC O A` (application mode) is recognized too.
+
+## No more status line: everything in a toast (2026-09-08)
+
+Joel: "I don't want any notification below 'up next' any more, they must all
+appear as toasts; 'up next' must always be followed by the shortcut hints."
+The "last thing said" line disappears from the footer, in session as under
+home; the keys follow "up next" directly. Everything said goes through a
+toast, parentheses included (in grey, four seconds). The log stays in memory
+for the blocks (`?`).
+## `J` / `K` move a track in the list (2026-09-08)
+
+Joel: "how do I select a track in the playlist and move it?" Three routes
+proposed — `J`/`K` one notch right away, `tg` grab-and-drop with the arrows,
+`tm<n>` to position n — and the first one chosen: one notch covers the real
+use, moving up a track you want to hear sooner, with no mode and no
+confirmation, and the opposite key undoes it. Only what is still to come
+moves; the branch name travels with its track; the move shows in the
+numbering and is not said out loud. `tg` will come if long moves turn out to
+be frequent.
+
+## The search modal, and `ti` (2026-09-08)
+
+Joel: ":search runs with no argument, a modal opens, with a line separating
+the text area from the results area; ti — track insert — inserts a track
+where you are in the list, opening the same modal." Mockup
+`Recherche.dc.html` (Claude Design): 1a `:search`, 1b `ti` anchored, 1c both
+edges.
+
+- **The modal is modal, and that is new**: while it is open, the prefix-free
+  grammar no longer applies — otherwise typing "cros" would fire c, r, o, s.
+  The key reader has a **text mode** (`keys::set_text`): everything is
+  typing, except ↑↓, enter, tab and escape. Hence the `⟩` prompt, to say
+  "here, you write".
+- **A single rule separates the input from the results**, and carries the
+  count: `── catalogue 3 · spotify 5 ──`. No boxed field.
+- **The catalog before Spotify, always**, in two groups never mixed (blue
+  written by a human, cyan guessed). The catalog answers on every character
+  — artists by name, titles known to the cards and the learned layer, with
+  the `♪ ♥` provenance and the play counts; Spotify answers **behind**
+  (`Job::Searched`), the cyan group says "… querying" until then, and an
+  answer to an older keystroke is thrown away: the list never jumps under
+  the cursor.
+- **Enter acts according to the door**: through `:search`, an artist
+  branches there (a segment at theirs), a title plays now and the branches
+  set off again from its artist if they have a card; through `ti`, the title
+  **enters the queue at the anchor** — before the highlighted row if it is
+  still to come, otherwise right after what is playing — marked "inserted
+  (ti)" in grey beside it; a chosen artist inserts their best unplayed
+  track. The toast says "→ inserted at 4: title — artist" or "→ … — via
+  :search".
+- **`ti` states its anchor at the top** ("the insertion lands at 4 — between
+  X and Y"), as the mockup wanted: inserting blind into a queue you can no
+  longer see is the easiest gesture to get wrong.
+- **Tab** hides Spotify. Empty, the modal says what to type; with no result,
+  it says that too.
+- The old log-based search (numbered results, a digit chooses) and its
+  `pending` state go away.
+
+**Set aside from the mockup**: `e` (queue), `tb`, `A`/`N` inside the modal —
+those are letters, they get typed; `ti`'s "cards from the journey" scope
+(the whole catalog answers, with Spotify behind); the durations; the last
+five searches. One rendering test. Not verified in a real session.
+
+## `ag` — the artist in the browser (2026-09-08)
+
+Joel: "add a command, ag?, to google the current artist in the default
+browser". `ag` opens `https://www.google.com/search?q=…` through
+`xdg-open`, detached (inputs and outputs closed, so nothing prints under the
+TUI). It targets like `ad`: the highlighted row if there is one, otherwise
+what is playing. The toast says "→ artist — in the browser".
+
+## Four keyboard touch-ups (2026-09-08)
+
+Joel: remove queue mode from the hints; "I no longer see the shortcut for
+slotting a track in, is it me?"; a `c<n>` shortcut for the comfort; `/`
+becomes filter, the search becomes `:search`.
+
+- **`Q` goes away** — from the hints, the grammar and the table. Queue mode
+  fell on 09-06, and the queue chains up in the listening screen.
+- **Slotting in**: it is not him. What exists: `e<n>` / `en<n>` (encore,
+  same artist, at the end of the branch or right away), `fn<n>` (a branch
+  after this track), and `e` in the discography (queued, at the end).
+  **Slotting a specific track into a specific place does not exist** — it
+  was queue mode's `i`, never wired. To be designed along with `:search`: a
+  result could be slotted in after the current track rather than playing
+  right away.
+- **`c` becomes a namespace**: `c<n>` sets the comfort in one go (0 to 5, on
+  home too), `cc` opens the gauge with the arrows. `c` alone could no longer
+  be complete without breaking the prefix-free grammar.
+- **`/text` filters, `:search <text>` searches.** On home, `/` filters the
+  collection (escape clears, ↑↓ and enter start); in the discography it
+  already filtered; while listening, there is no list to filter and it says
+  so. `:search` does what `/` used to: catalog + Spotify while listening,
+  with a digit to choose; the catalog alone on home, and the artist found
+  starts.
+
+## No more `tt` in the modal, and toasts (2026-09-08)
+
+Joel: "the tt and tT shortcuts are still there in the discography modal, I
+want to remove them. The loading messages should be more visible — toasts at
+the bottom of one of the two columns, with some color?"
+
+- **`tt` / `tT` leave the modal** (the `parse_modal` grammar, the keys, the
+  legend, `Explore::top` / `untop` and their tests). What is left is `A`,
+  which promotes an album's most played titles in one go; a single title
+  gets liked (`tl`), it is no longer promoted. The write test goes through
+  `A`.
+- **The toasts**: a panel framed in the message's color, bold text, at the
+  bottom right of the body, above the branch column's keys — over the modal
+  too. **Sticky while something is loading** ("⏳ in progress — loading —
+  title — artist", "X's discography — loading", in cyan, the color of a
+  network wait), otherwise **four seconds** for the last thing said (`✓`
+  green, `⏹` red, `↻` yellow, `→` magenta — `tui::tone_of`, the same reading
+  as the footer's line). The parentheses stay on the footer line, with no
+  toast. The one-second tick clears it.
+
+## "Previous" restarts first (2026-09-08)
+
+Joel: "when I press the arrow for the previous track and a track is playing,
+I want it to restart the track from the beginning; you press a second time
+to go back to the track before." Like any player: past three seconds
+(`RESTART_AFTER_MS`), ← and ⏮ put the needle back to zero
+(`Sound::restart`, a librespot `seek(0)` — the progress follows its
+`Seeked`); within the first three seconds, or by pressing twice, you go back
+to the previous track as before.
+
+## Home becomes a session screen (2026-09-08)
+
+Joel: "the two screens, home and playback, are independent: when I leave the
+playback screen, my session stops and is lost. I'd like to start a session,
+go back to home, keep listening and the bar at the bottom, and come back to
+my session screen without ever losing my session."
+
+Before, `main.rs` looped: home returned a choice, the session was born
+(sound, API, MPRIS), lived, died, and home came back. Now **the session is
+the application**, and home is one of its two screens (`Screen::Home` /
+`Screen::Session`):
+
+- **`q` while listening gives home back**, and listening carries on
+  underneath: the sound, the queue, the branches, the learned layer, all of
+  it stays. **`r`** (or escape with no cursor) **brings the session screen
+  back**. `q` on home quits for good, with 0017's commit and push.
+- **The playback footer shows under home** — what is playing, its bar, what
+  follows, the last thing said — on the four lines above the prompt
+  (`tui::Bar`, the same footer as in session, `render_bar`). `p` holds the
+  pause there; the media keys work everywhere.
+- **Choosing a seed on home while a session is playing starts a new
+  journey** that replaces the old one (`Live::start_journey`) — with nothing
+  to reconnect, so with no waiting screen.
+- `home::run` becomes `home::Home` (a state: what is typed, the sort, the
+  cursor) with `draw` and `on_cmd` → `Outcome::{Stay, Start, Back, Quit}`;
+  `listen.rs`'s single loop routes the keys by screen. The sound and the web
+  API only connect once per launch.
+
+One rendering test of home with the footer. Not verified in a real session.
+
+## The screen first, Spotify behind (2026-09-08)
+
+Joel: "when starting a listening session, or opening and closing the
+discography modal, there is often a lot of latency. I'd like to handle that
+better: through cache where possible, and by showing first then loading
+afterwards, with an indication that something is loading."
+
+**The cause**: every call to the Spotify API — resolving a title into a
+`spotify:track:` address, an artist's discography — was **awaited in the
+command loop**, which only redraws once the gesture is finished. The backoff
+on a 429 (an account/IP quota, frequent right after a discography's burst)
+sleeps for up to sixty seconds inside that same wait: that is the freeze on
+closing the modal, when `prefetch_next` was resolving the next track. The
+cache already existed (resolutions in `target/resolve-cache.json`,
+discographies in `~/.cache/forkstify/`), it only helped the second time.
+
+**What changes**: the web API is shared behind a lock
+(`Arc<Mutex<WebApi>>`) and the calls go out as **background tasks**
+(`spawn_local`), which hand their result back to the loop through a channel
+(`Job::Resolved`, `Job::Harvested`), like 0017's push.
+
+- **Playing a track**: if the cache knows its address, it plays right away;
+  otherwise it **shows right away** with "· loading…" in the footer, and
+  plays when the answer arrives. A track skipped during the wait does not
+  enter the past; a not-found moves on to the next; a failure puts it back
+  at the head of the queue, as before. Prefetching the next one no longer
+  blocks anything.
+- **The discography** opens instantly on what we have — the tops and the
+  learned layer — with "… discography loading" and the word "loading…" in
+  its title; the albums arrive behind and the screen rebuilds without losing
+  the sort, the filter or the pending edits (`Explore::reload`). A harvest
+  never fires twice.
+- **`e<n>` and `:warm`** start the harvest behind and say so: "its tail is
+  on the way — try e<n> again in a moment".
+
+**Still awaited in the loop**: the `/text` search, whose result you wait for
+by nature, and the connection at startup (librespot, the token), which the
+waiting screen shows step by step. Not verified in a real session: it is for
+you to say whether the freezes are gone.
+
+## The catalog becomes a fork, the reference moves to aropixel (2026-09-08)
+
+Joel: "to solve the problem of the catalog not being a fork because I am the
+designer, I'd like to move forkstify and forkstify-catalog into my aropixel
+GitHub. That way I'll publish as aropixel, which lets me fork with my
+kbyjoel account."
+
+Done through the GitHub API: both repositories are **transferred** to the
+`aropixel` organization (they stay private), and
+`aropixel/forkstify-catalog` is **forked** into `kbyjoel/forkstify-catalog`,
+which takes the freed name. Locally, `~/Work/forkstify` points at
+`aropixel/forkstify`; `~/Work/forkstify-catalog` points at the fork as
+`origin` — that is what the startup pull pulls from and what the learned
+layer joins — and at the reference as `upstream`, which `:mine` already
+compares against first. Joel is at last a user like any other (0016): his
+edits live on his fork, and go up to the reference through a PR.
+
+The two Cat Power commits stayed on the reference; to be carried over to the
+fork or left there, Joel's choice. The chorizo recovery plan now clones the
+right repositories.
+
+## The dated cooldown (2026-09-08)
+
+Joel: "apply 0012's dated cooldown then". §2 said: every play is dated, a
+recently played track is penalized, and the penalty decays over time. The
+dates had been there since 0014 (`last` per top), but the pool did not read
+them.
+
+`Learned::freshness`: **a tenth of its weight on the day it played**,
+recovered with a **one-week half-life** — 55 % at seven days, 78 % at
+fifteen, 94 % at a month; full if it has never played here. The pool
+multiplies by that factor, after the "less often". A liked track played
+yesterday (6.8 × 0.13 ≈ 0.9) therefore weighs like a top never played, and
+takes its place back over the week. Two constants (`COOLDOWN_FLOOR`,
+`COOLDOWN_HALF_LIFE`), "to be tuned along the PoC" as 0012 intended.
+## One gesture for taste (2026-09-08)
+
+Joel, after a day of listening: "I had trouble knowing whether I should like
+the track or make it a top: to me it was the same thing." Then: "I wouldn't
+even put a tt shortcut. We leave the ability to change the tops on your
+fork, but we leave only one simple gesture to say I want to see this track
+more often. In exchange, you also need to be able to say this track does not
+interest me, and the likes must fully outrank the tops, which become nothing
+more than entry doors on a fresh fork."
+
+Decision [0018](decisions/0018-one-gesture-for-taste.md), wired:
+
+- **`tl` more often, `ts` less often**, and each undoes the other (liking
+  resets the skips, skipping removes the like). `tb` remains the never
+  again.
+- **A liked track outranks the tops** in the pool: ×10 at the cocoon, ×2
+  wide open, the dial in between (`liked_weight`). A liked top takes that
+  weight and carries `♥`. Before, a liked track weighed 0.8 and a liked top
+  stayed an ordinary top — which is what made `tl` inaudible.
+- **No more `tt` / `tT` while listening**: the session refuses them and
+  points at the discography; the grammar still parses them, because that is
+  where, in `ad`, they serve (`edit::set_tops`) — a first version had
+  removed them from the parser and broke the modal, fixed right after.
+  `add_top` / `remove_top`, which only served `tt` / `tT`, are removed.
+
+Three tests (pool, learned layer, grammar). The subject of the reference
+repository against the personal fork (a GitHub organization for upstream,
+your clone becoming your fork) is still for you to do by hand; the
+application needs nothing for that, except later an `:upstream`.
+
+## Building it yourself, and counting usage (2026-09-08)
+
+Two wrappers in `bin/` — the machine's convention, and mise puts them on the
+`PATH` as soon as you enter the folder: **`build`** (cargo build --release
+in the `forkstify-build` container, built on first call, the cargo registry
+in the `forkstify-cargo` volume) and **`test`**. The three commits brought
+back from the other machine (exploring an artist, "ad") compile with no
+warning, 41 tests green.
+
+The commands that count the commits forkstify produced across public forks
+(the `Forkstify:` trailer) are noted in
+[`first-run.md`](design/first-run.md), section "Measuring usage across the
+forks".
+
+## The learned layer syncs itself (2026-09-07)
+
+Joel, switching machines: "learned filled up, but with no commit at all; I
+no longer have my records. Shall we set up automatic commits and an
+automatic pull on open? A better solution?" Then: "I approve, but I want the
+message in English. How do we identify the number of commits in the
+different users' public repositories?"
+
+Decision [0017](decisions/0017-syncing-the-learned.md), wired the same day
+(`src/sync.rs`, `learned::merge_artist`, the `merge-learned` subcommand):
+
+- **Pull on start** (home and `ecouter`), after committing what was learned
+  here; home's header says `⇅ up to date` / `⇅ learned committed, catalog
+  updated` / `⇅ offline`. **A commit every ten minutes** if `learned/`
+  moved, a push in the background, the result in the footer. **Commit and
+  push on exit**, shown for a second. **`:sync`** on demand. Short network
+  timeouts: offline, nothing hangs.
+- **Merging by counter**: the git driver `merge=learned` calls
+  `forkstify merge-learned`, which adds up what each side counted since the
+  ancestor (decayed to the day), keeps a ban or a like set on either side,
+  follows the weight that moved, and lets new tops in. Three unit tests,
+  **and a real git scenario**: two clones, two concurrent listens to the
+  same artist, `pull --rebase` with no conflict, `plays` gone from 3 to 6.01
+  (5 + 4 − 3 decayed by a day).
+- **The tops are written sorted** (`BTreeMap`): hash ordering made every
+  write a spurious diff.
+- **English messages, trailer `Forkstify: <kind> <version>`** on the learned
+  layer's, the edits' and the imports' commits. To count usage:
+  `gh api search/commits -f q='"Forkstify:"' --jq .total_count` (public
+  repositories, default branch) and the reference repository's
+  `forks_count`.
+
+**Left for Joel to do by hand**: launch forkstify on the other machine — it
+will commit its learned data, rebase onto what this machine pushed, and the
+driver will merge. This machine pushed its own along with this commit.
+
+## The discography opens as a modal (2026-09-07)
+
+Joel, after a Cat Power seed: "I like almost nothing but tracks from the
+album *What Would the Community Think*; I would have liked a command to get
+a visual list of the tracks sorted by album, and to be able to `tt` the ones
+I like and `tT` the tops I want to remove." Then, on the mockup: "let's go
+with `ad` and a modal", form **1a** of `Discographie.dc.html`.
+
+Designed in
+[`design/artist-exploration.md`](design/artist-exploration.md), wired the
+same day:
+
+- **`ad` (or `:discography`) lays a modal over the listening screen** — it
+  does not replace it, the sound does not stop, and the header and footer
+  stay. It targets the artist of the **highlighted** row, of the current
+  track failing that.
+- **The albums are folded**: one hundred and eighty-seven titles become
+  twelve rows, the one under the cursor opens by itself, with its share of
+  the plays as a gauge. The header answers the question you came with — "2
+  albums carry 79 % of the 118 plays — 6 albums never opened".
+- **The modal has its own table** (`keys::parse_modal`, the product's
+  first): `j`/`k` go down, `h`/`l` fold and unfold, `tt`/`tT` fix the tops,
+  `A` promotes the album's four most played titles, `tl`/`tb` measure, `e`
+  queues, `s` changes the order, `v` the view (all, ♪, ♥, ⊘), `/` filters,
+  `u` undoes, ⏎ writes, escape closes.
+- **One batch, one commit** (`edit::set_tops`): the edits accumulate at the
+  bottom with the subject of the commit to come, and go out as one write.
+  The first escape warns if any are left. That does not contradict 0017,
+  which covers the learned layer: measurements and edits have never had the
+  same rule.
+- **The tops the discography does not return** fall at the end of the list
+  ("tops outside the discography") and stay removable: that is where a
+  generated card gets reviewed.
+- **The tail cache** gains the date, the position, the length and the type
+  (album/single); an older harvest is silently redone — the cache is
+  regenerable and outside the repository.
+
+Ten more tests (deduplicating reissues, matching tops by normalized title,
+opposite gestures cancelling out, a cursor surviving a fold, and a full
+rendering of the modal). **Not verified in a real session.**
+
+## The footer never grows, the gesture shows in the list (2026-09-07)
+
+Joel, after an `e3`: "it only added one track; I'd like to remove the
+notification of the action: the footer never grows, and the gesture is
+verifiable — you see what was added through a special icon in front of the
+track, ↻ in place of →. An action with no visible effect in the list (a ban,
+a card edit, a playback error) must still show; that notification needs a
+bit more formatting."
+
+- **What shows is no longer said**: taking a branch (it appears with its
+  reason), an encore (its tracks carry **`↻`** in yellow in place of `→` —
+  `Stop::encore`), removing from the queue, pause and resume (the footer's
+  glyph). Nine `say!` fall away.
+- **What does not show is shown better**: the "last thing said" line is
+  formatted by nature, by the glyph that opens it, like the design system's
+  Notice component — `✓` green, `⏹` `⊘` red, `↻` `⚑` yellow, `→` magenta, a
+  parenthesis in grey, "not wired yet" in dimmed italics; the detail after
+  the "—" or in final parentheses is dimmed. Tested.
+- **The encore that only adds one track.** Two possible causes, both
+  handled. Harvesting the tail was decided on the card's number of tops
+  minus a global ceiling, not on **this artist's unplayed** tops — fixed.
+  And when the tail was missing (no Spotify identifier, an unreachable API,
+  a tail closed at the cocoon or exhausted), the encore served what it could
+  **without saying so** — the footer's single line being immediately
+  overwritten by "↻ encore…". Now `harvest` returns its result instead of
+  speaking, and the encore only speaks **when** it does not serve the
+  request: "(only 1 at X — their tail is exhausted)". `:warm` says
+  `✓ X's discography — n titles cached` or `⏹ …`.
+
+## The input hints (2026-09-07)
+
+Joel: "I want to change how the shortcuts window works: you open it with
+space and close it with escape; if I open it and press e, it shows e's
+shortcuts window, and I must be able to go back; if I then press 3, it fires
+the intended action — it is no longer a plain shortcuts window, but input
+hints."
+
+That is which-key for real. The leader was no longer **emptying** anything:
+it erased the sequence in progress to show a menu, and everything had to be
+typed again. Now:
+
+- **space** opens the hints on the current level (everything, or the
+  half-typed namespace) **and leaves the sequence in progress**; space at
+  the entry level closes it again, **escape** closes it from anywhere.
+- **Every key pressed in the hints goes through the grammar**: `e` takes the
+  hints down to e's level (the session follows `Cmd::Pending`), `3`
+  completes `e3` — the command goes out and the hints close.
+- **⌫ goes one level up**: the key reader erases the sequence's last key and
+  says so; outside the hints, it is simply erasing.
+
+Each level's footer is a reminder: "one key = the action · ⌫ back · escape
+close". The entry level's rows say "press f for its keys" instead of "space
+for the detail".
+
+On the code side, `Live::help_open` is the only state added; a block laid
+over the screen fell on the next gesture, and the hints are the exception
+until the sequence completes. Not verified in a real session.
+
+## The playback screen after mockup 2b (2026-09-07)
+
+Joel, with `Lecture.dc.html` enriched with two header and footer variants:
+"rework the playback screen after mockup **2b**. In the end we drop the
+vertical rule. As for the branch column, the presentation we have suits me,
+do not change it. Just put the reasons in grey."
+
+2b: "the seed as a block — and a full-width progress bar". The artist
+journey disappears from the top (the played list already says it); in its
+place, a header line and the seed's block; at the bottom, what is playing
+and what follows, then the prompt. The screen now fits like this:
+
+    forkstify ecouter the-cure     segment 2 · 6 tracks · 3 upcoming · comfort 3 ███░░ balanced
+
+    ── seed ────────────────
+    The Cure  [catalogue]  card written · 41 links · 12 tops        last played -3s
+    1 fork point since — 2 artists crossed
+          ♪ A Forest — The Cure  seed: the-cure          1 play · yesterday │ ── branches 2
+     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees        never played │   1  The Creatures
+     2 →  ♪ Israel — Siouxsie and the Banshees                never played │      shared members — …
+                                                                           │      ♪ Right Now — The Creatures
+     3    horizon  nothing drawn beyond — 1-3 to add a branch              │      █████ shared members
+    ▶ Cities in Dust — Siouxsie and the Banshees  (2 / 3)                  ♪ top │ 2:34 / 3:47 -1:13
+    ████████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+    up next  Israel — Siouxsie and the Banshees                  → fork point in 1 track
+    (the last thing said)
+    [1-3 branch · h/l · p · space = the keys · q] █
+
+- **The header on one line**: the command on the left, the state on the
+  right — segment, tracks, upcoming, and the comfort gauge, which leaves the
+  prompt (it inverts there when `c` sets it).
+- **The seed as a block**, under its rule: the name, `[catalogue]`, what its
+  card says (written or generated, links, tops — `Card` now reads
+  `generated`), its last play according to `learned/`, and the count of fork
+  points taken and artists crossed.
+- **The list with no rule**: the morning's half-rule falls, the tracks
+  follow each other; the number goes grey, only the arrow keeps its color; a
+  blank before the horizon.
+- **The footer**: what is playing with its position in the list and its
+  provenance spelled out (`♪ top`, `♥ liked`, `↳ door`, `· tail`… —
+  `Source::word()`), then what follows and "fork point in n tracks". The
+  last thing said keeps its line, and the prompt stays last with a block
+  cursor.
+- **The branch column does not change**, except the word under the gauge
+  (`shared members`, `0.78`) which goes grey like the reason: only the
+  gauge's cells still say the nature of the link.
+
+**The progress bar, in the end** (Joel: "can we really not have a progress
+bar?"). We can: librespot gives the position on every start, pause and seek
+(`Playing`, `Paused`, `Seeked`, `PositionCorrection`) and the length on
+every track change (`TrackChanged`). `Live::follow_needle` follows them —
+for the current request only, since a skipped track still talks — and **a
+tick every second** redraws while it plays, with the position extrapolated
+from the last sample. The footer gains `♪ top │ 2:34 / 3:47 -1:13` and a
+**full-width bar** in cyan, like waybar's media module. With no data yet
+(before the first `Playing`), the bar is empty and the times absent.
+
+**Not done, for want of data**: "1 door set aside by the comfort" — the
+engine does not count what it sets aside.
+## The playlist on the chain's grid (2026-09-07)
+
+Joel, with the `File d'attente.dc.html` mockup: "can we present the playlist
+a bit like mockup **3a**? It was an old mockup from the aborted queue
+project, but I like the graphics and I want to get them back for the
+playlist." Then, on a first attempt that made one link per branch: "I'd like
+to take back the idea of numbering in front of the current and upcoming
+tracks, and the separation with the vertical dash. If we can find some
+interesting little stats or info to put on the side in grey like on the
+mockup, that would be nice."
+
+3a drew "the chain" on a four-column grid: the number and the arrow, the
+name, the reason in grey, a piece of info on the right; a `│` rule between
+the lines; the horizon at the end. Queue mode fell on 09-06, but the grid
+suits what the axis has become. **Every track is one row there**:
+
+          ♪ A Forest — The Cure  seed: the-cure              1 play · yesterday
      ╵
-          ♪ Push — The Cure                                     jamais joué
+          ♪ Push — The Cure                                        never played
      ╵
-     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   liens…    3 écoutes · -2s
+     1 ▶  ♪ Cities in Dust — Siouxsie and the Banshees   links…    3 plays · -2s
      ╵
-     2 →  ♪ Israel — Siouxsie and the Banshees                  jamais joué
+     2 →  ♪ Israel — Siouxsie and the Banshees                     never played
      ╵
-     3 →  ♪ Right Now — The Creatures  membres en commun        jamais joué
+     3 →  ♪ Right Now — The Creatures  shared members              never played
      ╵
-     4    horizon  rien de tiré au-delà — 1-3 pour ajouter une branche
+     4    horizon  nothing drawn beyond — 1-3 to add a branch
 
-- **Ce qui sonne est le 1, ce qui vient compte à partir de lui** — `▶` (ou
-  `⏸`) en vert sur le courant, `→` en magenta sur la suite. Ce qui a sonné
-  n'est pas numéroté et s'estompe.
-- ~~Un filet entre chaque morceau~~ — essayé en `│` puis en demi-trait `╵`,
-  retiré le soir même avec la maquette 2b.
-- **La raison de la branche se lit en gris à côté du morceau qui l'ouvre**
-  (en cyan quand elle vient des vecteurs), la graine à côté du premier. La
-  tête d'une branche porte donc désormais sa raison avec son nom
-  (`engine::Head { label, reason }`) ; `tx` sur une tête les passe au
-  morceau suivant.
-- **À droite, ce que l'écoute sait du morceau** : `3 écoutes · -2s`,
-  `jamais joué`, `passé 2×`, `hors catalogue` — lus dans `learned/`
-  (`track_stats`, compteurs décrus à aujourd'hui), avec l'âge écrit comme
-  dans la collection de l'accueil. Ce sont les seules stats par morceau que
-  l'application possède : pas de durée (l'API ne nous la rend pas), pas de
-  branches écartées (le moteur ne les compte pas).
-- **L'horizon** remplace « plus rien à suivre ». L'en-tête dit
-  « n morceaux · k à venir ».
-- **Rien ne change aux gestes** : la sélection ↑↓, entrée et `tx` portent
-  sur les mêmes lignes qu'avant.
+- **What is playing is 1, and what comes counts from it** — `▶` (or `⏸`) in
+  green on the current one, `→` in magenta on what follows. What has played
+  is not numbered and is dimmed.
+- ~~A rule between each track~~ — tried as `│` then as a half-dash `╵`,
+  removed that same evening along with mockup 2b.
+- **The branch's reason reads in grey beside the track that opens it** (in
+  cyan when it comes from the vectors), and the seed beside the first one. A
+  branch's head therefore now carries its reason along with its name
+  (`engine::Head { label, reason }`); `tx` on a head passes them to the next
+  track.
+- **On the right, what listening knows of the track**: `3 plays · -2s`,
+  `never played`, `skipped 2×`, `off-catalog` — read from `learned/`
+  (`track_stats`, counters decayed to today), with the age written as in
+  home's collection. Those are the only per-track stats the application
+  holds: no length (the API does not return it), no set-aside branches (the
+  engine does not count them).
+- **The horizon** replaces "nothing more to follow". The header says
+  "n tracks · k upcoming".
+- **Nothing changes in the gestures**: the ↑↓ selection, enter and `tx` act
+  on the same rows as before.
 
-Les colonnes se serrent d'elles-mêmes : la raison prend ce qui reste entre
-le morceau et la note, et s'efface sous huit cellules. À 100 colonnes
-(59 pour l'axe), la note passe, la raison rarement ; à 160, tout se lit.
-Vérifié par un test de rendu à 160 colonnes ; pas encore tourné en session
-réelle.
+The columns tighten by themselves: the reason takes what is left between the
+track and the note, and disappears below eight cells. At 100 columns (59 for
+the axis), the note fits, the reason rarely; at 160, everything reads.
+Verified by a rendering test at 160 columns; not yet run in a real session.
 
-## Les branches se déplient dans leur colonne (07/09/2026)
+## The branches unfold in their column (2026-09-07)
 
-Joel, maquette `Lecture.dc.html` (Claude Design) à l'appui : « passe plutôt
-l'affichage des forks en colonne à droite comme sur la maquette **1a**. Par
-contre, je veux que les morceaux de chaque branche soient affichés pour
-pouvoir faire son choix en connaissance de cause. »
+Joel, with the `Lecture.dc.html` mockup (Claude Design) in hand: "put the
+forks in a column on the right like on mockup **1a** instead. But I want
+each branch's tracks to be shown so I can choose knowing what I'm getting."
 
-Le volet du 06/09 avait la permanence de 1a mais le **placement de 1b** — un
-bloc encadré, posé en bas de sa colonne. Il devient la colonne elle-même :
-**toute la hauteur**, un filet `│` à gauche pour la séparer de l'axe (la
-seule règle qu'elle trace — le système interdit les cadres), `── branches 3`
-en tête, et les touches au pied (`1-3 prendre · fr reproposer`, `fn1 sans
-attendre la fin`), qui ne bougent pas.
+The 09-06 panel had 1a's permanence but **1b's placement** — a framed block,
+laid at the bottom of its column. It becomes the column itself: **the whole
+height**, a `│` rule on the left to separate it from the axis (the only rule
+it draws — the system forbids frames), `── branches 3` at the head, and the
+keys at the foot (`1-3 take · fr propose again`, `fn1 without waiting for
+the end`), which do not move.
 
-**Chaque branche est dépliée** comme le composant `Branch` du design system
-l'écrit : le numéro et le nom, la raison repliée à cinq cellules, puis **ses
-morceaux** — ils sont déjà tirés au moment de la proposition, il n'y avait
-aucune raison de les cacher — avec leur provenance (`♪` `♥` `↳` `·`), le
-titre devant, l'artiste derrière en bleu. Dessous, la **jauge de proximité**
-de la maquette : `█████ membres en commun` pour un lien du graphe (bleu,
-catalogue), `████░ 0.78` pour la branche aventureuse (cyan, vecteurs) — le
-poids que le moteur porte déjà sur l'échelle 1–5. « Rester dans l'univers du
-parcours » n'est dit qu'une fois, par la raison ; la jauge se tait.
+**Each branch is unfolded** as the design system's `Branch` component writes
+it: the number and the name, the reason folded to five cells, then **its
+tracks** — they are already drawn at the moment of the proposal, and there
+was no reason to hide them — with their provenance (`♪` `♥` `↳` `·`), the
+title in front, the artist behind in blue. Below, the mockup's **proximity
+gauge**: `█████ shared members` for a graph link (blue, catalog),
+`████░ 0.78` for the adventurous branch (cyan, vectors) — the weight the
+engine already carries, on the 1–5 scale. "Stay in the journey's universe"
+is said once only, by the reason; the gauge stays silent.
 
-Partage **60/40, le même que l'accueil** (Joel, 07/09/2026) — la constante
-`LEFT_SHARE` sert aux deux écrans, et sous 60 colonnes la droite s'efface
-sur les deux. La maquette donnait 38 colonnes fixes à la droite ; en
-proportion, un terminal de 100 colonnes lui en donne 40, un de 160 en donne
-64 et les morceaux longs ne se coupent plus. Une liste se coupe, une raison
-se replie — le repli est fait à la main, ratatui n'y touche pas.
+A **60/40 split, the same as home** (Joel, 2026-09-07) — the `LEFT_SHARE`
+constant serves both screens, and below 60 columns the right disappears on
+both. The mockup gave the right 38 fixed columns; proportionally, a
+100-column terminal gives it 40, a 160-column one gives it 64 and long
+tracks no longer get cut. A list gets cut, a reason gets folded — the fold
+is done by hand, ratatui does not touch it.
 
-**Écarté, faute de donnée** : la ligne « ↳ 1 door écartée par le confort »
-de la maquette. Le moteur ne compte pas ce qu'il écarte ; l'inventer serait
-mentir.
+**Set aside, for want of data**: the mockup's "↳ 1 door set aside by the
+comfort" line. The engine does not count what it sets aside; inventing it
+would be lying.
 
-**Vérifié par trois tests de rendu** (`TestBackend`, 100×30 et 70×30) — la
-colonne, ses morceaux, ses jauges, ses touches au pied ; et un terminal
-étroit qui garde l'axe. Pas encore tourné en session réelle.
+**Verified by three rendering tests** (`TestBackend`, 100×30 and 70×30) —
+the column, its tracks, its gauges, its keys at the foot; and a narrow
+terminal that keeps the axis. Not yet run in a real session.
 
-## Le catalogue parle anglais, et s'importe (06/09/2026)
+## The catalog speaks English, and imports (2026-09-06)
 
-**Renommage.** `AGENTS.md` impose l'anglais pour « tout ce qui est interface
-publique du dépôt — chemins, sous-dossiers », et
-[0010](decisions/0010-format-revise-links-sans-portes.md) le redit du format.
-Les chemins étaient pourtant restés en français ; seuls `learned/` (0014) et
-les champs des fiches suivaient la règle. Corrigé : `fiches/` → **`cards/`**
-(le code appelle déjà ça une `Card`), `outillage/` → **`tools/`**,
+**Renaming.** `AGENTS.md` requires English for "everything that is a public
+interface of the repository — paths, subfolders", and
+[0010](decisions/0010-revised-format-links-without-doors.md) says the same
+of the format. Yet the paths had stayed in French; only `learned/` (0014)
+and the cards' fields followed the rule. Fixed: `fiches/` → **`cards/`**
+(the code already calls that a `Card`), `outillage/` → **`tools/`**,
 `vecteurs/` → **`vectors/`**, `catalogue.toml` → **`catalog.toml`**.
-Le vocabulaire français du projet ne bouge pas — on dit toujours « une
-fiche », c'est le chemin sur disque qui parle anglais.
-
-Les **décisions restent intactes** : elles mentionnent les anciens noms et
-sont immuables. Une note en tête de
-[`keybindings.md`](keybindings.md) dit d'y lire les nouveaux, comme 0014
-l'avait fait pour `usage/` → `learned/`.
-
-**`forkstify import <url>`.** Reprendre les fiches d'un autre catalogue :
-ajoute le remote, récupère, prend **les fiches qu'on n'a pas** — jamais
-celles qu'on a, ses corrections sur nos artistes relevant d'une PR où l'on
-discute — commite le tout en une fois, puis régénère les vecteurs.
-
-C'est une **sous-commande, pas un geste d'écoute** : la vectorisation
-demande un conteneur et plusieurs minutes. Si docker manque, la commande
-exacte s'affiche plutôt que d'échouer en silence — sans vecteurs à jour, les
-fiches reprises n'existeraient que pour le graphe.
-
-## La première installation, question ouverte (06/09/2026)
-
-Joel : « que se passe-t-il lorsqu'un nouvel utilisateur installera forkstify
-pour la première fois ? » et surtout « comment conjuguer catalogue de base
-commun et modifications de l'utilisateur ? ».
-
-La seconde est **déjà tranchée**, mais éparpillée entre 0002, 0004, 0008 et
-0014 : on ne conjugue pas, on **superpose dans le même dépôt** et git fait le
-travail — la base vient de l'amont, le mien est mes commits par-dessus,
-l'appris vit dans `learned/` et n'est jamais reversé. Rassemblé dans
-[`premiere-installation.md`](conception/premiere-installation.md).
-
-Ce qui manque est l'**amorce** : rien ne clone le catalogue, rien ne scanne
-la bibliothèque de l'utilisateur, rien ne génère une fiche à la volée. Et un
-point dur qui n'était écrit nulle part : **la base actuelle n'est pas neutre,
-c'est l'univers de Joel** — 214 fiches nées de son classement. Un nouvel
-utilisateur au goût éloigné ne pourrait presque rien démarrer, puisqu'une
-graine sans fiche ne démarre pas.
-
-## La collection entière, à droite de l'accueil (06/09/2026)
-
-Demande de Joel, d'après la colonne ajoutée à `Accueil.dc.html` : à gauche
-ce que forkstify **propose**, à droite ce qu'il **possède**. « La colonne ne
-propose rien : elle liste. »
-
-Le partage est **proportionnel, 60/40** (Joel, 06/09/2026) : la gauche porte
-des raisons et des morceaux, la droite une liste. Une seule constante à
-changer pour passer à moitié-moitié (`LEFT_SHARE`). Sous 60 colonnes la
-liste s'efface — mieux vaut une colonne lisible que deux illisibles.
-
-`gg` et `G` sautent aux deux bouts, comme dans vim — dans la collection à
-l'accueil, et dans l'axe en écoute, puisque c'est le même geste sur le même
-genre de liste. `g` seul n'est rien : il attend son second, et le test
-exhaustif de `keys.rs` vérifie que la grammaire reste sans préfixe.
-
-Elle réunit le catalogue **et** le classement — 780 noms, dont 214 avec
-fiche — avec pour chacun une jauge de familiarité, son nom, et depuis quand
-il n'a pas sonné (`auj.`, `hier`, `-3s`, `-7m`, `jamais`, en orange au-delà
-de six mois). `s` fait tourner l'ordre : familiarité, a-z, dernière écoute.
-
-**Deux écarts avec la maquette, tous deux assumés.**
-
-La maquette entre dans la colonne par `c` — or `c` est le réglage du confort
-depuis la veille. Plutôt que de déplacer l'un des deux, **il n'y a pas de
-touche pour entrer** : les flèches ↑↓ y déplacent un curseur, et `entrée`
-démarre l'artiste sous lui. C'est exactement le geste de la session
-(sélection puis entrée), et sans curseur `entrée` garde son sens de
-toujours — « choisis pour moi ». Une touche de moins à apprendre.
-
-La maquette dit qu'« un artiste sans fiche démarre quand même : la première
-branche vient des vecteurs ». **Ce n'est pas vrai chez nous** : le moteur
-part de la fiche (liens, tags, vecteur), et un artiste du seul classement
-n'en a aucun. La colonne les liste — c'est bien la collection entière — mais
-les choisir répond que le catalogue grandit avec l'usage, plutôt que
-d'échouer sans le dire.
-
-## Les éditions écrivent enfin dans les fiches (06/09/2026)
-
-`src/edit.rs` ferme le dernier tiers de
-[0013](decisions/0013-affinage-clavier-mesure-ou-edition.md) : quatre des
-cinq éditions modifient une fiche **et produisent un commit lisible**
-(`tt`, `tT`, `td`, `aL`). Le message de commit et ce qui s'affiche à l'écran
-sont **la même phrase** — ce que l'utilisateur lit est ce que git retiendra.
-
-**Les fiches sont retouchées textuellement, jamais réécrites.** Une
-relecture par serde perdrait tout ce que le code ne modélise pas —
-`format`, `generated`, `mbid`, `spotify`, `begin`, `origin`, `description`,
-l'ordre des clés, les guillemets choisis à la main. Une fiche est une
-**interface publique** ([0002](decisions/0002-catalogue-partage-forkable.md))
-qu'un humain lit et corrige : on y insère une ligne, on n'en régénère pas le
-tout. Six tests couvrent ce qui se corromprait en silence, dont deux qui
-vérifient qu'après chaque insertion **la fiche se relit encore comme une
-fiche** — titre à guillemets compris.
-
-Choix faits faute d'un moyen de saisie : `td` prend pour direction les tags
-de l'**artiste suivant** dans la file (0011 : une door pointe vers des tags,
-là où l'on va), et `aL` lie à l'artiste **d'où l'on vient**. Les deux se
-relisent et se corrigent dans la fiche.
-
-**`ae` reste la cinquième**, pour une raison d'architecture : ouvrir
-`$EDITOR` demande de rendre l'entrée au terminal, or le lecteur de touches
-tient `stdin` en permanence et lui volerait ses frappes. Il affiche le
-chemin de la fiche en attendant une saisie interrogée plutôt qu'un fil
-bloqué.
-
-**Limite dite à l'écran** : le catalogue en mémoire ne bouge pas, donc une
-édition ne compte pour le moteur qu'au prochain lancement.
-
-## L'accueil rapproché de sa maquette (06/09/2026)
-
-Retouches graphiques demandées par Joel, toutes tirées de
-`Accueil.dc.html` :
-
-- **Le mot-marque et l'état sur une seule ligne** — `forkstify` à gauche,
-  `✓ librespot · ✓ api web` à droite. Faute de justification en cellules,
-  l'écart est calculé depuis la largeur de la zone.
-- **Les liserés courent jusqu'au bout de la mesure** (66 colonnes au plus).
-  Ce sont eux qui séparent les blocs, puisque le système interdit les cartes.
-- **Le titre devant, l'artiste derrière**, partout : sous une entrée
-  (`♪ Crystal Frontier — Calexico`), sur la graine qui est un morceau, et
-  sur la ligne « reprendre » — qui les avait encore dans l'autre sens.
-- **Les couleurs sont des rôles** : le numéro et les touches en magenta
-  (branche), l'artiste en bleu (catalogue, écrit par un humain), le `♪` en
-  vert, les raisons en gris, la ponctuation estompée.
-
-## La file s'enchaîne : le parcours devient une playlist (06/09/2026)
-
-Joel, après avoir vécu la TUI : « j'aimerais que le choix d'une nouvelle
-branche s'ajoute à ce qui a été décidé auparavant. Actuellement, cela le
-remplace. Ainsi on peut construire une playlist rapidement en quelques choix
-de branches. »
-
-C'est un changement de modèle, et il est plus juste : **choisir une branche
-l'ajoute à la file** au lieu de la remplacer, et les branches suivantes se
-proposent depuis le **bout** de la file, pas depuis ce qui sonne. C'est la
-« chaîne » des maquettes de file d'attente, obtenue sans mode séparé.
-
-Conséquences :
-
-- **Il n'y a plus de branche « en attente ».** Tout ce qui est décidé est
-  dans la file — `pending_branch` disparaît, et `next()` se réduit à
-  « avancer, sinon tirer ». `fn<n>` et `f!<n>` gardent leur sens : insérer
-  après le morceau en cours, ou en retirant le reste.
-- **Chaque branche s'ouvre par son nom dans la file** : le premier de ses
-  morceaux porte l'étiquette (`Stop::head`), les suivants un filet magenta.
-  On voit donc plusieurs branches empilées, chacune délimitée.
-- **Tout le passé reste à l'écran** — c'est la playlist en train de se
-  faire, pas un historique à oublier. L'axe défile pour suivre ce qui joue.
-- **`tx` retire de la file** le morceau sélectionné. Il reste proposable :
-  ce n'est pas un ban, c'est un « pas dans cette soirée ». Si c'était la tête
-  d'une branche, le suivant en reprend le nom.
-- **Plus de repli de ligne dans l'axe** : une liste se coupe, elle ne se
-  replie pas. C'était le défaut signalé — la colonne s'étant rétrécie avec le
-  volet des branches, les longs libellés passaient à la ligne.
-
-**Reste ouvert** : sauvegarder la playlist. Tout ce qu'il faut est là — le
-passé, la file, les noms de branches — mais où l'écrire et sous quel format
-n'est pas tranché (une playlist Spotify ? un fichier du catalogue ?).
-
-## La branche retenue se déplie dans « à suivre » (06/09/2026)
-
-Joel : « quand je choisis une branche, le parcours s'affiche en dessous des
-chansons à suivre mais sur une ligne sans détail ». Elle tenait en effet sur
-un `→ label`, alors que ses morceaux sont **déjà tirés** au moment du choix
-— il n'y avait aucune raison de les cacher.
-
-Ils se rangent maintenant à la suite de la file, séparés d'elle par un
-**filet magenta** (`│`) qui remplace l'indentation : on voit d'un coup où la
-branche commence et jusqu'où elle va. Ils sont estompés, parce qu'ils n'ont
-pas encore sonné, et la ligne de tête dit **quand** la branche prendra la
-main — à la fin de la branche, à la fin du morceau, ou en retirant le reste.
-
-**Limite assumée** : la sélection (↑↓) s'arrête au bout de la file. Les
-morceaux de la branche s'affichent mais ne se choisissent pas encore — ils
-ne sont pas dans la file tant que la branche n'a pas pris la main, et
-prétendre le contraire ferait un surlignage qui ment.
-
-## Les branches sont toujours à l'écran (06/09/2026)
-
-Demande de Joel : « je voudrais que le panel des prochaines branches soit
-tout le temps affiché ». C'est la variante **1a** des maquettes — le volet
-permanent — avec le placement de 1b, en bas à droite.
-
-Une nuance a été ajoutée à la demande : **le volet a désormais sa place
-réservée** au lieu d'être posé sur l'axe. Un volet flottant en permanence
-masquerait le bas de la file pour toujours ; une colonne réservée ne cache
-rien. L'axe prend ce qui reste à gauche, le volet 54 colonnes à droite — et
-sous 48 colonnes de large, il s'efface plutôt que d'écraser l'axe.
-
-Conséquences : `fp` (*peek*) perd son emploi et le dit au lieu de ne rien
-faire ; un cul-de-sac s'affiche dans le volet au lieu de le laisser vide.
-
-## Plus rien ne s'imprime sous la TUI (06/09/2026)
-
-Joel, au test suivant : « quand j'appuie sur 2, le bas bouge toujours », avec
-des textes qui se chevauchent (« ▶ ♪ Vilaine — Odezenne forkstify (touches
-multimédia actives…) »).
-
-La cause était plus large que le démarrage. **Trois familles d'impressions
-écrivaient dans l'écran alterné à l'insu de ratatui**, qui ne redessine que
-ce qu'il croit avoir changé — d'où les restes :
-
-1. les quatre messages de démarrage d'une session (appris, connexion, MPRIS) ;
-2. les deux messages d'autorisation de `spotify.rs` ;
-3. et surtout **le lecteur de touches lui-même** : l'écho des séquences à
-   moitié tapées, la ligne éditée après `/` ou `:`, les effacements.
-
-Le lecteur ne dit plus rien à l'écran : il **remonte son état** —
-`Cmd::Pending` pour une séquence en cours, `Cmd::Typing` pour une ligne,
-`Cmd::Unknown` pour une séquence sans emploi — et c'est la TUI qui l'affiche,
-sur la ligne d'invite. Le bas de l'écran ne bouge donc plus que pour montrer
-**la commande en cours**, ce qui était la demande exacte.
-
-Le démarrage d'une session a désormais son écran d'attente, avec ses étapes
-cochées à mesure (`Tui::splash`), et `Tui::clear()` repart d'un écran vide à
-chaque changement de vue.
-
-## Premiers retours d'usage sur la TUI (06/09/2026)
-
-Cinq retours de Joel après la première vraie prise en main, tous appliqués.
-
-- **L'échelle de confort est retournée** : **5 = cocon, 0 = exploration**.
-  « Le confort, c'est ce qu'on connaît bien. » Le dépôt était l'intrus :
-  [0012](decisions/0012-rotation-des-morceaux.md) §4 écrivait déjà « confort
-  haut : tirage serré sur les tops », ce qui se lit maintenant au pied de la
-  lettre. Seule `zone-de-confort.md` disait l'inverse, et une note de
-  conception cède devant l'usage. Défaut par défaut : 3.
-- **La jauge se règle au clavier** : `c` ouvre le réglage, ↑↓ bougent,
-  entrée valide, échap rend la valeur d'avant. Rien n'est appliqué avant la
-  validation.
-- **Le bas de l'écran ne bouge plus.** Le journal s'allongeait vers le bas et
-  devenait brouillon ; il tient désormais sur **une ligne fixe** (la dernière
-  chose dite), et ce qui est long — le menu du leader, `?` — se **pose sur
-  l'écran** en bloc au lieu de descendre.
-- **La navigation devient verticale et différée.** L'axe s'affiche
-  verticalement, donc ↑↓ y déplacent une **sélection** surlignée en jaune ;
-  **entrée** joue ce qui est sélectionné, échap annule. Sans sélection,
-  entrée garde son sens de toujours — tirer une branche. ←→ et `h`/`l`
-  restent le geste de transport immédiat, comme ⏮ ⏭.
-
-**Et un défaut trouvé en lisant l'écran** : une seule écoute réelle
-*remplaçait* le classement, si bien que jouer une fois son artiste préféré
-le faisait tomber de 100 % à 13 % de familiarité. Le classement et l'écoute
-se combinent désormais par le maximum — écouter ne peut qu'ajouter.
-
-## La TUI, première version (06/09/2026)
-
-`ratatui` entre dans le projet (décision [0006](decisions/0006-rust.md), qui
-le nommait déjà). `src/tui.rs` dessine la session ; **la saisie reste celle
-de `keys.rs`** — termios brut, grammaire sans préfixe — parce qu'elle est
-éprouvée et que ratatui n'a pas besoin de posséder l'entrée.
-
-**Variante 1b des maquettes** : une colonne pleine largeur pour l'axe de
-lecture, et un volet qui se pose dessus à l'embranchement puis s'en va
-(`Clear` + `Block::bordered`). Passer à 1a — le volet permanent — ne
-changera qu'un `Layout` ; c'est resté ouvert exprès.
-
-L'écran tient en quatre zones : l'en-tête (le parcours, la graine, le
-segment, le confort), **l'axe** (ce qui a sonné, ce qui sonne en inversion,
-ce qui suit), le **journal** de ce que forkstify vient de dire, et l'invite
-en dernière ligne avec la jauge de confort — la place que
-[`ecran-d-accueil.md`](conception/ecran-d-accueil.md) lui donnait.
-
-Conséquence sur le code : les **69 impressions** de la session sont devenues
-des lignes de journal (`say!`), vidées à chaque commande pour qu'un bloc —
-le menu du leader, `?` — s'affiche seul et en entier. Le journal est un
-`RefCell` : dire quelque chose ne demande pas d'emprunt exclusif, ce qui
-évitait de rendre mutables trente méthodes qui ne le sont pas.
-
-**La couture est levée le jour même** (Joel l'a vue au premier lancement :
-« quand je le lance, j'ai du terminal basique »). L'accueil passe lui aussi
-par la TUI : **un seul écran alterné pour toute l'application**, ouvert par
-`accueil()` et prêté à la session. L'accueil décide *quoi* dire — une liste
-de `Row` — et la TUI *comment* : la même séparation qu'entre le moteur et le
-son. Le parcours final remonte à l'accueil au lieu de s'imprimer sur un
-écran qui disparaît.
-
-**Non vérifié** : rien de tout cela n'a tourné en session réelle. La TUI est
-vérifiée à la compilation ; l'accueil, lui, tourne.
-
-## Retours d'usage (05/09/2026)
-
-Les premières sessions longues d'`ecouter` ont produit **11 retours** de
-Joel, consignés et instruits dans
-[`docs/conception/retours-usage.md`](conception/retours-usage.md) — avec
-l'**inventaire réel des raccourcis** (ce qui marche vs la table projetée,
-largement non implémentée) et **5 points à trancher** avant d'ajouter quoi
-que ce soit. Ils se traitent au fur et à mesure.
-
-## Prochaines étapes, dans l'ordre
-
-Relu le 05/09/2026 au soir, contre le code. Les étapes 2 et 4 de la liste
-précédente sont largement faites ; ce qui suit est ce qui reste.
-
-1. **Éprouver `ecouter` en vrai.** Entamé le 09/09/2026 : une longue
-   session de Joel, dix retours traités le jour même (section ci-dessus),
-   et les premiers atouts dans `docs/atouts.md`. Reste à éprouver : les
-   mesures qui écrivent dans les fiches, le réservoir, `:warm`.
-2. ~~**Les cinq éditions**~~ — `tt`/`tT` (tops), `td` (door), `aL`
-   (lier, et délier depuis le 20/09/2026), `ae` ($EDITOR, câblé le
-   20/09/2026 : le lecteur de touches se gare). Toutes écrivent et
-   commitent (`src/edit.rs`). C'était le dernier tiers de
-   [0013](decisions/0013-affinage-clavier-mesure-ou-edition.md) et le
-   retour n° 8 de Joel.
-3. ~~**Le cooldown daté**~~ — fait le 08/09/2026 (un dixième le jour même,
-   demi-vie d'une semaine).
-4. **`u` — annuler le dernier geste** ([0013](decisions/0013-affinage-clavier-mesure-ou-edition.md)).
-   Sans lui, un `tb` de travers ne se reprend qu'à la main dans le TOML.
-   Il devient nécessaire dès que les éditions arrivent (revert d'un commit).
-5. **Le mode file d'attente** (`Q`, retour n° 11). Le plus gros morceau :
-   `rounds` est une **liste plate**, alors que « retirer toute la profondeur
-   d'une branche » suppose un arbre manipulable.
-6. ~~**La synchronisation git**~~ — faite le 07/09/2026 (0017).
-7. ~~**Trancher la vectorisation d'une fiche générée**~~ — tranché le
-   09/09/2026 ([0019](decisions/0019-vectorisation-par-l-application.md)) :
-   l'application vectorise elle-même, fait le jour même.
-8. ~~**`fw` — partir hors de l'univers**~~ (retour n° 6) — tranché et fait
-   le 11/09/2026 : sortir du cluster, avec `fw <artiste>` pour viser un
-   univers.
-13. ~~**Le setup fluide**~~ (Joel, 09/09/2026) — fait le 20/09/2026
-    d'après la maquette `Installation.dc.html` (section ci-dessus) ; les
-    scripts Python se retirent après le premier `:library` en vrai.
-14. **La barre Omarchy** (Joel, 10/09/2026) : l'animation `▂▄▆` dans la
-    barre, et au clic une popover titre / artiste / progression / prochain
-    morceau. Deux étages proposés dans
-    [barre-omarchy.md](conception/barre-omarchy.md) : forkstify publie
-    d'abord de vraies métadonnées MPRIS (portable), puis un petit plugin
-    Omarchy les montre. **Fait le 10/09/2026** ([0021](decisions/0021-le-depot-est-le-plugin-omarchy.md)) :
-    le dépôt est le plugin, l'état vit sous `~/.local/state/forkstify`, le
-    widget installe et lance le binaire. Éprouvé : la progression de
-    la carte, figée à 0:00, se rafraîchit depuis le 11/09/2026.
-9. **Trousseau GNOME** pour les jetons, au lieu des caches `target/` — un
-   `cargo clean` efface aujourd'hui l'authentification.
-10. **La vraie TUI** : l'écran ne se redessine pas, tout défile. La saisie
-   touche par touche est faite, l'affichage reste celui d'un terminal qui
-   déroule.
-11. ~~**Traduire en anglais** les scripts de `tools/`~~ — retirés le
-    20/09/2026 : forkstify récolte, classe, génère et vectorise lui-même.
-15. **Les trois chantiers de la sortie** (Joel, 19/09/2026) — cahier dans
-    [conception/sortie.md](conception/sortie.md). ~~Les trois~~ faits le
-    20/09/2026. Le même jour, `tools/` retiré des deux dépôts du catalogue
-    et l'appris de Joel retiré de la référence (Joel, 20/09/2026). Reste à
-    éprouver en vrai : `:library`, `Cp`, `Cu` — le premier `Cu` du fork
-    réglera seul les conflits `learned/` (les siens gardés). L'action
-    GitHub et le `CONTRIBUTING.md` sont en place le même jour, et
-    l'application est **publique** depuis (README, LICENSE).
-12. ~~**Explorer la discographie d'un artiste**~~ — faite le 07/09/2026
-    (`ad`, modale 1a). La cible de `t`/`a`/`e` est unifiée depuis le
-    09/09/2026 ([0020](decisions/0020-la-cible-d-un-geste.md)).
-
-## Corrections en attente (petites)
-
-- MBID de **Les Thugs** introuvable (homonymie probable) et une entrée au
-  nom vide dans `learned/mbid.json` ; 110 MBID résolus « par nom » à relire.
-- **Les commits d'édition parlent français** (« Cat Power — tops : +2 −0 »,
-  « Jacques Brel — fiche générée ») alors que `AGENTS.md` veut l'anglais pour
-  les messages que l'application produit — `learned:` et `import:` le sont.
-  `edit::Edit.summary` sert à la fois de phrase à l'écran et de sujet de
-  commit : les séparer, ou trancher la règle.
-- `resoudre-mbid.py` ne lit que les fichiers Spotify — à adapter aux
-  récoltes Deezer (`learned/amis/*-deezer.json`).
-- **Le nom MusicBrainz n'est pas toujours celui de Spotify** (La Ruda /
-  La Ruda Salska) et la résolution d'un morceau cherche par nom : alias,
-  vérification de l'identifiant Spotify des résultats, ou nom Spotify à la
-  génération — à trancher.
-
-## Règles de session
-
-- **Commits et push au fil de l'eau** sur `forkstify` et
-  `forkstify-catalog` (demandé par Joel le 31/08/2026). Chorizo : toujours
-  demander avant de pousser.
-- Les scripts qui lisent le trousseau GNOME sont lancés **par Joel** avec le
-  préfixe `!`.
+
+The **decisions stay untouched**: they mention the old names and are
+immutable. A note at the head of [`keybindings.md`](keybindings.md) says to
+read the new ones there, as 0014 did for `usage/` → `learned/`.
+
+**`forkstify import <url>`.** Taking the cards of another catalog: it adds
+the remote, fetches, takes **the cards we do not have** — never the ones we
+do, their corrections to our artists belonging in a PR where they get
+discussed — commits the lot in one go, then regenerates the vectors.
+
+It is a **subcommand, not a listening gesture**: vectorizing needs a
+container and several minutes. If docker is missing, the exact command is
+shown instead of failing silently — with no up-to-date vectors, the cards
+taken in would only exist for the graph.
+
+## The first install, an open question (2026-09-06)
+
+Joel: "what happens when a new user installs forkstify for the first time?"
+and above all "how do we reconcile a common base catalog with the user's
+changes?".
+
+The second is **already settled**, but scattered across 0002, 0004, 0008 and
+0014: we do not reconcile, we **stack in the same repository** and git does
+the work — the base comes from upstream, mine is my commits on top, and the
+learned layer lives in `learned/` and is never contributed back. Gathered in
+[`first-run.md`](design/first-run.md).
+
+What is missing is the **bootstrap**: nothing clones the catalog, nothing
+scans the user's library, nothing generates a card on the fly. And a hard
+point that was written nowhere: **the current base is not neutral, it is
+Joel's universe** — 214 cards born of his ranking. A new user with distant
+taste could barely start anything, since a seed with no card does not start.
+
+## The whole collection, to the right of home (2026-09-06)
+
+A request from Joel, after the column added to `Accueil.dc.html`: on the
+left what forkstify **proposes**, on the right what it **holds**. "The
+column proposes nothing: it lists."
+
+The split is **proportional, 60/40** (Joel, 2026-09-06): the left carries
+reasons and tracks, the right a list. One constant to change to go
+half-and-half (`LEFT_SHARE`). Below 60 columns the list disappears — better
+one readable column than two unreadable ones.
+
+`gg` and `G` jump to the two ends, as in vim — in home's collection, and in
+the axis while listening, since it is the same gesture on the same kind of
+list. `g` alone is nothing: it waits for its second, and `keys.rs`'s
+exhaustive test verifies the grammar stays prefix-free.
+
+It brings the catalog **and** the ranking together — 780 names, 214 of them
+with a card — each with a familiarity gauge, their name, and how long since
+they last played (`today`, `yesterday`, `-3w`, `-7m`, `never`, in orange
+past six months). `s` cycles the order: familiarity, a-z, last played.
+
+**Two departures from the mockup, both deliberate.**
+
+The mockup enters the column with `c` — but `c` has been the comfort setting
+since the day before. Rather than moving either one, **there is no key to
+enter**: the ↑↓ arrows move a cursor there, and `enter` starts the artist
+under it. That is exactly the session's gesture (select then enter), and
+with no cursor `enter` keeps its usual meaning — "choose for me". One less
+key to learn.
+
+The mockup says that "an artist with no card starts anyway: the first branch
+comes from the vectors". **That is not true here**: the engine starts from
+the card (links, tags, vector), and an artist in the ranking alone has none.
+The column lists them — it is indeed the whole collection — but choosing
+them answers that the catalog grows with use, rather than failing without
+saying so.
+
+## The edits finally write into the cards (2026-09-06)
+
+`src/edit.rs` closes the last third of
+[0013](decisions/0013-keyboard-tuning-measure-or-edit.md): four of the five
+edits change a card **and produce a readable commit** (`tt`, `tT`, `td`,
+`aL`). The commit message and what shows on screen are **the same
+sentence** — what the user reads is what git will keep.
+
+**The cards are patched textually, never rewritten.** A round trip through
+serde would lose everything the code does not model — `format`, `generated`,
+`mbid`, `spotify`, `begin`, `origin`, `description`, the order of the keys,
+the quotes chosen by hand. A card is a **public interface**
+([0002](decisions/0002-shared-forkable-catalog.md)) that a human reads and
+fixes: we insert a line into it, we do not regenerate the whole. Six tests
+cover what would silently corrupt, including two that verify that after
+every insertion **the card still reads back as a card** — a quoted title
+included.
+
+Choices made for want of an input method: `td` takes as its direction the
+tags of the **next artist** in the queue (0011: a door points at tags, where
+you are going), and `aL` links to the artist **you came from**. Both read
+back and get fixed in the card.
+
+**`ae` remains the fifth**, for an architectural reason: opening `$EDITOR`
+means giving the input back to the terminal, and the key reader holds
+`stdin` permanently and would steal its keystrokes. It shows the card's path
+while awaiting a prompted input rather than a blocked thread.
+
+**A limit stated on screen**: the in-memory catalog does not move, so an
+edit only counts for the engine at the next launch.
+
+## Home brought closer to its mockup (2026-09-06)
+
+Graphic touch-ups asked for by Joel, all taken from `Accueil.dc.html`:
+
+- **The wordmark and the state on a single line** — `forkstify` on the left,
+  `✓ librespot · ✓ api web` on the right. For want of cell justification,
+  the gap is computed from the area's width.
+- **The rules run to the end of the measure** (66 columns at most). They are
+  what separates the blocks, since the system forbids cards.
+- **The title in front, the artist behind**, everywhere: under an entry
+  (`♪ Crystal Frontier — Calexico`), on a seed that is a track, and on the
+  "resume" line — which still had them the other way round.
+- **The colors are roles**: the number and the keys in magenta (branch), the
+  artist in blue (the catalog, written by a human), the `♪` in green, the
+  reasons in grey, the punctuation dimmed.
+## The queue chains up: the journey becomes a playlist (2026-09-06)
+
+Joel, after living with the TUI: "I'd like choosing a new branch to be added
+to what was decided before. Right now it replaces it. That way you can build
+a playlist quickly with a few branch choices."
+
+It is a change of model, and a more accurate one: **choosing a branch
+appends it to the queue** instead of replacing it, and the next branches are
+proposed from the **end** of the queue, not from what is playing. It is the
+"chain" of the queue mockups, obtained with no separate mode.
+
+Consequences:
+
+- **There is no "pending" branch any more.** Everything decided is in the
+  queue — `pending_branch` goes away, and `next()` reduces to "move on,
+  otherwise draw". `fn<n>` and `f!<n>` keep their meaning: insert after the
+  current track, or with the rest dropped.
+- **Every branch opens with its name in the queue**: the first of its tracks
+  carries the label (`Stop::head`), the following ones a magenta rule. So
+  you see several branches stacked, each one delimited.
+- **The whole past stays on screen** — it is the playlist being made, not a
+  history to forget. The axis scrolls to follow what is playing.
+- **`tx` removes from the queue** the selected track. It stays proposable:
+  it is not a ban, it is a "not this evening". If it was a branch's head,
+  the next one takes over its name.
+- **No more line wrapping on the axis**: a list gets cut, it does not wrap.
+  That was the reported bug — the column having narrowed with the branch
+  panel, long labels were wrapping.
+
+**Still open**: saving the playlist. Everything needed is there — the past,
+the queue, the branch names — but where to write it and in what format is
+not settled (a Spotify playlist? a catalog file?).
+
+## The chosen branch unfolds into "up next" (2026-09-06)
+
+Joel: "when I choose a branch, the journey shows below the upcoming songs
+but on one line with no detail". It did indeed fit on a `→ label`, whereas
+its tracks are **already drawn** at the moment of choosing — there was no
+reason to hide them.
+
+They now line up after the queue, separated from it by a **magenta rule**
+(`│`) that replaces the indentation: you see at a glance where the branch
+starts and how far it goes. They are dimmed, because they have not played
+yet, and the head line says **when** the branch will take over — at the end
+of the branch, at the end of the track, or with the rest dropped.
+
+**An accepted limit**: the selection (↑↓) stops at the end of the queue. The
+branch's tracks show but cannot be chosen yet — they are not in the queue
+until the branch has taken over, and pretending otherwise would make a
+highlight that lies.
+
+## The branches are always on screen (2026-09-06)
+
+A request from Joel: "I'd like the panel of upcoming branches to be shown
+all the time". That is variant **1a** of the mockups — the permanent panel —
+with 1b's placement, at the bottom right.
+
+One nuance was added to the request: **the panel now has its own reserved
+place** instead of being laid over the axis. A panel floating permanently
+would hide the bottom of the queue forever; a reserved column hides nothing.
+The axis takes what is left on the left, the panel 54 columns on the right —
+and below 48 columns wide, it disappears rather than crush the axis.
+
+Consequences: `fp` (*peek*) loses its purpose and says so instead of doing
+nothing; a dead end shows in the panel instead of leaving it empty.
+
+## Nothing prints under the TUI any more (2026-09-06)
+
+Joel, at the next test: "when I press 2, the bottom still moves", with texts
+overlapping ("▶ ♪ Vilaine — Odezenne forkstify (media keys active…)").
+
+The cause was broader than startup. **Three families of prints were writing
+into the alternate screen behind ratatui's back**, and it only redraws what
+it believes has changed — hence the leftovers:
+
+1. a session's four startup messages (learned layer, connection, MPRIS);
+2. `spotify.rs`'s two authorization messages;
+3. and above all **the key reader itself**: the echo of half-typed
+   sequences, the line edited after `/` or `:`, the erasures.
+
+The reader no longer says anything on screen: it **reports its state** —
+`Cmd::Pending` for a sequence in progress, `Cmd::Typing` for a line,
+`Cmd::Unknown` for a sequence with no purpose — and it is the TUI that shows
+it, on the prompt line. So the bottom of the screen only moves to show **the
+command in progress**, which was the exact request.
+
+Starting a session now has its waiting screen, with its steps ticked as they
+go (`Tui::splash`), and `Tui::clear()` starts from an empty screen on every
+view change.
+
+## First usage feedback on the TUI (2026-09-06)
+
+Five pieces of feedback from Joel after the first real hands-on, all
+applied.
+
+- **The comfort scale is flipped**: **5 = cocoon, 0 = exploration**.
+  "Comfort is what you know well." The repository was the odd one out:
+  [0012](decisions/0012-track-rotation.md) §4 already wrote "high comfort: a
+  tight draw on the tops", which now reads literally. Only
+  `zone-de-confort.md` said the opposite, and a design note yields to use.
+  Default default: 3.
+- **The gauge is set from the keyboard**: `c` opens the setting, ↑↓ move,
+  enter confirms, escape gives back the previous value. Nothing is applied
+  before confirmation.
+- **The bottom of the screen no longer moves.** The log grew downwards and
+  became messy; it now fits on **one fixed line** (the last thing said), and
+  what is long — the leader menu, `?` — is **laid over the screen** as a
+  block instead of going down.
+- **Navigation becomes vertical and deferred.** The axis shows vertically,
+  so ↑↓ move a **selection** highlighted in yellow there; **enter** plays
+  what is selected, escape cancels. With no selection, enter keeps its usual
+  meaning — draw a branch. ←→ and `h`/`l` stay the gesture of immediate
+  transport, like ⏮ ⏭.
+
+**And a bug found by reading the screen**: a single real play *replaced* the
+ranking, so playing your favorite artist once made them drop from 100 % to
+13 % familiarity. The ranking and listening are now combined by the maximum
+— listening can only add.
+
+## The TUI, first version (2026-09-06)
+
+`ratatui` enters the project (decision [0006](decisions/0006-rust.md), which
+already named it). `src/tui.rs` draws the session; **input stays `keys.rs`'s**
+— raw termios, a prefix-free grammar — because it is proven and ratatui does
+not need to own the input.
+
+**Variant 1b of the mockups**: a full-width column for the playback axis,
+and a panel that lays over it at a fork point then goes away (`Clear` +
+`Block::bordered`). Moving to 1a — the permanent panel — will only change a
+`Layout`; that was left open on purpose.
+
+The screen fits in four areas: the header (the journey, the seed, the
+segment, the comfort), **the axis** (what has played, what is playing
+inverted, what follows), the **log** of what forkstify has just said, and
+the prompt on the last line with the comfort gauge — the place
+[`home-screen.md`](design/home-screen.md) gave it.
+
+A consequence in the code: the session's **69 prints** became log lines
+(`say!`), cleared on every command so that a block — the leader menu, `?` —
+shows alone and in full. The log is a `RefCell`: saying something does not
+require an exclusive borrow, which avoided making thirty methods mutable
+that are not.
+
+**The seam was closed the same day** (Joel saw it on the first launch: "when
+I launch it, I get a plain terminal"). Home goes through the TUI too: **one
+alternate screen for the whole application**, opened by `accueil()` and lent
+to the session. Home decides *what* to say — a list of `Row` — and the TUI
+*how*: the same separation as between the engine and the sound. The final
+journey goes back up to home instead of printing onto a screen that
+disappears.
+
+**Not verified**: none of this has run in a real session. The TUI is
+verified at compile time; home, though, does run.
+
+## Usage feedback (2026-09-05)
+
+The first long `ecouter` sessions produced **11 pieces of feedback** from
+Joel, recorded and worked through in
+[`docs/design/usage-feedback.md`](design/usage-feedback.md) — along with the
+**real inventory of the shortcuts** (what works vs the projected table,
+largely unimplemented) and **5 points to settle** before adding anything.
+They are handled as they come.
+
+## Next steps, in order
+
+Read back on the evening of 2026-09-05, against the code. Steps 2 and 4 of
+the previous list are largely done; what follows is what is left.
+
+1. **Try `ecouter` for real.** Started on 2026-09-09: a long session from
+   Joel, ten pieces of feedback handled the same day (the section above),
+   and the first strengths in `docs/atouts.md`. Left to try: the
+   measurements that write into the cards, the pool, `:warm`.
+2. ~~**The five edits**~~ — `tt`/`tT` (tops), `td` (door), `aL` (link, and
+   unlink since 2026-09-20), `ae` ($EDITOR, wired on 2026-09-20: the key
+   reader parks itself). They all write and commit (`src/edit.rs`). That was
+   the last third of
+   [0013](decisions/0013-keyboard-tuning-measure-or-edit.md) and Joel's
+   feedback no. 8.
+3. ~~**The dated cooldown**~~ — done on 2026-09-08 (a tenth on the same day,
+   a one-week half-life).
+4. **`u` — undo the last gesture**
+   ([0013](decisions/0013-keyboard-tuning-measure-or-edit.md)). Without it,
+   a mistaken `tb` can only be taken back by hand in the TOML. It becomes
+   necessary as soon as the edits arrive (reverting a commit).
+5. **Queue mode** (`Q`, feedback no. 11). The biggest piece: `rounds` is a
+   **flat list**, whereas "remove all of a branch's depth" assumes a tree
+   you can manipulate.
+6. ~~**Git synchronization**~~ — done on 2026-09-07 (0017).
+7. ~~**Settle how a generated card is vectorized**~~ — settled on
+   2026-09-09 ([0019](decisions/0019-the-application-vectorizes.md)): the
+   application vectorizes itself, done the same day.
+8. ~~**`fw` — leaving the universe**~~ (feedback no. 6) — settled and done
+   on 2026-09-11: leave the cluster, with `fw <artist>` to aim at a
+   universe.
+13. ~~**The smooth setup**~~ (Joel, 2026-09-09) — done on 2026-09-20 after
+    the `Installation.dc.html` mockup (the section above); the Python
+    scripts step down after the first real `:library`.
+14. **The Omarchy bar** (Joel, 2026-09-10): the `▂▄▆` animation in the bar,
+    and on click a popover with title / artist / progress / next track. Two
+    floors proposed in [omarchy-bar.md](design/omarchy-bar.md): forkstify
+    first publishes real MPRIS metadata (portable), then a small Omarchy
+    plugin shows them. **Done on 2026-09-10**
+    ([0021](decisions/0021-the-repository-is-the-omarchy-plugin.md)): the
+    repository is the plugin, the state lives under
+    `~/.local/state/forkstify`, and the widget installs and launches the
+    binary. Tried: the card's progress, frozen at 0:00, has been refreshing
+    since 2026-09-11.
+9. **The GNOME keyring** for the tokens, instead of the `target/` caches — a
+   `cargo clean` today erases the authentication.
+10. **The real TUI**: the screen does not redraw, everything scrolls.
+   Key-by-key input is done, the display is still a terminal that scrolls.
+11. ~~**Translate the `tools/` scripts into English**~~ — removed on
+    2026-09-20: forkstify harvests, ranks, generates and vectorizes by
+    itself.
+15. **The three release workstreams** (Joel, 2026-09-19) — the workbook is
+    in [design/before-release.md](design/before-release.md). ~~All three~~
+    done on 2026-09-20. The same day, `tools/` removed from both catalog
+    repositories and Joel's learned data removed from the reference (Joel,
+    2026-09-20). Left to try for real: `:library`, `Cp`, `Cu` — the fork's
+    first `Cu` will settle the `learned/` conflicts by itself (his are
+    kept). The GitHub action and the `CONTRIBUTING.md` are in place the same
+    day, and the application has been **public** since (README, LICENSE).
+12. ~~**Explore an artist's discography**~~ — done on 2026-09-07 (`ad`,
+    modal 1a). The target of `t`/`a`/`e` has been unified since 2026-09-09
+    ([0020](decisions/0020-the-target-of-a-gesture.md)).
+
+## Pending fixes (small)
+
+- **Les Thugs**' MBID not found (a likely homonym) and an entry with an
+  empty name in `learned/mbid.json`; 110 MBIDs resolved "by name" to review.
+- **The edit commits speak French** ("Cat Power — tops : +2 −0", "Jacques
+  Brel — fiche générée") whereas `AGENTS.md` wants English for the messages
+  the application produces — `learned:` and `import:` are.
+  `edit::Edit.summary` serves both as the sentence on screen and as the
+  commit subject: separate them, or settle the rule.
+- `resoudre-mbid.py` only reads the Spotify files — to be adapted to the
+  Deezer harvests (`learned/amis/*-deezer.json`).
+- **The MusicBrainz name is not always Spotify's** (La Ruda / La Ruda
+  Salska) and resolving a track searches by name: an alias, checking the
+  results' Spotify identifier, or the Spotify name at generation time — to
+  be settled.
+
+## Session rules
+
+- **Commits and pushes as we go** on `forkstify` and `forkstify-catalog`
+  (asked for by Joel on 2026-08-31). Chorizo: always ask before pushing.
+- The scripts that read the GNOME keyring are run **by Joel** with the `!`
+  prefix.
