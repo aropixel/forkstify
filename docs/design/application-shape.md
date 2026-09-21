@@ -1,224 +1,216 @@
-# Forme de l'application et PoC
+# The shape of the application, and the PoC
 
-Note de travail. **Décidé** = acté dans `docs/decisions/` ; **orientation** =
-proposé, non contredit, pas encore acté ; **à trancher** = question ouverte.
+Working note. **Decided** = recorded in `docs/decisions/`; **direction** =
+proposed, uncontradicted, not yet recorded; **to settle** = open question.
 
-## Références
+## References
 
-Points de départ de la réflexion de Joel, et ce qu'on en retient :
+Starting points of Joel's thinking, and what we take from them:
 
 - [stappmus/Omarchy-Spotify](https://github.com/stappmus/Omarchy-Spotify) —
-  plugin Omarchy (QML dans la barre, JS pour l'API et l'OAuth), son via un
-  backend Rust local ou le paquet `spotifyd` d'Omarchy, pilotage par l'API
-  Web. ~60 Mo au lieu des ~950 Mo du client officiel. **Retenu** : le modèle
-  d'intégration à Omarchy, et le fait que le son est un appareil Spotify
-  Connect local piloté par l'API Web.
-- [crmne/fastpotify](https://github.com/crmne/fastpotify) — client complet
-  en Rust (egui + librespot), OAuth PKCE, MPRIS, commandes en ligne
-  (`fastpotify next`). **Retenu** : librespot est viable ; un client complet
-  est beaucoup trop gros pour ce qu'on veut.
-- [ssp-data/neomd](https://github.com/ssp-data/neomd) — client mail TUI en
-  Go (Bubble Tea, Glamour, Lipgloss), raccourcis vim, configuration en
-  fichiers texte, rien de stocké en local. **Retenu** : la forme. Clavier
-  d'abord, un écran, du texte, minimaliste. Joel a déjà écrit
-  [`omarchy-neomd`](https://github.com/kbyjoel/omarchy-neomd), le widget de
-  barre qui l'accompagne — le couple TUI + widget de barre est un chemin
-  connu.
+  an Omarchy plugin (QML in the bar, JS for the API and the OAuth), sound
+  through a local Rust backend or Omarchy's `spotifyd` package, driven
+  through the Web API. ~60 MB instead of the official client's ~950 MB.
+  **Taken**: the model of integration with Omarchy, and the fact that the
+  sound is a local Spotify Connect device driven through the Web API.
+- [crmne/fastpotify](https://github.com/crmne/fastpotify) — a full client in
+  Rust (egui + librespot), OAuth PKCE, MPRIS, command-line commands
+  (`fastpotify next`). **Taken**: librespot is viable; a full client is far
+  too big for what we want.
+- [ssp-data/neomd](https://github.com/ssp-data/neomd) — a TUI mail client in
+  Go (Bubble Tea, Glamour, Lipgloss), vim shortcuts, text-file
+  configuration, nothing stored locally. **Taken**: the form. Keyboard
+  first, one screen, text, minimal. Joel has already written
+  [`omarchy-neomd`](https://github.com/kbyjoel/omarchy-neomd), the bar
+  widget that goes with it — the TUI + bar widget pair is a known path.
 
-## Décidé
+## Decided
 
-- Pas de maquette pour l'instant ; **le concept et le PoC passent avant
-  l'interface**.
-- **Rust** : `ratatui`, `rspotify`, `tokio`, `fastembed` pour les vecteurs
+- No mockup for now; **the concept and the PoC come before the interface**.
+- **Rust**: `ratatui`, `rspotify`, `tokio`, `fastembed` for the vectors
   ([0006](../decisions/0006-rust.md)).
-- **Affinage au clavier : chaque touche est une mesure (`learned/`) ou une
-  édition (un commit)**, `u` annule la dernière, chaque touche n'est que le
-  raccourci d'une commande `:`
-  ([0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)). La
-  table des touches ci-dessous reste une orientation.
+- **Keyboard tuning: every key is a measurement (`learned/`) or an edit (a
+  commit)**, `u` undoes the last one, and every key is merely the shortcut
+  of a `:` command
+  ([0013](../decisions/0013-keyboard-tuning-measure-or-edit.md)). The key
+  table below remains a direction.
 
-## Orientations
+## Directions
 
-### Séparer le cerveau du son — dans le code, pas dans le binaire
+### Separate the brain from the sound — in the code, not in the binary
 
-Le moteur de branches ignore comment le son sort : il produit des morceaux
-à jouer, un autre composant les joue. Première idée : pousser dans la file
-d'un appareil Spotify Connect existant (`spotifyd`, client officiel). Après
-vérification ([spotify.md](spotify.md)), l'orientation est plutôt que
-**forkstify embarque librespot et est lui-même l'appareil Connect** :
-l'utilisateur n'installe rien d'autre, et se connecte en choisissant
-« forkstify » dans la liste des appareils de son téléphone. Pousser vers un
-autre appareil Connect reste possible par l'API Web, en plus.
+The branch engine does not know how the sound gets out: it produces tracks
+to play, another component plays them. The first idea was to push into the
+queue of an existing Spotify Connect device (`spotifyd`, the official
+client). After checking ([spotify.md](spotify.md)), the direction is rather
+that **forkstify embeds librespot and is itself the Connect device**: the
+user installs nothing else, and connects by choosing "forkstify" in the
+device list on their phone. Pushing to another Connect device stays possible
+through the Web API, on top.
 
-### Une TUI clavier d'abord, à la neomd
+### A keyboard-first TUI, neomd-style
 
-Quand il y aura une interface : un terminal, un écran, raccourcis vim. Un
-embranchement, c'est trois lignes ; on choisit avec `1` `2` `3` ou
-`h` / `l` (rassurant / aventureux), on ponce avec `.`, on saute avec `n`.
-Lancée par `omarchy-launch-or-focus-tui forkstify`, complétée plus tard par
-un widget de barre sur le modèle d'`omarchy-neomd` (morceau en cours,
-prochain embranchement, un clic pour ouvrir).
+When there is an interface: one terminal, one screen, vim shortcuts. A fork
+point is three lines; you choose with `1` `2` `3` or `h` / `l` (reassuring /
+adventurous), you grind with `.`, you skip with `n`. Launched by
+`omarchy-launch-or-focus-tui forkstify`, completed later by a bar widget on
+the `omarchy-neomd` model (current track, next fork point, one click to
+open).
 
-### Affiner l'algorithme au clavier
+### Tuning the algorithm from the keyboard
 
-Principe acté le 01/09/2026
-([0013](../decisions/0013-affinage-clavier-mesure-ou-edition.md)) ; la
-table des touches, elle, s'ajuste au fil du PoC. **Chaque touche est
-soit une mesure, soit une édition.**
+The principle was recorded on 2026-09-01
+([0013](../decisions/0013-keyboard-tuning-measure-or-edit.md)); the key
+table, though, is adjusted along the PoC. **Every key is either a
+measurement or an edit.**
 
-- Une **mesure** modifie `learned/` en silence (sauter, aimer) — c'est
-  l'*appris* de [catalogue.md](catalogue.md).
-- Une **édition** modifie une fiche et produit **un commit lisible**
-  (« top : + A Forest ») — c'est le *mien*, immédiatement partageable.
-- `u` **annule la dernière**, quelle qu'elle soit — revert pour une
-  édition, effacement pour une mesure. L'historique d'affinage *est* le
-  log git.
+- A **measurement** changes `learned/` silently (skip, like) — that is the
+  *learned* layer of [catalog.md](catalog.md).
+- An **edit** changes a card and produces **a readable commit** ("top: + A
+  Forest") — that is *mine*, shareable at once.
+- `u` **undoes the last one**, whatever it was — a revert for an edit, an
+  erasure for a measurement. The tuning history *is* the git log.
 
-**La table des touches vit désormais dans
-[`docs/keybindings.md`](../keybindings.md)** — état réel, décidé,
-proposé, et les collisions relevées. Ce qui suit est le raisonnement
-derrière les gestes, pas leur liste.
+**The key table now lives in
+[`docs/keybindings.md`](../keybindings.md)** — actual state, decided,
+proposed, and the collisions found. What follows is the reasoning behind the
+gestures, not their list.
 
-Le `d` se fait au moment exact où une door a du sens (« c'est depuis ce
-morceau que je suis parti vers le post-punk ») — personne ne l'écrirait à
-froid dans un fichier.
+The `d` happens at the exact moment a door makes sense ("this is the track I
+left towards post-punk from") — nobody would write it cold into a file.
 
-Le `E` est le geste ultime à la vim : quand les raccourcis ne suffisent
-plus, on édite le texte — le fork est la surcouche, littéralement. (Il
-était sur `e`, cédé à encore le 03/09/2026 : minuscule = geste léger et
-fréquent, majuscule = geste lourd, comme `t`/`T` et `x`/`X`.)
+The `E` is the ultimate vim gesture: when the shortcuts are not enough any
+more, you edit the text — the fork is the overlay, literally. (It was on
+`e`, given up to encore on 2026-09-03: lowercase = a light and frequent
+gesture, uppercase = a heavy one, like `t`/`T` and `x`/`X`.)
 
-Enfin, très neovim : chaque touche n'est que le raccourci d'une **commande
-`:`** (`:top`, `:door post-punk`, `:fiche`, `:confort 2`). Les commandes
-rendent tout découvrable et scriptable ; les keybinds deviennent une table
-de correspondance, remappable dans un fichier de config.
+And, very neovim: every key is merely the shortcut of a **`:` command**
+(`:top`, `:door post-punk`, `:fiche`, `:confort 2`). The commands make
+everything discoverable and scriptable; the keybinds become a lookup table,
+remappable in a config file.
 
-### Tout se dit en toast
+### Everything is said in a toast
 
-Règle de Joel (08/09/2026, redite le 10/09/2026 sur l'accueil) : **toute
-notification s'affiche en toast** — le cartouche en bas à droite du corps,
-quatre secondes, collant tant que ça charge —, sous l'accueil comme en
-écoute, modale ouverte ou non. La ligne du bas ne porte que ce qu'on tape
-et les touches disponibles ; rien ne s'y « dit ». Ce qui est long se
-montre dans un bloc (`?`, l'aide à la saisie), ce qui est court se dit en
-toast. Le 10/09, un message de l'accueil (« n'a pas de fiche ») passait
-encore par la ligne du bas, où il n'était pas visible : `tell` et ce que
-l'accueil a à dire passent désormais tous par le même toast.
+Joel's rule (2026-09-08, repeated on 2026-09-10 about home): **every
+notification shows as a toast** — the panel at the bottom right of the body,
+four seconds, sticky while something is loading —, under home as while
+listening, modal open or not. The bottom line carries only what you type and
+the keys available; nothing is "said" there. What is long is shown in a
+block (`?`, the input hints), what is short is said in a toast. On 09-10, a
+message from home ("has no card") still went through the bottom line, where
+it was not visible: `tell` and everything home has to say now all go through
+the same toast.
 
-### Une branche est un segment
+### A branch is a segment
 
-Demandé par Joel au premier test de la navigation à sec (03/09/2026) :
-une branche ne propose pas *un artiste* mais **un segment de quelques
-morceaux, potentiellement sur plusieurs artistes**. Depuis The Cure :
+Asked for by Joel on the first dry navigation test (2026-09-03): a branch
+does not propose *one artist* but **a segment of a few tracks, potentially
+across several artists**. From The Cure:
 
-1. Siouxsie and the Banshees → Cult Hero → Joy Division ;
-2. New Order → Depeche Mode → Nouvelle Vague ;
-3. (et, plus tard dans le parcours, « rester dans l'univers »).
+1. Siouxsie and the Banshees → Cult Hero → Joy Division;
+2. New Order → Depeche Mode → Nouvelle Vague;
+3. (and, later in the journey, "stay in the universe").
 
-**Poncer n'est pas une branche** (Joel, 03/09/2026) : les branches
-proposent des futurs, poncer réagit au moment — « encore de *ça* ». C'est
-donc une touche, `e` / `<n>e` (commande `:encore`), qui intercale n
-morceaux de plus de l'artiste du morceau en cours juste après lui ; le
-segment choisi reprend ensuite. Conséquence assumée : le mode auto ne
-ponce plus jamais — s'attarder est un désir d'auditeur, pas une décision
-de moteur (la zone de confort pourra redonner ce penchant à l'auto).
-Nuance PoC : à sec il n'y a pas de « morceau en cours », `e` vise le
-dernier artiste du segment ; la vraie sémantique arrive avec le son.
+**Grinding is not a branch** (Joel, 2026-09-03): branches propose futures,
+grinding reacts to the moment — "more of *that*". So it is a key, `e` /
+`<n>e` (the `:encore` command), which slots n more tracks by the current
+track's artist right after it; the chosen segment then resumes. An accepted
+consequence: auto mode never grinds any more — lingering is a listener's
+desire, not an engine decision (the comfort zone will be able to give auto
+that leaning back). A PoC nuance: dry, there is no "current track", so `e`
+targets the segment's last artist; the real semantics arrive with the sound.
 
-Affichage pendant l'écoute (Joel, 04/09/2026) : on montre la **file des
-morceaux à venir** (le morceau courant sur la ligne `▶`), et les
-**branches n'apparaissent qu'au dernier morceau** du segment — au moment
-de choisir. `p` permet de les voir à l'avance à tout instant (et d'en
-choisir une avec `1`-`3`) ; la vraie « prévisualisation puis choix
-anticipé » se fera dans l'interface graphique.
+Display while listening (Joel, 2026-09-04): we show the **queue of upcoming
+tracks** (the current track on the `▶` line), and the **branches only appear
+on the segment's last track** — at the moment of choosing. `p` lets you see
+them in advance at any time (and choose one with `1`-`3`); the real "preview
+then choose ahead" will come with the graphical interface.
 
-**Choisir une branche ne coupe pas le morceau en cours** (Joel,
-04/09/2026) : la branche sélectionnée devient « en attente » et démarre à
-la **fin de la piste** courante — on choisit où aller ensuite, la chanson
-finit tranquillement. `j` (ou ⏭) force le passage immédiat. Un nouveau
-départ par un autre chemin (recherche, `u`) annule l'attente.
+**Choosing a branch does not cut off the current track** (Joel,
+2026-09-04): the selected branch becomes "pending" and starts at the **end
+of the current track** — you choose where to go next, the song finishes in
+peace. `j` (or ⏭) forces the immediate move. A new start by another route
+(search, `u`) cancels the pending one.
 
-Une direction est une petite **marche** dans le graphe : on part d'un
-voisin, on enchaîne vers son voisin le plus proche, un morceau par
-artiste traversé (un artiste sans tops est traversé sans morceau). La
-**taille des branches** se règle en cours de route — raccourci provisoire
-`b<n>`, future commande `:taille`. En condition réelle, la graine sera un
-morceau précis trouvé par la recherche, pas seulement un artiste.
+A direction is a short **walk** through the graph: you start from a
+neighbor, chain on to their closest neighbor, one track per artist crossed
+(an artist with no tops is crossed with no track). The **branch size** is
+set along the way — provisional shortcut `b<n>`, future command `:taille`.
+In real conditions, the seed will be a specific track found by the search,
+not just an artist.
 
-Et les directions suivantes se proposent depuis **la branche entière**,
-pas depuis son seul dernier artiste (Joel, 03/09/2026) : côté graphe, les
-voisins des n artistes cumulés — un candidat lié à plusieurs d'entre eux
-monte (« lié à 2 artistes de la branche ») ; côté vecteurs, le voisin du
-**centroïde** de la branche — son centre de gravité. Le ponçage et la
-marche interne d'une branche restent sur le dernier artiste.
+And the next directions are proposed from **the whole branch**, not from its
+last artist alone (Joel, 2026-09-03): on the graph side, the neighbors of
+the n artists taken together — a candidate linked to several of them rises
+("linked to 2 artists in the branch"); on the vector side, the neighbor of
+the branch's **centroid** — its center of gravity. Grinding and a branch's
+internal walk stay on the last artist.
 
-Deux retours du deuxième test (Joel, 03/09/2026) :
+Two pieces of feedback from the second test (Joel, 2026-09-03):
 
-- **Rien n'est déterministe.** Deux parcours depuis la même graine
-  diffèrent : têtes de branches et sauts de marche sont **tirés au sort
-  pondéré** dans un réservoir de bons candidats — la décision
-  [0012](../decisions/0012-rotation-des-morceaux.md) appliquée aux
-  branches elles-mêmes, pas seulement aux morceaux.
-- **Une branche « rester dans l'univers »**, quatrième au menu quand elle
-  a du sens : un segment tiré du voisinage de **tout le parcours** (ses
-  artistes et leurs voisins de graphe, classés par proximité au centroïde
-  du parcours), où les artistes déjà visités **reviennent** tant qu'ils
-  ont des morceaux non joués. C'est la branche qui permet de tourner dans
-  un cluster aussi longtemps qu'on veut.
+- **Nothing is deterministic.** Two journeys from the same seed differ:
+  branch heads and walk jumps are **drawn at weighted random** from a pool
+  of good candidates — decision
+  [0012](../decisions/0012-track-rotation.md) applied to the branches
+  themselves, not only to the tracks.
+- **A "stay in the universe" branch**, fourth on the menu when it makes
+  sense: a segment drawn from the neighborhood of **the whole journey** (its
+  artists and their graph neighbors, ranked by proximity to the journey's
+  centroid), where already visited artists **come back** as long as they
+  have unplayed tracks. That is the branch that lets you circle inside a
+  cluster for as long as you want.
 
-Et un garde-fou du troisième test (The Cure proposait la chanson
-française à 0.67 de cosinus) : **la branche aventureuse a un plancher**.
-Un candidat vecteur doit être assez proche en absolu (≥ 0.72) **et**
-partager au moins un tag de genre avec la branche — pays et décennie ne
-justifient pas un pont — sauf s'il est très proche (≥ 0.80). En dessous,
-la branche aventureuse disparaît et le graphe reprend la place. Ces deux
-seuils sont des constantes en attendant d'être pilotés par la **zone de
-confort** (0001) : confort bas = plancher haut.
+And a safeguard from the third test (The Cure was proposing French chanson
+at 0.67 cosine): **the adventurous branch has a floor**. A vector candidate
+has to be close enough in absolute terms (≥ 0.72) **and** share at least one
+genre tag with the branch — country and decade do not justify a bridge —
+unless it is very close (≥ 0.80). Below that, the adventurous branch
+disappears and the graph takes the place back. Those two thresholds are
+constants pending being driven by the **comfort zone** (0001): low comfort =
+high floor.
 
-### Choisir la graine
+### Choosing the seed
 
-Deux entrées, dans l'esprit neovim :
+Two entry points, in the neovim spirit:
 
-- **`/` puis du texte** : recherche, dans le catalogue actif **et** dans
-  Spotify, présentée en une liste fusionnée. Implémentée dans `ecouter` le
-  04/09/2026 : un résultat `[catalogue]` démarre un segment sur cet artiste
-  (branches natives) ; un résultat `[spotify]` joue la piste — et si son
-  artiste a une fiche, le parcours s'y raccroche pour continuer à brancher,
-  sinon c'est hors catalogue (pas de branche depuis là jusqu'à la génération
-  de fiche à la volée). Les deux recherches ne servent pas la même chose :
-  les fiches disent *d'où brancher*, l'API permet de jouer *n'importe quoi*.
-- **Une liste** : la bibliothèque de l'utilisateur — artistes et albums
-  aimés sur Spotify — parcourue au clavier (`j` / `k`), filtrée par `/`.
+- **`/` then some text**: a search, in the active catalog **and** in
+  Spotify, presented as one merged list. Implemented in `ecouter` on
+  2026-09-04: a `[catalogue]` result starts a segment on that artist (native
+  branches); a `[spotify]` result plays the track — and if its artist has a
+  card, the journey hooks on there to keep branching, otherwise it is
+  outside the catalog (no branch from there until cards are generated on the
+  fly). The two searches do not serve the same thing: the cards say *where
+  to branch from*, the API lets you play *anything*.
+- **A list**: the user's library — artists and albums liked on Spotify —
+  walked from the keyboard (`j` / `k`), filtered with `/`.
 
-Dans le PoC sans interface, la graine de départ est l'argument de la
-commande ; `/` sert ensuite à sauter n'importe où en cours de parcours.
+In the PoC with no interface, the starting seed is the command's argument;
+`/` then serves to jump anywhere mid-journey.
 
-### Le PoC : jouer l'application avant de jouer le son
+### The PoC: playing the application before playing the sound
 
-Le critère est de Joel : « on doit même pouvoir jouer l'application avant de
-pouvoir jouer le son — choisir une chanson de départ, tester le parcours par
-branches sur la base locale, et constater que la navigation est cohérente.
-À ce moment-là on sait qu'on a un PoC qui fonctionne. » Le son, Spotify et
-l'interface viennent après ; aucun lecteur ne sauvera des branches
-incohérentes.
+The criterion is Joel's: "we must be able to play the application before
+being able to play the sound — pick a starting song, test the journey by
+branches on the local base, and see that the navigation hangs together. At
+that point we know we have a working PoC." The sound, Spotify and the
+interface come afterwards; no player will save incoherent branches.
 
-1. **La base initiale** — le catalogue de Joel, fiches générées (faits
-   depuis MusicBrainz / Wikidata / Last.fm, sens écrit par l'agent en
-   session), relues, vecteurs calculés ([catalogue.md](catalogue.md)).
-2. **La navigation à sec** — une commande : on donne une graine, elle
-   propose trois branches lisibles avec leurs raisons, on choisit au
-   clavier, elle affiche le segment (titres, sans les jouer), et ainsi de
-   suite. D'abord sur les seules connexions et tags ; les vecteurs ensuite,
-   pour combler les trous. **Critère de réussite : des parcours cohérents,
-   constatés en les lisant.**
-3. **Le son** — le spike Spotify ([spotify.md](spotify.md)) puis la lecture
-   des segments. Peut démarrer en parallèle de 2, il n'en dépend pas.
-4. **La TUI** — quand on sait ce qu'il y a à afficher.
+1. **The initial base** — Joel's catalog, generated cards (facts from
+   MusicBrainz / Wikidata / Last.fm, meaning written by the agent in
+   session), reviewed, vectors computed ([catalog.md](catalog.md)).
+2. **Dry navigation** — one command: you give a seed, it proposes three
+   readable branches with their reasons, you choose from the keyboard, it
+   shows the segment (titles, without playing them), and so on. First on the
+   links and tags alone; the vectors afterwards, to fill the holes.
+   **Success criterion: coherent journeys, confirmed by reading them.**
+3. **The sound** — the Spotify spike ([spotify.md](spotify.md)) then playing
+   the segments. Can start in parallel with 2, it does not depend on it.
+4. **The TUI** — once we know what there is to display.
 
-## À trancher
+## To settle
 
-- **Où tourne le PoC** : tout est dockerisé sur la machine de Joel ; le
-  binaire se construit dans un conteneur (`cargo build`) et s'exécute sur
-  l'hôte sans rien y installer.
-- **Sans interface, comment on choisit** : un chiffre dans le terminal
-  suffit pour le PoC ; la zone de confort choisit seule sur un délai.
+- **Where the PoC runs**: everything is dockerized on Joel's machine; the
+  binary is built in a container (`cargo build`) and runs on the host with
+  nothing installed there.
+- **How you choose with no interface**: a digit in the terminal is enough
+  for the PoC; the comfort zone chooses on its own after a delay.

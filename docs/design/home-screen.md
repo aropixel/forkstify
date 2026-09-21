@@ -1,40 +1,40 @@
-# L'écran d'accueil
+# The home screen
 
-Note ouverte le **05/09/2026** : Joel veut que les sous-commandes
-(`parcours`, `check`, et à terme `ecouter`) disparaissent au profit d'un
-simple `forkstify` qui ouvre l'application. Il faut donc un écran d'accueil,
-qu'il maquettera avec Claude Design.
+Note opened on **2026-09-05**: Joel wants the subcommands (`parcours`,
+`check`, and eventually `ecouter`) to disappear in favor of a plain
+`forkstify` that opens the application. That calls for a home screen, which
+he will mock up with Claude Design.
 
-Rien n'est codé, rien n'est décidé. Cette note rassemble ce que le dépôt
-contraint déjà, ce que les données permettent vraiment, et les questions à
-trancher.
+Nothing is coded, nothing is decided. This note gathers what the repository
+already constrains, what the data really allows, and the questions to
+settle.
 
-## Ce qui est déjà écrit
+## What is already written
 
-`forme-de-l-application.md` a tranché **deux entrées** pour la graine :
+`forme-de-l-application.md` settled **two entry points** for the seed:
 
-- **`/` puis du texte** — recherche fusionnée catalogue + Spotify.
-  **Implémentée** le 04/09/2026.
-- **Une liste** — « la bibliothèque de l'utilisateur, artistes et albums
-  aimés sur Spotify, parcourue au clavier, filtrée par `/` ». Jamais écrite.
+- **`/` then some text** — a merged catalog + Spotify search.
+  **Implemented** on 2026-09-04.
+- **A list** — "the user's library, artists and albums liked on Spotify,
+  walked from the keyboard, filtered with `/`". Never written.
 
-L'écran d'accueil est donc le lieu où cette liste existe enfin. Il ne part
-pas de zéro.
+The home screen is therefore where that list finally exists. It does not
+start from nothing.
 
-## Ce que les données permettent — les chiffres
+## What the data allows — the figures
 
-Relevés le 05/09/2026 sur le catalogue réel.
+Measured on 2026-09-05 on the real catalog.
 
 | | |
 |---|---|
-| Artistes dans `classement.json` (la bibliothèque de Joel) | **741** |
-| Fiches du catalogue | **214** |
-| Artistes classés **qui ont une fiche** | **175** |
-| Fiches d'artistes **absents** du classement | **39** |
+| Artists in `classement.json` (Joel's library) | **741** |
+| Cards in the catalog | **214** |
+| Ranked artists **that have a card** | **175** |
+| Cards for artists **absent** from the ranking | **39** |
 
-Et la couverture par tranche du classement :
+And the coverage by band of the ranking:
 
-| Tranche | Ont une fiche |
+| Band | Have a card |
 |---|---|
 | top 20 | 20/20 |
 | top 50 | 48/50 |
@@ -42,237 +42,234 @@ Et la couverture par tranche du classement :
 | score ≥ 20 | 25/25 (100 %) |
 | score ≥ 5 | 82/89 (92 %) |
 | score ≥ 2 | 122/289 (42 %) |
-| tout (score ≥ 1) | 175/741 (23 %) |
+| everything (score ≥ 1) | 175/741 (23 %) |
 
-**Trois conclusions qui commandent la maquette :**
+**Three conclusions that govern the mockup:**
 
-1. **Le haut de l'écoute est intégralement couvert.** Une liste « vos
-   habitués » trouvera toujours une fiche. Aucun risque de proposer un
-   artiste depuis lequel on ne peut pas brancher.
-2. **Le bas ne l'est pas.** Sous le score 2, moins d'un artiste sur deux a
-   une fiche — et **une graine sans fiche ne peut pas démarrer un parcours**
-   (`resolve()` exige une carte, et les branches viennent des liens et des
-   vecteurs de la fiche). L'axe « pousser ce qu'on écoute peu » bute donc
-   sur le bord du catalogue.
-3. **Le score médian du classement est 1.** La traîne du classement est du
-   bruit (un artiste croisé une fois). Le vivier utile, c'est le score ≥ 5 :
-   89 artistes, presque tous avec fiche.
+1. **The top of the listening is fully covered.** A "your regulars" list
+   will always find a card. No risk of proposing an artist you cannot branch
+   from.
+2. **The bottom is not.** Below score 2, fewer than one artist in two has a
+   card — and **a seed without a card cannot start a journey** (`resolve()`
+   requires a card, and the branches come from the card's links and
+   vectors). So the "push what you rarely listen to" axis runs into the edge
+   of the catalog.
+3. **The ranking's median score is 1.** The ranking's tail is noise (an
+   artist met once). The useful pool is score ≥ 5: 89 artists, almost all of
+   them with a card.
 
-## Le point aveugle : il n'y a pas encore d'usage
+## The blind spot: there is no usage yet
 
-`learned/artists/` **n'existe pas** — aucune session réelle n'a encore été
-jouée. Au premier lancement, l'écran d'accueil n'aura donc que
-`classement.json`, c'est-à-dire **une photo de la bibliothèque Spotify**, pas
-un usage de forkstify.
+`learned/artists/` **does not exist** — no real session has been played yet.
+On first run, the home screen will therefore only have `classement.json`,
+that is, **a snapshot of the Spotify library**, not forkstify usage.
 
-C'est la même contrainte que la zone de confort : l'écran doit être **bon le
-premier jour avec zéro historique**, et meilleur ensuite. Une maquette qui
-suppose des données d'écoute riches décrira un écran qu'on ne verra pas
-avant des semaines.
+That is the same constraint as the comfort zone: the screen has to be **good
+on day one with zero history**, and better afterwards. A mockup assuming
+rich listening data would describe a screen nobody will see for weeks.
 
-## Sur l'idée de lister le compte Spotify
+## On the idea of listing the Spotify account
 
-**Ne pas le faire, et c'est une bonne nouvelle.** `classement.json` *est*
-déjà la bibliothèque de Joel, récoltée par `tools/` : titres aimés,
-albums aimés, playlists, artistes suivis, #fipway, road trip. C'est plus
-riche que ce que l'API rendrait, et c'est **local, instantané, hors ligne**.
+**Do not do it, and that is good news.** `classement.json` *is* already
+Joel's library, harvested by `tools/`: liked tracks, liked albums,
+playlists, followed artists, #fipway, road trip. It is richer than what the
+API would return, and it is **local, instant, offline**.
 
-Repasser par l'API coûterait en plus une **réautorisation** : `/v1/me/top/artists`
-demande le scope `user-top-read`, absent de nos cinq scopes actuels
-(`spotify.rs`). Ce serait payer un OAuth pour une donnée qu'on a déjà en
-moins bien.
+Going back through the API would also cost a **re-authorization**:
+`/v1/me/top/artists` needs the `user-top-read` scope, absent from our
+current five (`spotify.rs`). That would be paying an OAuth for data we
+already have, in a worse form.
 
-## L'idée forte : « délaissé » vaut mieux que « peu écouté »
+## The strong idea: "neglected" beats "rarely played"
 
-Joel propose d'opposer souvent écouté / peu écouté pour ne pas toujours
-tourner sur les mêmes. La couche `learned/` permet mieux que ça.
+Joel proposes contrasting often played / rarely played so as not to always
+circle the same artists. The `learned/` layer allows better than that.
 
-Les compteurs de [0014](../decisions/0014-forme-de-l-appris.md) **décroissent
-d'eux-mêmes** (demi-vie six mois) et chaque artiste porte un `last`. On peut
-donc distinguer :
+The counters of [0014](../decisions/0014-shape-of-the-learned.md) **decay by
+themselves** (six-month half-life) and every artist carries a `last`. So we
+can distinguish:
 
-- **peu écouté** — familiarité basse, on ne l'a jamais vraiment fréquenté ;
-- **délaissé** — familiarité qui *fut* haute et qui a décru, `last` ancien :
-  « vous les aimiez, vous ne les écoutez plus ».
+- **rarely played** — low familiarity, never really spent time with them;
+- **neglected** — familiarity that *was* high and has decayed, with an old
+  `last`: "you loved them, you do not listen to them any more".
 
-Le second est infiniment plus juste comme relance : c'est un rappel, pas une
-découverte. Et il est calculable dès qu'il y a de l'usage, sans donnée
-nouvelle. Le premier jour, seul « peu écouté » existera (via le classement).
+The second is infinitely more accurate as a prompt: it is a reminder, not a
+discovery. And it is computable as soon as there is usage, with no new data.
+On day one, only "rarely played" will exist (through the ranking).
 
-## La proposition : chaque bloc est une raison
+## The proposal: every block is a reason
 
-La règle de marque du projet — *toute décision automatique s'explique en une
-phrase* — s'applique à l'accueil. Un écran qui montre six artistes doit dire
-**pourquoi** chacun est là. Donc : pas de grille indifférenciée, mais quelques
-**portes d'entrée**, chacune portant sa raison en une ligne.
+The project's signature rule — *any automatic decision is explainable in one
+sentence* — applies to home. A screen showing six artists has to say **why**
+each one is there. So: no undifferentiated grid, but a few **entry doors**,
+each carrying its reason in one line.
 
-Pistes, de la plus sûre à la plus discutable :
+Leads, from the safest to the most debatable:
 
-1. **Chercher** (`/`) — la première ligne, toujours. Déjà implémentée, c'est
-   l'échappatoire qui rend tout le reste facultatif.
-2. **Reprendre** — la dernière graine et où on s'est arrêté. Demande une
-   donnée nouvelle (le dernier parcours), minuscule.
-3. **Vos habitués** — familiarité haute. Marche le premier jour.
-4. **Délaissés** — familiarité décrue, `last` ancien. Ne marche qu'après
-   usage ; le premier jour, remplacer par « du catalogue, jamais écoutés »
-   (les 39 fiches absentes du classement sont exactement ça).
-5. **Au hasard** — tirage pondéré, la porte qui ne demande pas de choisir.
+1. **Search** (`/`) — the first line, always. Already implemented, it is the
+   escape hatch that makes all the rest optional.
+2. **Resume** — the last seed and where you left off. Needs one new piece of
+   data (the last journey), tiny.
+3. **Your regulars** — high familiarity. Works on day one.
+4. **Neglected** — decayed familiarity, old `last`. Only works after usage;
+   on day one, replace with "from the catalog, never played" (the 39 cards
+   absent from the ranking are exactly that).
+5. **At random** — a weighted draw, the door that asks you to choose
+   nothing.
 
-**Et le mélange devrait être gouverné par la zone de confort**, pas par un
-nouveau réglage. Le curseur 0–5 dit déjà « je reste chez ce que je connais »
-ou « je vais vers ce que je ne connais pas » ; c'est exactement l'axe entre
-« habitués » et « délaissés ». Au cocon l'accueil met les habitués devant, à
-l'exploration il met les délaissés. **Un seul axe dans le produit** —
-[0012](../decisions/0012-rotation-des-morceaux.md) §4 dit déjà « pas de
-deuxième réglage ».
+**And the mix should be governed by the comfort zone**, not by a new
+setting. The 0–5 dial already says "I'm staying with what I know" or "I'm
+heading for what I don't"; that is exactly the axis between "regulars" and
+"neglected". At the cocoon, home puts the regulars first; at exploration, it
+puts the neglected. **One axis in the product** —
+[0012](../decisions/0012-track-rotation.md) §4 already says "no second
+setting".
 
-## Une porte de plus, très en phase avec le projet
+## One more door, very much in the project's spirit
 
-**Les artistes qu'on écoute beaucoup et qui n'ont pas de fiche** — 17 dans
-le top 100. Les montrer, c'est proposer de faire grandir le catalogue là où
-l'usage le réclame, ce qui est la promesse de
-[0002](../decisions/0002-catalogue-partage-forkable.md) et la *promotion* du
-vocabulaire.
+**Artists you play a lot and who have no card** — 17 in the top 100. Showing
+them means offering to grow the catalog where use is asking for it, which is
+the promise of
+[0002](../decisions/0002-shared-forkable-catalog.md) and the *promotion* of
+the vocabulary.
 
-Mais c'est une **édition** (créer une fiche), et aucune édition n'est câblée.
-À garder pour plus tard, et à ne pas maquetter comme si ça marchait.
+But that is an **edit** (creating a card), and no edit is wired. To be kept
+for later, and not mocked up as if it worked.
 
-## Tranché par Joel le 05/09/2026
+## Settled by Joel on 2026-09-05
 
-- **La graine peut être les deux** : un artiste (on démarre un segment sur
-  lui, branches natives) ou un morceau (on le joue, puis on branche depuis
-  son artiste s'il a une fiche). C'est déjà ce que fait la recherche `/`
-  depuis le 04/09 ; l'accueil applique la même règle, et la contradiction de
-  vocabulaire tombe : `vision.md` dit « le morceau de départ », le code seed
-  sur un artiste — les deux sont vrais.
-- **Deux écrans, selon l'état de connexion.** Un écran spécifique quand on
-  n'est pas connecté, le vrai accueil quand on l'est. L'accueil ne se
-  dégrade donc pas : il n'existe qu'une fois les autorisations en place.
+- **The seed can be either**: an artist (we start a segment on them, native
+  branches) or a track (we play it, then branch from its artist if they have
+  a card). That is already what the `/` search does since 09-04; home
+  applies the same rule, and the vocabulary contradiction falls away:
+  `vision.md` says "the starting track", the code seeds on an artist — both
+  are true.
+- **Two screens, depending on the connection state.** A specific screen when
+  not connected, the real home when connected. Home therefore does not
+  degrade: it only exists once the authorizations are in place.
 
-Conséquence à ne pas manquer : **il y a deux autorisations distinctes**, et
-l'écran non connecté doit les traiter séparément —
+A consequence not to be missed: **there are two distinct authorizations**,
+and the disconnected screen must handle them separately —
 
-1. **librespot** : les identifiants viennent du téléphone par zeroconf (on
-   tape le nom de l'appareil dans Spotify). Sans eux, aucun son.
-2. **l'API Web** : OAuth navigateur, client id ncspot. Sans elle, on ne
-   résout aucun titre.
+1. **librespot**: the credentials come from the phone over zeroconf (you tap
+   the device name in Spotify). Without them, no sound.
+2. **the Web API**: browser OAuth, ncspot client id. Without it, we resolve
+   no title.
 
-Et deux situations très différentes se cachent derrière « non connecté » :
-**jamais autorisé** (accueil de premier lancement, il faut expliquer les deux
-gestes) et **autorisation perdue** (le jeton a expiré — cas réel, corrigé le
-05/09 : l'application redemande désormais l'autorisation d'elle-même). La
-seconde ne doit pas ressembler à la première.
+And two very different situations hide behind "not connected": **never
+authorized** (a first-run home, both gestures have to be explained) and
+**authorization lost** (the token has expired — a real case, fixed on 09-05:
+the application now asks for authorization again by itself). The second must
+not look like the first.
 
-Enfin : **le catalogue est local**. Même sans aucune connexion, les fiches,
-les vecteurs et `learned/` sont lisibles — la navigation à sec reste
-possible. L'écran non connecté n'est donc pas un cul-de-sac.
+Finally: **the catalog is local**. Even with no connection at all, the
+cards, the vectors and `learned/` are readable — dry navigation stays
+possible. The disconnected screen is therefore not a dead end.
 
-**La vue de la collection** (Joel, 09/09/2026) : par défaut elle ne montre
-que **les aimés** — un artiste ou un titre aimé ici, un titre, un album ou
-un suivi sur Spotify (`classement.json`) — et `v` bascule sur **tous** les
-artistes du catalogue. Le tri `s` s'applique à la vue.
+**The collection's view** (Joel, 2026-09-09): by default it only shows
+**the liked** — an artist or track liked here, a track, an album or a follow
+on Spotify (`classement.json`) — and `v` switches to **all** the catalog's
+artists. The `s` sort applies to the view.
 
-## Les maquettes (Claude Design, 05/09/2026)
+## The mockups (Claude Design, 2026-09-05)
 
-Projet **« Accueil Forkstify »**, deux planches :
+Project **"Accueil Forkstify"**, two boards:
 
-- **`Raccourcis.dc.html`** — le menu du leader, un namespace à moitié tapé,
-  les touches multimédia. **Ce n'est pas une proposition** : c'est le rendu
-  fidèle de `help()`, vérifié ligne à ligne contre `src/listen.rs`. Il vaut
-  comme spécification visuelle de l'existant.
-- **`Accueil.dc.html`** — trois écrans : **A1** non connecté premier
-  lancement, **A2** autorisation perdue, **B** l'accueil connecté. Props
-  réglables : le confort (0–5, qui réordonne réellement les blocs), l'écran
-  montré, le thème Omarchy.
+- **`Raccourcis.dc.html`** — the leader menu, a half-typed namespace, the
+  media keys. **It is not a proposal**: it is a faithful rendering of
+  `help()`, checked line by line against `src/listen.rs`. It stands as a
+  visual specification of what exists.
+- **`Accueil.dc.html`** — three screens: **A1** not connected, first run,
+  **A2** authorization lost, **B** connected home. Adjustable props: the
+  comfort (0–5, which genuinely reorders the blocks), the screen shown, the
+  Omarchy theme.
 
-Ce que la maquette adopte, et qui tient : chaque bloc porte sa raison en une
-ligne · la numérotation `1-5` court **à travers** les blocs, donc choisir une
-graine est le même geste que choisir une branche · la graine mélange artistes
-et morceaux dans la même liste (l'entrée 3 est un morceau, avec sa raison :
-« il se joue, puis les branches partent de New Order ») · le confort fait
-passer les délaissés devant à partir de 4 · A2 dit que librespot tient
-toujours, seuls les titres ne se résolvent plus — ce qui est exactement le
-comportement réel.
+What the mockup adopts, and what holds: every block carries its reason in
+one line · the `1-5` numbering runs **across** the blocks, so choosing a
+seed is the same gesture as choosing a branch · the seed mixes artists and
+tracks in one list (entry 3 is a track, with its reason: "it plays, then the
+branches set off from New Order") · comfort moves the neglected to the front
+from 4 up · A2 says librespot still holds, only titles no longer resolve —
+which is exactly the real behavior.
 
-### Quatre frottements — tranchés et corrigés le 05/09/2026
+### Four points of friction — settled and fixed on 2026-09-05
 
-1. **`p` reste la pause.** « Parcourir à sec » passe sur **`b`** (*browse*),
-   lettre libre et mot anglais comme 0015 l'exige.
-2. **« Au hasard » n'a pas de touche neuve** : c'est **entrée**, qui veut dire
-   « choisis pour moi » partout ailleurs. Le `*` de la maquette disparaît.
-3. **`:comfort`**, en anglais, comme le code l'écrit déjà.
-4. **Le nom zeroconf est passé à « forkstify (omarchy) »** dans le code
-   (`src/sound.rs`) : ici c'était la maquette qui avait raison.
+1. **`p` stays pause.** "Browse dry" moves to **`b`** (*browse*), a free
+   letter and an English word as 0015 requires.
+2. **"At random" gets no new key**: it is **enter**, which means "choose for
+   me" everywhere else. The mockup's `*` goes away.
+3. **`:comfort`**, in English, as the code already writes it.
+4. **The zeroconf name became "forkstify (omarchy)"** in the code
+   (`src/sound.rs`): here it was the mockup that was right.
 
-Ajouté au clavier : **`r`** (*resume*) pour reprendre. Les deux nouvelles
-touches sont sans préfixe, le test exhaustif de `keys.rs` le vérifie.
+Added to the keyboard: **`r`** (*resume*) to resume. Both new keys are
+prefix-free, and `keys.rs`'s exhaustive test verifies it.
 
-### Les frottements, tels qu'ils ont été relevés
+### The points of friction, as they were found
 
-1. **`p` est déjà la pause.** La maquette lui donne « parcourir à sec » sur
-   les écrans non connectés. Il n'y a pas de lecture à ce moment-là, donc pas
-   de collision *technique* — mais l'utilisateur apprend une touche, pas une
-   touche par écran. Et « parcourir » n'est pas un mot anglais, alors que
-   0015 l'exige. `b` (*browse*) ou `d` (*dry*) sont libres.
-2. **`*` pour « au hasard »** n'est pas un mot anglais non plus. Et le geste
-   existe déjà : **entrée** veut dire « choisis pour moi » partout ailleurs.
-   La réutiliser ici ne coûte aucune touche neuve.
-3. **`:confort`** apparaît sur la ligne d'invite de l'écran B — la commande
-   réelle est `:comfort`, en anglais comme toute interface publique du dépôt
-   (l'autre planche l'écrit correctement).
-4. **Le nom de l'appareil zeroconf** affiché est « forkstify (omarchy) » ; le
-   binaire annonce aujourd'hui **« forkstify (spike) »**
-   (`src/bin/spike-connect.rs`). Le nom de la maquette est meilleur — c'est le
-   code qu'il faudra changer, pas la maquette.
+1. **`p` is already pause.** The mockup gives it "browse dry" on the
+   disconnected screens. There is no playback at that point, so no
+   *technical* collision — but the user learns a key, not one key per
+   screen. And "parcourir" is not an English word, which 0015 requires.
+   `b` (*browse*) or `d` (*dry*) are free.
+2. **`*` for "at random"** is not an English word either. And the gesture
+   already exists: **enter** means "choose for me" everywhere else. Reusing
+   it here costs no new key.
+3. **`:confort`** appears on screen B's prompt line — the real command is
+   `:comfort`, in English like every public interface of the repository (the
+   other board writes it correctly).
+4. **The zeroconf device name** shown is "forkstify (omarchy)"; the binary
+   today announces **"forkstify (spike)"** (`src/bin/spike-connect.rs`). The
+   mockup's name is better — it is the code that will have to change, not
+   the mockup.
 
-### Deux comportements que la maquette suppose et qui n'existent pas
+### Two behaviors the mockup assumes and that do not exist
 
-Ils sont justes tous les deux, mais ce sont des chantiers, pas de l'affichage.
+Both are right, but they are workstreams, not display.
 
-- **forkstify s'annonce lui-même en zeroconf pendant que l'écran A1
-  s'affiche** (« en attente — aucun appareil ne s'est encore annoncé »).
-  Aujourd'hui la découverte vit dans le binaire séparé `spike-connect` ;
-  `Sound::connect()` se contente de relire le cache et échoue s'il est vide.
-  Il faut déplacer la boucle de découverte dans l'application.
-- **L'autorisation OAuth est différée** : la maquette attend qu'on appuie sur
-  une touche pour ouvrir le navigateur. Aujourd'hui `WebApi::new()` l'ouvre
-  **tout seul** au lancement. Le choix de la maquette est meilleur — on ne
-  veut pas d'un navigateur qui surgit à chaque démarrage — mais c'est un
-  changement de flux.
+- **forkstify announces itself over zeroconf while screen A1 is shown**
+  ("waiting — no device has announced itself yet"). Today discovery lives in
+  the separate `spike-connect` binary; `Sound::connect()` only re-reads the
+  cache and fails if it is empty. The discovery loop has to move into the
+  application.
+- **The OAuth authorization is deferred**: the mockup waits for a key press
+  to open the browser. Today `WebApi::new()` opens it **by itself** at
+  launch. The mockup's choice is better — we do not want a browser popping
+  up on every start — but it is a flow change.
 
-## À trancher
+## To settle
 
-1. ~~**Graine = un artiste ou un morceau ?**~~ — tranché : les deux. `vision.md` dit « le morceau de
-   départ », le code seed sur un **artiste** (`resolve()` rend un slug de
-   fiche). L'écran d'accueil force à choisir — ou à assumer les deux, comme
-   la recherche le fait déjà : un artiste démarre un segment, un morceau se
-   joue puis branche depuis son artiste.
-2. **Que deviennent `parcours` et `check` ?** `check` (les voisins d'une
-   fiche) est utile et pourrait devenir un geste sur un artiste sélectionné.
-   `parcours` est un outil de développement — un drapeau, ou rien.
-3. **L'accueil se rend-il avant la connexion Spotify ?** Aujourd'hui
-   `ecouter` ouvre librespot **et** l'OAuth avant d'afficher quoi que ce
-   soit. Un accueil devrait s'afficher **instantanément** depuis le catalogue
-   et `learned/` — tous deux locaux — et ne connecter qu'au moment de jouer.
-   C'est un changement d'ordre d'initialisation, pas un détail d'affichage.
-4. **Combien d'entrées par bloc ?** Trois branches à un embranchement ; la
-   même contrainte de lisibilité vaut sans doute ici.
-5. ~~**Retirer un artiste des aimés, et que ça tienne.**~~ — tranché et
-   câblé le 09/09/2026 : `al`, `as`, `ab` à l'accueil sur la ligne
-   surlignée ; `as` pose `unliked = true` dans `learned/artists/<slug>.toml`,
-   `al` l'efface, la fusion 0017 le traite comme un drapeau. Le contexte :
-   le 09/09/2026, la
-   vue « aimés » montrait Bosh, Bossikan et Bow Wow : des titres aimés sur
-   Spotify… par le fils de Joel. La source ne se corrige pas depuis
-   l'application, et une prochaine récolte les ramènerait. Il faut donc un
-   geste à l'accueil, **écrit dans `learned/`**, qui prime sur Spotify.
-   Deux forces possibles, et la table des touches les a déjà en écoute :
-   - **`as`** sur la ligne surlignée — « moins souvent » : l'artiste
-     quitte la vue « aimés » et reste proposable. Ce serait un drapeau
-     explicite `liked = false` dans `learned/artists/<slug>.toml`, car le
-     poids seul ne suffit pas (il remonte) ; `al` l'efface.
-   - **`ab`** — « plus jamais » : le ban existant, qui l'exclut de tout.
-   Orientation : câbler les deux à l'accueil, sur la ligne surlignée, avec
-   la règle 0020 (la ligne surlignée, sinon rien à l'accueil). Le drapeau
-   se fusionne comme les autres (`merge_flag`), donc survit à la
-   synchronisation.
+1. ~~**Seed = an artist or a track?**~~ — settled: both. `vision.md` says
+   "the starting track", the code seeds on an **artist** (`resolve()`
+   returns a card slug). The home screen forces a choice — or an acceptance
+   of both, as the search already does: an artist starts a segment, a track
+   plays then branches from its artist.
+2. **What becomes of `parcours` and `check`?** `check` (a card's neighbors)
+   is useful and could become a gesture on a selected artist. `parcours` is
+   a development tool — a flag, or nothing.
+3. **Does home render before the Spotify connection?** Today `ecouter` opens
+   librespot **and** the OAuth before showing anything. A home screen should
+   appear **instantly** from the catalog and `learned/` — both local — and
+   only connect when it is time to play. That is a change of initialization
+   order, not a display detail.
+4. **How many entries per block?** Three branches at a fork point; the same
+   readability constraint probably applies here.
+5. ~~**Removing an artist from the liked, and having it stick.**~~ —
+   settled and wired on 2026-09-09: `al`, `as`, `ab` on home on the
+   highlighted row; `as` sets `unliked = true` in
+   `learned/artists/<slug>.toml`, `al` clears it, and the 0017 merge treats
+   it as a flag. The context: on 2026-09-09, the "liked" view showed Bosh,
+   Bossikan and Bow Wow: tracks liked on Spotify… by Joel's son. The source
+   cannot be fixed from the application, and the next harvest would bring
+   them back. So a gesture on home is needed, **written into `learned/`**,
+   that outranks Spotify. Two possible strengths, and the key table already
+   has them while listening:
+   - **`as`** on the highlighted row — "less often": the artist leaves the
+     "liked" view and stays proposable. That would be an explicit
+     `liked = false` flag in `learned/artists/<slug>.toml`, because the
+     weight alone is not enough (it climbs back); `al` clears it.
+   - **`ab`** — "never again": the existing ban, which excludes them from
+     everything.
+   Direction: wire both on home, on the highlighted row, with rule 0020 (the
+   highlighted row, otherwise nothing on home). The flag merges like the
+   others (`merge_flag`), so it survives synchronization.
