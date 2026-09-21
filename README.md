@@ -47,18 +47,35 @@ is the leader and shows what you can type. The whole table is in
   does — see [`docs/design/spotify.md`](docs/design/spotify.md).
 - **git**, and a GitHub account if you want your catalog to be a fork
   you can propose from (`gh` makes that one keystroke).
-- **docker**, to build: there is no toolchain to install.
+- **Nothing to build.** Each release carries a Linux x86_64 binary, so
+  there is no toolchain and no docker to install. **docker** is needed only
+  to build from source — on another architecture, or to develop.
 
 ## Install
 
-As an Omarchy plugin — the repository is one — the bar widget builds and
-launches it:
+**As an Omarchy plugin** — the repository is one, so the bar widget comes
+with it:
 
 ```sh
 omarchy plugin add https://github.com/aropixel/forkstify.git
 ```
 
-Or by hand, from a clone:
+Then **click the forkstify icon in the bar and press "Install"**: that is
+what puts the binary in place. It fetches the released one, checks it
+against the published `SHA256SUMS`, and falls back to a container build
+only if it cannot. Nothing tells you to do this from the terminal, so:
+adding the plugin is not installing forkstify.
+
+**On Arch, as a package**, from a clone — this is the AUR package, served
+from here while AUR registration is closed:
+
+```sh
+git clone https://github.com/aropixel/forkstify.git
+cd forkstify/packaging/aur/forkstify-bin && makepkg -si
+```
+
+**From source**, on another architecture or to develop — this is the one
+that needs docker:
 
 ```sh
 bin/build                      # cargo build --release, in a container
@@ -67,7 +84,8 @@ forkstify
 ```
 
 The binary runs on the host and needs only `libasound.so.2` and
-`libstdc++.so.6`.
+`libstdc++.so.6`. Its glibc floor is Debian 12's (2.36): Arch and anything
+newer run it, older distributions build from source.
 
 ## First launch
 
