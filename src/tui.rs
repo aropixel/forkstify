@@ -2574,8 +2574,8 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
 }
 
 // ---------------------------------------------------------------------
-// The setup screens (`Installation.dc.html`, chantier A of
-// `docs/conception/sortie.md`): one column, the flow, the prompt last —
+// The setup screens (`Installation.dc.html`, workstream A of
+// `docs/design/before-release.md`): one column, the flow, the prompt last —
 // the same skeleton as home, with a step counter and its gauge on the
 // right of the head.
 // ---------------------------------------------------------------------

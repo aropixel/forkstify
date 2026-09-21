@@ -1,5 +1,5 @@
 //! Spotify Connect spike — step 0 of the sound work. Tests the two
-//! unverified points of docs/conception/spotify.md:
+//! unverified points of docs/design/spotify.md:
 //!
 //! 1. Inbound zeroconf discovery with the current phone app: forkstify
 //!    appears in the phone's device list, tapping it sends credentials

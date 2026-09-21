@@ -1,13 +1,13 @@
 //! `forkstify validate [catalog]` — what the reference's GitHub action runs
-//! on every pull request (chantier B, "La relecture côté référence" in
-//! `docs/conception/sortie.md`): every card reads, carries `format = 1`, a
+//! on every pull request (workstream B, "Review on the reference side" in
+//! `docs/design/before-release.md`): every card reads, carries `format = 1`, a
 //! name, an `mbid` **unique across the catalog** — that is what catches a
 //! "Ye" proposed while `kanye-west` exists —, a file named as a slug, and
 //! links whose targets are slugs and whose types are the closed list of
-//! [0010](../docs/decisions/0010-format-revise-links-sans-portes.md).
+//! [0010](../docs/decisions/0010-revised-format-links-without-doors.md).
 //!
 //! A link to a card that does not exist is **not** an error: it is a
-//! proposal ([0016](../docs/decisions/0016-base-large-et-generation-a-la-volee.md)).
+//! proposal ([0016](../docs/decisions/0016-broad-base-and-on-the-fly-generation.md)).
 //! A card whose name no longer matches its file ("Ye" at `kanye-west`) is
 //! a warning: the file name is the key, the name may move on.
 use std::collections::HashMap;

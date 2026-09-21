@@ -16,7 +16,7 @@ pub struct Config {
     #[serde(default, alias = "catalogue")]
     pub catalog: Catalogue,
     /// Every number the engine and the learned layer reason with — the
-    /// dials behind the dial ([0023](../docs/decisions/0023-les-indices-du-moteur-se-reglent.md)).
+    /// dials behind the dial ([0023](../docs/decisions/0023-engine-numbers-are-tunable.md)).
     #[serde(default)]
     pub tuning: Tuning,
 }
@@ -181,7 +181,7 @@ pub fn tuning() -> &'static Tuning {
 #[derive(Deserialize)]
 pub struct Catalogue {
     /// The active catalog: a clone of the reference repository, or of its
-    /// fork ([0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md):
+    /// fork ([0004](../docs/decisions/0004-two-repositories-targetable-catalog.md):
     /// importing is cloning). Empty = `~/Work/forkstify-catalog`.
     #[serde(default)]
     pub path: String,
@@ -252,7 +252,7 @@ comfort = 3
 # Every number the engine reasons with. Taking back the algorithm goes
 # down to here: change one, relaunch, and the journey follows. The values
 # below are the defaults — a line you remove falls back to it.
-# Each one is explained, with its default, in docs/reglages.md of the
+# Each one is explained, with its default, in docs/tuning.md of the
 # forkstify repository.
 
 # The cooldowns. A track played today keeps track_cooldown_floor of its
@@ -335,7 +335,7 @@ impl Config {
 
 /// Where the catalog is cloned by the setup: `$XDG_DATA_HOME/forkstify/catalog`,
 /// else `~/.local/share/forkstify/catalog` — the path leaves `~/Work`,
-/// which was Joel's (chantier A, `docs/conception/sortie.md`).
+/// which was Joel's (workstream A, `docs/design/before-release.md`).
 pub fn default_catalog_dir() -> PathBuf {
     let base = std::env::var("XDG_DATA_HOME")
         .map(PathBuf::from)

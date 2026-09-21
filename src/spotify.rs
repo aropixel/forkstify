@@ -13,7 +13,7 @@ use std::time::Instant;
 
 const CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b"; // ncspot, extended quota
 const REDIRECT_URI: &str = "http://127.0.0.1:8989/login";
-/// Seven scopes since the setup (chantier A, 20/09/2026): the five of
+/// Seven scopes since the setup (workstream A, 20/09/2026): the five of
 /// playing, plus the followed artists and the private playlists the
 /// library harvest reads. A token granted with fewer is asked again.
 const SCOPES: [&str; 7] = [
@@ -36,7 +36,7 @@ fn resolve_cache() -> std::path::PathBuf {
 /// The scopes the stored refresh token was granted with. A refresh token
 /// keeps its scopes for life: when the list grows (the setup's harvest),
 /// the browser has to be asked once more — and the product says so
-/// instead of failing on the first call (`docs/conception/sortie.md`).
+/// instead of failing on the first call (`docs/design/before-release.md`).
 fn scopes_cache() -> std::path::PathBuf {
     crate::config::state_dir().join("web-scopes")
 }

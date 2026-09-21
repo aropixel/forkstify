@@ -1,6 +1,6 @@
 //! Playback spike — the last sound brick. forkstify embeds the librespot
 //! player (not just discovery + token) and plays a track through the host
-//! audio, proving the target architecture of docs/conception/spotify.md:
+//! audio, proving the target architecture of docs/design/spotify.md:
 //! "forkstify est lui-même l'appareil Connect". No Web API player control,
 //! no other device — the sound comes out of this binary.
 //!

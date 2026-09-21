@@ -1,6 +1,6 @@
 //! `forkstify import <url>` — take over the cards of another catalog.
 //!
-//! [0004](../docs/decisions/0004-deux-depots-catalogue-ciblable.md) makes
+//! [0004](../docs/decisions/0004-two-repositories-targetable-catalog.md) makes
 //! the import an explicit gesture; [0010] makes `cards/` **flat, one card
 //! per artist**, so taking over "someone's jazz" is a matter of **files**,
 //! not commits. We take the *state* of their cards, never their history.

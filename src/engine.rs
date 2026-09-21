@@ -203,7 +203,7 @@ pub fn graph_neighbors(
 /// The engine has always dropped those (`graph_neighbors` below). Since
 /// 09/09/2026 they are a proposal instead: generating the card is one
 /// keystroke, and that is how a catalog grows along its own edges
-/// (`docs/conception/generation-a-la-volee.md`). They stay out of
+/// (`docs/design/on-the-fly-generation.md`). They stay out of
 /// `graph_neighbors` on purpose — every walk indexes `catalog.cards`, and a
 /// neighbor without a card would be a panic waiting to happen.
 pub struct Missing {
@@ -360,7 +360,7 @@ pub fn vector_neighbors(
 /// **The scale was turned round on 06/09/2026**, at Joel's first real use:
 /// "if I want the cocoon, I should set comfort to 5 — comfort is what we
 /// know well". He is right, and the repository was the odd one out:
-/// [0012](../decisions/0012-rotation-des-morceaux.md) §4 says "high
+/// [0012](../decisions/0012-track-rotation.md) §4 says "high
 /// comfort: a tight draw on the tops", which now reads literally.
 /// Only `zone-de-confort.md` said the opposite, and a conception note gives
 /// way to use.
@@ -383,7 +383,7 @@ impl Comfort {
     }
 
     /// How far the adventurous branch may leap. The floor drops as the dial
-    /// opens — the constants avancement.md already flagged as "to be driven
+    /// opens — the constants progress.md already flagged as "to be driven
     /// by comfort".
     fn floor(self) -> f32 {
         let t = tuning();
@@ -874,7 +874,7 @@ pub fn branch_from(
     (!branch.stops.is_empty()).then_some(branch)
 }
 
-/// `fw` — wander: leave the universe on purpose (retour n° 6, Joel,
+/// `fw` — wander: leave the universe on purpose (feedback no. 6, Joel,
 /// 11/09/2026). With a `target`, the head is that artist, whatever the
 /// distance; without, the head is drawn among the artists **farthest**
 /// from the journey's centre — outside the journey and its graph

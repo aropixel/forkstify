@@ -152,7 +152,7 @@ pub fn set_modal(on: bool) {
     MODAL.store(on, Ordering::Relaxed);
 }
 
-/// The setup screens (chantier A of `docs/conception/sortie.md`) have
+/// The setup screens (workstream A of `docs/design/before-release.md`) have
 /// their own table too: digits pick, `j`/`k` move, `o` opens or launches.
 static SETUP: AtomicBool = AtomicBool::new(false);
 
@@ -238,7 +238,7 @@ pub fn parse(buf: &str) -> Parse {
         ['t', k] if TRACK_KEYS.contains(k) => Parse::Done(Cmd::Track(*k)),
         ['a', k] if ARTIST_KEYS.contains(k) => Parse::Done(Cmd::Artist(*k)),
 
-        // --- C, the catalog (chantier B, `docs/conception/sortie.md`) ---
+        // --- C, the catalog (workstream B, `docs/design/before-release.md`) ---
         ['C'] => Parse::Pending,
         ['C', k] if CATALOG_KEYS.contains(k) => Parse::Done(Cmd::Catalog(*k)),
 

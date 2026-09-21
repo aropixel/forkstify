@@ -1,5 +1,5 @@
 //! **Generating a card on the fly** (decision 0016, settled 09/09/2026 —
-//! see `docs/conception/generation-a-la-volee.md`).
+//! see `docs/design/on-the-fly-generation.md`).
 //!
 //! Same pipeline as `tools/generate-cards.py`, which seeded the 316 cards of
 //! the reference: MusicBrainz for identity, dates, origin, genres and typed
@@ -60,7 +60,7 @@ impl Known {
     }
 }
 
-/// The catalog's slug rule (`docs/conception/catalogue.md`): ASCII, lower
+/// The catalog's slug rule (`docs/design/catalog.md`): ASCII, lower
 /// case, words joined by hyphens. `&` becomes `and` so "Hall & Oates" and
 /// "Hall and Oates" land on the same file.
 pub fn slugify(name: &str) -> String {

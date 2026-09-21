@@ -124,7 +124,7 @@ impl Learned {
         let mut seed_liked = HashSet::new();
         // the library the setup harvested (`library.toml`) comes first;
         // the seed file of the Python scripts stays read as long as it is
-        // there and no library replaced it (chantier A, 20/09/2026)
+        // there and no library replaced it (workstream A, 20/09/2026)
         let library = crate::library::Library::load(catalog_dir);
         if let Some(library) = &library {
             for artist in &library.artists {

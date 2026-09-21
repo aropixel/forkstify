@@ -1,7 +1,7 @@
 //! Vectors, computed by the application itself (0019). A card's vector is
 //! the embedding of a text **composed from its structure** — tags, dates,
 //! origin, typed links both ways, description when there is one — never
-//! asked from a human (catalogue.md § On écrit pour les humains). The
+//! asked from a human (catalog.md § We write for humans). The
 //! composition is the one `tools/vectoriser.py` established on 02/09/2026,
 //! word for word: the reference index and the vector of a card generated
 //! on the fly must come from the same text and the same model, or "close"

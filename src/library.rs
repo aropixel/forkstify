@@ -1,5 +1,5 @@
-//! The listener's Spotify library, harvested by the setup (chantier A of
-//! `docs/conception/sortie.md`): liked tracks, liked albums, followed
+//! The listener's Spotify library, harvested by the setup (workstream A of
+//! `docs/design/before-release.md`): liked tracks, liked albums, followed
 //! artists, and the playlists one ticks. Written to `learned/library.toml`
 //! — one file, English vocabulary (0014, 0022) — which replaces
 //! `classement.json` and the five `artistes-*.json` the Python scripts of

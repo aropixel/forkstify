@@ -1,5 +1,5 @@
-//! The setup after the installation — chantier A of
-//! `docs/conception/sortie.md`, screens of `Installation.dc.html` (Joel,
+//! The setup after the installation — workstream A of
+//! `docs/design/before-release.md`, screens of `Installation.dc.html` (Joel,
 //! 20/09/2026). Seven steps, in the order of the cahier: the catalog, the
 //! git identity, the connection, the library, the playlists, the comfort,
 //! the coverage. **Nothing to type one does not already know**; every step

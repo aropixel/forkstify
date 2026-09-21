@@ -44,7 +44,7 @@ is the leader and shows what you can type. The whole table is in
 - **Spotify Premium.** forkstify is a Spotify Connect device (librespot)
   and reads your library through the Web API. It is not affiliated with
   Spotify, and it uses an unofficial client the way the free ecosystem
-  does — see [`docs/conception/spotify.md`](docs/conception/spotify.md).
+  does — see [`docs/design/spotify.md`](docs/design/spotify.md).
 - **git**, and a GitHub account if you want your catalog to be a fork
   you can propose from (`gh` makes that one keystroke).
 - **docker**, to build: there is no toolchain to install.
@@ -118,16 +118,17 @@ run: the catalog's path, the comfort to open with, and a `[tuning]`
 section with **every number the engine reasons with** — what a like
 weighs, how long a track steps back after playing, how far the
 adventurous branch may leap. Each one is explained in
-[`docs/reglages.md`](docs/reglages.md).
+[`docs/tuning.md`](docs/tuning.md).
 
 ## The documentation
 
-The code and the interface are in English. The design notes are in
-French, and they are the project's memory: [`docs/vision.md`](docs/vision.md)
-for what it is, [`docs/decisions/`](docs/decisions/) for every decision
-taken (one file each, dated, never rewritten), [`docs/conception/`](docs/conception/)
-for the living notes by subject, [`docs/avancement.md`](docs/avancement.md)
-for where things stand.
+Everything in this repository is in English, prose included
+([0024](docs/decisions/0024-everything-in-english.md)), and the documents
+are the project's memory: [`docs/vision.md`](docs/vision.md) for what it
+is, [`docs/decisions/`](docs/decisions/) for every decision taken (one file
+each, dated, never rewritten), [`docs/design/`](docs/design/) for the living
+notes by subject, [`docs/progress.md`](docs/progress.md) for where things
+stand.
 
 ## License
 

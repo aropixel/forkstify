@@ -51,7 +51,7 @@ spotify = "7bu3H8JO7d0UbMoVzbo70s"
 begin = "1977"
 origin = "Crawley"
 
-tags = ["post-punk", "new-wave", "gothique", "uk", "80s"]
+tags = ["post-punk", "new-wave", "gothic", "uk", "80s"]
 
 tops = [
   "Boys Don't Cry",
@@ -59,19 +59,23 @@ tops = [
 ]
 
 links = [
-  { to = "siouxsie-and-the-banshees", type = "member", note = "Robert Smith y a joué de la guitare en 1983" },
-  { to = "depeche-mode", type = "scene", note = "new wave, versant synthétique", proximity = 2 },
+  { to = "siouxsie-and-the-banshees", type = "member", note = "Robert Smith played guitar there in 1983" },
+  { to = "depeche-mode", type = "scene", note = "new wave, the synth side", proximity = 2 },
 ]
 
 # optional: a track-choice bonus when heading in this direction
 doors = [
-  { track = "A Forest", to = ["post-punk", "atmospherique"], note = "la porte vers le sombre" },
+  { track = "A Forest", to = ["post-punk", "atmospheric"], note = "the door towards the dark" },
 ]
 
 description = """
-Post-punk puis pop sombre, Crawley, depuis 1977. ...
+Post-punk then dark pop, Crawley, since 1977. ...
 """
 ```
+
+The *content* — descriptions, notes, tags — follows each catalog's own
+language ([0010](../decisions/0010-revised-format-links-without-doors.md));
+only the format's keys are fixed, and in English.
 
 And at the root of the catalog, `catalog.toml` carries the identity and the
 settings — including the type → proximity grid, which everyone adjusts in

@@ -41,7 +41,7 @@ use std::path::{Path, PathBuf};
 /// The active catalog: the argument if any, else the setting, else the
 /// default location. A setting rather than a hard-coded path, because one
 /// may have imported several catalogs and switch between them
-/// ([0004](docs/decisions/0004-deux-depots-catalogue-ciblable.md)).
+/// ([0004](docs/decisions/0004-two-repositories-targetable-catalog.md)).
 fn catalog_path(arg: Option<&String>) -> PathBuf {
     if let Some(path) = arg {
         return PathBuf::from(path);
@@ -268,7 +268,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     let mut tui = tui::Tui::enter()?;
     let mut rx = home::reader();
     // the first launch is simply forkstify without a readable catalog:
-    // the setup opens instead of failing (chantier A, 20/09/2026); and
+    // the setup opens instead of failing (workstream A, 20/09/2026); and
     // `:setup` / `:library` bring it back from the session
     let mut replay: Option<setup::Replay> = None;
     loop {

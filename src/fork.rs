@@ -1,5 +1,5 @@
-//! The fork facing the reference — chantier B of
-//! `docs/conception/sortie.md`, screens of `Catalogue.dc.html` (Joel,
+//! The fork facing the reference — workstream B of
+//! `docs/design/before-release.md`, screens of `Catalogue.dc.html` (Joel,
 //! 20/09/2026). Three gestures under `C`: `Cd` **diff**, what this catalog
 //! has beyond the reference; `Cp` **propose**, offer those cards upstream
 //! as one pull request; `Cu` **update**, bring the reference into the
@@ -7,7 +7,7 @@
 //! the way out of the local mode.
 //!
 //! The personal overlay is never stored, it is **computed**
-//! ([0008](../docs/decisions/0008-le-fork-est-la-surcouche.md)): in a
+//! ([0008](../docs/decisions/0008-the-fork-is-the-overlay.md)): in a
 //! fork, what is yours is your commits, and `git diff upstream/main`
 //! renders them card by card. A proposal carries the **state of the
 //! cards**, never the history of `main` — which mixes in the learned

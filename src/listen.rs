@@ -279,7 +279,7 @@ const ALBUM_TOPS: usize = 4;
 struct Live<'a> {
     /// **The session owns its catalog** since 09/09/2026: a generated card
     /// must exist for the engine at once, not at the next launch
-    /// (`docs/conception/generation-a-la-volee.md`). It was lent read-only
+    /// (`docs/design/on-the-fly-generation.md`). It was lent read-only
     /// until then.
     catalog: Catalog,
     /// Where the cards live: an edit modifies and commits them (0013).
@@ -397,11 +397,11 @@ struct Live<'a> {
     /// accepts, any other key declines (Joel, 11/09/2026).
     pending_seed: Option<(String, String, std::time::Instant)>,
     /// `:setup` / `:library`: the session closes and the setup opens on
-    /// the catalog, then home comes back (chantier A, 20/09/2026).
+    /// the catalog, then home comes back (workstream A, 20/09/2026).
     leave: Option<crate::setup::Replay>,
     /// `Cp` did its work — branch, worktree, commit, push — and waits for
     /// `y` to open the pull request through gh; any other key sends
-    /// nothing (chantier B, 20/09/2026).
+    /// nothing (workstream B, 20/09/2026).
     pending_proposal: Option<crate::fork::Proposal>,
     /// The cards a `Cu` stopped on: `o` opens the first, `:catalog`
     /// resumes once git has them.
@@ -437,7 +437,7 @@ enum Job {
     /// The fresh card's vector (0019) — or why there is none; the card is
     /// adopted either way.
     Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
-    /// The catalog gestures, run off the loop (chantier B).
+    /// The catalog gestures, run off the loop (workstream B).
     Diffed(Result<crate::fork::Diff, String>),
     Proposed(Result<crate::fork::Proposal, String>),
     Updated(Result<crate::fork::Update, String>),
@@ -2013,7 +2013,7 @@ impl Live<'_> {
             }
             return true;
         }
-        // the catalog namespace works on both screens (chantier B)
+        // the catalog namespace works on both screens (workstream B)
         if let Cmd::Catalog(key) = cmd {
             self.overlay = None;
             self.help_open = false;
@@ -3800,14 +3800,14 @@ impl Live<'_> {
                 say!(self, "usage: :generate <artist name> [mbid]")
             }
             // the setup, replayed: the session closes on it and home comes
-            // back after (chantier A, `docs/conception/sortie.md`)
+            // back after (workstream A, `docs/design/before-release.md`)
             (Some("setup"), _) => self.leave = Some(crate::setup::Replay::All),
             (Some("library"), _) => self.leave = Some(crate::setup::Replay::Library),
             (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
                 Ok(word) => say!(self, "✓ {word}"),
                 Err(why) => say!(self, "⏹ {why}"),
             },
-            // the catalog, as commands (chantier B): the state in one line,
+            // the catalog, as commands (workstream B): the state in one line,
             // the three gestures, and the way out of the local mode
             (Some("catalog"), None) => self.catalog_status(),
             (Some("catalog"), Some("diff")) => self.catalog_gesture('d'),
@@ -3897,7 +3897,7 @@ impl Live<'_> {
         }
     }
 
-    /// `fw` / `:wander [artist]` (retour n° 6, tranché le 11/09/2026):
+    /// `fw` / `:wander [artist]` (feedback no. 6, settled on 2026-09-11):
     /// leave the universe. Bare, the engine draws a head far from the
     /// journey; with a name, the head is that artist of the catalog. The
     /// branch goes at the end of what is decided, as `f<n>` does.
