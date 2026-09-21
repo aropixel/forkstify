@@ -1,533 +1,520 @@
-# Avant de sortir : les trois derniers chantiers
+# Before release: the last three workstreams
 
-Note ouverte le **19/09/2026**, à la demande de Joel : « affiner les
-dernières choses avant de pouvoir sortir le projet ». Trois sujets, un
-cahier. Chaque chantier distingue ce qui est **demandé** (Joel, 19/09/2026,
-sauf mention), ce qui est **proposé** (l'agent, à valider) et ce qui reste
-**à trancher**. Rien n'est codé tant que la section « à trancher » du
-chantier n'est pas vidée.
+Note opened on **2026-09-19**, at Joel's request: "refine the last things
+before we can release the project". Three subjects, one workbook. Each
+workstream distinguishes what is **asked for** (Joel, 2026-09-19, unless
+stated), what is **proposed** (the agent, to be approved) and what is left
+**to settle**. Nothing gets coded until the workstream's "to settle" section
+is empty.
 
-Les notes de fond restent celles-ci, et cette note y renvoie plutôt que
-de les recopier : [premiere-installation.md](premiere-installation.md)
-pour le modèle base / mien / appris et l'amorce,
-[catalogue.md](catalogue.md) pour ce qui est partageable,
-[generation-a-la-volee.md](generation-a-la-volee.md) pour les creux.
+The background notes stay where they are, and this note points at them
+rather than copying them: [first-run.md](first-run.md) for the base / mine /
+learned model and the bootstrap, [catalog.md](catalog.md) for what is
+shareable, [on-the-fly-generation.md](on-the-fly-generation.md) for the
+gaps.
 
-## L'état de départ, relu dans le code le 19/09/2026
+## The starting state, read in the code on 2026-09-19
 
-- **Pas de setup.** `forkstify` lit `[catalog] path`, vide = `~/Work/forkstify-catalog`,
-  et `Catalog::load` échoue si le dossier manque. La bibliothèque Spotify
-  entre par cinq scripts Python de `tools/` lancés à la main, qui lisent le
-  trousseau GNOME, puis `classement.py` écrit `learned/classement.json`
-  (clés françaises, lues par `learned.rs`). Ce qui existe déjà et servira :
-  l'écran **non connecté** (`home::disconnected_rows`) qui guide les deux
-  autorisations, l'OAuth PKCE navigateur (`spotify.rs`, cinq scopes),
-  la découverte zeroconf du téléphone, `WebApi` qui pagine, `import.rs` qui
-  sait ajouter un remote et prendre des fiches, `generate.rs` et
-  `embed.rs` pour les fiches manquantes.
-- **Le catalogue, côté git.** Le fork de Joel a **217 commits d'avance** sur
-  la référence, zéro de retard : 165 fichiers d'appris, 49 fiches ajoutées
-  ou retouchées (`git diff --stat upstream/main -- cards`), et l'index de
-  vecteurs entièrement réécrit (normalisation 0019). `:mine` calcule le
-  diff des fiches contre `upstream/main` et l'affiche en overlay. Les
-  commits de l'application sont faits par `git commit` sans identité
-  explicite : ils prennent le `user.name` global de la machine.
-- **La référence porte l'appris de Joel** : `learned/classement.json`,
-  ses cinq récoltes `artistes-*.json`, `faits-mb.json`, `mbid.json` et
-  18 fiches d'appris sont sur `aropixel/forkstify-catalog`. Un fork neuf
-  hériterait de la bibliothèque de Joel. À nettoyer avant la sortie (voir
-  la liste finale).
-- **Les creux.** `engine::missing_neighbors` rend les liens du contexte
-  qui pointent vers une fiche absente ; la colonne en montre trois au plus,
-  en gris « ○ no card yet », numérotés après les branches. `f<n>` sur un
-  creux appelle `generate(…, After::Branch)` : la fiche naît, **et la
-  branche part** — il n'y a pas de chemin qui génère sans brancher. Les
-  creux sont fréquents parce qu'une fiche générée garde ses quatre
-  `similar` Deezer même vers le vide, ce qui est voulu (0016).
+- **No setup.** `forkstify` reads `[catalog] path`, empty =
+  `~/Work/forkstify-catalog`, and `Catalog::load` fails if the folder is
+  missing. The Spotify library comes in through five Python scripts in
+  `tools/` run by hand, which read the GNOME keyring, then `classement.py`
+  writes `learned/classement.json` (French keys, read by `learned.rs`).
+  What already exists and will serve: the **disconnected** screen
+  (`home::disconnected_rows`) that guides the two authorizations, the
+  browser OAuth PKCE (`spotify.rs`, five scopes), zeroconf discovery of the
+  phone, `WebApi` which paginates, `import.rs` which knows how to add a
+  remote and take cards, `generate.rs` and `embed.rs` for the missing cards.
+- **The catalog, on the git side.** Joel's fork is **217 commits ahead** of
+  the reference, zero behind: 165 learned files, 49 cards added or touched
+  up (`git diff --stat upstream/main -- cards`), and the vector index
+  entirely rewritten (0019's normalization). `:mine` computes the diff of
+  the cards against `upstream/main` and shows it in an overlay. The
+  application's commits are made by `git commit` with no explicit identity:
+  they take the machine's global `user.name`.
+- **The reference carries Joel's learned data**: `learned/classement.json`,
+  his five `artistes-*.json` harvests, `faits-mb.json`, `mbid.json` and 18
+  learned files are on `aropixel/forkstify-catalog`. A fresh fork would
+  inherit Joel's library. To be cleaned before release (see the final list).
+- **The gaps.** `engine::missing_neighbors` returns the context's links that
+  point at a missing card; the column shows at most three, in grey "○ no
+  card yet", numbered after the branches. `f<n>` on a gap calls
+  `generate(…, After::Branch)`: the card is born, **and the branch sets
+  off** — there is no path that generates without branching. Gaps are
+  frequent because a generated card keeps its four Deezer `similar` even
+  into the void, which is intended (0016).
 
 ---
 
-## Chantier A — le setup après l'installation
+## Workstream A — the setup after installation
 
-**Fait le 20/09/2026**, d'après la maquette `Installation.dc.html` (Claude
-Design, projet « Accueil Forkstify », neuf écrans) : `src/setup.rs` (les
-écrans et le fil), `src/library.rs` (la récolte, `learned/library.toml`,
-le classement, la couverture), `keys::parse_setup` (la table : chiffres,
-`j`/`k`, `o`, espace coche, `⏎`, échap), `tui::render_setup` (une colonne,
-le pas et sa jauge à droite, l'invite en dernière ligne). **La maquette a
-tranché les points ouverts** : le mode local reste (« il évite un mur le
-premier soir »), un seul `library.toml`, seuil ≥ 5 et 30 fiches au plus,
-les deux scopes acceptés avec la ré-autorisation qu'ils entraînent. Ce
-qui s'écarte de la maquette, faute de mieux : à l'étape 7 la génération
-**se regarde** (échap l'arrête après la fiche en cours, ce qui est écrit
-est commité) au lieu de continuer derrière l'accueil ; l'étape 4 se
-regarde aussi (échap annule). Et `:setup` / `:library` **ferment la
-session** — le son s'arrête — puis l'accueil revient sur le catalogue
-rejoué. Le premier lancement, c'est `forkstify` sans catalogue lisible.
-Les scripts de `tools/` ne sont pas encore retirés du catalogue : après
-que Joel a rejoué `:library` sur son fork. **Non éprouvé en session
-réelle** : la récolte et la génération demandent le réseau et les jetons ;
-le fil (clone, identité, confort, récapitulatif) a tourné dans un test de
-fumée sur des dossiers XDG temporaires.
+**Done on 2026-09-20**, after the `Installation.dc.html` mockup (Claude
+Design, project "Accueil Forkstify", nine screens): `src/setup.rs` (the
+screens and the thread), `src/library.rs` (the harvest,
+`learned/library.toml`, the ranking, the coverage), `keys::parse_setup` (the
+table: digits, `j`/`k`, `o`, space ticks, `⏎`, escape), `tui::render_setup`
+(one column, the step and its gauge on the right, the prompt on the last
+line). **The mockup settled the open points**: local mode stays ("it avoids
+a wall on the first evening"), a single `library.toml`, threshold ≥ 5 and at
+most 30 cards, both scopes accepted along with the re-authorization they
+entail. What departs from the mockup, for want of better: at step 7 the
+generation **is watched** (escape stops it after the current card, and what
+is written is committed) instead of carrying on behind home; step 4 is
+watched too (escape cancels). And `:setup` / `:library` **close the
+session** — the sound stops — then home comes back on the replayed catalog.
+The first run is `forkstify` with no readable catalog. The `tools/` scripts
+are not yet removed from the catalog: after Joel has replayed `:library` on
+his fork. **Not proved in a real session**: the harvest and the generation
+need the network and the tokens; the thread (clone, identity, comfort,
+summary) ran in a smoke test on temporary XDG folders.
 
-### Demandé
+### Asked for
 
-Un setup **au premier lancement et rejouable** (Joel, 09/09/2026,
-[premiere-installation.md](premiere-installation.md) § À trancher, 5) :
-connexion, import de la bibliothèque, playlists à cocher, classement
-calculé par l'application, scripts Python retirés. Joel fournit une
-maquette Claude Design avant qu'on code les écrans. Ce chantier fixe **les
-étapes à présenter et les informations à recueillir**, pour que la
-maquette parte d'une liste arrêtée.
+A setup **on first run and replayable** (Joel, 2026-09-09,
+[first-run.md](first-run.md) § To settle, 5): connection, library import,
+playlists to tick, the ranking computed by the application, the Python
+scripts removed. Joel supplies a Claude Design mockup before we code the
+screens. This workstream settles **the steps to present and the information
+to gather**, so that the mockup starts from a settled list.
 
-### Proposé : sept étapes, dans cet ordre
+### Proposed: seven steps, in this order
 
-Le fil conducteur : **on n'a rien à taper qu'on ne sache déjà**, et chaque
-étape peut être sautée puis rejouée seule. L'écran est un écran de la
-session comme l'accueil (0021, « l'accueil est un écran de la session »),
-tout se dit en toast, la grammaire du clavier reste celle des modales
-(`j`/`k`, `espace` coche, `⏎` valide, `échap` saute).
+The guiding thread: **there is nothing to type that you do not already
+know**, and every step can be skipped then replayed on its own. The screen
+is a session screen like home (0021, "home is a session screen"), everything
+is said in a toast, and the keyboard grammar stays the modals' one (`j`/`k`,
+`space` ticks, `⏎` confirms, `escape` skips).
 
-| # | Étape | Ce qu'on recueille | Ce qu'on écrit |
+| # | Step | What we gather | What we write |
 |---|---|---|---|
-| 1 | **Le catalogue** | L'URL de **son fork** de la référence (ou rien) | le clone dans `~/.local/share/forkstify/catalog`, `origin` = le fork, `upstream` = la référence, `[catalog] path` dans `config.toml` |
-| 2 | **L'identité git** | `user.name` / `user.email` s'ils manquent | `git config --local` dans le clone, jamais global |
-| 3 | **La connexion** | rien à taper : le téléphone (zeroconf) et le navigateur (OAuth) | les deux jetons, là où ils vivent déjà (`~/.local/state/forkstify`) |
-| 4 | **La bibliothèque** | un « oui » | `learned/library.toml` : titres aimés (artiste principal seul), albums aimés, artistes suivis |
-| 5 | **Les playlists** | celles à **cocher** dans la liste de ses playlists | leurs identifiants dans `learned/library.toml`, pour que rejouer soit un seul geste |
-| 6 | **Le confort** | un chiffre 0–5, à la jauge (`cc` existe) — défaut 3 | l'état `comfort`, comme aujourd'hui |
-| 7 | **La couverture** | un « oui » pour générer les fiches manquantes du haut de sa bibliothèque | des fiches `generated = true`, leurs vecteurs, un commit |
+| 1 | **The catalog** | The URL of **their fork** of the reference (or nothing) | the clone in `~/.local/share/forkstify/catalog`, `origin` = the fork, `upstream` = the reference, `[catalog] path` in `config.toml` |
+| 2 | **The git identity** | `user.name` / `user.email` if they are missing | `git config --local` in the clone, never global |
+| 3 | **The connection** | nothing to type: the phone (zeroconf) and the browser (OAuth) | both tokens, where they already live (`~/.local/state/forkstify`) |
+| 4 | **The library** | a "yes" | `learned/library.toml`: liked tracks (main artist only), liked albums, followed artists |
+| 5 | **The playlists** | the ones to **tick** in their playlist list | their identifiers in `learned/library.toml`, so that replaying is a single gesture |
+| 6 | **The comfort** | a digit 0–5, on the gauge (`cc` exists) — default 3 | the `comfort` state, as today |
+| 7 | **The coverage** | a "yes" to generate the missing cards at the top of their library | `generated = true` cards, their vectors, one commit |
 
-Détail par étape :
+Step by step:
 
-1. **Le catalogue.** Le cas normal est **un fork** : c'est ce que 0016
-   et 0008 supposent, et ce que la synchronisation de l'appris (0017)
-   exige — elle pousse sur `origin`, ce qu'un clone de la référence ne
-   permet pas. Trois entrées : (a) l'URL de son fork, collée ; (b) si `gh`
-   est installé et connecté, forkstify propose de **forker lui-même**
-   (`gh repo fork aropixel/forkstify-catalog --clone`) ; (c) rien —
-   forkstify clone la référence en **mode local** : tout marche, l'appris
-   se commite mais ne se pousse pas, et l'accueil le dit (`⇅ local`).
-   `:catalog fork <url>` (chantier B) fait passer de (c) à (a) plus tard
-   sans rien perdre : on ajoute le remote, on pousse. Le chemin par défaut
-   quitte `~/Work` : `~/.local/share/forkstify/catalog` (XDG), Joel
-   gardant son `[catalog] path` actuel.
-2. **L'identité git.** Un commit sans `user.name` échoue, et forkstify
-   commite en permanence (0017). Si la config globale les a, rien n'est
-   demandé. Sinon on demande le nom et le mail et on les écrit
-   **localement** dans le clone : c'est l'identité des commits du catalogue,
-   pas celle de la machine.
-3. **La connexion.** C'est l'écran non connecté d'aujourd'hui, inséré
-   dans la suite : rien de nouveau, sinon **deux scopes de plus** pour les
-   étapes 4 et 5 — `user-follow-read` (artistes suivis) et
-   `playlist-read-private` (ses playlists, dont les privées). Conséquence :
-   les utilisateurs déjà autorisés — Joel — repasseront **une fois** par le
-   navigateur, et le produit doit le dire au lieu de laisser croire à une
-   panne.
-4. **La bibliothèque.** La récolte des scripts, réécrite sur `WebApi` :
-   `/me/tracks`, `/me/albums`, `/me/following?type=artist`, paginés
-   (plusieurs centaines d'appels pour une grosse bibliothèque, avec
-   `Retry-After` respecté — ~2 min pour 5 000 titres). Une barre de
-   progression par source. **L'artiste principal seul** compte (Joel,
-   09/09/2026 : les invités d'un titre aimé ne sont pas des aimés).
-5. **Les playlists.** La liste de ses playlists (nom, nombre de titres,
-   propriétaire), les siennes d'abord, à cocher. Une playlist cochée
-   compte ses artistes ×1 comme aujourd'hui (`#fipway`, road trip). Les
-   identifiants cochés sont **mémorisés** dans `learned/library.toml`, si
-   bien que « re-récolter » est un seul geste sans rien recocher — la
-   question laissée ouverte le 09/09 est tranchée par là si Joel est
-   d'accord.
-6. **Le confort.** La jauge de `cc`, avec ses mots (cocon → exploration),
-   et la phrase de 0001 : « elle choisit seule quand tu ne choisis pas ».
-7. **La couverture.** On croise le classement et le catalogue : « 48 de
-   tes 50 artistes les plus présents ont une fiche ; en générer 12 de plus
-   pour couvrir tout ce qui a un score ≥ 5 ? (~3 s chacune) ». C'est la
-   base large **et** la génération (0016) à l'échelle d'une installation :
-   le nouveau venu au goût éloigné de la référence a de quoi démarrer
-   dès la première soirée, sans attendre d'arriver chez chacun. Plafond
-   (30 ?) et seuil (score ≥ 5, celui de l'écran d'accueil) à régler ;
-   **un seul commit** pour la fournée, comme `import` — pas un par fiche.
+1. **The catalog.** The normal case is **a fork**: that is what 0016 and
+   0008 assume, and what syncing the learned layer (0017) requires — it
+   pushes to `origin`, which a clone of the reference does not allow. Three
+   entry points: (a) the URL of their fork, pasted in; (b) if `gh` is
+   installed and connected, forkstify offers to **fork it itself**
+   (`gh repo fork aropixel/forkstify-catalog --clone`); (c) nothing —
+   forkstify clones the reference in **local mode**: everything works, the
+   learned layer commits but does not push, and home says so (`⇅ local`).
+   `:catalog fork <url>` (workstream B) moves from (c) to (a) later with
+   nothing lost: we add the remote and push. The default path leaves
+   `~/Work`: `~/.local/share/forkstify/catalog` (XDG), with Joel keeping his
+   current `[catalog] path`.
+2. **The git identity.** A commit with no `user.name` fails, and forkstify
+   commits constantly (0017). If the global config has them, nothing is
+   asked. Otherwise we ask for the name and the email and write them
+   **locally** into the clone: that is the identity of the catalog's
+   commits, not the machine's.
+3. **The connection.** That is today's disconnected screen, slotted into the
+   sequence: nothing new, except **two more scopes** for steps 4 and 5 —
+   `user-follow-read` (followed artists) and `playlist-read-private` (their
+   playlists, private ones included). Consequence: already authorized users
+   — Joel — will go through the browser **once**, and the product must say
+   so instead of letting it look like a failure.
+4. **The library.** The scripts' harvest, rewritten on `WebApi`:
+   `/me/tracks`, `/me/albums`, `/me/following?type=artist`, paginated
+   (several hundred calls for a big library, with `Retry-After` respected —
+   ~2 min for 5,000 tracks). One progress bar per source. **The main artist
+   alone** counts (Joel, 2026-09-09: the guests on a liked track are not
+   liked).
+5. **The playlists.** The list of their playlists (name, track count,
+   owner), their own first, to tick. A ticked playlist counts its artists ×1
+   as today (`#fipway`, road trip). The ticked identifiers are
+   **remembered** in `learned/library.toml`, so that "re-harvest" is a
+   single gesture with nothing to tick again — the question left open on
+   09-09 is settled that way if Joel agrees.
+6. **The comfort.** `cc`'s gauge, with its words (cocoon → exploration), and
+   0001's sentence: "it chooses on its own when you do not choose".
+7. **The coverage.** We cross the ranking with the catalog: "48 of your 50
+   most present artists have a card; generate 12 more to cover everything
+   with a score ≥ 5? (~3 s each)". That is the broad base **and** generation
+   (0016) at the scale of one install: a newcomer whose taste is far from
+   the reference has enough to start from the very first evening, without
+   waiting to arrive at each artist. Ceiling (30?) and threshold (score ≥ 5,
+   home's) to be tuned; **one single commit** for the batch, like `import` —
+   not one per card.
 
-**Le classement calculé par l'application.** `learned/library.toml`
-remplace `classement.json` et les cinq `artistes-*.json`, en **vocabulaire
-anglais** (0014 l'attendait, 0022 l'impose) : par artiste, `name`,
-`spotify`, `liked_tracks`, `liked_albums`, `followed`, `playlist_tracks`,
-`score`, `sources` ; en tête, la date de récolte et les playlists cochées.
-Le score garde la formule de `classement.py` — titres ×1, albums ×3, suivi
-+8, playlists ×1 — en constantes du code, pas dans `[tuning]` : 0023 règle
-les indices du moteur, pas la récolte. `learned.rs` lit le nouveau fichier
-et **encore l'ancien** tant qu'il existe, pour que le fork de Joel ne
-change pas de comportement le jour du basculement ; la résolution des MBID
-(`resoudre-mbid.py`, `mbid.json`) n'a plus d'objet — la génération
-résout par le nom, avec Deezer en secours.
+**The ranking computed by the application.** `learned/library.toml`
+replaces `classement.json` and the five `artistes-*.json`, in **English
+vocabulary** (0014 was waiting for it, 0022 requires it): per artist,
+`name`, `spotify`, `liked_tracks`, `liked_albums`, `followed`,
+`playlist_tracks`, `score`, `sources`; at the head, the harvest date and the
+ticked playlists. The score keeps `classement.py`'s formula — tracks ×1,
+albums ×3, follow +8, playlists ×1 — as constants in the code, not in
+`[tuning]`: 0023 tunes the engine's numbers, not the harvest. `learned.rs`
+reads the new file and **still the old one** as long as it exists, so that
+Joel's fork does not change behavior on the day of the switch; resolving the
+MBIDs (`resoudre-mbid.py`, `mbid.json`) has no purpose any more — generation
+resolves by name, with Deezer as backup.
 
-**Rejouable.** `:setup` depuis l'accueil rejoue la suite, chaque étape
-déjà faite s'affichant cochée et se sautant d'un `⏎` ; `:library` rejoue
-les seules étapes 4-5-7. En ligne de commande, `forkstify setup` fait la
-même chose pour le plugin Omarchy, qui installe le binaire et pourra le
-lancer. Le premier lancement, c'est simplement `forkstify` **sans
-catalogue lisible** : il ouvre le setup au lieu d'échouer.
+**Replayable.** `:setup` from home replays the sequence, with every step
+already done shown ticked and skipped with a `⏎`; `:library` replays steps
+4-5-7 alone. On the command line, `forkstify setup` does the same for the
+Omarchy plugin, which installs the binary and will be able to launch it. The
+first run is simply `forkstify` **with no readable catalog**: it opens the
+setup instead of failing.
 
-**Ce qui se retire ensuite.** Les scripts de récolte et de classement
+**What is withdrawn afterwards.** The harvest and ranking scripts
 (`bibliotheque-*.py`, `playlist-spotify.py`, `classement.py`,
-`resoudre-mbid.py`), `generate-cards.py` et `vectoriser.py` (déjà
-remplacés, 0019), `voisins.py` (`forkstify check`). Restent `amis-*.py`,
-qui n'ont pas d'équivalent dans l'application et attendent des amis
-consentants — à traduire (étape 11 de l'avancement) ou à déplacer hors
-du catalogue de référence.
+`resoudre-mbid.py`), `generate-cards.py` and `vectoriser.py` (already
+replaced, 0019), `voisins.py` (`forkstify check`). What stays is
+`amis-*.py`, which has no equivalent in the application and awaits
+consenting friends — to be translated (step 11 of the progress note) or
+moved out of the reference catalog.
 
-### À trancher
+### To settle
 
-Tranché en bloc par la maquette du 20/09/2026 :
+Settled in one block by the 2026-09-20 mockup:
 
-1. ~~**Le fork obligatoire ou non**~~ — le mode local est fait.
-2. ~~**Le format de `learned/library.toml`**~~ — un seul fichier.
-3. ~~**Plafond et seuil de l'étape 7**~~ — score ≥ 5, 30 au plus,
-   reproposée à chaque `:library` (l'écran 9 la marque « to do »).
-4. ~~**Les deux scopes de plus**~~ — acceptés ; l'écran 3 dit que ce
-   n'est pas une panne.
-5. ~~La maquette~~ — `Installation.dc.html`.
+1. ~~**Fork mandatory or not**~~ — local mode is done.
+2. ~~**The format of `learned/library.toml`**~~ — one single file.
+3. ~~**Ceiling and threshold of step 7**~~ — score ≥ 5, at most 30,
+   proposed again on every `:library` (screen 9 marks it "to do").
+4. ~~**The two extra scopes**~~ — accepted; screen 3 says it is not a
+   failure.
+5. ~~The mockup~~ — `Installation.dc.html`.
 
-Reste, à l'usage : si la génération de l'étape 7 doit un jour continuer
-derrière l'accueil comme la maquette le montre. Les scripts de `tools/`
-sont retirés le 20/09/2026 (Joel) ; `classement.json` reste lu dans le
-fork tant que `:library` n'a pas écrit `library.toml`.
+What is left, in use: whether step 7's generation should one day carry on
+behind home as the mockup shows. The `tools/` scripts were removed on
+2026-09-20 (Joel); `classement.json` is still read in the fork as long as
+`:library` has not written `library.toml`.
 
 ---
 
-## Chantier B — le namespace « catalogue »
+## Workstream B — the "catalog" namespace
 
-**Fait le 20/09/2026**, d'après la maquette `Catalogue.dc.html` (sept
-écrans) : `src/fork.rs` (`status`, `diff`, `propose`, `update`, `resume`,
-`fork`), la table (`C` pending, `Cd` `Cp` `Cu`, `o`), les jobs hors de la
-boucle dans `listen.rs`, `:catalog` et ses sous-commandes. `:mine` et
-`edit::mine` sont partis. Ce qui s'écarte de la maquette : `:catalog`
-s'affiche en overlay comme `Cd`, pas dans le flux ; l'overlay de `Cd`
-n'ouvre pas la fiche (il **déroule** depuis le premier retour de Joel,
-20/09/2026 : `j`/`k`, ↑↓, `gg`/`G`, tout le diff affiché) ;
-`o` sur un conflit ouvre la fiche dans l'éditeur du bureau (`xdg-open`),
-faute de pouvoir rendre `stdin` à `$EDITOR`. **Non éprouvé en vrai** :
-`Cp` jusqu'à `gh pr create`, `Cu` sur le vrai fork de Joel ; mais `diff`,
-`propose` (deux fois, la branche réécrite), `update` qui fusionne, `update`
-qui s'arrête sur une fiche et `resume` sont éprouvés par un **test
-d'intégration sur trois dépôts git temporaires** (la référence, le fork,
-le clone) — `git` est entré dans l'image `forkstify-build` pour cela.
+**Done on 2026-09-20**, after the `Catalogue.dc.html` mockup (seven
+screens): `src/fork.rs` (`status`, `diff`, `propose`, `update`, `resume`,
+`fork`), the table (`C` pending, `Cd` `Cp` `Cu`, `o`), the jobs outside the
+loop in `listen.rs`, `:catalog` and its subcommands. `:mine` and
+`edit::mine` are gone. What departs from the mockup: `:catalog` shows in an
+overlay like `Cd`, not in the flow; `Cd`'s overlay does not open the card
+(it **scrolls**, since Joel's first piece of feedback, 2026-09-20: `j`/`k`,
+↑↓, `gg`/`G`, the whole diff shown); `o` on a conflict opens the card in the
+desktop editor (`xdg-open`), for want of being able to hand `stdin` to
+`$EDITOR`. **Not proved for real**: `Cp` through to `gh pr create`, `Cu` on
+Joel's real fork; but `diff`, `propose` (twice, the branch rewritten),
+`update` that merges, `update` that stops on a card and `resume` are proved
+by an **integration test over three temporary git repositories** (the
+reference, the fork, the clone) — `git` entered the `forkstify-build` image
+for that.
 
-### Demandé
+### Asked for
 
-Regrouper sous une lettre les gestes sur le catalogue : `:mine` (renommé
-en *diff*), une commande qui fait une **PR des nouvelles fiches vers la
-référence**, une commande qui **rebase le fork sur la référence**.
+Group the catalog gestures under one letter: `:mine` (renamed *diff*), a
+command that makes a **PR of the new cards towards the reference**, a
+command that **rebases the fork on the reference**.
 
-### Proposé
+### Proposed
 
-**La lettre : `C`, majuscule** (arbitrage de Joel, 19/09/2026). `c`
-est prise par le confort depuis le 08/09/2026 (`c<n>`, `cc`) ; la
-partager entre deux sujets, à la façon de `f` (chiffre = branche, lettre
-= opération), a été proposé et **écarté** par Joel — deux sens sous une
-lettre ne se lisent pas. `m` (*mine*) a été envisagé, `z` pour déplacer le
-confort aussi. `C` garde le mot *catalog*, reste libre (`G`, `J`, `K` sont
-les seules majuscules nues), et la majuscule marque le geste **rare et
-lourd**, comme `A` promeut un album entier dans la modale. C'est le
-premier namespace en majuscule ; la grammaire reste sans préfixe, le
-test `grammar_is_prefix_free` le vérifie. Trois gestes, du mot anglais
-comme partout :
+**The letter: `C`, uppercase** (Joel's call, 2026-09-19). `c` has been taken
+by comfort since 2026-09-08 (`c<n>`, `cc`); sharing it between two subjects,
+the way `f` does (digit = branch, letter = operation), was proposed and
+**ruled out** by Joel — two meanings under one letter do not read. `m`
+(*mine*) was considered, as was `z` to move comfort. `C` keeps the word
+*catalog*, stays free (`G`, `J`, `K` are the only bare capitals), and the
+capital marks the **rare and heavy** gesture, as `A` promotes a whole album
+in the modal. It is the first uppercase namespace; the grammar stays
+prefix-free, and the `grammar_is_prefix_free` test verifies it. Three
+gestures, from an English word as everywhere:
 
-| Touche | Mot | Commande | Action |
+| Key | Word | Command | Action |
 |---|---|---|---|
-| `Cd` | catalog **diff** | `:catalog diff` | Ce que ce catalogue a de plus que la référence — l'actuel `:mine`, renommé ; les fiches seulement |
-| `Cp` | catalog **propose** | `:catalog propose` | Proposer ces fiches à la référence : une branche, un push, la PR ouverte dans le navigateur |
-| `Cu` | catalog **update** | `:catalog update` | Rapatrier la référence dans le fork, régénérer l'index, recharger le catalogue de la session |
-| — | | `:catalog fork <url>` | Faire d'un clone local un fork (chantier A, sortie du mode local) — rare, pas de touche ; remplace le `:fork` 📋 de la table |
-| — | | `:catalog` | L'état en une ligne : n commits d'avance / de retard, dernière mise à jour, remotes |
+| `Cd` | catalog **diff** | `:catalog diff` | What this catalog has beyond the reference — the current `:mine`, renamed; cards only |
+| `Cp` | catalog **propose** | `:catalog propose` | Propose these cards to the reference: a branch, a push, the PR opened in the browser |
+| `Cu` | catalog **update** | `:catalog update` | Bring the reference into the fork, regenerate the index, reload the session's catalog |
+| — | | `:catalog fork <url>` | Turn a local clone into a fork (workstream A, leaving local mode) — rare, no key; replaces the 📋 `:fork` in the table |
+| — | | `:catalog` | The state in one line: n commits ahead / behind, last update, remotes |
 
-Ce sont des gestes **rares** — 0015 leur donne une commande `:` ; les
-touches sont un confort pour les trois du quotidien, et la ligne `C` de
-l'aide (`espace`, `C`) les montre. `:mine`
-disparaît sans alias (sobriété : un nom).
+These are **rare** gestures — 0015 gives them a `:` command; the keys are a
+convenience for the three everyday ones, and the `C` line of the hints
+(`space`, `C`) shows them. `:mine` disappears with no alias (sobriety: one
+name).
 
-**`Cd` — diff.** Même calcul qu'aujourd'hui (`git diff upstream/main --
-cards/`), même overlay, deux ajouts : chaque fiche dit si elle est
-**nouvelle** (`+ generated`, `+ written`) ou **retouchée** (`~ +3 −1`), et
-l'en-tête donne le compte et la date de la dernière mise à jour. Toujours
-les fiches seulement : ni `learned/`, ni `vectors/`.
+**`Cd` — diff.** The same computation as today (`git diff upstream/main --
+cards/`), the same overlay, with two additions: every card says whether it
+is **new** (`+ generated`, `+ written`) or **touched up** (`~ +3 −1`), and
+the header gives the count and the date of the last update. Still cards
+only: neither `learned/` nor `vectors/`.
 
-**`Cp` — propose.** Le fork de Joel montre le problème : `main` mêle 165
-commits d'appris aux fiches, une PR de `main` serait illisible et
-reverserait l'appris — ce que 0014 interdit. On ne propose donc **pas des
-commits, mais l'état des fiches**, comme `import` le fait dans l'autre
-sens (« the state of their cards, never their history ») :
+**`Cp` — propose.** Joel's fork shows the problem: `main` mixes 165 learned
+commits with the cards, a PR from `main` would be unreadable and would
+contribute the learned layer back — which 0014 forbids. So we propose **not
+commits, but the state of the cards**, as `import` does in the other
+direction ("the state of their cards, never their history"):
 
-1. `git fetch upstream` ;
-2. une branche `proposal` **depuis `upstream/main`**, dans un **worktree**
-   à part (`~/.local/state/forkstify/proposal`) — le clone que la session
-   lit ne change jamais de branche, l'appris continue de se commiter sur
-   `main` toutes les dix minutes ;
-3. `git checkout main -- cards/` dans ce worktree : les fiches telles
-   qu'elles sont, sans `learned/` ni `vectors/` ;
-4. un commit `Propose N cards` dont le corps est écrit **pour le
-   relecteur**, en deux listes (voir « La relecture côté référence »
-   ci-dessous) : les fiches nouvelles générées d'abord, une ligne chacune
-   — nom, MBID, tags —, puis les fiches retouchées avec le diff résumé et
-   la note de provenance des liens (catalogue.md § « Tout le mien n'est
-   pas également partageable ») ; trailer `Forkstify: proposal <version>` ;
-5. `git push --force origin proposal` — **une seule proposition ouverte à
-   la fois**, la branche se réécrit et la PR ouverte se met à jour ;
-6. la PR elle-même, **deux voies selon le poste** (arbitrage de Joel,
-   19/09/2026) : si `gh` est installé **et connecté** (`gh auth status`),
-   forkstify montre le titre, le corps et le compte des fiches, et
-   **demande confirmation** — `y` crée la PR (`gh pr create --head
-   <compte>:proposal --title … --body …`), toute autre touche n'envoie
-   rien, la branche poussée restant là ; le toast donne l'URL de la PR.
-   Sinon, le navigateur s'ouvre sur la page de comparaison GitHub, titre
-   et corps pré-remplis dans l'URL, comme `ag` ouvre un artiste
-   (`xdg-open`) : on relit, on clique. Dans les deux cas c'est la « PR
-   pré-mâchée » de catalogue.md, et rien ne part sans un geste de plus.
-   Une proposition déjà ouverte n'en crée pas une seconde : le push de
-   l'étape 5 l'a mise à jour, et le toast le dit avec son URL
-   (`gh pr list --head proposal`, ou rien à faire côté navigateur).
+1. `git fetch upstream`;
+2. a `proposal` branch **from `upstream/main`**, in a separate **worktree**
+   (`~/.local/state/forkstify/proposal`) — the clone the session reads never
+   changes branch, and the learned layer keeps committing on `main` every
+   ten minutes;
+3. `git checkout main -- cards/` in that worktree: the cards as they are,
+   with no `learned/` and no `vectors/`;
+4. a `Propose N cards` commit whose body is written **for the reviewer**, in
+   two lists (see "Review on the reference side" below): the new generated
+   cards first, one line each — name, MBID, tags —, then the touched-up
+   cards with the summarized diff and the links' provenance note (catalog.md
+   § "Not all of mine is equally shareable"); trailer
+   `Forkstify: proposal <version>`;
+5. `git push --force origin proposal` — **one open proposal at a time**, the
+   branch rewrites itself and the open PR updates;
+6. the PR itself, **two routes depending on the machine** (Joel's call,
+   2026-09-19): if `gh` is installed **and connected** (`gh auth status`),
+   forkstify shows the title, the body and the card count, and **asks for
+   confirmation** — `y` creates the PR (`gh pr create --head
+   <account>:proposal --title … --body …`), any other key sends nothing and
+   the pushed branch stays there; the toast gives the PR's URL. Otherwise,
+   the browser opens on the GitHub comparison page, with title and body
+   prefilled in the URL, the way `ag` opens an artist (`xdg-open`): you read
+   it back, you click. Either way it is catalog.md's "pre-chewed PR", and
+   nothing goes out without one more gesture. A proposal already open does
+   not create a second one: step 5's push updated it, and the toast says so
+   with its URL (`gh pr list --head proposal`, or nothing to do on the
+   browser side).
 
-**Les vecteurs n'entrent pas dans la PR.** L'index est dérivé (0019) et
-réécrit en entier à chaque régénération : dans une PR il ne serait que du
-bruit et des conflits. C'est l'action GitHub de la référence qui régénère
-à la fusion (ci-dessous).
+**The vectors do not go into the PR.** The index is derived (0019) and
+rewritten in full on every regeneration: in a PR it would be nothing but
+noise and conflicts. It is the reference's GitHub action that regenerates it
+on merge (below).
 
-**La relecture côté référence** (Joel, 20/09/2026 : « j'ai peur que les
-validations de PR soient un peu laborieuses de mon côté »). La mesure sur
-son propre fork, après un mois d'usage : **46 fiches nouvelles, toutes
-`generated = true`, 3 fiches retouchées à la main** (14 lignes ajoutées,
-4 retirées). Une fiche générée est la sortie du pipeline, MusicBrainz puis
-Deezer — la référence aurait produit la même : il n'y a rien à y relire,
-il y a des choses à **vérifier**, et une machine le fait mieux. Ce qui
-demande une oreille, ce sont les retouches, rares. D'où trois pièces,
-tranchées par Joel le 20/09/2026 :
+**Review on the reference side** (Joel, 2026-09-20: "I'm afraid validating
+the PRs will be a bit laborious on my end"). The measurement on his own
+fork, after a month of use: **46 new cards, all `generated = true`, 3 cards
+touched up by hand** (14 lines added, 4 removed). A generated card is the
+pipeline's output, MusicBrainz then Deezer — the reference would have
+produced the same one: there is nothing to *read* there, there are things to
+**check**, and a machine does that better. What needs an ear are the
+touch-ups, which are rare. Hence three pieces, settled by Joel on
+2026-09-20:
 
-1. **Une action GitHub sur la référence** (en place le 20/09/2026,
-   `forkstify validate`), qui vérifie chaque PR : TOML lisible et `format = 1` ; `mbid` présent et **unique dans tout le
-   catalogue** (c'est elle qui attrape un « Ye » proposé alors que
-   `kanye-west` existe) ; slug conforme au nom ; cibles des `links` en
-   slugs valides ; aucun fichier hors de `cards/`. À la fusion sur `main`,
-   elle **régénère l'index** (`forkstify vectors`) et le commite — le
-   mainteneur n'y touche plus. L'action tourne le binaire dans le
-   conteneur `forkstify-build`, comme `bin/build`.
-2. **`Cp` compose la PR pour le relecteur** : les deux listes de l'étape
-   4. On survole la première, on lit la seconde.
-3. **Une règle de fusion écrite dans le dépôt de la référence**
-   (`CONTRIBUTING.md`, en anglais — 0022) : une PR qui **n'apporte que
-   des fiches générées** se fusionne sur un coup d'œil — nom et MBID,
-   pour l'homonyme que l'action ne voit pas, comme Les Thugs — dès que
-   l'action est verte. Une PR qui **retouche** des fiches existantes se
-   lit : les faits (`member`, `collab`, `family`) se prennent ; un
-   `similar` se prend s'il porte sa note de provenance ; un changement de
-   tops se prend s'il **corrige une erreur** (mauvais titre, version
-   live, identifiant Spotify faux), pas s'il exprime un goût — les tops
-   de la référence ne sont que les portes d'entrée d'un fork vierge
-   ([0018](../decisions/0018-un-seul-geste-pour-le-gout.md)).
+1. **A GitHub action on the reference** (in place on 2026-09-20,
+   `forkstify validate`), which checks every PR: readable TOML and
+   `format = 1`; `mbid` present and **unique across the whole catalog** (it
+   is what catches a "Ye" proposed while `kanye-west` exists); slug matching
+   the name; `links` targets as valid slugs; no file outside `cards/`. On
+   merge into `main`, it **regenerates the index** (`forkstify vectors`) and
+   commits it — the maintainer never touches it. The action runs the binary
+   in the `forkstify-build` container, like `bin/build`.
+2. **`Cp` composes the PR for the reviewer**: step 4's two lists. You skim
+   the first, you read the second.
+3. **A merge rule written into the reference repository**
+   (`CONTRIBUTING.md`, in English — 0022): a PR that brings **only generated
+   cards** merges at a glance — name and MBID, for the homonym the action
+   cannot see, like Les Thugs — as soon as the action is green. A PR that
+   **touches up** existing cards gets read: the facts (`member`, `collab`,
+   `family`) are taken; a `similar` is taken if it carries its provenance
+   note; a change of tops is taken if it **fixes an error** (wrong title,
+   live version, wrong Spotify identifier), not if it expresses a taste —
+   the reference's tops are only the entry doors of a fresh fork
+   ([0018](../decisions/0018-one-gesture-for-taste.md)).
 
-~~Écarté pour l'instant : l'auto-fusion~~ — **tranchée le 20/09/2026**
-(Joel : « faisons en sorte que les PR avec seulement des ajouts de cards
-soient automatiquement validées ») : un second workflow de la référence,
-`automerge.yml` sur `workflow_run`, fusionne toute PR dont le `check` est
-vert et qui **n'apporte que des fiches nouvelles** (ajouts seuls dans
-`cards/`), le dit en commentaire et régénère l'index dans la foulée ;
-une PR qui retouche une fiche attend un lecteur. Le coup d'œil sur
-l'homonyme se fait après coup, par une retouche. En réserve si même cela
-pèse : `Cp` ne proposerait par défaut que les fiches nouvelles.
+~~Ruled out for now: auto-merge~~ — **settled on 2026-09-20** (Joel: "let's
+make it so that PRs with only card additions are validated automatically"):
+a second workflow on the reference, `automerge.yml` on `workflow_run`,
+merges any PR whose `check` is green and that **brings only new cards**
+(additions only in `cards/`), says so in a comment and regenerates the index
+right after; a PR that touches up a card waits for a reader. The glance at
+the homonym happens afterwards, through a touch-up. In reserve if even that
+weighs: `Cp` would by default propose only the new cards.
 
-**`Cu` — update : une fusion, pas un rebase.** Joel dit « rebase » ; je
-propose **merge**, pour une raison de 0017 : `main` est partagé par deux
-postes qui tirent en `pull --rebase` et poussent au fil de l'eau. Rebaser
-`main` sur `upstream/main` réécrit des commits déjà poussés, et l'autre
-poste se retrouve avec une histoire qui a divergé sous ses pieds. Une
-fusion ne réécrit rien, et la structure du catalogue la rend presque
-toujours triviale : une fiche par artiste (les nouvelles fiches de la
-référence arrivent sans conflit), l'appris à part. Le résultat est le même
-pour l'utilisateur — les fiches de la référence sont là — et `Cd` reste
-juste puisqu'il compare des états, pas des histoires. Les étapes :
+**`Cu` — update: a merge, not a rebase.** Joel says "rebase"; I propose
+**merge**, for a reason from 0017: `main` is shared by two machines that
+pull with `--rebase` and push as they go. Rebasing `main` onto
+`upstream/main` rewrites commits already pushed, and the other machine ends
+up with a history that diverged under its feet. A merge rewrites nothing,
+and the catalog's structure makes it almost always trivial: one card per
+artist (the reference's new cards arrive with no conflict), the learned
+layer apart. The result is the same for the user — the reference's cards are
+there — and `Cd` stays accurate since it compares states, not histories. The
+steps:
 
-1. l'appris sale est commité d'abord, comme `:sync` ;
-2. `git fetch upstream` puis `git merge --no-edit upstream/main` ;
-3. `vectors/` en conflit : on prend n'importe lequel et on **régénère**
-   l'index sur place (0019), dans un commit qui suit ; `cards/` en conflit
-   — les deux côtés ont touché la même fiche — on s'arrête, on nomme les
-   fiches, et on laisse la main (« l'amont a enrichi la description de
-   The Cure, tu as changé les tops » : le guidage champ par champ imaginé
-   dans catalogue.md est un chantier à part, pas celui-ci) ;
-4. la session **recharge son catalogue** — elle le possède depuis le
-   09/09, une fiche arrivée de la référence peut donc combler un creux
-   affiché sans relancer — l'appris ne bouge pas ;
-5. un toast : « ⇅ 41 cards from upstream · index regenerated ».
+1. the dirty learned layer is committed first, like `:sync`;
+2. `git fetch upstream` then `git merge --no-edit upstream/main`;
+3. `vectors/` in conflict: take either one and **regenerate** the index in
+   place (0019), in a commit that follows; `cards/` in conflict — both sides
+   touched the same card — we stop, name the cards, and hand control back
+   ("upstream enriched The Cure's description, you changed the tops": the
+   field-by-field guidance imagined in catalog.md is a separate workstream,
+   not this one);
+4. the session **reloads its catalog** — it has owned it since 09-09, so a
+   card arriving from the reference can fill a gap already shown without
+   relaunching — the learned layer does not move;
+5. a toast: "⇅ 41 cards from upstream · index regenerated".
 
-`git rebase` reste possible à la main pour qui n'a qu'un poste ; le
-produit ne le propose pas.
+`git rebase` stays possible by hand for whoever has only one machine; the
+product does not offer it.
 
-### À trancher
+### To settle
 
-1. ~~**La lettre**~~ — tranché le 19/09/2026 : `C`.
-2. ~~**Merge plutôt que rebase** pour `Cu`~~ — tranché le 19/09/2026 :
-   la fusion.
-3. ~~**Une seule proposition ouverte à la fois**~~ — tranché le
-   20/09/2026 : la branche `proposal`, réécrite.
-4. ~~**Le navigateur plutôt que `gh`**~~ — tranché le 19/09/2026 : `gh`
-   avec confirmation quand il est là et connecté, le navigateur sinon.
-5. ~~Le nom `Cp`~~ — tranché le 20/09/2026 : `Cp`, *propose*.
+1. ~~**The letter**~~ — settled 2026-09-19: `C`.
+2. ~~**Merge rather than rebase** for `Cu`~~ — settled 2026-09-19: the
+   merge.
+3. ~~**One open proposal at a time**~~ — settled 2026-09-20: the `proposal`
+   branch, rewritten.
+4. ~~**The browser rather than `gh`**~~ — settled 2026-09-19: `gh` with
+   confirmation when it is there and connected, the browser otherwise.
+5. ~~The name `Cp`~~ — settled 2026-09-20: `Cp`, *propose*.
 
-**Le chantier B n'a plus rien à trancher** : la lettre `C`, les trois
-gestes, la fusion pour `Cu`, `gh` avec confirmation sinon le navigateur,
-une seule branche `proposal`, et la relecture côté référence.
+**Workstream B has nothing left to settle**: the letter `C`, the three
+gestures, the merge for `Cu`, `gh` with confirmation otherwise the browser,
+one single `proposal` branch, and the review on the reference side.
 
 ---
 
-## Chantier C — générer un creux sans le prendre
+## Workstream C — generating a gap without taking it
 
-**Fait le 20/09/2026** (`src/keys.rs`, `src/engine.rs::branch_from`,
-`src/listen.rs`) : `fg<n>` génère la fiche du creux n avec l'intention
-`After::Gap` ; à l'arrivée, la fiche devient une branche **à la suite des
-branches affichées** — donc au numéro du creux quand il était le premier
-—, les autres ne bougent pas, et les creux se rafraîchissent autour du
-contexte *et* de la fiche fraîche. La branche est une marche
-(`engine::branch_from` → `walk`), pour `f<n>` comme pour `fg<n>` ; le
-`f<n>` d'un creux ne donne plus un encore déguisé. Trois tests : `fg2`
-se lit et la grammaire reste sans préfixe ; la branche d'une tête
-fraîche traverse plus d'un artiste ; une tête inconnue ne donne rien.
-Non éprouvé en session réelle. Reste en réserve : `fga`, et la
-génération d'avance en option.
+**Done on 2026-09-20** (`src/keys.rs`, `src/engine.rs::branch_from`,
+`src/listen.rs`): `fg<n>` generates gap n's card with the `After::Gap`
+intent; when it arrives, the card becomes a branch **after the branches
+shown** — so at the gap's number when it was the first one —, the others do
+not move, and the gaps refresh around the context *and* the fresh card. The
+branch is a walk (`engine::branch_from` → `walk`), for `f<n>` as for
+`fg<n>`; the `f<n>` on a gap no longer gives a disguised encore. Three
+tests: `fg2` parses and the grammar stays prefix-free; a fresh head's branch
+crosses more than one artist; an unknown head gives nothing. Not proved in a
+real session. In reserve: `fga`, and optional generation ahead of time.
 
-### Demandé
+### Asked for
 
-Dans les branches proposées, un artiste **sans fiche** ne se prend
-aujourd'hui qu'en le mettant à la file. Joel veut **générer la fiche
-seule** — `fg<n>` — et qu'à l'arrivée de la fiche, les branches se
-proposent **en tenant compte** de la nouvelle fiche.
+Among the proposed branches, an artist **without a card** can today only be
+taken by queueing them. Joel wants to **generate the card alone** — `fg<n>`
+— and for the branches, once the card arrives, to be proposed **taking the
+new card into account**.
 
-### Proposé
+### Proposed
 
-**`fg<n>` — fork generate.** Après `f`, `g` est une opération, comme `r`,
-`w`, `u` ; `fg` attend son chiffre, la grammaire reste sans préfixe. Sur
-un creux affiché, `fg<n>` lance la génération avec une intention
-nouvelle, `After::Gap`, à côté de `After::Branch` : la fiche est composée,
-vectorisée, commitée et adoptée par la session exactement comme
-aujourd'hui (0013 : une génération est une édition) — **mais rien n'est
-mis à la file**. Sur un numéro de branche jouable, `fg<n>` répond « n has
-a card already » ; sur un creux en cours de génération, « already
-underway » (la garde `generating` existe).
+**`fg<n>` — fork generate.** After `f`, `g` is an operation, like `r`, `w`,
+`u`; `fg` waits for its digit, and the grammar stays prefix-free. On a gap
+shown, `fg<n>` starts the generation with a new intent, `After::Gap`,
+alongside `After::Branch`: the card is composed, vectorized, committed and
+adopted by the session exactly as today (0013: a generation is an edit) —
+**but nothing is queued**. On a playable branch number, `fg<n>` answers "n
+has a card already"; on a gap already being generated, "already underway"
+(the `generating` guard exists).
 
-**À l'arrivée : le creux devient une branche, à sa place — et une vraie
-branche.** Plutôt que de rejouer trois branches — ce qui remélangerait ce
-que l'utilisateur était en train de lire, la raison même pour laquelle
-`⏎` tire parmi les branches affichées (Joel, 05/09/2026) — la ligne
-« ○ no card yet » se change en **branche jouable au même numéro**, la
-marque ○ remplacée par celle de la source du morceau. Les deux autres
-branches ne bougent pas.
+**On arrival: the gap becomes a branch, in its place — and a real branch.**
+Rather than redrawing three branches — which would reshuffle what the user
+was in the middle of reading, the very reason `⏎` draws among the branches
+shown (Joel, 2026-09-05) — the "○ no card yet" row turns into a **playable
+branch at the same number**, with the ○ mark replaced by the track's source
+mark. The other two branches do not move.
 
-**Ce qu'elle contient** (Joel, 20/09/2026 : « pas uniquement des
-morceaux de l'artiste qui vient d'être généré — une branche régénérée
-comme les autres, avec un morceau de l'artiste généré et d'autres
-morceaux d'autres artistes ») : une **marche**, comme toute branche
-proposée — la fiche fraîche en tête, puis un morceau par artiste
-traversé, tirés dans son voisinage de graphe et de vecteurs, à la taille
-`:size`. C'est `engine::walk`, celui de `propose` et de `wander`, avec la
-fiche fraîche pour tête, la raison du lien pour raison et sa proximité
-pour poids. Et c'est une **correction au passage** : aujourd'hui,
-`branch_to` — le chemin du `f<n>` sur un creux — construit la branche
-avec `engine::encore`, donc n morceaux du seul artiste généré ; un creux
-pris donnait un « encore » déguisé en branche. `f<n>` et `fg<n>` passent
-tous deux par la marche. Un voisin de la fiche fraîche qui n'a pas de
-fiche est ignoré par la marche, comme partout — mais il apparaît en
-creux, ci-dessous.
+**What it contains** (Joel, 2026-09-20: "not only tracks by the artist who
+has just been generated — a branch regenerated like the others, with one
+track by the generated artist and other tracks by other artists"): a
+**walk**, like any proposed branch — the fresh card at the head, then one
+track per artist crossed, drawn from its graph and vector neighborhood, at
+the `:size` size. That is `engine::walk`, the one behind `propose` and
+`wander`, with the fresh card as head, the link's reason as reason and its
+proximity as weight. And it is a **fix along the way**: today, `branch_to` —
+the path of `f<n>` on a gap — builds the branch with `engine::encore`, hence
+n tracks by the generated artist alone; a gap taken gave an "encore"
+disguised as a branch. `f<n>` and `fg<n>` both go through the walk. A
+neighbor of the fresh card that has no card is ignored by the walk, as
+everywhere — but it shows up as a gap, below.
 
-Puis la liste des creux se **rafraîchit** depuis le contexte : les liens
-de la fiche fraîche vers le vide apparaissent à leur tour en gris — c'est
-le catalogue qui grandit le long de ses liens, un cran plus loin. Le
-toast : « ✓ Georges Moustaki — card ready · branch 3 ». `fr` reste là
-pour qui veut trois autres branches, et la fiche fraîche est alors dans
-le vivier comme les autres ; `⏎` peut désormais tirer la branche, ce
-qu'il ne fait jamais sur un creux.
+Then the gap list **refreshes** from the context: the fresh card's links
+into the void appear in grey in their turn — that is the catalog growing
+along its links, one notch further. The toast: "✓ Georges Moustaki — card
+ready · branch 3". `fr` is still there for whoever wants three other
+branches, and the fresh card is then in the pool like the others; `⏎` can
+now draw the branch, which it never does on a gap.
 
-Ce que ça change dans le code, pour mesurer : une variante d'`After`, un
-cas dans `keys::parse` et son test, `walk` exposé (ou un `branch_from`
-sur le modèle de `wander`) et `branch_to` qui l'appelle à la place
-d'`encore`, `recompute` des seuls creux après adoption, la ligne `fg<n>`
-dans l'aide et la table. Un test : la branche d'un creux généré traverse
-plus d'un artiste quand le voisinage le permet.
+What that changes in the code, to size it: one variant of `After`, one case
+in `keys::parse` and its test, `walk` exposed (or a `branch_from` on
+`wander`'s model) and `branch_to` calling it in place of `encore`,
+`recompute` of the gaps alone after adoption, the `fg<n>` line in the hints
+and the table. One test: a generated gap's branch crosses more than one
+artist when the neighborhood allows it.
 
-**Un pas de plus, à discuter : la génération d'avance.** Si les creux
-gênent, c'est qu'ils attendent un geste. Une option `[generation]
-prefetch = true` ferait générer **en fond et sans bruit** les creux
-affichés (trois au plus, ~3 s chacun), comme `harvest_proposed` va
-chercher la traîne des branches proposées : le ○ disparaîtrait de
-lui-même, et `fg<n>` ne servirait plus qu'à forcer. Le prix : des appels
-MusicBrainz à chaque recalcul, et un catalogue qui grossit de fiches
-qu'on n'a jamais visitées — moins gênant qu'il n'y paraît, puisque `Cp`
-les proposera à la référence et que chaque fiche née enrichit le commun
-(catalogue.md § La mutualisation). Je propose `fg<n>` d'abord, l'option
-ensuite si l'usage le demande, **désactivée par défaut**.
+**One step further, to discuss: generating ahead of time.** If the gaps are
+a nuisance, it is because they wait for a gesture. A
+`[generation] prefetch = true` option would generate the gaps shown **in the
+background and silently** (three at most, ~3 s each), the way
+`harvest_proposed` goes to fetch the proposed branches' tail: the ○ would
+disappear by itself, and `fg<n>` would only serve to force it. The price:
+MusicBrainz calls on every recompute, and a catalog growing with cards we
+have never visited — less of a nuisance than it looks, since `Cp` will
+propose them to the reference and every card born enriches the commons
+(catalog.md § Pooling). I propose `fg<n>` first, the option afterwards if
+use asks for it, **disabled by default**.
 
-### À trancher
+### To settle
 
-1. ~~**En place plutôt que rejoué**~~ — tranché le 20/09/2026 : en
-   place, au numéro du creux, et la branche est une **marche** comme les
-   autres, pas un encore de l'artiste généré.
-2. ~~**Le nom**~~ — tranché le 20/09/2026 : `fg`.
-3. **`fga` — tout générer** (les trois creux) : pas avant que le besoin
-   se montre deux fois.
-4. La **génération d'avance**, en option, plus tard.
+1. ~~**In place rather than redrawn**~~ — settled 2026-09-20: in place, at
+   the gap's number, and the branch is a **walk** like the others, not an
+   encore of the generated artist.
+2. ~~**The name**~~ — settled 2026-09-20: `fg`.
+3. **`fga` — generate everything** (all three gaps): not before the need
+   shows itself twice.
+4. **Generating ahead of time**, as an option, later.
 
 ---
 
-## L'ordre proposé
+## The proposed order
 
-1. **Chantier C** — le plus petit, aucune décision lourde, il rend
-   l'écoute plus fluide tout de suite et Joel l'éprouve dès le lendemain.
-2. **Chantier B** — `Cd` et `Cu` d'abord (Joel en a besoin pour suivre la
-   référence quand elle sera nettoyée), `Cp` ensuite : il demande que la
-   référence soit prête à recevoir.
-3. **Chantier A** — le plus gros ; il attend la maquette et il touche au
-   format de l'appris. Ses étapes 1-3 (catalogue, identité, connexion)
-   peuvent se faire avant la maquette : elles n'ont pas d'écran à
-   dessiner, ce sont des questions posées l'une après l'autre.
+1. **Workstream C** — the smallest, no heavy decision, it makes listening
+   smoother right away and Joel can try it the next day.
+2. **Workstream B** — `Cd` and `Cu` first (Joel needs them to follow the
+   reference once it is cleaned), `Cp` afterwards: it requires the reference
+   to be ready to receive.
+3. **Workstream A** — the biggest; it is waiting for the mockup and it
+   touches the learned layer's format. Its steps 1-3 (catalog, identity,
+   connection) can be done before the mockup: they have no screen to draw,
+   they are questions asked one after the other.
 
-## Ce que la sortie demande en plus, hors de ces trois chantiers
+## What release needs on top, outside these three workstreams
 
-Relevé au passage, pour ne pas le perdre — chaque point est une ligne,
-à trancher ailleurs :
+Noted along the way, so as not to lose it — every point is one line, to be
+settled elsewhere:
 
-- ~~**La référence porte l'appris de Joel**~~ — retiré le 20/09/2026,
-  avec `tools/` des deux dépôts. Le premier `Cu` du fork règle seul les
-  conflits *modify/delete* sur `learned/` (les siens gardés).
-- **Le chemin par défaut** `~/Work/forkstify-catalog` est celui du poste
-  de Joel — chantier A, étape 1.
-- **Un `README.md`** dans le dépôt de l'application (il n'y a
-  qu'`AGENTS.md`), et celui du catalogue en anglais (0022).
-- ~~**L'action GitHub de la référence** et son `CONTRIBUTING.md`~~ — en
-  place le 20/09/2026 : `.github/workflows/catalog.yml` (`check` sur
-  chaque PR — fiches seules, `forkstify validate` ; `index` sur `main` —
-  `forkstify vectors` commité), l'action composite qui construit forkstify
-  depuis `aropixel/forkstify`, `CONTRIBUTING.md` en anglais. L'application
-  est publique depuis le 20/09/2026 : le jeton du workflow suffit à l'action.
-- ~~**Installer demandait Docker**~~ — réglé le 21/09/2026 :
-  `.github/workflows/release.yml` publie sur chaque tag `v*` un binaire
-  Linux x86_64 (`forkstify-<version>-x86_64-linux.tar.gz` + `SHA256SUMS`),
-  compilé dans la même image que `bin/build` ; `omarchy/install.sh` le
-  télécharge, vérifie son empreinte, et ne retombe sur la compilation en
-  conteneur qu'à défaut. Le plancher est glibc 2.36 (Debian 12), donc Arch
-  et plus jeune. Un paquet AUR `forkstify-bin` est prêt dans
-  `packaging/aur/`, à publier une fois la première release faite.
-- **Rien ne dit d'aller cliquer sur « Install »** (Joel, 21/09/2026, en
-  éprouvant l'installation propre) : après `omarchy plugin add`, taper
-  `forkstify` dans un terminal répond `command not found`, et ni la
-  commande d'ajout ni le shell ne renvoient vers la carte de la barre. À
-  trancher : une ligne dans le `README.md`, un mot en fin de
-  `omarchy plugin add`, ou une installation qui se déclenche autrement.
-- **Un `forkstify` déjà sur le PATH masque le bouton** : le widget décide
-  entre « Install » et « Launch » sur `command -v forkstify`, donc un lien
-  périmé fait croire à une installation valide (vu le 21/09/2026 sur le
-  poste de Joel, avec le lien de l'install de dev).
-- **La licence du catalogue** (catalogue.md § À trancher : ODbL ou
-  CC BY-SA) et celle du code (`manifest.json` dit MIT).
-- **Les commits d'édition parlent français** (corrections en attente de
-  l'avancement) — `Cp` les rendra visibles à la référence.
-- ~~Les deux dépôts sont **privés**~~ — l'application est publique
-  depuis le 20/09/2026 ; la référence reste privée, et la commande de
-  comptage des forks (premiere-installation.md § Mesurer l'usage) ne
-  compte rien avant qu'elle ne le soit.
+- ~~**The reference carries Joel's learned data**~~ — removed on
+  2026-09-20, along with `tools/` from both repositories. The fork's first
+  `Cu` settles the *modify/delete* conflicts on `learned/` by itself (his
+  are kept).
+- **The default path** `~/Work/forkstify-catalog` is Joel's machine's —
+  workstream A, step 1.
+- **A `README.md`** in the application's repository (there is only
+  `AGENTS.md`), and the catalog's in English (0022).
+- ~~**The reference's GitHub action** and its `CONTRIBUTING.md`~~ — in place
+  on 2026-09-20: `.github/workflows/catalog.yml` (`check` on every PR —
+  cards only, `forkstify validate`; `index` on `main` — `forkstify vectors`
+  committed), the composite action that builds forkstify from
+  `aropixel/forkstify`, `CONTRIBUTING.md` in English. The application has
+  been public since 2026-09-20: the workflow's token is enough for the
+  action.
+- ~~**Installing required Docker**~~ — solved on 2026-09-21:
+  `.github/workflows/release.yml` publishes, on every `v*` tag, a Linux
+  x86_64 binary (`forkstify-<version>-x86_64-linux.tar.gz` + `SHA256SUMS`),
+  compiled in the same image as `bin/build`; `omarchy/install.sh` downloads
+  it, checks its digest, and only falls back to building in a container
+  otherwise. The floor is glibc 2.36 (Debian 12), so Arch and newer. An AUR
+  `forkstify-bin` package is ready in `packaging/aur/`, to publish once the
+  first release is out.
+- **Nothing says to go and click "Install"** (Joel, 2026-09-21, while
+  trying a clean install): after `omarchy plugin add`, typing `forkstify` in
+  a terminal answers `command not found`, and neither the add command nor
+  the shell points at the bar's card. To settle: a line in the `README.md`,
+  a word at the end of `omarchy plugin add`, or an installation that fires
+  some other way.
+- **A `forkstify` already on the PATH hides the button**: the widget decides
+  between "Install" and "Launch" on `command -v forkstify`, so a stale link
+  makes a valid install look present (seen on 2026-09-21 on Joel's machine,
+  with the dev install's link).
+- **The catalog's licence** (catalog.md § To settle: ODbL or CC BY-SA) and
+  the code's (`manifest.json` says MIT).
+- **The edit commits speak French** (fixes pending in the progress note) —
+  `Cp` will make them visible to the reference.
+- ~~Both repositories are **private**~~ — the application has been public
+  since 2026-09-20; the reference stays private, and the fork-counting
+  command (first-run.md § Measuring usage) counts nothing until it is
+  public.
