@@ -215,8 +215,13 @@ impl WebApi {
         // unless the requested title itself asks for a live version
         let limit = if self.prefer_studio && !is_live(title) { 8 } else { 1 };
         let query = format!("track:{title} artist:{artist}");
+        // `market=from_token` is not a detail: without it Spotify answers
+        // with tracks that exist somewhere and play nowhere here, the
+        // resolution succeeds, and librespot then skips one track after
+        // another (Joel, 2026-09-22). With it, Spotify also relinks to the
+        // copy that does play in this market.
         let url = format!(
-            "https://api.spotify.com/v1/search?q={}&type=track&limit={limit}",
+            "https://api.spotify.com/v1/search?q={}&type=track&limit={limit}&market=from_token",
             encode(&query)
         );
         // no body = the call never went through; that is not an answer and
@@ -226,14 +231,17 @@ impl WebApi {
         };
         let uri = (|| {
             let items = body["tracks"]["items"].as_array()?;
-            let studio = items.iter().find(|item| {
+            // a hit Spotify itself marks unplayable is not a hit
+            let playable: Vec<&serde_json::Value> =
+                items.iter().filter(|item| item["is_playable"].as_bool() != Some(false)).collect();
+            let studio = playable.iter().find(|item| {
                 let name = item["name"].as_str().unwrap_or("");
                 let album = item["album"]["name"].as_str().unwrap_or("");
                 !is_live(name) && !is_live(album)
             });
-            // the first studio hit if any, else the top result
+            // the first studio hit if any, else the top playable result
             studio
-                .or_else(|| items.first())
+                .or_else(|| playable.first())
                 .and_then(|item| item["uri"].as_str().map(String::from))
         })();
 
@@ -261,7 +269,7 @@ impl WebApi {
             return Err(format!("Spotify token expired ({e})"));
         }
         let url = format!(
-            "https://api.spotify.com/v1/search?q={}&type=track&limit={}",
+            "https://api.spotify.com/v1/search?q={}&type=track&limit={}&market=from_token",
             encode(query),
             limit
         );
@@ -304,7 +312,7 @@ impl WebApi {
         }
         let url = format!(
             "https://api.spotify.com/v1/artists/{spotify_id}/albums\
-             ?include_groups=album,single&limit=50"
+             ?include_groups=album,single&limit=50&market=from_token"
         );
         let Some(body) = self.get_with_backoff(&url).await else {
             return Err("the Spotify API did not answer".to_string());
@@ -318,7 +326,8 @@ impl WebApi {
 
         let mut tracks = Vec::new();
         for chunk in album_ids.chunks(20) {
-            let url = format!("https://api.spotify.com/v1/albums?ids={}", chunk.join(","));
+            let url =
+                format!("https://api.spotify.com/v1/albums?ids={}&market=from_token", chunk.join(","));
             let Some(body) = self.get_with_backoff(&url).await else {
                 // a partial harvest is still worth keeping: the tail is a
                 // reservoir, not an inventory
@@ -333,6 +342,11 @@ impl WebApi {
                 let single = album["album_type"].as_str() != Some("album");
                 let Some(items) = album["tracks"]["items"].as_array() else { continue };
                 for track in items {
+                    // the tail goes to the queue without being resolved, so
+                    // an unplayable track here is a silence later
+                    if track["is_playable"].as_bool() == Some(false) {
+                        continue;
+                    }
                     let (Some(title), Some(uri)) =
                         (track["name"].as_str(), track["uri"].as_str())
                     else {

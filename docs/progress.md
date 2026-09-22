@@ -260,6 +260,37 @@ Versioning the vectors stays right: a listener would otherwise download a
 241 MB model to compute 366 of them. It was regenerating them wholesale
 that was wrong.
 
+## Tracks resolved but never played: the missing market (2026-09-22)
+
+Joel: "several times in the day, I started tracks, they did not play and
+moved on to the next, which often did not play either."
+
+**Where it was not.** Resolution works: of 185 entries in the cache, 179
+carry a Spotify uri and 6 are genuine misses. So the tracks were found, and
+they still would not play.
+
+**Where it was.** **No Spotify call passed `market`.** Without it the API
+answers with tracks that exist somewhere and play nowhere here: the uri is
+valid, librespot cannot play it, and forkstify skips on — to another track
+chosen the same way, which fails the same way. The `MAX_DRY_ADVANCES` guard
+of 2026-09-11 stops the runaway; it never addressed the cause.
+
+Four endpoints were blind: both searches, the artist's albums, and the
+albums themselves. The last two matter most — a tail track goes to the
+queue **without being resolved**, so an unplayable one there is a silence
+later. All four now pass `market=from_token`, which also makes Spotify
+relink to the copy that does play here. And a hit Spotify marks
+`is_playable: false` is dropped, in the resolution and in the harvest.
+
+**Why it surfaced now.** The clean reinstall of 2026-09-21 wiped the
+resolve cache built over weeks. Every track is resolved afresh, so a flaw
+that only bit on new resolutions started biting on all of them.
+
+**Consequence for anyone running before today**: the caches hold entries
+chosen without a market. `~/.local/state/forkstify/resolve-cache.json` and
+`~/.cache/forkstify/discography/` have to go once, and fill again on their
+own.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
