@@ -93,6 +93,8 @@ the version it cuts, so this file cannot fall behind.
 
 ### For the catalog
 
+- **`:catalog shell`** opens a terminal in the catalog fork, for what the
+  gestures do not cover — a `git log`, a card written by hand.
 - **The index no longer churns.** Regenerating the vectors rewrote the whole
   file every time, because the embedding is not reproducible to the last
   digit. Each line now carries the fingerprint of the text it came from, and

@@ -490,6 +490,17 @@ table is gone.
 reflex (push / pull) and kept the words, since a proposal is not a push and
 an update is not a pull.
 
+## `:catalog shell` — a terminal in the fork (2026-09-23)
+
+Joel asked for a way into the catalog fork's directory from the player.
+`:catalog shell` launches the desktop's default terminal there:
+`xdg-terminal-exec --dir` — the default-terminal specification, which
+Omarchy's own launcher uses and sets `$TERMINAL` to — and, failing that,
+`$TERMINAL` started from the directory; with neither, the toast gives the
+path. The terminal gets its own process group, so closing the one forkstify
+runs in does not take it down. No key: the catalog namespace keeps its
+three gestures, and a shell is not a gesture on the catalog.
+
 ## Release notes, and a way to keep them honest (2026-09-23)
 
 Joel asked for a document recording what changes from one version to the

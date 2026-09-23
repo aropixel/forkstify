@@ -3881,6 +3881,37 @@ impl Live<'_> {
         }
     }
 
+    /// `:catalog shell` — the desktop's terminal, opened in the fork, for
+    /// what the gestures do not cover: a `git log`, a card by hand (Joel,
+    /// 23/09/2026). `xdg-terminal-exec` — the default-terminal
+    /// specification, what Omarchy sets `$TERMINAL` to — takes the
+    /// directory; failing that, `$TERMINAL` is launched from it. Its own
+    /// process group, so closing the terminal forkstify runs in does not
+    /// take the new one down.
+    fn catalog_shell(&mut self) {
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+        let dir = self.catalog_dir.clone();
+        let quiet = |mut command: Command| {
+            command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).process_group(0);
+            command
+        };
+        let mut launch = Command::new("xdg-terminal-exec");
+        launch.arg(format!("--dir={}", dir.display()));
+        let spawned = quiet(launch).spawn().or_else(|why| match std::env::var("TERMINAL") {
+            Ok(terminal) => {
+                let mut launch = Command::new(terminal);
+                launch.current_dir(&dir);
+                quiet(launch).spawn()
+            }
+            Err(_) => Err(why),
+        });
+        match spawned {
+            Ok(_) => self.tell(format!("→ a terminal in {}", dir.display())),
+            Err(why) => self.tell(format!("⏹ no terminal ({why}) — the fork is at {}", dir.display())),
+        }
+    }
+
     fn colon(&mut self, text: &str) {
         let mut words = text.split_whitespace();
         match (words.next(), words.next()) {
@@ -3941,6 +3972,7 @@ impl Live<'_> {
             (Some("catalog"), Some("diff")) => self.catalog_gesture('d'),
             (Some("catalog"), Some("propose")) => self.catalog_gesture('p'),
             (Some("catalog"), Some("update")) => self.catalog_gesture('u'),
+            (Some("catalog"), Some("shell")) => self.catalog_shell(),
             (Some("catalog"), Some("fork")) => match text.split_whitespace().nth(2) {
                 Some(url) => match crate::fork::fork(&self.catalog_dir, url) {
                     Ok(word) => say!(self, "✓ {word}"),
@@ -3948,7 +3980,7 @@ impl Live<'_> {
                 },
                 None => say!(self, "usage: :catalog fork <url of your fork>"),
             },
-            (Some("catalog"), Some(other)) => say!(self, "(:catalog {other} — diff, propose, update, or fork <url>)"),
+            (Some("catalog"), Some(other)) => say!(self, "(:catalog {other} — diff, propose, update, shell, or fork <url>)"),
             (Some("comfort"), None) => say!(self, 
                 "Comfort zone: {} — {}",
                 self.comfort.value(),
@@ -4163,6 +4195,7 @@ impl Live<'_> {
             (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration"),
             (":catalog", "the fork's state in one line"),
             (":catalog diff|propose|update", "the three gestures — Cd, Cp, Cu"),
+            (":catalog shell", "a terminal in the fork"),
             (":catalog fork <url>", "leave the local mode — rare, no key"),
             (":sync", "commit and push the learned now"),
             (":setup", "replay a step of the setup — catalog, identity, connection, library…"),
@@ -4258,6 +4291,7 @@ impl Live<'_> {
                 ("Cp", "propose — offer those cards to the reference, one pull request", Both),
                 ("Cu", "update — bring the reference into the fork (a merge)", Both),
                 (":catalog", "the state in one line", Both),
+                (":catalog shell", "a terminal in the fork", Both),
                 (":catalog fork <url>", "out of the local mode — rare, no key", Both),
             ],
             Some('a') => &[
