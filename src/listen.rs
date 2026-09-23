@@ -1240,10 +1240,13 @@ impl Live<'_> {
                     Err(why) => (None, Some(why)),
                 };
                 let replaced = self.catalog.cards.get(&slug).map(|c| c.name.clone());
-                if let Err(why) = self.adopt(draft, vector) {
-                    self.mark_pending();
-                    return self.tell(format!("⏹ card of {name} — {why}"));
-                }
+                let learned_dropped = match self.adopt(draft, vector) {
+                    Ok(dropped) => dropped,
+                    Err(why) => {
+                        self.mark_pending();
+                        return self.tell(format!("⏹ card of {name} — {why}"));
+                    }
+                };
                 // the card now exists for the engine: the link that asked
                 // for it is no longer a gap
                 self.missing.retain(|m| m.slug != slug);
@@ -1257,6 +1260,9 @@ impl Live<'_> {
                 match no_vector {
                     None => done.push_str(" · vector computed"),
                     Some(why) => done.push_str(&format!(" · no vector ({why}): navigating by the graph")),
+                }
+                if learned_dropped {
+                    done.push_str(" · learned of the old artist dropped");
                 }
                 self.tell(done);
                 // what is already on the axis for this artist — a track
@@ -1413,14 +1419,17 @@ impl Live<'_> {
     /// Bring a fresh card into the session: the disk, the commit — it is an
     /// edit (0013) — then the catalog **in memory**, without which it would
     /// only exist at the next launch. Over a card that exists, this is a
-    /// regeneration: the file is rewritten, the commit says who it was.
-    fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
+    /// regeneration: the file is rewritten, the commit says who it was, and
+    /// when the artist behind the slug changed, what was learned about the
+    /// old one goes in the same commit (Joel, 23/09/2026). Returns whether
+    /// it did.
+    fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<bool, String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
             .map_err(|e| format!("the composed card does not read back ({e})"))?;
         // the text the vector came from, fingerprinted into the index so a
         // later regeneration knows this line is current (2026-09-21)
         let text = crate::embed::text_of(&draft.slug, &card, &self.catalog.cards);
-        let mut edit = match self.catalog.cards.get(&draft.slug) {
+        let (mut edit, identity_changed) = match self.catalog.cards.get(&draft.slug) {
             Some(old) => crate::edit::regenerate_card(
                 &self.catalog_dir,
                 &draft.slug,
@@ -1430,15 +1439,29 @@ impl Live<'_> {
                 draft.links,
                 &old.name,
             )?,
-            None => crate::edit::create_card(
-                &self.catalog_dir,
-                &draft.slug,
-                &draft.name,
-                &draft.toml,
-                draft.tops,
-                draft.links,
-            )?,
+            None => (
+                crate::edit::create_card(
+                    &self.catalog_dir,
+                    &draft.slug,
+                    &draft.name,
+                    &draft.toml,
+                    draft.tops,
+                    draft.links,
+                )?,
+                false,
+            ),
         };
+        let mut learned_dropped = false;
+        if identity_changed {
+            if let Some(path) = self.learned.forget(&draft.slug) {
+                edit.removed.push(path);
+                edit.body = Some(format!(
+                    "{}\nlearned/ of the old artist dropped.",
+                    edit.body.take().unwrap_or_default()
+                ));
+                learned_dropped = true;
+            }
+        }
         // the vector goes in the same commit (0019): the index shipped with
         // the fork never lags behind its cards
         if let Some(vector) = &vector {
@@ -1449,7 +1472,7 @@ impl Live<'_> {
         if let Some(vector) = vector {
             self.catalog.vectors.insert(draft.slug, vector);
         }
-        Ok(())
+        Ok(learned_dropped)
     }
 
     /// Ask for the card of an artist who has none. Four network calls and

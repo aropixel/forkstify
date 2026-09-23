@@ -537,6 +537,19 @@ impl Learned {
         self.artists.entry(slug.to_string()).or_default()
     }
 
+    /// Drop what was learned about this slug, in memory and on disk: the
+    /// card was regenerated under another artist, and the counters belong
+    /// to the old one (Joel, 23/09/2026). Returns the file's path when
+    /// there was one, for the commit that replaces the card.
+    pub fn forget(&mut self, slug: &str) -> Option<PathBuf> {
+        self.artists.remove(slug);
+        let file = self.root.join("artists").join(format!("{slug}.toml"));
+        match std::fs::remove_file(&file) {
+            Ok(()) => Some(file),
+            Err(_) => None,
+        }
+    }
+
     /// One file per artist, written on every measure: they are tiny, and a
     /// crash must never cost what the ear just said.
     fn save(&self, slug: &str) {

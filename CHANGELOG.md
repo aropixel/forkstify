@@ -17,7 +17,8 @@ the version it cuts, so this file cannot fall behind.
 - **A card can be regenerated.** `:generate <name> <mbid>` over an artist
   who already has a card rewrites it from the sources, in one commit that
   says who the card used to be. For a card born under the wrong artist of
-  the same name.
+  the same name — and what was learned about that wrong artist goes with
+  it, in the same commit.
 - **A Spotify id in `:generate`.** `:generate <name> <mbid> <spotify-id>`
   puts that id in the card, ahead of the one MusicBrainz carries.
 

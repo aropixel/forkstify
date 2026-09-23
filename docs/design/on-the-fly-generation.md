@@ -165,6 +165,15 @@ in the way.
    name that is not yours. Two ignored network tests pin the two cases,
    Boo and The Cure.
 
+4. **The learned of the old artist goes in the same commit** (Joel,
+   2026-09-23, "drop the learned in the same commit"). The learned file is
+   keyed by slug, so after a regeneration that changes who the slug is, its
+   counters belong to somebody else. When the MBID moved, `learned/artists/
+   <slug>.toml` is deleted, in memory and on disk, and the commit records
+   the removal — whether or not git tracked the file yet. Under the same
+   MBID — a re-harvest — nothing is dropped: the counters are still the
+   artist's.
+
 **Wired on 2026-09-23.** For Boo:
 `:generate Boo a15ba7c3-e02e-440b-bc7e-cc60c328e34a 75aF8TBGAxDZlcFPDEhIIK`.
 The tops will still be Deezer's, found by name, and Deezer has no Czech
@@ -172,11 +181,6 @@ Boo: they are somebody else's until edited, and `ad` fills the tail from the
 right Spotify id.
 
 ## To settle
-
-- **Regenerating under a new identity and `learned/`.** The learned file is
-  keyed by slug: after a regeneration that changes who the slug is, its
-  counters belong to the old artist. Drop it in the same commit, or keep it
-  since the titles will simply not match? Boo had none; undecided.
 
 - **Recomputing the vectors after a link is edited in session** — `aL`
   changes the text of both cards; their vectors only move at the next

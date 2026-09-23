@@ -2748,3 +2748,11 @@ the form instead of stopping mute. Two ignored network tests pin Boo (passed
 over) and The Cure (settled by link). What stays as it was: Deezer's tops
 are still found by name, so a band Deezer lacks gets a namesake's tops
 until edited.
+
+**And the learned goes with the old artist** (Joel, the same evening: "drop
+the learned in the same commit"). When the regeneration changes the MBID,
+`Learned::forget` drops the slug's counters in memory and deletes its file,
+and the edit's commit stages the removal with `git rm --cached
+--ignore-unmatch`, which is silent when git never tracked the file. Under
+the same MBID nothing is dropped. The toast and the commit body both say
+it. Pinned by a test on whether the identity moved.

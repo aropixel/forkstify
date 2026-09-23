@@ -78,6 +78,10 @@ pub struct Edit {
     /// What else the same edit touched — the index, when a card comes with
     /// its vector (0019): one thought, one commit.
     pub also: Vec<PathBuf>,
+    /// What the same edit deleted — the learned file of an artist a
+    /// regeneration replaced (Joel, 23/09/2026). Already gone from disk;
+    /// the commit records the removal.
+    pub removed: Vec<PathBuf>,
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -114,13 +118,14 @@ pub fn add_door(
         body: None,
         path,
         also: Vec::new(),
+        removed: Vec::new(),
     })
 }
 
 /// `ae`: the card was edited by hand, in `$EDITOR`; what changed is the
 /// diff, the commit only says who and how.
 pub fn edited_by_hand(dir: &Path, slug: &str, name: &str) -> Edit {
-    Edit { summary: format!("{name} — edited by hand"), body: None, path: card_path(dir, slug), also: Vec::new() }
+    Edit { summary: format!("{name} — edited by hand"), body: None, path: card_path(dir, slug), also: Vec::new(), removed: Vec::new() }
 }
 
 /// The **batch** of the discography screen (mockup 1a, 07/09/2026): five
@@ -186,6 +191,7 @@ pub fn set_tops(
         body: Some(lines.join("\n")),
         path,
         also: Vec::new(),
+        removed: Vec::new(),
     })
 }
 
@@ -219,6 +225,7 @@ pub fn create_card(
         )),
         path,
         also: Vec::new(),
+        removed: Vec::new(),
     })
 }
 
@@ -226,7 +233,9 @@ pub fn create_card(
 /// over a card that exists (Joel, 23/09/2026). The whole text goes, hand
 /// edits included: that is what you want when the card was born under the
 /// wrong artist, and the commit is the undo when it was not. `was` names
-/// who the card used to be, for the commit.
+/// who the card used to be, for the commit. The second value says whether
+/// the identity moved — another MBID — which is when the learned file of
+/// the old artist has to go with it.
 pub fn regenerate_card(
     dir: &Path,
     slug: &str,
@@ -235,27 +244,32 @@ pub fn regenerate_card(
     tops: usize,
     links: usize,
     was: &str,
-) -> Result<Edit, String> {
+) -> Result<(Edit, bool), String> {
     let path = card_path(dir, slug);
     if !path.exists() {
         return Err(format!("{name} has no card to regenerate"));
     }
     // the old identity, for the record: the commit says who this was
     let before = read(&path)?;
-    let old_mbid = before
-        .lines()
-        .find_map(|line| line.strip_prefix("mbid = ").map(|v| v.trim_matches('"')))
-        .unwrap_or("no mbid");
+    let old_mbid = mbid_in(&before).unwrap_or("no mbid");
+    let identity_changed = mbid_in(text) != Some(old_mbid);
     let was = format!("{was} ({old_mbid})");
     write(&path, text)?;
-    Ok(Edit {
+    let edit = Edit {
         summary: format!("{name} — card regenerated"),
         body: Some(format!(
             "Was {was}.\n{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
         )),
         path,
         also: Vec::new(),
-    })
+        removed: Vec::new(),
+    };
+    Ok((edit, identity_changed))
+}
+
+/// The `mbid = "…"` line of a card's text, as the generator writes it.
+fn mbid_in(text: &str) -> Option<&str> {
+    text.lines().find_map(|line| line.strip_prefix("mbid = ").map(|v| v.trim_matches('"')))
 }
 
 /// The commit. An edit that leaves no readable trace is not one (0013);
@@ -279,6 +293,11 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
     };
     for path in std::iter::once(&edit.path).chain(&edit.also) {
         run(&["add", &relative(path)])?;
+    }
+    // a file already deleted from disk: staged whether git tracked it or
+    // not, silently when it did not
+    for path in &edit.removed {
+        run(&["rm", "-q", "--cached", "--ignore-unmatch", "--", &relative(path)])?;
     }
     let mut args = vec!["commit".to_string(), "-q".to_string(), "-m".to_string(), edit.summary.clone()];
     if let Some(body) = &edit.body {
@@ -346,6 +365,25 @@ mod tests {
         assert_eq!(card.doors[0].to, vec!["post-punk", "atmospherique"]);
         assert_eq!(card.links.len(), 2);
         assert!(card.links.iter().any(|l| l.to == "siouxsie" && l.kind == "member"));
+    }
+
+    /// Regenerating under another MBID says so; under the same one — a
+    /// re-harvest — the learned of the artist has no reason to go.
+    #[test]
+    fn a_regeneration_knows_whether_the_identity_moved() {
+        let dir = std::env::temp_dir().join(format!("forkstify-regen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cards")).expect("temp dir");
+        std::fs::write(card_path(&dir, "the-cure"), CARD).expect("card");
+        let other = CARD.replace("mbid = \"abc\"", "mbid = \"def\"");
+        let (edit, moved) = regenerate_card(&dir, "the-cure", "The Cure", &other, 2, 1, "The Cure").expect("edit");
+        assert!(moved);
+        assert!(edit.body.as_deref().unwrap_or("").contains("Was The Cure (abc)"), "{:?}", edit.body);
+        // the same MBID again: a re-harvest, the identity stands
+        let (_, moved) = regenerate_card(&dir, "the-cure", "The Cure", &other, 2, 1, "The Cure").expect("edit");
+        assert!(!moved);
+        assert!(regenerate_card(&dir, "nobody", "Nobody", CARD, 0, 0, "x").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A title with quotes or an apostrophe must not break the card.
