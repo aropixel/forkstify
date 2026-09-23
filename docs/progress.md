@@ -523,6 +523,13 @@ it. A branch reached through a connection already says "yours" as its
 reason, so the connection is visible where it acts. The modal's title
 still said `aL`; it says `ac`.
 
+**The second step followed the same day.** `:connections` lists every
+connection drawn, grouped by the artist it was drawn from, sorted by name,
+with its closeness, in a block that scrolls like `Cd` on both screens.
+Read-only by design: setting or undrawing goes through `ac` on either
+artist, and the block's last line says so. No key — it is a look, not a
+gesture, and the `:` level of the helper lists it.
+
 ## The closeness question waits (2026-09-23)
 
 Joel used `ac` and found the question toast gone after its few seconds,

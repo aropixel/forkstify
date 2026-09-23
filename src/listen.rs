@@ -3393,6 +3393,39 @@ impl Live<'_> {
         say!(self, "✓ {from_name} → {to_name} — yours, closeness {proximity}");
     }
 
+    /// `:connections` — every connection drawn with `ac`, by artist, with
+    /// its closeness, in a block that scrolls like `Cd` (Joel, 23/09/2026).
+    /// Read-only: to set or undraw one, `ac` on either of its artists. It
+    /// answers "where did I draw what", which the modal of one artist
+    /// cannot.
+    fn connections_overlay(&mut self) {
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+        let mut all: Vec<(String, String, u8)> =
+            self.learned.all_connections().into_iter().map(|(from, to, n)| (name(from), name(to), n)).collect();
+        all.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()).then(a.1.to_lowercase().cmp(&b.1.to_lowercase())));
+        if all.is_empty() {
+            self.overlay = Some(("your connections".to_string(), vec![" (none drawn yet — ac draws one)".to_string()]));
+            return;
+        }
+        let artists = all.iter().map(|(from, _, _)| from.clone()).collect::<std::collections::BTreeSet<_>>().len();
+        let mut lines = Vec::new();
+        let mut last: Option<&str> = None;
+        for (from, to, n) in &all {
+            if last != Some(from.as_str()) {
+                if last.is_some() {
+                    lines.push(String::new());
+                }
+                lines.push(format!(" {from}"));
+                last = Some(from.as_str());
+            }
+            lines.push(format!("   → {to} · closeness {n}"));
+        }
+        lines.push(String::new());
+        lines.push(" ac on either artist sets or undraws one · esc closes".to_string());
+        let title = format!("your connections — {} from {} artist{}", all.len(), artists, if artists > 1 { "s" } else { "" });
+        self.overlay = Some((title, lines));
+    }
+
     /// `x` on the question of a drawn connection: undraw it (2026-09-23).
     /// Nothing is committed — it lives in `learned/`, which forkstify
     /// commits on its own schedule (0017).
@@ -4011,6 +4044,9 @@ impl Live<'_> {
             // the catalog, as commands (workstream B): the state in one line,
             // the three gestures, and the way out of the local mode
             (Some("catalog"), None) => self.catalog_status(),
+            // every connection drawn with `ac`, in one block (Joel,
+            // 23/09/2026) — read-only: setting one goes through `ac`
+            (Some("connections"), _) => self.connections_overlay(),
             (Some("catalog"), Some("diff")) => self.catalog_gesture('d'),
             (Some("catalog"), Some("propose")) => self.catalog_gesture('p'),
             (Some("catalog"), Some("update")) => self.catalog_gesture('u'),
@@ -4231,6 +4267,7 @@ impl Live<'_> {
             (":search [text]", "search — the modal: catalog then Spotify, enter takes"),
             (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
             (":discography", "the artist's discography by album — shortcut ad"),
+            (":connections", "every connection drawn with ac, by artist"),
             (":warm", "fetch the artist's discography now — the long tail"),
             (":wander [artist]", "far away, or to that artist — shortcut fw"),
             (":size <n>", "branch size, 1 to 9"),

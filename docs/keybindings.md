@@ -253,6 +253,7 @@ follows the screen: at the home, the highlighted artist of the collection.
 | `:catalog shell` | **A terminal in the fork** (Joel, 2026-09-23), for what the gestures do not cover — a `git log`, a card by hand. The desktop's default terminal (`xdg-terminal-exec --dir`), else `$TERMINAL` launched from the directory; with neither, the toast gives the path | ✅ |
 | `:catalog fork <url>` | **Leave local mode**: the reference becomes `upstream`, your fork's URL becomes `origin`, `main` is pushed, and the learned layer pushes there from then on — rare, no key | ✅ |
 | `:discography` | The artist's discography, as a modal — the `ad` shortcut (Joel, 2026-09-07); at the home, the highlighted artist's, generated first when they have no card (2026-09-23) | ✅ |
+| `:connections` | **Every connection drawn with `ac`**, by artist, with its closeness — a block that scrolls like `Cd`, on both screens (Joel, 2026-09-23). Read-only: to set or undraw one, `ac` on either of its artists. It answers "where did I draw what" | ✅ |
 | `:setup` | **Replay a setup step** — the list of seven, ticked or not, `⏎` or `1-7` replays one; the session closes and home comes back on the catalog (2026-09-20, [design/before-release.md](design/before-release.md) workstream A) | ✅ |
 | `:library` | **Re-harvest the library** — steps 4, 5 and 7 of the setup in a row: tracks, albums, follows, ticked playlists (remembered), missing cards from the top of the ranking | ✅ |
 
