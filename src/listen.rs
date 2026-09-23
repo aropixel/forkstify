@@ -919,6 +919,7 @@ impl Live<'_> {
         let was_help = self.help_open;
         let keeps_overlay = match &cmd {
             Cmd::Pending(_) | Cmd::Help(_) => true,
+            Cmd::Typing(Some(line)) => line.starts_with(':'),
             Cmd::Up | Cmd::Down | Cmd::Auto => !self.help_open,
             _ => false,
         };
@@ -940,8 +941,15 @@ impl Live<'_> {
                 return true;
             }
             Cmd::Pending(seq) => self.follow_typing(seq),
+            Cmd::Typing(Some(line)) => self.follow_line(line),
             // esc closes the help, and nothing else
             Cmd::Escape if was_help => return true,
+            // every `:` command works here as when listening (Joel,
+            // 23/09/2026): one table of commands, one helper for it
+            Cmd::Colon(text) => {
+                let text = text.clone();
+                return self.run_colon(&text).await;
+            }
             _ => {}
         }
         let live = !self.rounds.is_empty();
@@ -975,7 +983,6 @@ impl Live<'_> {
             }
             Outcome::Start(choice) => self.start_journey(choice).await,
             Outcome::Resume(saved) => self.restore(saved).await,
-            Outcome::Find(query) => self.open_finder(None, &query),
             // `ad` on the highlighted line of the collection: the same
             // modal, laid over the home
             Outcome::Explore { slug, name } => self.open_explore_of(&slug, &name).await,
@@ -2087,6 +2094,7 @@ impl Live<'_> {
         // completes
         let keeps_overlay = match &cmd {
             Cmd::Pending(_) | Cmd::Help(_) => true,
+            Cmd::Typing(Some(line)) => line.starts_with(':'),
             Cmd::Up | Cmd::Down | Cmd::Auto => !self.help_open,
             _ => false,
         };
@@ -2117,6 +2125,9 @@ impl Live<'_> {
             }
             Cmd::Typing(line) => {
                 self.typed = line.clone().unwrap_or_default();
+                if let Some(line) = line {
+                    self.follow_line(line);
+                }
                 return true;
             }
             Cmd::Unknown(seq) => {
@@ -2217,38 +2228,7 @@ impl Live<'_> {
             Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop | Cmd::Undo => {
                 say!(self, "(ad opens the discography: these keys work there)")
             }
-            Cmd::Colon(text) => {
-                self.colon(&text);
-                if self.leave.is_some() {
-                    return false;
-                }
-                if let Some(query) = self.search_requested.take() {
-                    self.open_finder(None, &query);
-                }
-                if let Some(target) = self.wander_requested.take() {
-                    self.wander(&target).await;
-                }
-                if std::mem::take(&mut self.warm_requested) {
-                    // the artist under the needle — the highlighted line, or
-                    // what plays (0020) — not the end of the branch chain,
-                    // which is no longer what sounds (Joel, 14/09/2026)
-                    let current = self
-                        .target()
-                        .map(|stop| stop.slug.clone())
-                        .filter(|slug| self.catalog.cards.contains_key(slug))
-                        .unwrap_or_else(|| self.state().1);
-                    let name = self.catalog.cards[&current].name.clone();
-                    // `:warm` means "go and get it now": forget any cached
-                    // harvest first, so an empty one no longer blocks the
-                    // retry (Joel, 14/09/2026 — Jarvis Cocker stuck at 0)
-                    self.tail.forget(&current);
-                    match self.harvest(&current, false) {
-                        Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&current).len()),
-                        Ok(false) => say!(self, "… discography of {name} being fetched"),
-                        Err(why) => say!(self, "⏹ {why}"),
-                    }
-                }
-            }
+            Cmd::Colon(text) => return self.run_colon(&text).await,
             // routed before the screens split
             Cmd::Open | Cmd::Catalog(_) => {}
         }
@@ -4054,6 +4034,122 @@ impl Live<'_> {
         say!(self, "\n{keys} — {what}: decided (0015), not wired yet.");
     }
 
+    /// A `:` line, on either screen (Joel, 23/09/2026). `colon` reads it
+    /// and leaves flags; here they are acted on — with the loop, which the
+    /// keyboard does not have. False when the session is leaving for the
+    /// setup.
+    async fn run_colon(&mut self, text: &str) -> bool {
+        self.colon(text);
+        if self.leave.is_some() {
+            return false;
+        }
+        if let Some(query) = self.search_requested.take() {
+            self.open_finder(None, &query);
+        }
+        if let Some(target) = self.wander_requested.take() {
+            self.wander(&target).await;
+        }
+        if std::mem::take(&mut self.warm_requested) {
+            match self.aimed_artist() {
+                Some((Some(slug), name)) => {
+                    // `:warm` means "go and get it now": forget any cached
+                    // harvest first, so an empty one no longer blocks the
+                    // retry (Joel, 14/09/2026 — Jarvis Cocker stuck at 0)
+                    self.tail.forget(&slug);
+                    match self.harvest(&slug, false) {
+                        Ok(true) => say!(self, "✓ discography of {name} — {} tracks already cached", self.tail.of(&slug).len()),
+                        Ok(false) => say!(self, "… discography of {name} being fetched"),
+                        Err(why) => say!(self, "⏹ {why}"),
+                    }
+                }
+                Some((None, name)) => say!(self, "({name} has no card — ad generates it)"),
+                None => say!(self, "(nothing highlighted — ↑↓ to choose)"),
+            }
+        }
+        // `ad` spelled out: the modal over the listening, or over the home
+        // on the highlighted line — an artist without a card is generated
+        // first, as `ad` does there (0016)
+        if std::mem::take(&mut self.explore_requested) {
+            if self.screen != Screen::Home {
+                self.open_explore().await;
+            } else {
+                match self.aimed_artist() {
+                    Some((Some(slug), name)) => self.open_explore_of(&slug, &name).await,
+                    Some((None, name)) => {
+                        let slug = crate::generate::slugify(&name);
+                        self.generate(&slug, Some(&name), None, After::Explore);
+                    }
+                    None => say!(self, "(nothing highlighted — ↑↓ to choose)"),
+                }
+            }
+        }
+        true
+    }
+
+    /// The artist a `:warm` or `:discography` is aimed at: at the home the
+    /// highlighted line of the collection — none when nothing is
+    /// highlighted —, when listening the one under the needle: the
+    /// highlighted row, otherwise what plays (0020), not the end of the
+    /// branch chain, which is no longer what sounds (Joel, 14/09/2026).
+    fn aimed_artist(&self) -> Option<(Option<String>, String)> {
+        if self.screen == Screen::Home {
+            return self.home.highlighted(&self.catalog, &self.learned);
+        }
+        let slug = self
+            .target()
+            .map(|stop| stop.slug.clone())
+            .filter(|slug| self.catalog.cards.contains_key(slug))
+            .unwrap_or_else(|| self.state().1);
+        let name = self.catalog.cards[&slug].name.clone();
+        Some((Some(slug), name))
+    }
+
+    /// The `:` line is a namespace of its own (Joel, 23/09/2026): as soon
+    /// as it opens, the helper lists the commands, narrowed to the word
+    /// being typed — `:c` leaves catalog and comfort. It closes with the
+    /// line, since the line's end is what clears the overlays.
+    fn follow_line(&mut self, line: &str) {
+        let Some(typed) = line.strip_prefix(':') else { return };
+        if !self.help_open {
+            self.overlay_scroll = 0;
+            self.help_open = true;
+            self.help_auto = true;
+        }
+        self.commands_help(typed);
+    }
+
+    /// The commands level of the helper: one table for both screens, every
+    /// command works on both (Joel, 23/09/2026).
+    fn commands_help(&mut self, typed: &str) {
+        const COMMANDS: &[(&str, &str)] = &[
+            (":search [text]", "search — the modal: catalog then Spotify, enter takes"),
+            (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
+            (":discography", "the artist's discography by album — shortcut ad"),
+            (":warm", "fetch the artist's discography now — the long tail"),
+            (":wander [artist]", "far away, or to that artist — shortcut fw"),
+            (":size <n>", "branch size, 1 to 9"),
+            (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration"),
+            (":catalog", "the fork's state in one line"),
+            (":catalog diff|propose|update", "the three gestures — Cd, Cp, Cu"),
+            (":catalog fork <url>", "leave the local mode — rare, no key"),
+            (":sync", "commit and push the learned now"),
+            (":setup", "replay a step of the setup — catalog, identity, connection, library…"),
+            (":library", "harvest the library again — steps 4, 5 and 7 of the setup"),
+        ];
+        let word = typed.split_whitespace().next().unwrap_or("");
+        let mut lines: Vec<String> = COMMANDS
+            .iter()
+            .filter(|(command, _)| command[1..].starts_with(word))
+            .map(|(command, what)| format!("   {command:<30} {what}"))
+            .collect();
+        if lines.is_empty() {
+            lines.push(format!(" (no command starts with {word})"));
+        }
+        lines.push(String::new());
+        lines.push(" enter runs · esc closes".into());
+        self.overlay = Some((": — the commands".to_string(), lines));
+    }
+
     /// The key helper follows what is typed (Joel, 07/09/2026): open, it
     /// goes down to the level typed and back up on ⌫. Closed, **a
     /// namespace typed opens its level on its own** — `t` shows `tl`,
@@ -4162,8 +4258,7 @@ impl Live<'_> {
                 ("r", "back to listening · else resume the last journey", true),
                 ("q", "quit", true),
                 ("/text", "filter the collection — esc clears", true),
-                (":search", "search — the modal: catalog then Spotify, enter starts", true),
-                (":generate <name> [mbid]", "bring in a missing artist", true),
+                (":", "the commands — their list opens on :", true),
             ],
             _ => &[
                 ("1-9", "take a branch", true),
@@ -4181,16 +4276,7 @@ impl Live<'_> {
                 ("C", "the catalog — its keys open on C", true),
                 ("q", "quit", true),
                 ("/text", "filter a list — the collection, the discography", true),
-                (":search", "search — the modal: catalog then Spotify, enter takes", true),
-                (":size <n>", "branch size", true),
-                (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration", true),
-                (":warm", "fetch the current artist's discography", true),
-                (":discography", "their discography by album — shortcut ad", true),
-                (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough", true),
-                (":catalog", "the fork's state in one line · :catalog fork <url> leaves the local mode", true),
-                (":sync", "commit and push the learned now", true),
-                (":setup", "replay a step of the setup — catalog, identity, connection, library…", true),
-                (":library", "harvest the library again — steps 4, 5 and 7 of the setup", true),
+                (":", "the commands — their list opens on :", true),
                 ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", true),
             ],
         };
@@ -4205,8 +4291,8 @@ impl Live<'_> {
             _ => "the keys",
         };
         // a block lays over the screen; it does not go down into the log,
-        // whose bottom must never move. The keys come first, then the
-        // lines typed after `/` and `:`, then the legend (Joel, 23/09/2026)
+        // whose bottom must never move. The keys come first, then the two
+        // lines, `/` and `:`, then the legend (Joel, 23/09/2026)
         let mut lines: Vec<String> = rows
             .iter()
             .map(|(keys, what, wired)| {

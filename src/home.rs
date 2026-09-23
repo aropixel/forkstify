@@ -569,9 +569,6 @@ pub enum Outcome {
     Resume(LastSession),
     /// Go back to the current session screen, changing nothing.
     Back,
-    /// Open the search modal, empty or already filled — it lives on the
-    /// session screen, which holds it for both screens (Joel, 09/09/2026).
-    Find(String),
     /// `:generate <name>` — bring in an artist missing from the catalog, then
     /// start from them ([0016]).
     Generate(String),
@@ -616,6 +613,15 @@ impl Default for Home {
 }
 
 impl Home {
+    /// The highlighted artist of the collection — for a gesture the session
+    /// aims at it from here (`:warm`, `:discography`; Joel, 23/09/2026).
+    /// The slug is absent for an artist without a card.
+    pub fn highlighted(&self, catalog: &Catalog, learned: &Learned) -> Option<(Option<String>, String)> {
+        let index = self.cursor?;
+        let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
+        listing.get(index).map(|(slug, row)| (slug.clone(), row.name.clone()))
+    }
+
     /// What home has to say after a key. The session picks it up after
     /// every gesture and shows it as a toast: **every notification is a
     /// toast** (Joel, 10/09/2026), the bottom line only carries the input
@@ -847,29 +853,6 @@ impl Home {
                 *comfort = Comfort::new(n);
                 self.said = format!("comfort {n} — {}", crate::listen::comfort_word(n));
                 Outcome::Stay
-            }
-            Cmd::Colon(text) => {
-                let mut words = text.split_whitespace();
-                match (words.next(), words.next()) {
-                    (Some("comfort"), Some(v)) => {
-                        if let Ok(v) = v.parse::<u8>() {
-                            if v <= 5 {
-                                *comfort = Comfort::new(v);
-                            }
-                        }
-                        Outcome::Stay
-                    }
-                    // the same modal as when listening, opened from home:
-                    // `:search` alone opens it empty, `:search <text>` fills
-                    // it (Joel, 09/09/2026)
-                    (Some("search"), _) => {
-                        Outcome::Find(text.trim().trim_start_matches("search").trim().to_string())
-                    }
-                    (Some("generate"), Some(_)) => Outcome::Generate(
-                        text.trim().trim_start_matches("generate").trim().to_string(),
-                    ),
-                    _ => Outcome::Stay,
-                }
             }
             Cmd::Up => {
                 let here = self.cursor.unwrap_or(0);

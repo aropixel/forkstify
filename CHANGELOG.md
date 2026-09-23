@@ -36,6 +36,13 @@ the version it cuts, so this file cannot fall behind.
   the keys of that namespace appear at once — no space needed. Space still
   opens the help of the beginning, with everything you can type. In every
   level, the keys come first, then the `/` and `:` lines.
+- **The `:` commands have their own level in the helper.** Typing `:`
+  lists them, and the list narrows as you type. The entry help shows one
+  `:` row instead of a dozen.
+- **Every `:` command works at the home too.** `:size`, `:warm`,
+  `:discography`, `:wander`, `:catalog`, `:sync`, `:setup` and `:library`
+  used to answer only while listening. At the home, `:warm` and
+  `:discography` aim at the highlighted artist.
 - **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
   the track alone. While listening it takes the highlighted track out of the
   queue — still proposable, it is not a ban. At the home it takes the

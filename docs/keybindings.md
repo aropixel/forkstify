@@ -23,8 +23,11 @@ pressed in the hints performs the action (`space`, `e`, `3` = `e3`). `⌫`
 goes one level up, `escape` closes (Joel, 2026-09-07). **A namespace typed
 opens its level on its own** (Joel, 2026-09-23): `t` shows `tl`, `ts`…
 without space, and `⌫` closes it — space is for the entry level, the help
-of the beginning. In every level the **keys come first**, then the lines
-typed after `/` and `:`.
+of the beginning. **`:` is a level of its own**: the line opens the list
+of the commands, narrowed to the word being typed (`:c` leaves `catalog`
+and `comfort`), and the entry table holds one `:` row instead of every
+command. In every level the **keys come first**, then the two lines, `/`
+and `:`, then the legend.
 
 Every key comes from an **English word**, vim-style (`y` yank, `c` change):
 `f` fork, `e` encore, `t` track, `a` artist, then `l` like, `s` skip,
@@ -225,21 +228,24 @@ criterion, never the main one".
 
 ## `:` commands
 
-0013 wants every key to be the shortcut of a `:` command. Only `:size` is
-served for now — it replaced the old `b<n>`.
+0013 wants every key to be the shortcut of a `:` command. **Every command
+works on both screens** (Joel, 2026-09-23): the home used to answer three of
+them with a table of its own; now the session runs the line wherever it was
+typed, and the helper lists them all under `:`. What a command aims at
+follows the screen: at the home, the highlighted artist of the collection.
 
 | Command | Action | |
 |---|---|---|
 | `:size <n>` | Branch size, 1 to 9 (with no argument: shows it) | ✅ |
 | `:comfort <n>` | Comfort zone, **5 = cocoon → 0 = exploration** ([0001](decisions/0001-comfort-is-familiarity.md)); with no argument, shows it. **Kept from one launch to the next** (Joel, 2026-09-14) | ✅ |
-| `:warm` | Harvest the discography of the artist **under the needle** — the highlighted row, otherwise what is playing (0020) — the long tail. It wrongly took the last artist of the chain (Joel, 2026-09-14) | ✅ |
+| `:warm` | Harvest the discography of the artist **under the needle** — the highlighted row, otherwise what is playing (0020); at the home, the highlighted artist — the long tail. It wrongly took the last artist of the chain (Joel, 2026-09-14) | ✅ |
 | `:wander [artist]` | Go far away — the `fw` shortcut; with a name, to that artist (2026-09-11) | ✅ |
 | `:sync` / `:push` | Commit and push the learned layer now — otherwise every ten minutes, on exit, and pull on start ([0017](decisions/0017-syncing-the-learned.md)) | ✅ |
 | `:generate <name> [mbid]` | **Bring in an artist missing** from the catalog, then set off from them — or, if they were proposed **as a gap**, take their branch at the end of the queue. An MBID as the last word replaces the search by name when MusicBrainz does not find them; if it does not answer at all, the card is born minimal (name, id, Deezer tops), flagged for review ([0016](decisions/0016-broad-base-and-on-the-fly-generation.md)): a card composed from MusicBrainz and Deezer, **its vector computed** ([0019](decisions/0019-the-application-vectorizes.md)), one single commit, and the session's catalog has it right away. Works on home as while listening. **With an mbid, over ongoing playback, it no longer starts on its own** (Joel, 2026-09-11): the success toast lingers and offers — **⏎** sets off from the artist and replaces the list, any other key keeps it. The search modal does the same on a result outside the catalog, with a plain `enter` — and so does **`enter` on a collection row without a card** (Joel, 2026-09-10, on Kanye West) | ✅ |
 | `:catalog` | **The state of the fork in one line**: where we pull from, where we push to, commits ahead and behind, the date of the last update, cards beyond the reference; in local mode, it says so. And, after a `Cu` stopped on some cards: **resumes** once the cards are added (or committed) — the merge finishes, the index regenerates | ✅ |
 | `:catalog diff` / `propose` / `update` | The three gestures, as a command — `Cd`, `Cp`, `Cu` | ✅ |
 | `:catalog fork <url>` | **Leave local mode**: the reference becomes `upstream`, your fork's URL becomes `origin`, `main` is pushed, and the learned layer pushes there from then on — rare, no key | ✅ |
-| `:discography` | The artist's discography, as a modal — the `ad` shortcut (Joel, 2026-09-07) | ✅ |
+| `:discography` | The artist's discography, as a modal — the `ad` shortcut (Joel, 2026-09-07); at the home, the highlighted artist's, generated first when they have no card (2026-09-23) | ✅ |
 | `:setup` | **Replay a setup step** — the list of seven, ticked or not, `⏎` or `1-7` replays one; the session closes and home comes back on the catalog (2026-09-20, [design/before-release.md](design/before-release.md) workstream A) | ✅ |
 | `:library` | **Re-harvest the library** — steps 4, 5 and 7 of the setup in a row: tracks, albums, follows, ticked playlists (remembered), missing cards from the top of the ranking | ✅ |
 

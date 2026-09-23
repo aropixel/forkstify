@@ -459,6 +459,20 @@ level nobody asked for, and its footer says so.
 **And the rows are ordered**: the keys first, then the lines typed after `/`
 and `:`, the legend last — both entry tables were mixing them.
 
+**Then, the same evening, the `:` commands fold into a level of their own.**
+Joel found the entry help heavy and the two screens' helpers too different.
+The `:` line is now followed like a namespace: `follow_line` opens the
+commands level as soon as the line starts, narrowed to the word typed, and
+the line's end closes it — so the entry table keeps one `:` row. For the
+level to be honest on both screens, **every command now works at the
+home**: the home's own three-command table is gone, the session runs the
+line wherever it was typed (`run_colon`, one path for both screens), and
+`:warm` / `:discography` aim at the highlighted artist of the collection
+(`Home::highlighted`), generating the card first when there is none, as
+`ad` does there. The entry tables now differ only by their keys — the next
+step, still to settle with Joel: which of `f`, `e`, `h`/`l`, `J`/`K`, the
+`t` namespace, `s`, `v`, `r` should mean something on the other screen.
+
 `Cp` and `Cu` stay as they are: Joel weighed `CP` / `Cp` for the lazygit
 reflex (push / pull) and kept the words, since a proposal is not a push and
 an update is not a pull.
