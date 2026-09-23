@@ -179,7 +179,7 @@ pub enum Parse {
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
 const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'i', 'a', 'g'];
-const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
+const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'c', 'd', 'g'];
 /// `Cd` diff, `Cp` propose, `Cu` update.
 const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
 /// In the discography modal, `t` only serves what makes sense on a list
@@ -788,7 +788,7 @@ mod tests {
     fn namespaces_and_bare_keys() {
         assert_eq!(parse("tl").done(), Some(Cmd::Track('l')));
         assert_eq!(parse("al").done(), Some(Cmd::Artist('l')));
-        assert_eq!(parse("aL").done(), Some(Cmd::Artist('L')));
+        assert_eq!(parse("ac").done(), Some(Cmd::Artist('c')));
         assert_eq!(parse("ag").done(), Some(Cmd::Artist('g')));
         assert!(matches!(parse("C"), Parse::Pending));
         assert_eq!(parse("Cd").done(), Some(Cmd::Catalog('d')));

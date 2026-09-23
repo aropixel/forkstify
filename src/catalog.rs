@@ -5,6 +5,11 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
 
+/// The kind of a link the listener drew themselves (`ac`, 2026-09-23).
+/// No card ever carries it: it is woven into the catalog in memory from
+/// `learned/`, so the engine walks it while `cards/` stays untouched.
+pub const MINE: &str = "mine";
+
 #[derive(Deserialize)]
 pub struct Link {
     pub to: String,

@@ -65,22 +65,6 @@ fn door_line(title: &str, tags: &[String]) -> String {
     )
 }
 
-fn link_line(to_slug: &str, kind: &str, proximity: Option<u8>) -> String {
-    // no proximity = the grid of catalog.toml decides, by kind. One written
-    // here overrides it for this link alone (0010).
-    let near = match proximity {
-        Some(n) => format!(" proximity = {n},"),
-        None => String::new(),
-    };
-    format!(
-        "  {{ to = {}, type = {},{} note = {} }},",
-        quoted(to_slug),
-        quoted(kind),
-        near,
-        provenance("linked")
-    )
-}
-
 /// What an edit changed, said in one sentence — it is the commit message
 /// and also what shows on screen. One wording for both: what the user reads
 /// is what git will keep.
@@ -131,62 +115,6 @@ pub fn add_door(
         path,
         also: Vec::new(),
     })
-}
-
-/// `aL` — link two artists ([0010]: a closed type, a note that explains).
-pub fn add_link(
-    dir: &Path,
-    slug: &str,
-    name: &str,
-    to_slug: &str,
-    to_name: &str,
-    kind: &str,
-    proximity: Option<u8>,
-) -> Result<Edit, String> {
-    if slug == to_slug {
-        return Err("an artist does not link to itself".into());
-    }
-    let path = card_path(dir, slug);
-    let text = read(&path)?;
-    if let Some((from, to)) = array_span(&text, "links") {
-        if text[from..to].contains(&format!("to = {}", quoted(to_slug))) {
-            return Err(format!("{name} is already linked to {to_name}"));
-        }
-    }
-    let updated = insert_into_array(&text, "links", &link_line(to_slug, kind, proximity));
-    write(&path, &updated)?;
-    Ok(Edit { summary: match proximity {
-        Some(n) => format!("{name} — link: → {to_name} ({kind}, proximity {n})"),
-        None => format!("{name} — link: → {to_name} ({kind})"),
-    }, body: None, path, also: Vec::new() })
-}
-
-/// `aL` on a link the card already has: **unlink** (Joel, 20/09/2026 —
-/// King Hannah linked to Beirut by mistake). The line goes, the rest of
-/// the card is untouched; the commit names the type it had.
-pub fn remove_link(dir: &Path, slug: &str, name: &str, to_slug: &str, to_name: &str) -> Result<Edit, String> {
-    let path = card_path(dir, slug);
-    let text = read(&path)?;
-    let needle = format!("to = {}", quoted(to_slug));
-    let mut kind = String::from("link");
-    let kept: Vec<&str> = text
-        .lines()
-        .filter(|line| {
-            let trimmed = line.trim();
-            let hit = trimmed.starts_with('{') && trimmed.contains(&needle);
-            if hit {
-                if let Some(rest) = trimmed.split("type = \"").nth(1) {
-                    kind = rest.split('"').next().unwrap_or("link").to_string();
-                }
-            }
-            !hit
-        })
-        .collect();
-    if kept.len() == text.lines().count() {
-        return Err(format!("{name} is not linked to {to_name}"));
-    }
-    write(&path, &(kept.join("\n") + "\n"))?;
-    Ok(Edit { summary: format!("{name} — unlink: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
 }
 
 /// `ae`: the card was edited by hand, in `$EDITOR`; what changed is the
@@ -371,7 +299,7 @@ mod tests {
             "doors",
             &door_line("A Forest", &["post-punk".into(), "atmospherique".into()]),
         );
-        text = insert_into_array(&text, "links", &link_line("siouxsie", "member", None));
+        text = insert_into_array(&text, "links", "  { to = \"siouxsie\", type = \"member\" },");
 
         let card: crate::catalog::Card =
             toml::from_str(&text).expect("the card must still parse");
@@ -391,25 +319,6 @@ mod tests {
         let text = insert_into_array(CARD, "tops", &format!("  {},", quoted("L'\"autre\" titre")));
         let card: crate::catalog::Card = toml::from_str(&text).expect("lisible");
         assert!(card.tops.contains(&"L'\"autre\" titre".to_string()));
-    }
-
-    /// Unlinking removes the one line, keeps the others, and says the type.
-    #[test]
-    fn a_link_is_removed_and_the_others_stay() {
-        let dir = std::env::temp_dir().join(format!("forkstify-unlink-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(dir.join("cards")).unwrap();
-        let text = "format = 1\nname = \"King Hannah\"\nmbid = \"x\"\n\nlinks = [\n  { to = \"pj-harvey\", type = \"similar\" },\n  { to = \"beirut\", type = \"similar\", note = \"linked while listening, 2026-09-14\" },\n  { to = \"peter-kernel\", type = \"similar\" },\n]\n";
-        std::fs::write(dir.join("cards/king-hannah.toml"), text).unwrap();
-        let edit = remove_link(&dir, "king-hannah", "King Hannah", "beirut", "Beirut").expect("removed");
-        assert_eq!(edit.summary, "King Hannah — unlink: → Beirut (similar)");
-        let after = std::fs::read_to_string(dir.join("cards/king-hannah.toml")).unwrap();
-        assert!(!after.contains("beirut"), "{after}");
-        assert!(after.contains("pj-harvey") && after.contains("peter-kernel"), "{after}");
-        let card: crate::catalog::Card = toml::from_str(&after).expect("still reads");
-        assert_eq!(card.links.len(), 2);
-        assert!(remove_link(&dir, "king-hannah", "King Hannah", "beirut", "Beirut").is_err());
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

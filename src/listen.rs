@@ -76,7 +76,10 @@ async fn async_run(
     tui.clear();
     // loaded here, no longer lent by the caller: the session will make it
     // grow (0016), so it must own it
-    let catalog = Catalog::load(catalog_dir)?;
+    let mut catalog = Catalog::load(catalog_dir)?;
+    // the listener's own connections join the graph the engine walks; the
+    // cards on disk keep to themselves (2026-09-23)
+    learned.weave_into(&mut catalog);
     let census = format!(
         "learned: {} artist(s) played, {} with starting familiarity, {} discography(ies) cached",
         learned.known(),
@@ -1276,7 +1279,8 @@ impl Live<'_> {
                         // from the reference may fill a gap on show
                         if update.cards > 0 {
                             match Catalog::load(&self.catalog_dir) {
-                                Ok(catalog) => {
+                                Ok(mut catalog) => {
+                                    self.learned.weave_into(&mut catalog);
                                     self.catalog = catalog;
                                     self.recompute();
                                 }
@@ -2056,13 +2060,15 @@ impl Live<'_> {
         if self.link_pending.is_some() {
             self.notices.borrow_mut().clear();
             match cmd {
-                Cmd::Digit(n) if (1..=5).contains(&n) => self.write_link(Some(n as u8)),
-                Cmd::Auto => self.write_link(None),
+                Cmd::Digit(n) if (1..=5).contains(&n) => self.write_connection(n as u8),
+                // 4 is what the grid gives "similar": the middle of "these
+                // two go together" without claiming they are the same world
+                Cmd::Auto => self.write_connection(4),
                 Cmd::Escape => {
                     self.link_pending = None;
-                    say!(self, "(link dropped, nothing written)");
+                    say!(self, "(connection dropped, nothing drawn)");
                 }
-                _ => say!(self, "how close? 1 to 5 · ⏎ leaves it to the grid · esc cancels"),
+                _ => say!(self, "how close? 1 to 5 · ⏎ for 4 · esc cancels"),
             }
             return true;
         }
@@ -2879,8 +2885,10 @@ impl Live<'_> {
     /// into `from`'s card. The old `aL` linked only to the artist one came
     /// from, an implicit target that confused (Joel: "je ne comprends pas
     /// le geste"). Search makes the target explicit and reaches anyone.
-    fn open_link(&mut self, from_slug: &str, from_name: &str) {
-        // what the card already links to, first: enter on one removes it
+    fn open_connect(&mut self, from_slug: &str, from_name: &str) {
+        // the connections already drawn from here, first: enter on one
+        // undraws it. The card's own links are not listed — they are not
+        // this gesture's business, `ae` edits those.
         let linked: Vec<Found> = self
             .catalog
             .cards
@@ -2888,14 +2896,14 @@ impl Live<'_> {
             .map(|card| {
                 card.links
                     .iter()
+                    .filter(|link| link.kind == crate::catalog::MINE)
                     .map(|link| Found {
                         hit: Hit::Artist(link.to.clone()),
                         mark: '✓',
                         note: format!(
-                            "{} · {}{}",
-                            link.kind,
+                            "yours · {}{}",
                             self.catalog.cards.get(&link.to).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(&link.to)),
-                            link.note.as_ref().map(|n| format!(" — {n}")).unwrap_or_default()
+                            link.proximity.map(|n| format!(" — closeness {n}")).unwrap_or_default()
                         ),
                     })
                     .collect()
@@ -3038,19 +3046,17 @@ impl Live<'_> {
         let link_from = finder.link_from.clone();
         let already = finder.is_linked(&found);
         self.close_finder();
-        // aL on a link the card has: unlink (Joel, 20/09/2026)
+        // `ac` on a connection already drawn: undraw it (2026-09-23).
+        // Nothing is committed — it lives in `learned/`, which forkstify
+        // commits on its own schedule (0017).
         if let (Some((from_slug, from_name)), true, Hit::Artist(to_slug)) = (&link_from, already, &found.hit) {
             let to_name = self.catalog.cards.get(to_slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(to_slug));
-            let done = crate::edit::remove_link(&self.catalog_dir, from_slug, from_name, to_slug, &to_name);
-            if done.is_ok() {
-                // the engine follows on the spot: the link is gone for
-                // the next branches, not for the next launch
-                if let Some(card) = self.catalog.cards.get_mut(from_slug) {
-                    card.links.retain(|l| &l.to != to_slug);
-                }
-                self.recompute();
+            self.learned.disconnect(from_slug, to_slug);
+            if let Some(card) = self.catalog.cards.get_mut(from_slug) {
+                card.links.retain(|l| !(&l.to == to_slug && l.kind == crate::catalog::MINE));
             }
-            self.report(done);
+            say!(self, "✕ {from_name} → {to_name} — connection undrawn");
+            self.recompute();
             return;
         }
         // aL: the chosen row is a target to link to, not a track to play
@@ -3076,7 +3082,7 @@ impl Live<'_> {
                 // proximity, or leaves it to the grid of catalog.toml (0010)
                 say!(
                     self,
-                    "{from_name} → {to_name} — how close? 1 a distant echo … 5 almost the same universe · ⏎ the grid · esc cancels"
+                    "{from_name} → {to_name} — how close? 1 a distant echo … 5 almost the same universe · ⏎ for 4 · esc cancels"
                 );
                 self.link_pending = Some((from_slug, from_name, to_slug, to_name));
             }
@@ -3325,27 +3331,27 @@ impl Live<'_> {
         self.artist_action(key, stop);
     }
 
-    /// Write the link the modal picked, now that its closeness is settled.
-    /// `None` leaves it to the grid, which reads the kind (0010).
-    fn write_link(&mut self, proximity: Option<u8>) {
+    /// Draw the connection the modal picked, now that its closeness is
+    /// settled. It goes into `learned/`, which forkstify commits on its own
+    /// schedule (0017) — no edit, no commit of its own, and `Cp` can never
+    /// carry it since that only ever moves `cards/`.
+    fn write_connection(&mut self, proximity: u8) {
         let Some((from_slug, from_name, to_slug, to_name)) = self.link_pending.take() else {
             return;
         };
-        let done = crate::edit::add_link(
-            &self.catalog_dir, &from_slug, &from_name, &to_slug, &to_name, "similar", proximity,
-        );
-        if done.is_ok() {
-            if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
-                card.links.push(crate::catalog::Link {
-                    to: to_slug.clone(),
-                    kind: "similar".into(),
-                    note: Some(format!("linked while listening, {}", crate::learned::today_iso())),
-                    proximity,
-                });
-            }
-            self.recompute();
+        self.learned.connect(&from_slug, &to_slug, proximity);
+        if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
+            card.links.retain(|l| !(l.to == to_slug && l.kind == crate::catalog::MINE));
+            card.links.push(crate::catalog::Link {
+                to: to_slug.clone(),
+                kind: crate::catalog::MINE.to_string(),
+                note: None,
+                proximity: Some(proximity),
+            });
         }
-        self.report(done);
+        // the engine follows on the spot, not at the next launch
+        self.recompute();
+        say!(self, "✓ {from_name} → {to_name} — yours, closeness {proximity}");
     }
 
     /// Search in the default browser: `ag` on an artist, `tg` on a track
@@ -3401,16 +3407,18 @@ impl Live<'_> {
                 self.recompute();
             }
             'e' => self.edit_card(&stop),
-            'L' => {
-                // link to an artist chosen by search (Joel, 14/09/2026):
-                // the target is no longer the implicit "where we came from"
+            'c' => {
+                // `ac` — a connection of your own (Joel, 2026-09-23). It
+                // lives in `learned/`, never in the card: a card is
+                // knowledge one may propose, this is one ear's taste. A
+                // card link is written by hand now, through `ae`.
                 if stop.slug.is_empty() || !self.catalog.cards.contains_key(&stop.slug) {
-                    say!(self, "({} has no card — :generate them first, then aL)", stop.artist);
+                    say!(self, "({} has no card — :generate them first, then ac)", stop.artist);
                     return;
                 }
                 let name = self.catalog.cards[&stop.slug].name.clone();
-                say!(self, "link {name} — pick an artist to link to (esc cancels)");
-                self.open_link(&stop.slug, &name);
+                say!(self, "connect {name} — pick an artist (esc cancels)");
+                self.open_connect(&stop.slug, &name);
             }
             _ => {}
         }
@@ -3802,7 +3810,8 @@ impl Live<'_> {
             match crate::fork::resume(&self.catalog_dir) {
                 Ok(update) => {
                     self.conflicts.clear();
-                    if let Ok(catalog) = Catalog::load(&self.catalog_dir) {
+                    if let Ok(mut catalog) = Catalog::load(&self.catalog_dir) {
+                        self.learned.weave_into(&mut catalog);
                         self.catalog = catalog;
                         self.recompute();
                     }
@@ -4097,7 +4106,7 @@ impl Live<'_> {
                 ("ad", "discography — their discography, by album", true),
                 ("ag", "google — the artist in the browser", true),
                 ("ae", "edit — the card in $EDITOR, committed when it changed", true),
-                ("aL", "link — the links it has (enter removes), then search to add one", true),
+                ("ac", "connect — yours: the ones drawn (enter undraws), then search to draw one", true),
             ],
             _ if home => &[
                 ("1-9", "start on an entry of the blocks", true),

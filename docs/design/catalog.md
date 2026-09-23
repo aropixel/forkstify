@@ -195,7 +195,9 @@ splits in two by itself:
 | `scene` `influence` | a critical reading, debatable but arguable | defensible, with its note |
 | `similar` | **a matching of taste** | the one that pulls the base towards one ear |
 
-`aL` writes `similar`: that is honest — you bring two artists together
+`ac` draws a connection of your own into `learned/`, never into the card;
+a card link is written by hand through `ae`, and `similar` is the honest
+type — you bring two artists together
 because they go well together *for you* — but it means the least shareable
 type is the easiest to produce.
 

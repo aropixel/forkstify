@@ -415,6 +415,35 @@ it, and the in-memory catalog gets it too, so the engine follows without a
 relaunch. Removing a link is untouched: that path returns before the
 question is ever asked.
 
+## `ac` — a connection of your own (2026-09-23)
+
+Joel, after some use: "certain connections in my catalog hold for me, they
+depend on my tastes and my own history — I'd link artists that nothing
+naturally links, but that I like to hear follow one another. What is the
+gesture? Does it cause a problem on `Cp`?"
+
+It did. `Cp` checks out the **whole** of `cards/` onto a branch from the
+reference: no selection, no filter, so a personal link left with the rest
+and arrived in a pull request dressed as shared knowledge.
+
+The answer was not a new kind of link but the line the project already
+draws: **`cards/` is knowledge, `learned/` is taste**. So `ac` writes into
+`learned/artists/<slug>.toml`, under `[connections]`, slug to closeness.
+Three things fall out of that and none had to be built: `Cp` structurally
+cannot carry it, it follows him between machines through 0017, and the
+three-way merge keeps it — added on one side it stays, undrawn on one side
+it goes, moved on both the side that left the base wins. A test pins that.
+
+The engine needed no new parameter either. `weave_into` puts the
+connections into the catalog **in memory** as links of a kind no card
+carries, so branches follow them both ways with their closeness, while
+`cards/` on disk never moves. `text_of` ignores the kind on its own, so the
+vectors do not drift either.
+
+**`aL` is retired**, as Joel asked: writing a link into a card is rare
+enough to go through `ae`, which opens it in `$EDITOR`. `add_link`,
+`remove_link` and `link_line` go with it rather than sit unused.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

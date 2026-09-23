@@ -57,11 +57,27 @@ pub struct Artist {
     /// Sorted on disk: a stable order keeps diffs honest between machines.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tops: BTreeMap<String, Top>,
+    /// `ac` — the connections this listener draws between artists, slug to
+    /// proximity (Joel, 2026-09-23). They live here and not in the card
+    /// because they depend on one ear: "certain artists I like to hear
+    /// follow one another, though nothing naturally links them". A card is
+    /// knowledge, shared and proposable; this is taste. `Cp` only ever
+    /// carries `cards/`, so a connection cannot leave by accident.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub connections: BTreeMap<String, u8>,
 }
 
 impl Default for Artist {
     fn default() -> Self {
-        Artist { plays: 0.0, last: None, weight: 1.0, blacklisted: false, unliked: false, tops: BTreeMap::new() }
+        Artist {
+            plays: 0.0,
+            last: None,
+            weight: 1.0,
+            blacklisted: false,
+            unliked: false,
+            tops: BTreeMap::new(),
+            connections: BTreeMap::new(),
+        }
     }
 }
 
@@ -426,6 +442,53 @@ impl Learned {
         self.save(slug);
     }
 
+    /// Put the listener's own connections into the catalog the engine
+    /// walks, as links of a kind no card carries (2026-09-23). The engine
+    /// then follows them like any other — both ways, with their closeness —
+    /// and nothing on disk moves: `cards/` is untouched, so `Cp` and `Cd`
+    /// never see them, and `text_of` ignores the kind, so the vectors do
+    /// not move either.
+    pub fn weave_into(&self, catalog: &mut crate::catalog::Catalog) {
+        for (from, to, proximity) in self.all_connections() {
+            let (from, to) = (from.clone(), to.clone());
+            let Some(card) = catalog.cards.get_mut(&from) else { continue };
+            if card.links.iter().any(|l| l.to == to && l.kind == crate::catalog::MINE) {
+                continue;
+            }
+            card.links.push(crate::catalog::Link {
+                to,
+                kind: crate::catalog::MINE.to_string(),
+                note: None,
+                proximity: Some(proximity),
+            });
+        }
+    }
+
+    /// `ac` — draw a connection from this artist to another, at that
+    /// closeness. Drawing it again moves the closeness.
+    pub fn connect(&mut self, slug: &str, to: &str, proximity: u8) {
+        self.entry(slug).connections.insert(to.to_string(), proximity);
+        self.save(slug);
+    }
+
+    /// Undraw it.
+    pub fn disconnect(&mut self, slug: &str, to: &str) {
+        if let Some(artist) = self.artists.get_mut(slug) {
+            if artist.connections.remove(to).is_some() {
+                self.save(slug);
+            }
+        }
+    }
+
+    /// Every connection drawn, whoever it starts from: the engine needs
+    /// them all, since it walks links in both directions.
+    pub fn all_connections(&self) -> Vec<(&String, &String, u8)> {
+        self.artists
+            .iter()
+            .flat_map(|(from, a)| a.connections.iter().map(move |(to, n)| (from, to, *n)))
+            .collect()
+    }
+
     pub fn skip_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
         artist.weight = (artist.weight * tuning().less_often).max(tuning().weight_floor);
@@ -538,7 +601,36 @@ fn merge_artist_at(base: Option<&str>, ours: &str, theirs: &str, today: i64) -> 
             },
         );
     }
-    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, unliked, tops })
+    // the connections, three ways: what one side added it keeps, what one
+    // side removed goes, and when both moved the one that left the base wins
+    let mut links: Vec<&String> = base
+        .connections
+        .keys()
+        .chain(a.connections.keys())
+        .chain(b.connections.keys())
+        .collect();
+    links.sort();
+    links.dedup();
+    let mut connections = BTreeMap::new();
+    for key in links {
+        let was = base.connections.get(key);
+        let kept = match (a.connections.get(key), b.connections.get(key)) {
+            (Some(x), Some(y)) if x == y => Some(*x),
+            // both still have it, at different closeness: the side that
+            // moved away from the base is the one that said something
+            (Some(x), Some(y)) => Some(if Some(x) != was { *x } else { *y }),
+            // one side alone: an addition if the base did not have it, a
+            // removal by the other if it did
+            (Some(x), None) => was.is_none().then_some(*x),
+            (None, Some(y)) => was.is_none().then_some(*y),
+            (None, None) => None,
+        };
+        if let Some(value) = kept {
+            connections.insert(key.clone(), value);
+        }
+    }
+
+    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, unliked, tops, connections })
         .map_err(|e| e.to_string())
 }
 
@@ -691,6 +783,26 @@ mod merge_tests {
     use super::*;
 
     const BASE: &str = "plays = 3.0\nlast = \"2026-09-06\"\nweight = 1.0\n\n[tops.\"A Forest\"]\nplays = 1.0\nlast = \"2026-09-06\"\n";
+
+    /// 2026-09-23: the connections of `ac` cross two machines like the
+    /// rest — added on one side they stay, removed on one side they go.
+    #[test]
+    fn connections_survive_a_merge_between_machines() {
+        let card = |lines: &str| format!("plays = 1.0\nweight = 1.0\n\n[connections]\n{lines}");
+        let base = card("beirut = 4\n");
+        // one machine draws a new one, the other moves the closeness
+        let ours = card("beirut = 4\npeter-kernel = 5\n");
+        let theirs = card("beirut = 2\n");
+        let merged = merge_artist(Some(&base), &ours, &theirs).expect("merged");
+        let artist: Artist = toml::from_str(&merged).expect("reads back");
+        assert_eq!(artist.connections.get("peter-kernel"), Some(&5), "the new one stays: {merged}");
+        assert_eq!(artist.connections.get("beirut"), Some(&2), "the side that moved wins: {merged}");
+
+        // and one undrawn on a side is gone, not resurrected by the other
+        let dropped = merge_artist(Some(&base), &card(""), &card("beirut = 4\n")).expect("merged");
+        let artist: Artist = toml::from_str(&dropped).expect("reads back");
+        assert!(artist.connections.is_empty(), "undrawn stays undrawn: {dropped}");
+    }
 
     #[test]
     fn plays_from_two_machines_add_up() {

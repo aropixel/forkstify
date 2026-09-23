@@ -96,7 +96,8 @@ pub struct Branch {
 }
 
 // Reason labels are interface text.
-const LABELS: [(&str, &str); 6] = [
+const LABELS: [(&str, &str); 7] = [
+    (crate::catalog::MINE, "yours"),
     ("member", "shared members"),
     ("collab", "collaboration"),
     ("similar", "similar"),

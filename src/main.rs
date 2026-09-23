@@ -433,8 +433,9 @@ fn main() -> anyhow::Result<()> {
         return import::run(&catalog_path(path), target).map_err(|e| anyhow::anyhow!(e));
     }
 
-    let catalog = Catalog::load(&catalog_path(path))?;
+    let mut catalog = Catalog::load(&catalog_path(path))?;
     let learned = learned::Learned::load(&catalog_path(path));
+    learned.weave_into(&mut catalog);
     let Some(slug) = resolve(&catalog, target) else {
         std::process::exit(1);
     };

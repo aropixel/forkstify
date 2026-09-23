@@ -124,7 +124,7 @@ track more often", and its opposite.
 **On the home screen too**: the whole `a` namespace targets the highlighted
 row of the collection (Joel, 2026-09-10) — `ad` opens the modal over home,
 measurements write into the learned layer, `ag` works even without a card,
-`ae` and `aL` need one.
+`ae` and `ac` need one.
 
 | Key | Word | Action | Kind | |
 |---|---|---|---|---|
@@ -132,7 +132,7 @@ measurements write into the learned layer, `ag` works even without a card,
 | `as` | artist **skip** | This artist, less often (weight ×0.7, floor 0.1) — and **out of the liked**: an `unliked` flag in `learned/`, which outranks the Spotify likes and survives the harvests. On home too | measurement | ✅ |
 | `ab` | artist **ban** | Never this artist again — also empties the queue. On home too | measurement | ✅ |
 | `ae` | artist **edit** | **The card in `$EDITOR`, in place** (Joel, 2026-09-20): the key reader parks itself, the terminal and the screen go back to the editor; on close the card is read again — changed and readable, it is **committed** ("… — edited by hand") and the engine follows it immediately; unreadable, that is said, nothing is committed, `ae` again. With no `$EDITOR`/`$VISUAL`, the desktop editor (`xdg-open`). The loop waits for the editor: the sound carries on, the end of a track waits | edit | ✅ |
-| `aL` | artist **link** | **Links, both ways** (Joel, 2026-09-20, after the model of `tl`). The modal first lists the links the card **already has**, marked ✓ with their type and note — **enter on one removes it** (commit "… — unlink: → Beirut (similar)"); below it the search, catalog and Spotify. Enter on a result **then asks how close** (Joel, 2026-09-23): `1` a distant echo … `5` almost the same universe, **⏎** leaves it to the grid of `catalog.toml`, which reads the kind, **esc** writes nothing. The number lands in the link's own `proximity`, which overrides the grid for that link alone ([0010](decisions/0010-revised-format-links-without-doors.md)). The link goes towards the chosen artist, in the catalog or outside it (one towards a missing card is a proposal, [0016](decisions/0016-broad-base-and-on-the-fly-generation.md)); a readable commit. Both ways, **the engine follows immediately**. Replaces the old gesture, which linked — without saying so — to the artist you had come from (Joel, 2026-09-14) | edit | ✅ |
+| `ac` | artist **connect** | **A connection of your own** (Joel, 2026-09-23). Some artists go together because of one ear and one life, not because anything links them; that is taste, not knowledge, so it is written in **`learned/`** and never in the card. The modal lists the connections already drawn from here, marked ✓ with their closeness — **enter on one undraws it** — and below it the search. Enter on a result **asks how close**: `1` a distant echo … `5` almost the same universe, **⏎** for 4, **esc** draws nothing. **The engine follows immediately**, in both directions, like any link. Nothing is committed on the spot: `learned/` goes with the rest on forkstify's own schedule ([0017](decisions/0017-synchronising-the-learned.md)), it **follows you between machines**, and **`Cp` can never carry it** — that only ever moves `cards/`. Replaces `aL`, retired the same day: writing a link into a card is rare enough to go through `ae` | measurement | ✅ |
 | `ad` | artist **discography** | Open the **discography modal**: albums folded, what the card and the learned layer know of each track, `A` to promote an album. It has its own table, below. **On home too**, on the highlighted row of the collection, laid over home; an artist **without a card** gets one first ([0016](decisions/0016-broad-base-and-on-the-fly-generation.md)), and the discography opens as soon as it is there (Joel, 2026-09-10) | edit | ✅ |
 | `ag` | artist **google** | Search the targeted artist (highlighted, otherwise current) in the default browser, through `xdg-open` (Joel, 2026-09-08) | session | ✅ |
 
@@ -144,7 +144,7 @@ The three verbs make a **readable scale** on the artist: `al` more often,
 per artist in the catalog, counters with decay built in (half-life six
 months), written on every gesture, silent and never contributed back.
 
-**Edits write into the cards since 2026-09-06**: `tt`, `tT`, `td`, `aL` and
+**Edits write into the cards since 2026-09-06**: `tt`, `tT`, `td` and
 `ae` change a card **and produce a readable commit** (`src/edit.rs`). The
 card is patched textually, never rewritten — it is a public interface, and a
 round trip through serde would lose everything the code does not model —
@@ -363,15 +363,13 @@ turn out to be constant.
    an invisible difference: `l` moves on without noting anything, `ts` moves
    on **and** notes it in `learned/`. A distinction that is sound on paper,
    perhaps imperceptible in the fingers.
-2. **`aL` or `ac`** to link two artists. The target has not been implicit
-   since 2026-09-14: `aL` opens the search and you choose the artist, which
-   cleared up the confusion (Joel: "I don't understand the gesture"). What
-   is left is the case: `aL` is the only gesture whose capital does not mean
-   what it means elsewhere — `tt`/`tT` are a verb and its opposite,
-   `al`/`aL` two different verbs. The justification holds (lowercase =
-   measurement, uppercase = edit) but it is weaker. `ac` (*connect*) would
-   avoid it, at the cost of the word "link", the one used by the format on
-   disk.
+2. ~~**`aL` or `ac`** to link two artists~~ — settled on 2026-09-23, and
+   not on the letter but on the meaning. Drawing two artists together turned
+   out to be **taste, not knowledge**: it depends on one ear and one life,
+   so it belongs in `learned/` and must never leave with `Cp`. `ac`
+   (*connect*) says that act; `aL` is retired, and writing a link into a
+   card — rarer, and shared once proposed — goes through `ae`. The awkward
+   capital goes with it.
 
 3. ~~**The `C` namespace**~~ (2026-09-19,
    [design/before-release.md](design/before-release.md)), the catalog
@@ -389,7 +387,8 @@ Still free: `b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`,
 taken on 2026-09-20, and `C` too; `x` on 2026-09-23, while `u` and `.` went
 back to the pool — undo and repeat are not being built for now, and `u`
 keeps its own meaning inside the discography). Inside the namespaces, `d` was taken in `a` on
-2026-09-07 (`ad`, discography). Queue mode can move in without displacing
+2026-09-07 (`ad`, discography), and `c` on 2026-09-23 (`ac`, connect) —
+`aL` retiring the same day gives `L` back. Queue mode can move in without displacing
 anything.
 
 ## Where this grammar comes from
