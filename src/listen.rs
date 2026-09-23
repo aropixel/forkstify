@@ -882,6 +882,19 @@ impl Live<'_> {
             self.toggle_pause();
             return true;
         }
+        // `tg` here too (Joel, 2026-09-23). The collection holds artists and
+        // the cursor never lands on a track, so the only track at the home
+        // is the one sounding underneath — what the playback foot shows.
+        if matches!(cmd, Cmd::Track('g')) {
+            match self.current.clone() {
+                Some(stop) => self.google(
+                    &format!("{} {}", stop.artist, stop.title),
+                    &format!("{} — {}", stop.title, stop.artist),
+                ),
+                None => say!(self, "(nothing playing — tg searches what sounds under the home)"),
+            }
+            return true;
+        }
         // the key helper, as when listening (Joel, 10/09/2026): space opens
         // it, it follows the sequence, closes at the entry level, on esc,
         // or at the next gesture
@@ -4003,6 +4016,11 @@ impl Live<'_> {
                 (":catalog", "the state in one line", true),
                 (":catalog fork <url>", "out of the local mode — rare, no key", true),
             ],
+            // at the home the collection holds artists, so the only track
+            // key that means anything is the one aimed at what plays
+            Some('t') if home => &[
+                ("tg", "google — what plays underneath, in the browser", true),
+            ],
             Some('a') => &[
                 ("al", "like — this artist, more often", true),
                 ("as", "skip — this artist, less often", true),
@@ -4017,6 +4035,7 @@ impl Live<'_> {
                 ("\u{2191}\u{2193} gg G", "highlight in the collection", true),
                 ("enter", "start on the highlighted line · else random", true),
                 ("a", "the highlighted artist — type a for its keys", true),
+                ("tg", "google — what plays underneath, in the browser", true),
                 ("C", "the catalog — type C for its keys", true),
                 ("s", "the order: familiarity → a-z → last played", true),
                 ("v", "the view: liked ⇄ all", true),
@@ -4063,6 +4082,7 @@ impl Live<'_> {
             Some('f') if !home => "f — the branch",
             Some('e') if !home => "e — encore",
             Some('t') if !home => "t — the track",
+            Some('t') => "t — what plays underneath",
             Some('a') => "a — the artist",
             Some('C') => "C — the catalog",
             _ if home => "the home keys",

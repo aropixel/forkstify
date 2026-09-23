@@ -304,6 +304,13 @@ catalog is searchable too. The two now share one `google` helper instead of
 each spawning `xdg-open` on its own. The `ta` row of the table also gets
 back the column it was missing.
 
+**And at the home**, asked for right after. There the collection holds
+artists and the cursor never lands on a track, so the only track to aim at
+is the one sounding underneath — what the playback foot shows. `tg` says so
+when nothing plays. The key helper gains its own `t` level at the home,
+holding that single key, rather than falling back to the full home list:
+the menu never promises what the code does not do.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
