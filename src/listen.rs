@@ -2232,6 +2232,30 @@ impl Live<'_> {
         true
     }
 
+    /// A source is fixed when a track is drawn, so liking one afterwards
+    /// left the old glyph in the list (Joel, 2026-09-23). Put the right one
+    /// back on every line holding this track: played, playing, still to come.
+    fn remark(&mut self, slug: &str, title: &str) {
+        let marks: Vec<crate::engine::Source> = self
+            .past
+            .iter()
+            .chain(self.current.iter())
+            .chain(self.queue.iter())
+            .map(|stop| crate::engine::current_source(&self.catalog, &self.tail, &self.learned, stop))
+            .collect();
+        for (stop, mark) in self
+            .past
+            .iter_mut()
+            .chain(self.current.iter_mut())
+            .chain(self.queue.iter_mut())
+            .zip(marks)
+        {
+            if stop.slug == slug && stop.title == title {
+                stop.source = mark;
+            }
+        }
+    }
+
     /// `ta` — track about. What the catalogue and the listening know of it,
     /// plus its album, its featurings and its year when the discography has
     /// them (Joel, 14/09/2026 — replaces `?`, the reason folded in).
@@ -2241,6 +2265,9 @@ impl Live<'_> {
     fn track_about(&mut self, stop: crate::engine::Stop) {
         let title = format!("{} — {}", stop.title, stop.artist);
         let mut lines = Vec::new();
+        // the same glyph the list carries, so `tl` reads here too
+        let source = crate::engine::current_source(&self.catalog, &self.tail, &self.learned, &stop);
+        lines.push(format!(" mark: {} {}", source.mark(), source.word()));
         if let Some(feat) = featuring(&stop.title) {
             lines.push(format!(" featuring: {feat}"));
         }
@@ -3206,6 +3233,7 @@ impl Live<'_> {
                     self.learned.like_track(&stop.slug, &stop.title);
                     say!(self, "\n♥ {} — more often", stop.title);
                 }
+                self.remark(&stop.slug, &stop.title);
             }
             'a' => self.track_about(stop),
             's' => {
@@ -3526,6 +3554,9 @@ impl Live<'_> {
                 self.learned.like_track(&screen.slug, &title);
                 screen.notice = format!("♥ {title} — liked");
             }
+            // the same track may be sitting in the queue behind the modal
+            let slug = screen.slug.clone();
+            self.remark(&slug, &title);
         } else {
             self.learned.ban_track(&screen.slug, &title);
             self.queue.retain(|stop| stop.title != title);

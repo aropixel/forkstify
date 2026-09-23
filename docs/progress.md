@@ -354,6 +354,26 @@ does after the output has gone. The stream librespot stopped may not
 resume, in which case the track has to be reloaded — and the position
 kept, which `Sound` cannot do today, it only knows how to go back to zero.
 
+## The heart shows up where the like is made (2026-09-23)
+
+Joel: liking a track should change its glyph in the list, and that glyph
+should show in `ta` too.
+
+A stop carries the source it was **drawn** with, so liking one afterwards
+left `♪` or `·` sitting there — the list disagreed with `learned/`.
+`engine::current_source` now says what a track deserves as things stand:
+the like outranks the rest (0018), **a door keeps its arrow** since that
+says where it leads rather than how it was picked, and otherwise it is a
+top of the card, a track of its tail, or neither. `tl` puts that glyph back
+on every line holding the track — played, playing, still to come — and so
+does the discography's `tl`, since the same track may be sitting in the
+queue behind the modal.
+
+`ta` opens on ` mark: ♥ liked`, the same glyph the list carries with the
+word behind it. The two helpers live in `engine.rs`, where the sources are,
+rather than in the session: a test pins the like, the door and the
+off-catalog cases.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

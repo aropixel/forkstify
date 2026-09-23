@@ -443,6 +443,35 @@ fn liked_weight(comfort: Comfort) -> f32 {
     t.top_weight * (t.liked_weight_open + (t.liked_weight_cocoon - t.liked_weight_open) * (1.0 - comfort.openness()))
 }
 
+/// What a track's glyph would be if it were drawn now, likes aside: a top
+/// of the card, a track of its tail, or neither.
+pub fn plain_source(catalog: &Catalog, tail: &Tail, slug: &str, title: &str) -> Source {
+    let Some(card) = catalog.cards.get(slug) else { return Source::Offmap };
+    if card.tops.iter().any(|top| top == title) {
+        return Source::Top;
+    }
+    let key = discography::normalize(title);
+    if tail.of(slug).iter().any(|t| discography::normalize(&t.title) == key) {
+        Source::Tail
+    } else {
+        Source::Outside
+    }
+}
+
+/// The glyph a track deserves as things stand. The like outranks the rest
+/// (0018); a door keeps its own, which says where it leads rather than how
+/// it was picked. A source is fixed when a track is drawn, so liking one
+/// afterwards left the old glyph in the list (Joel, 2026-09-23).
+pub fn current_source(catalog: &Catalog, tail: &Tail, learned: &Learned, stop: &Stop) -> Source {
+    if learned.track_liked(&stop.slug, &stop.title) {
+        Source::Liked
+    } else if stop.source == Source::Door {
+        Source::Door
+    } else {
+        plain_source(catalog, tail, &stop.slug, &stop.title)
+    }
+}
+
 fn reservoir(
     card: &Card,
     slug: &str,
@@ -1331,6 +1360,51 @@ mod tests {
             !unknown.iter().any(|(_, _, s)| *s == Source::Tail),
             "a new artist: tops only, no tail, even open: {unknown:?}"
         );
+    }
+
+    /// 2026-09-23: a source is fixed when a track is drawn, so the glyph
+    /// has to be recomputed after a like — and a door keeps its own.
+    #[test]
+    fn the_glyph_follows_the_like_but_leaves_a_door_alone() {
+        let catalog = Catalog {
+            cards: HashMap::from([("the-cure".to_string(), the_cure())]),
+            proximities: HashMap::new(),
+            vectors: HashMap::new(),
+        };
+        let mut tail = Tail::blank();
+        tail.keep(
+            "the-cure",
+            vec![crate::discography::TailTrack {
+                title: "Killing an Arab".into(),
+                ..Default::default()
+            }],
+        );
+        let stop = |title: &str, source: Source| Stop {
+            slug: "the-cure".into(),
+            artist: "The Cure".into(),
+            title: title.into(),
+            source,
+            head: None,
+            encore: false,
+        };
+        let mut learned = Learned::blank();
+        let mark = |learned: &Learned, s: &Stop| current_source(&catalog, &tail, learned, s);
+
+        // drawn as a top, and a top it stays
+        assert_eq!(mark(&learned, &stop("Boys Don't Cry", Source::Top)), Source::Top);
+        // a tail track keeps its dot…
+        assert_eq!(mark(&learned, &stop("Killing an Arab", Source::Tail)), Source::Tail);
+        // …until it is liked, whatever it was drawn as
+        learned.like_track("the-cure", "Killing an Arab");
+        assert_eq!(mark(&learned, &stop("Killing an Arab", Source::Tail)), Source::Liked);
+        // a door says where it leads: the like does not take that away
+        learned.like_track("the-cure", "A Forest");
+        assert_eq!(mark(&learned, &stop("A Forest", Source::Door)), Source::Liked);
+        // and an unliked door keeps its arrow rather than falling back to top
+        assert_eq!(mark(&learned, &stop("Boys Don't Cry", Source::Door)), Source::Door);
+        // nothing known of the artist: off the map
+        let orphan = Stop { slug: "nobody".into(), ..stop("x", Source::Top) };
+        assert_eq!(mark(&learned, &orphan), Source::Offmap);
     }
 
     /// What a journey already played does not come back (0012 §3).
