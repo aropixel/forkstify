@@ -6,7 +6,9 @@ why a thing was done, what was measured, what was left open — lives in
 notice.
 
 Versions follow the release: a tag `v*` publishes the Linux binary that
-`omarchy/install.sh` and the Arch package fetch.
+`omarchy/install.sh` and the Arch package fetch, and **the section below
+becomes that release's notes**. `bin/release` moves `## Unreleased` down to
+the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 

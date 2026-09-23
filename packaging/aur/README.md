@@ -22,11 +22,13 @@ attaches to the release:
 - `SHA256SUMS`
 
 ```bash
-# the version must be the same in all three places
-$EDITOR Cargo.toml manifest.json      # version = "0.2.0"
-git commit -am "Version 0.2.0" && git push
-git tag v0.2.0 && git push origin v0.2.0
+bin/release 0.2.0
 ```
+
+It sets the version in the three places that must agree, promotes
+`## Unreleased` in `CHANGELOG.md` to that version, commits, tags and
+pushes. The release's notes are **that section**, cut by the workflow; with
+no such section it falls back to the commits, and says so in the log.
 
 **The glibc floor** is Debian 12's (2.36). The binary runs on Arch and on
 anything newer; elsewhere, you build from source.

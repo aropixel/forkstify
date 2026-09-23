@@ -464,6 +464,14 @@ version being cut, dates it, opens a fresh empty one above, and commits it
 with the version bump. It refuses to cut a release if the section is gone,
 and says so when it is empty.
 
+**And it is what the release publishes.** The workflow no longer generates
+notes from the commits: it cuts the section of the version out of
+`CHANGELOG.md` and passes it to `gh release create`. The cutting happens in
+the job that has the repository checked out — the publishing job has none,
+and the notes must match the commit that was built. With no section for
+that version it warns in the log and falls back to the commits, so a
+re-release never fails for want of prose.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

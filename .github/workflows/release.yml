@@ -72,12 +72,29 @@ jobs:
           sha256sum "$name" > SHA256SUMS
           cat SHA256SUMS
 
+      - name: the notes, from the changelog
+        run: |
+          # the section of this version, up to the next heading. Cut here
+          # rather than in the publishing job: that one has no checkout, and
+          # the notes must match the commit that was built.
+          awk -v head="## ${VERSION} " '
+            index($0, head) == 1 { on = 1; next }
+            /^## / { on = 0 }
+            on
+          ' CHANGELOG.md | sed -e '/./,$!d' > NOTES.md
+          if [ -s NOTES.md ]; then
+            echo "notes taken from CHANGELOG.md:"; cat NOTES.md
+          else
+            echo "::warning::no '## ${VERSION}' section in CHANGELOG.md — the notes will be generated from the commits"
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-assets
           path: |
             forkstify-*-x86_64-linux.tar.gz
             SHA256SUMS
+            NOTES.md
 
   publish:
     name: attach them to the release
@@ -92,10 +109,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # what the changelog says, or the commits when it says nothing.
+          # NOTES.md rides with the assets but is never attached to them.
+          if [ -s NOTES.md ]; then
+            notes=(--notes-file NOTES.md)
+          else
+            notes=(--generate-notes)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes \
+            "${notes[@]}" \
             forkstify-*-x86_64-linux.tar.gz SHA256SUMS \
           || gh release upload "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" --clobber \
