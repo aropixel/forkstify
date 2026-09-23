@@ -65,11 +65,18 @@ fn door_line(title: &str, tags: &[String]) -> String {
     )
 }
 
-fn link_line(to_slug: &str, kind: &str) -> String {
+fn link_line(to_slug: &str, kind: &str, proximity: Option<u8>) -> String {
+    // no proximity = the grid of catalog.toml decides, by kind. One written
+    // here overrides it for this link alone (0010).
+    let near = match proximity {
+        Some(n) => format!(" proximity = {n},"),
+        None => String::new(),
+    };
     format!(
-        "  {{ to = {}, type = {}, note = {} }},",
+        "  {{ to = {}, type = {},{} note = {} }},",
         quoted(to_slug),
         quoted(kind),
+        near,
         provenance("linked")
     )
 }
@@ -134,6 +141,7 @@ pub fn add_link(
     to_slug: &str,
     to_name: &str,
     kind: &str,
+    proximity: Option<u8>,
 ) -> Result<Edit, String> {
     if slug == to_slug {
         return Err("an artist does not link to itself".into());
@@ -145,9 +153,12 @@ pub fn add_link(
             return Err(format!("{name} is already linked to {to_name}"));
         }
     }
-    let updated = insert_into_array(&text, "links", &link_line(to_slug, kind));
+    let updated = insert_into_array(&text, "links", &link_line(to_slug, kind, proximity));
     write(&path, &updated)?;
-    Ok(Edit { summary: format!("{name} — link: → {to_name} ({kind})"), body: None, path, also: Vec::new() })
+    Ok(Edit { summary: match proximity {
+        Some(n) => format!("{name} — link: → {to_name} ({kind}, proximity {n})"),
+        None => format!("{name} — link: → {to_name} ({kind})"),
+    }, body: None, path, also: Vec::new() })
 }
 
 /// `aL` on a link the card already has: **unlink** (Joel, 20/09/2026 —
@@ -360,7 +371,7 @@ mod tests {
             "doors",
             &door_line("A Forest", &["post-punk".into(), "atmospherique".into()]),
         );
-        text = insert_into_array(&text, "links", &link_line("siouxsie", "member"));
+        text = insert_into_array(&text, "links", &link_line("siouxsie", "member", None));
 
         let card: crate::catalog::Card =
             toml::from_str(&text).expect("the card must still parse");

@@ -139,6 +139,7 @@ async fn async_run(
         typed: String::new(),
         warm_requested: false,
         wander_requested: None,
+        link_pending: None,
         start_requested: None,
         album_requested: None,
         search_requested: None,
@@ -340,6 +341,9 @@ struct Live<'a> {
     warm_requested: bool,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
+    /// `aL` chose a target and now asks how close: from, to, waiting for a
+    /// proximity (Joel, 2026-09-23).
+    link_pending: Option<(String, String, String, String)>,
     /// Enter on a track of the discography: a new seed, once the modal's
     /// sync handler has returned (Joel, 11/09/2026).
     start_requested: Option<Choice>,
@@ -2047,6 +2051,21 @@ impl Live<'_> {
             self.open_conflict();
             return true;
         }
+        // `aL` is waiting on a proximity: here a digit says how close, not
+        // which branch to take (Joel, 2026-09-23)
+        if self.link_pending.is_some() {
+            self.notices.borrow_mut().clear();
+            match cmd {
+                Cmd::Digit(n) if (1..=5).contains(&n) => self.write_link(Some(n as u8)),
+                Cmd::Auto => self.write_link(None),
+                Cmd::Escape => {
+                    self.link_pending = None;
+                    say!(self, "(link dropped, nothing written)");
+                }
+                _ => say!(self, "how close? 1 to 5 · ⏎ leaves it to the grid · esc cancels"),
+            }
+            return true;
+        }
         if self.screen == Screen::Home {
             return self.on_home_cmd(cmd).await;
         }
@@ -3053,21 +3072,13 @@ impl Live<'_> {
                 Hit::Track { artist, .. } => Some((crate::generate::slugify(artist), artist.clone())),
             };
             if let Some((to_slug, to_name)) = target {
-                let done = crate::edit::add_link(
-                    &self.catalog_dir, &from_slug, &from_name, &to_slug, &to_name, "similar",
+                // how close, before writing: a link carries its own
+                // proximity, or leaves it to the grid of catalog.toml (0010)
+                say!(
+                    self,
+                    "{from_name} → {to_name} — how close? 1 a distant echo … 5 almost the same universe · ⏎ the grid · esc cancels"
                 );
-                if done.is_ok() {
-                    if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
-                        card.links.push(crate::catalog::Link {
-                            to: to_slug.clone(),
-                            kind: "similar".into(),
-                            note: Some(format!("linked while listening, {}", crate::learned::today_iso())),
-                            proximity: None,
-                        });
-                    }
-                    self.recompute();
-                }
-                self.report(done);
+                self.link_pending = Some((from_slug, from_name, to_slug, to_name));
             }
             return;
         }
@@ -3312,6 +3323,29 @@ impl Live<'_> {
             stop
         };
         self.artist_action(key, stop);
+    }
+
+    /// Write the link the modal picked, now that its closeness is settled.
+    /// `None` leaves it to the grid, which reads the kind (0010).
+    fn write_link(&mut self, proximity: Option<u8>) {
+        let Some((from_slug, from_name, to_slug, to_name)) = self.link_pending.take() else {
+            return;
+        };
+        let done = crate::edit::add_link(
+            &self.catalog_dir, &from_slug, &from_name, &to_slug, &to_name, "similar", proximity,
+        );
+        if done.is_ok() {
+            if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
+                card.links.push(crate::catalog::Link {
+                    to: to_slug.clone(),
+                    kind: "similar".into(),
+                    note: Some(format!("linked while listening, {}", crate::learned::today_iso())),
+                    proximity,
+                });
+            }
+            self.recompute();
+        }
+        self.report(done);
     }
 
     /// Search in the default browser: `ag` on an artist, `tg` on a track

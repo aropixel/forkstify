@@ -400,6 +400,21 @@ on a journey of 31, the 25 older ones still outweighed the 6 recent. At 5
 they do not. A test pins the direction, not the number — a recent cluster
 leads, and reversing the order reverses the centre.
 
+## `aL` asks how close (2026-09-23)
+
+Joel, finding that some of the connections he draws depend on his own ear:
+the format has carried a per-link `proximity` since 0010, the gesture never
+set one, so every link written by `aL` fell back to the grid's 4 for
+`similar`.
+
+Enter on a target now opens one question — `1` a distant echo to `5` almost
+the same universe, **⏎** for the grid, **esc** writes nothing — on the
+model of the comfort dial: the digits mean closeness while it waits, not
+which branch to take. The number is written into the link, the commit says
+it, and the in-memory catalog gets it too, so the engine follows without a
+relaunch. Removing a link is untouched: that path returns before the
+question is ever asked.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
