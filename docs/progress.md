@@ -2777,3 +2777,21 @@ the cache key: the addresses found by name alone are dead for an identified
 card, nothing to clean by hand. The prefetch goes through the same door.
 The choice is a pure function, `pick`, with three tests: the right artist
 over the first hit, studio over live within that artist, and the fallback.
+
+**Not enough for "The Answer"** (Joel, right after: "Listen" is right now,
+"The Answer" still is not). Spotify's eight hits for `track:The Answer
+artist:Boo` hold nothing by BOO at all, so the fallback on the name played
+The Boo Radleys again. Holding the search to the id can only choose among
+what the search returns.
+
+**The artist's own discography is the authority now.** It is harvested by
+the card's Spotify id, so a hit in it cannot be a namesake's. A top is
+resolved from the tail first (`discography::find`: same title once the
+version noise is off, the plain copy ahead of a live or a remaster, the
+earliest release first — tested), then from the resolve cache. When an
+identified card has no tail yet, `load_stop` **harvests it before
+searching**: the track shows, the discography lands (two calls, cached for
+good), and `Job::Harvested` resolves the waiting track from it — the title
+search only if the tail does not name it. The prefetch fetches the tail
+ahead by the same rule. A card without a Spotify id keeps the old path.
+The cache needs no cleaning: the tail comes before it.

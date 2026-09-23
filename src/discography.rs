@@ -120,6 +120,20 @@ impl Tail {
     }
 }
 
+/// The track of a harvested discography that a card's top names: same
+/// title once the version noise is off, the plain-titled copy ahead of a
+/// live or a remaster, the earliest release ahead of the rest. The
+/// discography comes from the artist's own Spotify id, so a hit here
+/// cannot be a namesake's — which the title search can (Joel, 23/09/2026,
+/// "The Answer" by Boo played The Boo Radleys).
+pub fn find<'a>(tracks: &'a [TailTrack], title: &str) -> Option<&'a TailTrack> {
+    let wanted = normalize(title);
+    tracks
+        .iter()
+        .filter(|t| normalize(&t.title) == wanted)
+        .min_by_key(|t| (clean_title(&t.title) != t.title, t.single, t.released.clone()))
+}
+
 fn cache_dir() -> PathBuf {
     let base = std::env::var("XDG_CACHE_HOME")
         .map(PathBuf::from)
@@ -158,6 +172,33 @@ pub fn clean_title(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn track(title: &str, uri: &str, released: &str, single: bool) -> TailTrack {
+        TailTrack {
+            title: title.into(),
+            uri: uri.into(),
+            album: "Listen".into(),
+            released: released.into(),
+            number: 1,
+            duration_ms: 0,
+            single,
+        }
+    }
+
+    /// The card says "The Answer": the album copy, not the live one nor
+    /// the later single, and nothing when the tail has no such title.
+    #[test]
+    fn the_top_finds_its_own_copy_in_the_tail() {
+        let tail = vec![
+            track("The Answer (Live)", "spotify:track:live", "2005", false),
+            track("The Answer", "spotify:track:single", "2003", true),
+            track("The Answer", "spotify:track:album", "2002-11-11", false),
+            track("Listen", "spotify:track:listen", "2002-11-11", false),
+        ];
+        assert_eq!(find(&tail, "The Answer").map(|t| t.uri.as_str()), Some("spotify:track:album"));
+        assert_eq!(find(&tail, "the answer - 2010 remaster").map(|t| t.uri.as_str()), Some("spotify:track:album"));
+        assert!(find(&tail, "Stones").is_none());
+    }
 
     #[test]
     fn the_title_written_in_the_card_stays_readable() {

@@ -1058,8 +1058,16 @@ impl Live<'_> {
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
         let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         let artist_id = self.artist_id_of(&stop.slug);
-        let known =
-            self.web.try_lock().ok().and_then(|web| web.cached(&stop.title, &stop.artist, artist_id.as_deref()));
+        // the artist's own discography first: harvested by id, it cannot
+        // hand over a namesake's track, which the title search can
+        let known = match self.tail_uri(&stop.slug, &stop.title) {
+            Some(uri) => Some(Resolved::Track(uri)),
+            None => self
+                .web
+                .try_lock()
+                .ok()
+                .and_then(|web| web.cached(&stop.title, &stop.artist, artist_id.as_deref())),
+        };
         match known {
             Some(Resolved::Track(uri)) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
@@ -1082,7 +1090,15 @@ impl Live<'_> {
             }
             Some(Resolved::Failed(why)) => Load::Failed(stop, why),
             None => {
-                self.spawn_resolve(&stop.title, &stop.artist, artist_id);
+                // an identified card without its tail yet: the discography
+                // is fetched first, and the track resolved from it when it
+                // lands (`Job::Harvested`); the title search only if it
+                // cannot be — the search took "The Answer" by Boo to The
+                // Boo Radleys (Joel, 23/09/2026)
+                let harvesting = artist_id.is_some() && matches!(self.harvest(&stop.slug, true), Ok(false));
+                if !harvesting {
+                    self.spawn_resolve(&stop.title, &stop.artist, artist_id);
+                }
                 self.current = Some(stop);
                 self.loading = true;
                 Load::Playing
@@ -1180,13 +1196,30 @@ impl Live<'_> {
             Job::Harvested { slug, result, quiet } => {
                 self.harvesting.remove(&slug);
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
+                if let Ok(tracks) = &result {
+                    // the branches on the table keep their tracks: a list
+                    // that changes under the eyes is not wanted (Joel,
+                    // 11/09/2026) — the tail serves the next draws
+                    self.tail.keep(&slug, tracks.clone());
+                }
+                // a track shown and waiting on this very harvest: from the
+                // tail now, or the title search as a last resort
+                if self.loading && self.current.as_ref().is_some_and(|s| s.slug == slug) {
+                    let (title, artist) = self.current.as_ref().map(|s| (s.title.clone(), s.artist.clone())).unwrap();
+                    match self.tail_uri(&slug, &title).and_then(|uri| SpotifyUri::from_uri(&uri).ok()) {
+                        Some(track) => {
+                            self.loading = false;
+                            self.sound.play(track);
+                        }
+                        None => {
+                            let artist_id = self.artist_id_of(&slug);
+                            self.spawn_resolve(&title, &artist, artist_id);
+                        }
+                    }
+                }
                 match result {
                     Ok(tracks) => {
                         let count = tracks.len();
-                        // the branches on the table keep their tracks: a
-                        // list that changes under the eyes is not wanted
-                        // (Joel, 11/09/2026) — the tail serves the next draws
-                        self.tail.keep(&slug, tracks);
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
                             Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
                             None if quiet => {}
@@ -1818,8 +1851,17 @@ impl Live<'_> {
     /// resolve() caches, so this is a no-op once warmed.
     async fn prefetch_next(&mut self) {
         let Some(stop) = self.queue.front() else { return };
-        let (title, artist) = (stop.title.clone(), stop.artist.clone());
-        let artist_id = self.artist_id_of(&stop.slug);
+        let (slug, title, artist) = (stop.slug.clone(), stop.title.clone(), stop.artist.clone());
+        if self.tail_uri(&slug, &title).is_some() {
+            return;
+        }
+        let artist_id = self.artist_id_of(&slug);
+        // an identified card: its discography is what the track will be
+        // resolved from, so that is what to fetch ahead
+        if artist_id.is_some() && !self.tail.has(&slug) {
+            let _ = self.harvest(&slug, true);
+            return;
+        }
         // already known, or lock held by a call in flight: nothing to launch
         let known = self
             .web
@@ -1829,6 +1871,15 @@ impl Live<'_> {
         if !known {
             self.spawn_resolve(&title, &artist, artist_id);
         }
+    }
+
+    /// The address of a card's top in the artist's harvested discography,
+    /// when the tail is there and names it.
+    fn tail_uri(&self, slug: &str, title: &str) -> Option<String> {
+        if slug.is_empty() {
+            return None;
+        }
+        crate::discography::find(self.tail.of(slug), title).map(|t| t.uri.clone())
     }
 
     /// See the branches on demand, wherever we are in the segment (`p`).
