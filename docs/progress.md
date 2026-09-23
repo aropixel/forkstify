@@ -2717,3 +2717,20 @@ the previous list are largely done; what follows is what is left.
   (asked for by Joel on 2026-08-31). Chorizo: always ask before pushing.
 - The scripts that read the GNOME keyring are run **by Joel** with the `!`
   prefix.
+
+## A card born under the wrong Boo (2026-09-23)
+
+Joel: the `boo` card is Boo! from South Africa, and he wanted the Czech
+group, Spotify `75aF8TBGAxDZlcFPDEhIIK`. "How do we allow regenerating a
+card that was generated wrong?"
+
+Diagnosed, not coded. The generator identifies by **name alone** even when
+the search or the collection had the Spotify id in hand, and "Boo!"
+slugifies to `boo`. The right one is on MusicBrainz
+(`a15ba7c3-e02e-440b-bc7e-cc60c328e34a`) with no Spotify or Deezer link,
+Deezer does not have the band, and Spotify's top-tracks endpoint is marked
+deprecated today: a regeneration by MBID would be thin, and needs the
+Spotify id from Joel. The proposal — `:generate <name> <mbid> [spotify-id]`
+regenerates an existing card, and the name search rejects a MusicBrainz
+candidate whose Spotify link contradicts the id we hold — is in
+`docs/design/on-the-fly-generation.md`, waiting on Joel.

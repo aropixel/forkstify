@@ -95,7 +95,83 @@ cards, otherwise any session musician would become a direction.
 **Generation needs the network**, and 0016 wants the application to say so
 rather than fail.
 
+## Regenerating a card born under the wrong identity
+
+Joel, 2026-09-23: the `boo` card is attached to a Boo that is not the one he
+wanted — he wants the Czech group, Spotify `75aF8TBGAxDZlcFPDEhIIK`. "How
+do we allow regenerating a card that was generated wrong?"
+
+**What happened.** The card holds Boo! (South Africa, punk, MusicBrainz
+`51108135-65c2-4e01-bd4e-bd7d9e0091f1`, Spotify `39dPrvOQpekY24oOeKGYlq`).
+It was generated from a name alone: the search modal and the collection
+both had the artist's Spotify id in hand, and neither hands it to
+`generate::draft`, which identifies by **name only** — the first
+MusicBrainz hit scoring 90 or more whose slug matches. "Boo!" slugifies to
+`boo`, so it won. Nothing links to `boo` and `learned/` has no file for it,
+so the wrong card did no damage beyond itself.
+
+**What the sources know of the right one** (verified 2026-09-23).
+MusicBrainz has it: `a15ba7c3-e02e-440b-bc7e-cc60c328e34a`, "Czech-Austrian
+alternative group", begun 1998, two albums (*Boo* 1999, *Listen* 2002) —
+but no genre, no Spotify link, no Deezer link. Deezer does not seem to have
+the band at all: its three "Boo" are an American rapper, a ten-fan act, and
+Boo!. And Spotify's *Get Artist's Top Tracks* is marked **Deprecated** on
+the reference today, so Spotify cannot lend the tops either. A regeneration
+by MBID alone would therefore be born thin: name, `cz`, `90s`, **no Spotify
+id**, and — worse — the tops of whichever Deezer "Boo" the name search hits
+first. The card needs the Spotify id from Joel's hand, and its tops from
+the discography (`ad`), which still comes through the albums endpoints.
+
+**Two things block a regeneration today**: `Live::generate` answers "already
+has a card" and stops, and `edit::create_card` refuses when the file exists.
+`embed::write_vector` already replaces the slug's line, so the index is not
+in the way.
+
+### Direction
+
+1. **`:generate <name> <mbid>` over an existing card regenerates it.** The
+   identifier is the intent: without one, the refusal stays, since a bare
+   name over an existing card is almost always a slip. With one, the card
+   is **rewritten from the sources**, not merged — hand edits of the old
+   card go with it, which is what you want when the identity was wrong, and
+   the commit is the undo when it was not (`git revert` in `:catalog
+   shell`). One commit, `generated = true` again, the vector recomputed:
+   "Boo — card regenerated: was Boo! (51108135…)". An edit in the sense of
+   [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md). The same
+   MBID as the card's is allowed too: that is a re-harvest, for a card whose
+   tops came out wrong (Expérience's stray Russian top).
+
+2. **A Spotify id as a third word**: `:generate Boo <mbid> <spotify-id>`.
+   Shaped unlike an MBID (22 base62 characters), so no flag is needed. It
+   goes into the card and outranks the one MusicBrainz may carry. The MBID
+   stays mandatory — identity is the MBID
+   ([0009](../decisions/0009-mbid-identity.md)) — so a Spotify id alone is
+   refused with the usage line.
+
+3. **The paths that have the Spotify id pass it on, and the name search
+   respects it.** The collection row (`library::Artist.spotify`) and the
+   search modal (its `SearchHit` carries the track uri but not the artist's
+   id: to add) hand the id to the generator; `search_mbid` then **discards
+   a MusicBrainz candidate whose Spotify link contradicts it**. With that
+   rule Boo! would have been rejected and the answer would have been "not
+   found on MusicBrainz — `:generate Boo <mbid>`", which is the right
+   outcome: a card is not born under a name that is not yours. When
+   MusicBrainz links the Spotify id (`url?query=url:…`, `inc=artist-rels`),
+   the lookup by url comes first and the name search is not even needed.
+
+**Until it is wired, by hand** — in `:catalog shell`, remove
+`cards/boo.toml` and commit, then `:generate Boo a15ba7c3-e02e-440b-bc7e-cc60c328e34a`,
+then set `spotify` and empty the Deezer tops in the card; or write the card
+directly (name, mbid, spotify, `tags = ["cz", "90s"]`, no tops), and let
+`ad` fill the tail. `forkstify vectors` follows a hand-edited card by its
+fingerprint.
+
 ## To settle
+
+- **Regenerating under a new identity and `learned/`.** The learned file is
+  keyed by slug: after a regeneration that changes who the slug is, its
+  counters belong to the old artist. Drop it in the same commit, or keep it
+  since the titles will simply not match? Boo had none; undecided.
 
 - **Recomputing the vectors after a link is edited in session** — `aL`
   changes the text of both cards; their vectors only move at the next
