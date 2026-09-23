@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-21**. This file is the entry point for picking the work
+Updated on **2026-09-23**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -443,6 +443,25 @@ vectors do not drift either.
 **`aL` is retired**, as Joel asked: writing a link into a card is rare
 enough to go through `ae`, which opens it in `$EDITOR`. `add_link`,
 `remove_link` and `link_line` go with it rather than sit unused.
+
+## The key helper opens on its own (2026-09-23)
+
+Two touches to the which-key, asked for by Joel. **A namespace typed opens
+its level**: `t` shows `tl`, `ts`… at once, and `⌫` closes it; space is
+only for the help of the beginning, the entry table. In the code, both
+screens follow what is typed through one method, `follow_typing`: helper
+open, it goes down to the level and back up on `⌫` as before; closed, a
+namespace with a level of its own (`f`, `e`, `t`, `a`, `C` — not `c` or
+`g`, which wait for a second key but are not namespaces) opens it. A
+helper that opened on its own closes on `⌫` instead of going up to an entry
+level nobody asked for, and its footer says so.
+
+**And the rows are ordered**: the keys first, then the lines typed after `/`
+and `:`, the legend last — both entry tables were mixing them.
+
+`Cp` and `Cu` stay as they are: Joel weighed `CP` / `Cp` for the lazygit
+reflex (push / pull) and kept the words, since a proposal is not a push and
+an update is not a pull.
 
 ## Release notes, and a way to keep them honest (2026-09-23)
 

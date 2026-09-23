@@ -32,6 +32,10 @@ the version it cuts, so this file cannot fall behind.
 
 ### Keys
 
+- **The key helper opens on its own.** Type `t`, `a`, `f`, `e` or `C` and
+  the keys of that namespace appear at once — no space needed. Space still
+  opens the help of the beginning, with everything you can type. In every
+  level, the keys come first, then the `/` and `:` lines.
 - **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
   the track alone. While listening it takes the highlighted track out of the
   queue — still proposable, it is not a ban. At the home it takes the

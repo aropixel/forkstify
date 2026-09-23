@@ -20,7 +20,11 @@ The first character says *what* you act on, the second *what you do*.
 everything you can type, or only the namespace being typed, like which-key
 in LazyVim. It is not a poster: the sequence is still running, and the key
 pressed in the hints performs the action (`space`, `e`, `3` = `e3`). `⌫`
-goes one level up, `escape` closes (Joel, 2026-09-07).
+goes one level up, `escape` closes (Joel, 2026-09-07). **A namespace typed
+opens its level on its own** (Joel, 2026-09-23): `t` shows `tl`, `ts`…
+without space, and `⌫` closes it — space is for the entry level, the help
+of the beginning. In every level the **keys come first**, then the lines
+typed after `/` and `:`.
 
 Every key comes from an **English word**, vim-style (`y` yank, `c` change):
 `f` fork, `e` encore, `t` track, `a` artist, then `l` like, `s` skip,

@@ -153,6 +153,7 @@ async fn async_run(
         size: 3,
         progress: None,
         help_open: false,
+        help_auto: false,
         explore: None,
         explore_requested: false,
         sync_tx,
@@ -372,6 +373,10 @@ struct Live<'a> {
     /// The key helper is open: it follows the pending sequence level by
     /// level, and the key that completes a command closes it.
     help_open: bool,
+    /// It opened on its own, because a namespace was typed — not on
+    /// space. Then ⌫ closes it instead of going up to the entry level,
+    /// which was never asked for (Joel, 23/09/2026).
+    help_auto: bool,
     /// `ad` — the artist's discography, laid over the listening. It takes
     /// the keyboard while open: it is a modal, not a screen (Joel's call,
     /// 07/09/2026, maquette 1a).
@@ -929,11 +934,12 @@ impl Live<'_> {
                     self.help_open = false;
                 } else {
                     self.help_open = true;
+                    self.help_auto = false;
                     self.help(*namespace);
                 }
                 return true;
             }
-            Cmd::Pending(seq) if self.help_open => self.help(seq.chars().next()),
+            Cmd::Pending(seq) => self.follow_typing(seq),
             // esc closes the help, and nothing else
             Cmd::Escape if was_help => return true,
             _ => {}
@@ -2106,11 +2112,7 @@ impl Live<'_> {
         match &cmd {
             Cmd::Pending(seq) => {
                 self.typed = seq.clone();
-                if self.help_open {
-                    // the help follows the typing: `e` opens the e level,
-                    // ⌫ goes back up (Joel, 07/09/2026)
-                    self.help(seq.chars().next());
-                }
+                self.follow_typing(seq);
                 return true;
             }
             Cmd::Typing(line) => {
@@ -2190,6 +2192,7 @@ impl Live<'_> {
                     self.help_open = false;
                 } else {
                     self.help_open = true;
+                    self.help_auto = false;
                     self.help(namespace);
                 }
             }
@@ -4051,6 +4054,42 @@ impl Live<'_> {
         say!(self, "\n{keys} — {what}: decided (0015), not wired yet.");
     }
 
+    /// The key helper follows what is typed (Joel, 07/09/2026): open, it
+    /// goes down to the level typed and back up on ⌫. Closed, **a
+    /// namespace typed opens its level on its own** — `t` shows `tl`,
+    /// `ts`… without space (Joel, 23/09/2026); space is only needed for
+    /// the entry level. A helper opened that way closes on ⌫, since the
+    /// entry level was never asked for.
+    fn follow_typing(&mut self, seq: &str) {
+        let level = seq.chars().next();
+        if self.help_open {
+            if level.is_none() && self.help_auto {
+                self.overlay = None;
+                self.help_open = false;
+            } else {
+                self.help(level);
+            }
+        } else if let Some(namespace) = level.filter(|k| self.has_level(*k)) {
+            // it takes the place of whatever block was shown, scrolled or not
+            self.overlay_scroll = 0;
+            self.help_open = true;
+            self.help_auto = true;
+            self.help(Some(namespace));
+        }
+    }
+
+    /// The namespaces the helper has a level for — the ones `help` lists
+    /// on their own, not through the entry table. `c` and `g` wait for a
+    /// second key too, but they are not namespaces.
+    fn has_level(&self, namespace: char) -> bool {
+        let home = self.screen == Screen::Home;
+        match namespace {
+            'f' | 'e' => !home,
+            't' | 'a' | 'C' => true,
+            _ => false,
+        }
+    }
+
     /// Space, the leader: what can I type from here? With a namespace
     /// half-typed, only that namespace — which-key, in a terminal. Each
     /// line says whether the gesture is wired, so the menu never promises
@@ -4112,47 +4151,47 @@ impl Live<'_> {
                 ("1-9", "start on an entry of the blocks", true),
                 ("\u{2191}\u{2193} gg G", "highlight in the collection", true),
                 ("enter", "start on the highlighted line · else random", true),
-                ("a", "the highlighted artist — type a for its keys", true),
+                ("a", "the highlighted artist — its keys open on a", true),
                 ("tg", "google — what plays underneath, in the browser", true),
-                ("C", "the catalog — type C for its keys", true),
+                ("C", "the catalog — its keys open on C", true),
                 ("s", "the order: familiarity → a-z → last played", true),
                 ("v", "the view: liked ⇄ all", true),
-                ("/text", "filter the collection — esc clears", true),
-                (":search", "search — the modal: catalog then Spotify, enter starts", true),
-                (":generate <name> [mbid]", "bring in a missing artist", true),
                 ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 ("cc", "adjust comfort with the arrows", true),
                 ("p", "pause / play", true),
                 ("r", "back to listening · else resume the last journey", true),
                 ("q", "quit", true),
+                ("/text", "filter the collection — esc clears", true),
+                (":search", "search — the modal: catalog then Spotify, enter starts", true),
+                (":generate <name> [mbid]", "bring in a missing artist", true),
             ],
             _ => &[
                 ("1-9", "take a branch", true),
-                ("f", "the branch — type f for its keys", true),
-                ("e", "encore — type e for its keys", true),
-                ("t", "the track — type t for its keys", true),
-                ("a", "the artist — type a for its keys", true),
+                ("f", "the branch — its keys open on f", true),
+                ("e", "encore — its keys open on e", true),
+                ("t", "the track — its keys open on t", true),
+                ("a", "the artist — its keys open on a", true),
                 ("enter", "auto — draw among the branches", true),
                 ("h l \u{2190} \u{2192}", "previous / next track", true),
                 ("J K", "move the highlighted line one step", true),
                 ("p", "pause / play", true),
-                ("/text", "filter a list — the collection, the discography", true),
-                (":search", "search — the modal: catalog then Spotify, enter takes", true),
                 ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 ("cc", "adjust comfort with the arrows", true),
                 ("x", "remove — the highlighted track out of the queue (not a ban)", true),
+                ("C", "the catalog — its keys open on C", true),
+                ("q", "quit", true),
+                ("/text", "filter a list — the collection, the discography", true),
+                (":search", "search — the modal: catalog then Spotify, enter takes", true),
                 (":size <n>", "branch size", true),
                 (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 (":warm", "fetch the current artist's discography", true),
                 (":discography", "their discography by album — shortcut ad", true),
                 (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough", true),
-                ("C", "the catalog — type C for its keys", true),
                 (":catalog", "the fork's state in one line · :catalog fork <url> leaves the local mode", true),
                 (":sync", "commit and push the learned now", true),
                 (":setup", "replay a step of the setup — catalog, identity, connection, library…", true),
                 (":library", "harvest the library again — steps 4, 5 and 7 of the setup", true),
                 ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", true),
-                ("q", "quit", true),
             ],
         };
         let title = match namespace {
@@ -4166,7 +4205,8 @@ impl Live<'_> {
             _ => "the keys",
         };
         // a block lays over the screen; it does not go down into the log,
-        // whose bottom must never move
+        // whose bottom must never move. The keys come first, then the
+        // lines typed after `/` and `:`, then the legend (Joel, 23/09/2026)
         let mut lines: Vec<String> = rows
             .iter()
             .map(|(keys, what, wired)| {
@@ -4180,6 +4220,7 @@ impl Live<'_> {
         // it is a key helper: the key typed here performs the action
         lines.push(String::new());
         lines.push(match namespace {
+            Some(_) if self.help_auto => " one key = the action · ⌫ or esc close · space for all the keys".into(),
             Some(_) => " one key = the action · ⌫ back · esc close".into(),
             None => " one key = the action · esc close".into(),
         });
