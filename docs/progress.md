@@ -291,6 +291,19 @@ chosen without a market. `~/.local/state/forkstify/resolve-cache.json` and
 `~/.cache/forkstify/discography/` have to go once, and fill again on their
 own.
 
+## `tg` — the track in the browser (2026-09-23)
+
+Joel: a `tg` for track google, as `ag` is for artists, searching **the
+artist's name and the song's**. Wired: `tg` searches `<artist> <title>`,
+and the toast names it the other way round, title then artist, as the rest
+of the interface does.
+
+Like `ag`, it aims at the highlighted row otherwise at what plays, and it
+**needs no card** — a name and a title are enough, so a track outside the
+catalog is searchable too. The two now share one `google` helper instead of
+each spawning `xdg-open` on its own. The `ta` row of the table also gets
+back the column it was missing.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

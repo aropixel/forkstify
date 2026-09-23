@@ -3164,6 +3164,19 @@ impl Live<'_> {
             self.open_insert();
             return;
         }
+        // `tg` works off-catalog too, like `ag`: a title and a name are all
+        // a search needs (Joel, 2026-09-23)
+        if key == 'g' {
+            let Some(stop) = self.target() else {
+                say!(self, "(nothing playing)");
+                return;
+            };
+            self.google(
+                &format!("{} {}", stop.artist, stop.title),
+                &format!("{} — {}", stop.title, stop.artist),
+            );
+            return;
+        }
         let Some(stop) = self.under_needle() else { return };
         match key {
             'l' => {
@@ -3256,6 +3269,24 @@ impl Live<'_> {
         self.artist_action(key, stop);
     }
 
+    /// Search in the default browser: `ag` on an artist, `tg` on a track
+    /// with its artist before it (Joel, 2026-09-23). `said` is what the
+    /// toast names, which reads the other way round — title then artist.
+    fn google(&self, query: &str, said: &str) {
+        let url =
+            format!("https://www.google.com/search?q={}", crate::spotify::encode(query));
+        match std::process::Command::new("xdg-open")
+            .arg(&url)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            Ok(_) => say!(self, "→ {said} — in the browser"),
+            Err(e) => say!(self, "⏹ browser not found (xdg-open: {e})"),
+        }
+    }
+
     /// One `a` verb on one artist — from the axis, or from the home's
     /// collection (Joel, 10/09/2026: "every artist command from the
     /// home").
@@ -3263,20 +3294,8 @@ impl Live<'_> {
         // `ag` — google: the targeted artist in the default browser
         // (Joel, 08/09/2026)
         if key == 'g' {
-            let url = format!(
-                "https://www.google.com/search?q={}",
-                crate::spotify::encode(&stop.artist)
-            );
-            match std::process::Command::new("xdg-open")
-                .arg(&url)
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .spawn()
-            {
-                Ok(_) => say!(self, "→ {} — in the browser", stop.artist),
-                Err(e) => say!(self, "⏹ browser not found (xdg-open: {e})"),
-            }
+            let artist = stop.artist.clone();
+            self.google(&artist, &artist);
             return;
         }
         match key {
@@ -3972,6 +3991,7 @@ impl Live<'_> {
                 ("tm", "mark — set aside", true),
                 ("td", "door — make it a door (card, one commit)", true),
                 ("ta", "about — album, featuring, year, and why this track", true),
+                ("tg", "google — the track and its artist in the browser", true),
                 ("ti", "insert — insert a track here, via search", true),
                 ("tx", "remove — remove the highlighted line from the queue (not a ban)", true),
                 ("ad", "tops are fixed in the discography", true),

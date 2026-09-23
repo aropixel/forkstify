@@ -177,7 +177,7 @@ pub enum Parse {
 
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
-const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i', 'a'];
+const TRACK_KEYS: [char; 11] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i', 'a', 'g'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
 /// `Cd` diff, `Cp` propose, `Cu` update.
 const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
