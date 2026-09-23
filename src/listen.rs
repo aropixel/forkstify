@@ -2742,7 +2742,7 @@ impl Live<'_> {
         if !linked.is_empty() {
             lines.push(crate::tui::FinderLine::Header {
                 catalogue: true,
-                text: format!("yours  {} — enter on one sets its closeness, or undraws it", linked.len()),
+                text: format!("yours  {} — ← → move the closeness · enter opens it, x there undraws", linked.len()),
             });
             for f in linked {
                 lines.push(found_line(f, true));
@@ -2930,14 +2930,14 @@ impl Live<'_> {
         let all = self.learned.all_connections();
         for (from, to, n) in all.iter().filter(|(from, _, _)| *from == from_slug) {
             drawn.push(((*from).clone(), (*to).clone(), *n));
-            linked.push(Found { hit: Hit::Artist((*to).clone()), mark: '✓', note: format!("yours → {} — closeness {n}", name(to)) });
+            linked.push(Found { hit: Hit::Artist((*to).clone()), mark: '✓', note: drawn_note(true, &name(to), *n) });
         }
         for (from, to, n) in all.iter().filter(|(_, to, _)| *to == from_slug) {
             if drawn.iter().any(|(_, other, _)| other == *from) {
                 continue;
             }
             drawn.push(((*from).clone(), (*to).clone(), *n));
-            linked.push(Found { hit: Hit::Artist((*from).clone()), mark: '✓', note: format!("yours ← {} — closeness {n}, drawn from there", name(from)) });
+            linked.push(Found { hit: Hit::Artist((*from).clone()), mark: '✓', note: drawn_note(false, &name(from), *n) });
         }
         self.finder = Some(Finder {
             insert: None,
@@ -3061,9 +3061,44 @@ impl Live<'_> {
             }
             Cmd::Escape => self.close_finder(),
             Cmd::Auto => self.take_found().await,
+            // ← → on a drawn connection: its closeness moves in the list,
+            // written at once (Joel, 23/09/2026)
+            Cmd::Next => self.nudge_connection(1),
+            Cmd::Prev => self.nudge_connection(-1),
             _ => {}
         }
         true
+    }
+
+    /// ← → in the `ac` modal, on a connection already drawn: move its
+    /// closeness a notch, in the list and in `learned/`, without going
+    /// through the question (Joel, 23/09/2026). Elsewhere in the modal
+    /// the arrows do nothing.
+    fn nudge_connection(&mut self, delta: i8) {
+        let Some(finder) = self.finder.as_mut() else { return };
+        let Some((from_slug, _)) = finder.link_from.clone() else { return };
+        let other = match finder.linked_rows().get(finder.cursor).map(|f| &f.hit) {
+            Some(Hit::Artist(slug)) => slug.clone(),
+            _ => return,
+        };
+        let Some(entry) = finder.drawn.iter_mut().find(|(from, to, _)| *from == other || *to == other) else {
+            return;
+        };
+        let proximity = (entry.2 as i8 + delta).clamp(1, 5) as u8;
+        if proximity == entry.2 {
+            return;
+        }
+        entry.2 = proximity;
+        let (from, to) = (entry.0.clone(), entry.1.clone());
+        let outgoing = from == from_slug;
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+        let note = drawn_note(outgoing, &name(&other), proximity);
+        if let Some(row) = finder.linked.iter_mut().find(|f| matches!(&f.hit, Hit::Artist(s) if *s == other)) {
+            row.note = note;
+        }
+        let (from_name, to_name) = (name(&from), name(&to));
+        self.set_connection(&from, &to, proximity);
+        say!(self, "✓ {from_name} → {to_name} — closeness {proximity}");
     }
 
     /// Enter in the modal: the row under the cursor — branched, played, or
@@ -3378,19 +3413,25 @@ impl Live<'_> {
         let Some(LinkPending { from_slug, from_name, to_slug, to_name, .. }) = self.link_pending.take() else {
             return;
         };
-        self.learned.connect(&from_slug, &to_slug, proximity);
-        if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
+        self.set_connection(&from_slug, &to_slug, proximity);
+        say!(self, "✓ {from_name} → {to_name} — yours, closeness {proximity}");
+    }
+
+    /// Write a connection at that closeness — into `learned/`, and into
+    /// the catalog the engine walks, which follows on the spot rather than
+    /// at the next launch.
+    fn set_connection(&mut self, from_slug: &str, to_slug: &str, proximity: u8) {
+        self.learned.connect(from_slug, to_slug, proximity);
+        if let Some(card) = self.catalog.cards.get_mut(from_slug) {
             card.links.retain(|l| !(l.to == to_slug && l.kind == crate::catalog::MINE));
             card.links.push(crate::catalog::Link {
-                to: to_slug.clone(),
+                to: to_slug.to_string(),
                 kind: crate::catalog::MINE.to_string(),
                 note: None,
                 proximity: Some(proximity),
             });
         }
-        // the engine follows on the spot, not at the next launch
         self.recompute();
-        say!(self, "✓ {from_name} → {to_name} — yours, closeness {proximity}");
     }
 
     /// `:connections` — every connection drawn with `ac`, by artist, with
@@ -4468,6 +4509,16 @@ impl Live<'_> {
             &mut self.rng,
         );
         self.start_segment(vec![current], stops, false, false).await;
+    }
+}
+
+/// The note of a drawn connection in the `ac` modal: which way it was
+/// drawn, and how close — rewritten in place when ← → move it.
+fn drawn_note(outgoing: bool, name: &str, proximity: u8) -> String {
+    if outgoing {
+        format!("yours → {name} — closeness {proximity}")
+    } else {
+        format!("yours ← {name} — closeness {proximity}, drawn from there")
     }
 }
 

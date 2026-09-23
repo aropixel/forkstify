@@ -530,6 +530,13 @@ Read-only by design: setting or undrawing goes through `ac` on either
 artist, and the block's last line says so. No key — it is a look, not a
 gesture, and the `:` level of the helper lists it.
 
+**And the arrows in the list.** Joel wanted to move a closeness without
+enter then a digit: **← → on a drawn row** move it a notch, the number
+changes under the cursor, and it is written at once — a measurement, as
+`tl` in the discography. The reader swallowed ← → in text mode; they now
+reach the modal as `Next`/`Prev`, which only the drawn rows answer. Writing
+a connection is one method, `set_connection`, shared with the question.
+
 ## The closeness question waits (2026-09-23)
 
 Joel used `ac` and found the question toast gone after its few seconds,

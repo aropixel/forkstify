@@ -505,7 +505,10 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     0x1b => match escape_sequence() {
                         Some([_, b'A']) => Some(Cmd::Up),
                         Some([_, b'B']) => Some(Cmd::Down),
-                        Some([_, b'C']) | Some([_, b'D']) => None,
+                        // ← → reach the modal too: on a drawn connection
+                        // they move its closeness (Joel, 23/09/2026)
+                        Some([_, b'C']) => Some(Cmd::Next),
+                        Some([_, b'D']) => Some(Cmd::Prev),
                         _ => Some(Cmd::Escape),
                     },
                     b'\r' | b'\n' => Some(Cmd::Auto),

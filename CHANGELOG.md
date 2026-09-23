@@ -61,8 +61,9 @@ the version it cuts, so this file cannot fall behind.
   the farthest, 5 the closest, and the question stays until answered — and
   writes it into `learned/`: it follows you between machines, and `Cp` can
   never carry it upstream. The branches follow it immediately, both ways.
-  The modal lists what is drawn on either side; enter on one reopens its
-  question to set the closeness, and `x` there undraws it. And
+  The modal lists what is drawn on either side; ← → on one move its
+  closeness right there, enter reopens its question, and `x` there undraws
+  it. And
   **`:connections`** lists every connection drawn, by artist, in one
   block.
 - **`aL` is retired.** Writing a link into a card is rarer, and shared once
