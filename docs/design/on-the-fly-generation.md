@@ -200,10 +200,15 @@ right Spotify id.
   the MusicBrainz name ("La Ruda"), and resolving a track searches Spotify
   by `track:… artist:<name>` — but Spotify says "La Ruda Salska" (Joel,
   2026-09-09). The tops are then not found even though the card carries the
-  artist's Spotify identifier. Fixed by hand in the card; to settle: an
-  alias field, or a resolution that checks the results' Spotify identifier
-  rather than the name, or taking the Spotify name at generation time when
-  the identifier is known.
+  artist's Spotify identifier. Fixed by hand in the card. **Half settled on
+  2026-09-23**, from the other end: the resolution now **holds the hits to
+  the card's Spotify id** — "Listen" by Boo was Snakes in the Boot's, "The
+  Answer" The Boo Radleys' — keeping a hit by somebody else only when no hit
+  carries the id, so a stale id does not empty the answer; the id is part of
+  the cache key, so what was found by name alone is not reused for an
+  identified card. What is *not* settled is the La Ruda case proper: a name
+  Spotify does not search by finds no hit at all, id or not. An alias
+  field, or the Spotify name taken at generation, still to choose.
 
 - **Contributing back upstream.** [catalog.md](catalog.md) § Pooling wants a
   generated card that is missing from the reference to be proposed as a

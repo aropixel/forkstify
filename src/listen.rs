@@ -1057,7 +1057,9 @@ impl Live<'_> {
     /// back through `Job::Resolved`.
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
         let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
-        let known = self.web.try_lock().ok().and_then(|web| web.cached(&stop.title, &stop.artist));
+        let artist_id = self.artist_id_of(&stop.slug);
+        let known =
+            self.web.try_lock().ok().and_then(|web| web.cached(&stop.title, &stop.artist, artist_id.as_deref()));
         match known {
             Some(Resolved::Track(uri)) => match SpotifyUri::from_uri(&uri) {
                 Ok(track) => {
@@ -1080,7 +1082,7 @@ impl Live<'_> {
             }
             Some(Resolved::Failed(why)) => Load::Failed(stop, why),
             None => {
-                self.spawn_resolve(&stop.title, &stop.artist);
+                self.spawn_resolve(&stop.title, &stop.artist, artist_id);
                 self.current = Some(stop);
                 self.loading = true;
                 Load::Playing
@@ -1088,14 +1090,20 @@ impl Live<'_> {
         }
     }
 
+    /// The Spotify id of the artist behind a stop, when its card carries
+    /// one: what the resolution holds the search's hits to (23/09/2026).
+    fn artist_id_of(&self, slug: &str) -> Option<String> {
+        self.catalog.cards.get(slug).and_then(|card| card.spotify.clone())
+    }
+
     /// Ask Spotify for a track's address, off the loop. The cache inside
     /// `WebApi` remembers the answer; the loop hears of it as a job.
-    fn spawn_resolve(&self, title: &str, artist: &str) {
+    fn spawn_resolve(&self, title: &str, artist: &str, artist_id: Option<String>) {
         let web = self.web.clone();
         let tx = self.jobs_tx.clone();
         let (title, artist) = (title.to_string(), artist.to_string());
         tokio::task::spawn_local(async move {
-            let result = web.lock().await.resolve(&title, &artist).await;
+            let result = web.lock().await.resolve(&title, &artist, artist_id.as_deref()).await;
             let _ = tx.send(Job::Resolved { title, artist, result });
         });
     }
@@ -1811,10 +1819,15 @@ impl Live<'_> {
     async fn prefetch_next(&mut self) {
         let Some(stop) = self.queue.front() else { return };
         let (title, artist) = (stop.title.clone(), stop.artist.clone());
+        let artist_id = self.artist_id_of(&stop.slug);
         // already known, or lock held by a call in flight: nothing to launch
-        let known = self.web.try_lock().map(|web| web.cached(&title, &artist).is_some()).unwrap_or(true);
+        let known = self
+            .web
+            .try_lock()
+            .map(|web| web.cached(&title, &artist, artist_id.as_deref()).is_some())
+            .unwrap_or(true);
         if !known {
-            self.spawn_resolve(&title, &artist);
+            self.spawn_resolve(&title, &artist, artist_id);
         }
     }
 

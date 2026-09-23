@@ -2756,3 +2756,24 @@ and the edit's commit stages the removal with `git rm --cached
 --ignore-unmatch`, which is silent when git never tracked the file. Under
 the same MBID nothing is dropped. The toast and the commit body both say
 it. Pinned by a test on whether the identity moved.
+
+## The resolution holds to the card's Spotify id (2026-09-23)
+
+Joel, the card redone: "Stones" plays the right song, "Listen" and "The
+Answer" do not — "is it the cache to clean?"
+
+Not the cache: it remembered what the resolution found, and it had found
+**"Listen" by Snakes in the Boot and "Find the Answer Within" by The Boo
+Radleys**. `resolve` searched `track:<title> artist:<name>` and took the
+first studio hit without looking at whose it was; with a three-letter name
+and generic titles, two out of three went to namesakes. The card's id was
+never read at that point — the point left "to settle" since La Ruda on
+2026-09-09.
+
+`resolve` and `cached` now take the artist's Spotify id, read from the
+stop's card. The hits are held to it when any carries it; otherwise the
+name alone decides, so a stale id does not empty the answer. The id is in
+the cache key: the addresses found by name alone are dead for an identified
+card, nothing to clean by hand. The prefetch goes through the same door.
+The choice is a pure function, `pick`, with three tests: the right artist
+over the first hit, studio over live within that artist, and the fallback.

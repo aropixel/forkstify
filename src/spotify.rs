@@ -75,6 +75,46 @@ pub struct WebApi {
 
 /// Does this text (a track or album name) mark a live recording? Token-based
 /// so "deliver" doesn't count as "live".
+/// The cache key of a resolution. The artist's id is part of it when the
+/// card has one: an address found by name alone, before the id was
+/// looked at, is not reused for a card that is identified.
+fn resolve_key(title: &str, artist: &str, artist_id: Option<&str>) -> String {
+    match artist_id {
+        Some(id) => format!("{artist}\u{1}{title}\u{1}{id}"),
+        None => format!("{artist}\u{1}{title}"),
+    }
+}
+
+/// The hit to play among a search's items: playable, by the artist whose
+/// id we hold when any hit is, and studio rather than live when asked —
+/// each preference falling back to the next when nothing satisfies it.
+fn pick(body: &serde_json::Value, artist_id: Option<&str>, prefer_studio: bool) -> Option<String> {
+    let items = body["tracks"]["items"].as_array()?;
+    // a hit Spotify itself marks unplayable is not a hit
+    let playable: Vec<&serde_json::Value> =
+        items.iter().filter(|item| item["is_playable"].as_bool() != Some(false)).collect();
+    let by_artist = |item: &&serde_json::Value| {
+        item["artists"].as_array().is_some_and(|artists| {
+            artists.iter().any(|a| a["id"].as_str() == artist_id)
+        })
+    };
+    let candidates: Vec<&serde_json::Value> = match artist_id {
+        Some(_) if playable.iter().any(by_artist) => playable.iter().copied().filter(by_artist).collect(),
+        _ => playable,
+    };
+    let studio = candidates.iter().find(|item| {
+        let name = item["name"].as_str().unwrap_or("");
+        let album = item["album"]["name"].as_str().unwrap_or("");
+        !is_live(name) && !is_live(album)
+    });
+    // the first studio hit if any, else the top candidate
+    prefer_studio
+        .then_some(studio)
+        .flatten()
+        .or_else(|| candidates.first())
+        .and_then(|item| item["uri"].as_str().map(String::from))
+}
+
 fn is_live(text: &str) -> bool {
     let lower = text.to_lowercase();
     if lower.contains("en public") {
@@ -193,8 +233,8 @@ impl WebApi {
 
     /// What the cache already knows of "title" by "artist", without
     /// touching the network: the screen shows first, the lookup runs behind.
-    pub fn cached(&self, title: &str, artist: &str) -> Option<Resolved> {
-        let key = format!("{artist}\u{1}{title}");
+    pub fn cached(&self, title: &str, artist: &str, artist_id: Option<&str>) -> Option<Resolved> {
+        let key = resolve_key(title, artist, artist_id);
         self.resolved.get(&key).map(|hit| match hit {
             Some(uri) => Resolved::Track(uri.clone()),
             None => Resolved::Absent,
@@ -202,8 +242,13 @@ impl WebApi {
     }
 
     /// Resolve "title" by "artist" to a spotify:track: uri (cached).
-    pub async fn resolve(&mut self, title: &str, artist: &str) -> Resolved {
-        let key = format!("{artist}\u{1}{title}");
+    /// `artist_id` is the card's Spotify id when it has one: the search
+    /// still goes by name, but a hit by somebody else of that name is
+    /// passed over — "Listen" by Boo was Snakes in the Boot's (Joel,
+    /// 23/09/2026). Without an id, or when no hit carries it, the name
+    /// alone decides, as before.
+    pub async fn resolve(&mut self, title: &str, artist: &str, artist_id: Option<&str>) -> Resolved {
+        let key = resolve_key(title, artist, artist_id);
         if let Some(hit) = self.resolved.get(&key) {
             return match hit {
                 Some(uri) => Resolved::Track(uri.clone()),
@@ -232,21 +277,7 @@ impl WebApi {
         let Some(body) = self.get_with_backoff(&url).await else {
             return Resolved::Failed("the Spotify API did not answer".to_string());
         };
-        let uri = (|| {
-            let items = body["tracks"]["items"].as_array()?;
-            // a hit Spotify itself marks unplayable is not a hit
-            let playable: Vec<&serde_json::Value> =
-                items.iter().filter(|item| item["is_playable"].as_bool() != Some(false)).collect();
-            let studio = playable.iter().find(|item| {
-                let name = item["name"].as_str().unwrap_or("");
-                let album = item["album"]["name"].as_str().unwrap_or("");
-                !is_live(name) && !is_live(album)
-            });
-            // the first studio hit if any, else the top playable result
-            studio
-                .or_else(|| playable.first())
-                .and_then(|item| item["uri"].as_str().map(String::from))
-        })();
+        let uri = pick(&body, artist_id, self.prefer_studio && !is_live(title));
 
         self.resolved.insert(key, uri.clone());
         if let Ok(text) = serde_json::to_string(&self.resolved) {
@@ -412,4 +443,48 @@ pub fn encode(s: &str) -> String {
             _ => format!("%{b:02X}"),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hit(uri: &str, artist_id: &str, name: &str) -> serde_json::Value {
+        serde_json::json!({
+            "uri": uri, "name": name, "is_playable": true,
+            "album": {"name": "Listen"},
+            "artists": [{"id": artist_id, "name": "Boo"}],
+        })
+    }
+
+    /// "Listen" by Boo: the first hit is Snakes in the Boot's. With the
+    /// card's id the Czech group's own comes out; without one, the name
+    /// alone decides as it always did.
+    #[test]
+    fn the_hit_by_the_right_artist_wins_over_the_first_one() {
+        let body = serde_json::json!({"tracks": {"items": [
+            hit("spotify:track:snakes", "4jPmr5uYghKDcekBZNftkh", "Listen"),
+            hit("spotify:track:boo-live", "75aF8TBGAxDZlcFPDEhIIK", "Listen (Live)"),
+            hit("spotify:track:boo", "75aF8TBGAxDZlcFPDEhIIK", "Listen"),
+        ]}});
+        assert_eq!(pick(&body, Some("75aF8TBGAxDZlcFPDEhIIK"), true).as_deref(), Some("spotify:track:boo"));
+        assert_eq!(pick(&body, Some("75aF8TBGAxDZlcFPDEhIIK"), false).as_deref(), Some("spotify:track:boo-live"));
+        assert_eq!(pick(&body, None, true).as_deref(), Some("spotify:track:snakes"));
+    }
+
+    /// An id nobody carries — a card whose id is stale — does not empty
+    /// the answer: the name alone decides.
+    #[test]
+    fn an_id_no_hit_carries_falls_back_to_the_name() {
+        let body = serde_json::json!({"tracks": {"items": [
+            hit("spotify:track:snakes", "4jPmr5uYghKDcekBZNftkh", "Listen"),
+        ]}});
+        assert_eq!(pick(&body, Some("nobody"), true).as_deref(), Some("spotify:track:snakes"));
+    }
+
+    #[test]
+    fn the_cache_key_tells_an_identified_card_apart() {
+        assert_ne!(resolve_key("Listen", "Boo", None), resolve_key("Listen", "Boo", Some("75aF8TBGAxDZlcFPDEhIIK")));
+        assert_eq!(resolve_key("Listen", "Boo", None), "Boo\u{1}Listen");
+    }
 }

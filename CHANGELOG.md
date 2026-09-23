@@ -24,6 +24,9 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **A track played by a namesake.** A card's tops were looked up on
+  Spotify by title and artist name, and the first hit played whoever it was
+  by. The card's Spotify id now decides among the hits.
 - **A card generated under a namesake.** Generating from a Spotify result
   or from your collection identified the artist by name alone, so "Boo"
   could land on another Boo. The artist's Spotify id now travels with the
