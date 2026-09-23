@@ -27,7 +27,10 @@ of the beginning. **`:` is a level of its own**: the line opens the list
 of the commands, narrowed to the word being typed (`:c` leaves `catalog`
 and `comfort`), and the entry table holds one `:` row instead of every
 command. In every level the **keys come first**, then the two lines, `/`
-and `:`, then the legend.
+and `:`, then the legend. **The table is the same on both screens** (Joel,
+2026-09-23): a row that only means something on the other screen is marked
+`·`, not hidden — `f`, `e`, `J`/`K` live on the listening screen, `s`, `v`,
+`r` at the home; everything else works on both.
 
 Every key comes from an **English word**, vim-style (`y` yank, `c` change):
 `f` fork, `e` encore, `t` track, `a` artist, then `l` like, `s` skip,
@@ -106,7 +109,10 @@ choosing a branch started appending to the queue (Joel, 2026-09-09).
 the **highlighted** row if there is one (↑↓, `gg`, `G`), otherwise the track
 that is playing. True for `t`, `a` and `e`. `ts` and `tb` only move the
 music forward if they target what is playing; on an upcoming row, `ts` pulls
-it out of the queue. Escape clears the highlight.
+it out of the queue. Escape clears the highlight. **At the home, the whole
+`t` namespace works on what plays underneath** (Joel, 2026-09-23): the
+collection holds artists and never highlights a track, so the rule lands on
+the playback foot — a highlight left behind by `q` does not count there.
 
 | Key | Word | Action | Kind | |
 |---|---|---|---|---|
@@ -181,7 +187,7 @@ carries on.
 
 | Key | Word | Action | |
 |---|---|---|---|
-| `h` / `l` | | **Previous / next** track — vim, the horizontal axis | ✅ |
+| `h` / `l` | | **Previous / next** track — vim, the horizontal axis. **At the home too** (Joel, 2026-09-23), on the journey playing underneath | ✅ |
 | ← / `h` on a playing track | | **Restarts** the track; a second time — or within its first three seconds — goes back to the previous one (Joel, 2026-09-08) | ✅ |
 | ← / → | | Likewise, for fingers off the home row | ✅ |
 | `p` | **pause** | Pause / play | ✅ |

@@ -900,19 +900,6 @@ impl Live<'_> {
             self.toggle_pause();
             return true;
         }
-        // `tg` here too (Joel, 2026-09-23). The collection holds artists and
-        // the cursor never lands on a track, so the only track at the home
-        // is the one sounding underneath — what the playback foot shows.
-        if matches!(cmd, Cmd::Track('g')) {
-            match self.current.clone() {
-                Some(stop) => self.google(
-                    &format!("{} {}", stop.artist, stop.title),
-                    &format!("{} — {}", stop.title, stop.artist),
-                ),
-                None => say!(self, "(nothing playing — tg searches what sounds under the home)"),
-            }
-            return true;
-        }
         // the key helper, as when listening (Joel, 10/09/2026): space opens
         // it, it follows the sequence, closes at the entry level, on esc,
         // or at the next gesture
@@ -953,6 +940,48 @@ impl Live<'_> {
             _ => {}
         }
         let live = !self.rounds.is_empty();
+        // the track namespace and the horizontal axis work here as when
+        // listening, on what plays underneath (Joel, 23/09/2026): the
+        // collection holds artists and never highlights a track, so the
+        // target rule (0020) lands on the playback foot. The branch, the
+        // encores and the queue stay on the listening screen, which shows
+        // them.
+        match &cmd {
+            Cmd::Track('i') if !live => {
+                say!(self, "(nothing playing — ti inserts into a journey)");
+                return true;
+            }
+            Cmd::Track(key) => {
+                let key = *key;
+                self.on_track_key(key).await;
+                return true;
+            }
+            Cmd::Next if live => {
+                self.next().await;
+                return true;
+            }
+            Cmd::Prev if live => {
+                self.back().await;
+                return true;
+            }
+            Cmd::Next | Cmd::Prev => {
+                say!(self, "(nothing playing)");
+                return true;
+            }
+            Cmd::Fork { .. }
+            | Cmd::ForkGenerate(_)
+            | Cmd::Peek
+            | Cmd::Reroll
+            | Cmd::ForkUndo
+            | Cmd::Wander
+            | Cmd::Encore { .. }
+            | Cmd::MoveDown
+            | Cmd::MoveUp => {
+                say!(self, "(f, e, J and K are for listening — r goes there)");
+                return true;
+            }
+            _ => {}
+        }
         // `cc` opens the dial here as when listening; the keys that follow
         // go to it before the home sees them
         if matches!(cmd, Cmd::ComfortMode) {
@@ -2831,7 +2860,7 @@ impl Live<'_> {
         let ahead = self.past.len() + usize::from(self.current.is_some());
         let at = self
             .selection
-            .filter(|index| *index >= ahead)
+            .filter(|index| *index >= ahead && self.screen != Screen::Home)
             .map(|index| (index - ahead).min(self.queue.len()))
             .unwrap_or(0);
         self.open_finder(Some(at), "");
@@ -3448,7 +3477,10 @@ impl Live<'_> {
     /// the current track otherwise. The selection plays nothing, it is
     /// visible; so it is in charge when it exists.
     fn target(&self) -> Option<crate::engine::Stop> {
-        if let Some(index) = self.selection {
+        // at the home the axis is not on screen: a highlight left behind
+        // by `q` must not steer a gesture, what plays is the target (Joel,
+        // 23/09/2026)
+        if let Some(index) = self.selection.filter(|_| self.screen != Screen::Home) {
             let stop =
                 self.past.iter().chain(self.current.iter()).chain(self.queue.iter()).nth(index);
             if let Some(stop) = stop {
@@ -4187,97 +4219,80 @@ impl Live<'_> {
     }
 
     /// Space, the leader: what can I type from here? With a namespace
-    /// half-typed, only that namespace — which-key, in a terminal. Each
-    /// line says whether the gesture is wired, so the menu never promises
-    /// what the code does not do.
+    /// half-typed, only that namespace — which-key, in a terminal. **One
+    /// table for both screens** (Joel, 23/09/2026): a row that only means
+    /// something on the other screen is marked, not hidden, so the two
+    /// helpers read the same and say where a key lives.
     fn help(&mut self, namespace: Option<char>) {
-        // the home has its own entry table; only `a` has a level there
-        // (Joel, 10/09/2026)
+        use Where::*;
         let home = self.screen == Screen::Home;
-        let rows: &[(&str, &str, bool)] = match namespace {
+        let rows: &[(&str, &str, Where)] = match namespace {
             Some('f') if !home => &[
-                ("f<n>", "branch n, at the end of the branch", true),
-                ("fn<n>", "branch n, after the track", true),
-                ("f!<n>", "branch n, after the track, the rest dropped", true),
-                ("fg<n>", "generate — the card of gap n, the branch stays on show", true),
-                ("fp", "peek — preview the branches", true),
-                ("fr", "reroll — propose three others", true),
-                ("fu", "undo — back to the previous branch", true),
-                ("fw", "wander — far away, or `fw <artist>` to their universe", true),
+                ("f<n>", "branch n, at the end of the branch", Both),
+                ("fn<n>", "branch n, after the track", Both),
+                ("f!<n>", "branch n, after the track, the rest dropped", Both),
+                ("fg<n>", "generate — the card of gap n, the branch stays on show", Both),
+                ("fp", "peek — preview the branches", Both),
+                ("fr", "reroll — propose three others", Both),
+                ("fu", "undo — back to the previous branch", Both),
+                ("fw", "wander — far away, or `fw <artist>` to their universe", Both),
             ],
             Some('e') if !home => &[
-                ("e<n>", "n encores, at the end of the branch", true),
-                ("en<n>", "n encores, after the track", true),
-                ("e!<n>", "n encores, the rest dropped", true),
+                ("e<n>", "n encores, at the end of the branch", Both),
+                ("en<n>", "n encores, after the track", Both),
+                ("e!<n>", "n encores, the rest dropped", Both),
             ],
-            Some('t') if !home => &[
-                ("tl", "like — more often: I like this track", true),
-                ("ts", "skip — less often: not for me (and skips)", true),
-                ("tb", "ban — never again this one", true),
-                ("tm", "mark — set aside", true),
-                ("td", "door — make it a door (card, one commit)", true),
-                ("ta", "about — album, featuring, year, and why this track", true),
-                ("tg", "google — the track and its artist in the browser", true),
-                ("ti", "insert — insert a track here, via search", true),
-                ("ad", "tops are fixed in the discography", true),
+            Some('t') => &[
+                ("tl", "like — more often: I like this track", Both),
+                ("ts", "skip — less often: not for me (and skips)", Both),
+                ("tb", "ban — never again this one", Both),
+                ("tm", "mark — set aside", Both),
+                ("td", "door — make it a door (card, one commit)", Both),
+                ("ta", "about — album, featuring, year, and why this track", Both),
+                ("tg", "google — the track and its artist in the browser", Both),
+                ("ti", "insert — insert a track here, via search", Both),
+                ("ad", "tops are fixed in the discography", Both),
             ],
             Some('C') => &[
-                ("Cd", "diff — what this catalog has beyond the reference", true),
-                ("Cp", "propose — offer those cards to the reference, one pull request", true),
-                ("Cu", "update — bring the reference into the fork (a merge)", true),
-                (":catalog", "the state in one line", true),
-                (":catalog fork <url>", "out of the local mode — rare, no key", true),
-            ],
-            // at the home the collection holds artists, so the only track
-            // key that means anything is the one aimed at what plays
-            Some('t') if home => &[
-                ("tg", "google — what plays underneath, in the browser", true),
-                ("x", "remove — the highlighted artist out of the liked", true),
+                ("Cd", "diff — what this catalog has beyond the reference", Both),
+                ("Cp", "propose — offer those cards to the reference, one pull request", Both),
+                ("Cu", "update — bring the reference into the fork (a merge)", Both),
+                (":catalog", "the state in one line", Both),
+                (":catalog fork <url>", "out of the local mode — rare, no key", Both),
             ],
             Some('a') => &[
-                ("al", "like — this artist, more often", true),
-                ("as", "skip — this artist, less often", true),
-                ("ab", "ban — never again this artist", true),
-                ("ad", "discography — their discography, by album", true),
-                ("ag", "google — the artist in the browser", true),
-                ("ae", "edit — the card in $EDITOR, committed when it changed", true),
-                ("ac", "connect — yours: the ones drawn (enter undraws), then search to draw one", true),
+                ("al", "like — this artist, more often", Both),
+                ("as", "skip — this artist, less often", Both),
+                ("ab", "ban — never again this artist", Both),
+                ("ad", "discography — their discography, by album", Both),
+                ("ag", "google — the artist in the browser", Both),
+                ("ae", "edit — the card in $EDITOR, committed when it changed", Both),
+                ("ac", "connect — yours: the ones drawn (enter undraws), then search to draw one", Both),
             ],
-            _ if home => &[
-                ("1-9", "start on an entry of the blocks", true),
-                ("\u{2191}\u{2193} gg G", "highlight in the collection", true),
-                ("enter", "start on the highlighted line · else random", true),
-                ("a", "the highlighted artist — its keys open on a", true),
-                ("tg", "google — what plays underneath, in the browser", true),
-                ("C", "the catalog — its keys open on C", true),
-                ("s", "the order: familiarity → a-z → last played", true),
-                ("v", "the view: liked ⇄ all", true),
-                ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
-                ("cc", "adjust comfort with the arrows", true),
-                ("p", "pause / play", true),
-                ("r", "back to listening · else resume the last journey", true),
-                ("q", "quit", true),
-                ("/text", "filter the collection — esc clears", true),
-                (":", "the commands — their list opens on :", true),
-            ],
+            // the entry level: the keys, then the two lines, then the
+            // legend (Joel, 23/09/2026)
             _ => &[
-                ("1-9", "take a branch", true),
-                ("f", "the branch — its keys open on f", true),
-                ("e", "encore — its keys open on e", true),
-                ("t", "the track — its keys open on t", true),
-                ("a", "the artist — its keys open on a", true),
-                ("enter", "auto — draw among the branches", true),
-                ("h l \u{2190} \u{2192}", "previous / next track", true),
-                ("J K", "move the highlighted line one step", true),
-                ("p", "pause / play", true),
-                ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
-                ("cc", "adjust comfort with the arrows", true),
-                ("x", "remove — the highlighted track out of the queue (not a ban)", true),
-                ("C", "the catalog — its keys open on C", true),
-                ("q", "quit", true),
-                ("/text", "filter a list — the collection, the discography", true),
-                (":", "the commands — their list opens on :", true),
-                ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", true),
+                ("1-9", "take a branch · at the home, start on an entry of the blocks", Both),
+                ("\u{2191}\u{2193} gg G", "highlight — a row of the axis, an artist of the collection", Both),
+                ("enter", "auto — draw among the branches · at the home, start on the highlighted line, else random", Both),
+                ("f", "the branch — its keys open on f", Listening),
+                ("e", "encore — its keys open on e", Listening),
+                ("t", "the track — its keys open on t · at the home, what plays underneath", Both),
+                ("a", "the artist — its keys open on a", Both),
+                ("h l \u{2190} \u{2192}", "previous / next track", Both),
+                ("J K", "move the highlighted line one step", Listening),
+                ("p", "pause / play", Both),
+                ("c<n>", "comfort zone, 5 cocoon → 0 exploration", Both),
+                ("cc", "adjust comfort with the arrows", Both),
+                ("x", "remove — the highlighted track out of the queue (not a ban) · at the home, the artist out of the liked", Both),
+                ("s", "the order: familiarity → a-z → last played", Home),
+                ("v", "the view: liked ⇄ all", Home),
+                ("r", "back to listening · else resume the last journey", Home),
+                ("C", "the catalog — its keys open on C", Both),
+                ("q", "quit · while listening, back to the home", Both),
+                ("/text", "filter a list — the collection, the discography", Both),
+                (":", "the commands — their list opens on :", Both),
+                ("♪♥↳·+~", "top · liked · door · tail · non-top · off-catalog", Both),
             ],
         };
         let title = match namespace {
@@ -4287,21 +4302,20 @@ impl Live<'_> {
             Some('t') => "t — what plays underneath",
             Some('a') => "a — the artist",
             Some('C') => "C — the catalog",
-            _ if home => "the home keys",
             _ => "the keys",
         };
+        let here = if home { Home } else { Listening };
         // a block lays over the screen; it does not go down into the log,
-        // whose bottom must never move. The keys come first, then the two
-        // lines, `/` and `:`, then the legend (Joel, 23/09/2026)
+        // whose bottom must never move
         let mut lines: Vec<String> = rows
             .iter()
-            .map(|(keys, what, wired)| {
-                let mark = if *wired { " " } else { "\u{b7}" };
+            .map(|(keys, what, screen)| {
+                let mark = if *screen == Both || *screen == here { " " } else { "\u{b7}" };
                 format!(" {mark} {keys:<10} {what}")
             })
             .collect();
-        if rows.iter().any(|(_, _, wired)| !wired) {
-            lines.push(" · = decided (0015), not wired yet".into());
+        if rows.iter().any(|(_, _, screen)| *screen != Both && *screen != here) {
+            lines.push(if home { " · = while listening — r goes there".into() } else { " · = at the home — q goes there".into() });
         }
         // it is a key helper: the key typed here performs the action
         lines.push(String::new());
@@ -4347,6 +4361,15 @@ impl Live<'_> {
         );
         self.start_segment(vec![current], stops, false, false).await;
     }
+}
+
+/// Where a row of the key helper means something: the helper is the same
+/// on both screens, and marks the rows of the other one (Joel, 23/09/2026).
+#[derive(Clone, Copy, PartialEq)]
+enum Where {
+    Both,
+    Listening,
+    Home,
 }
 
 #[cfg(test)]

@@ -469,9 +469,21 @@ home**: the home's own three-command table is gone, the session runs the
 line wherever it was typed (`run_colon`, one path for both screens), and
 `:warm` / `:discography` aim at the highlighted artist of the collection
 (`Home::highlighted`), generating the card first when there is none, as
-`ad` does there. The entry tables now differ only by their keys — the next
-step, still to settle with Joel: which of `f`, `e`, `h`/`l`, `J`/`K`, the
-`t` namespace, `s`, `v`, `r` should mean something on the other screen.
+`ad` does there.
+
+**Last, one table for both screens.** Joel wanted the helper to be the same
+everywhere. The honest version is one entry table where a row that only
+means something on the other screen is **marked `·`, not hidden** — a key
+that acts on a list the screen does not show (`f`, `e`, `J`/`K` on the
+branches and the queue) is not made to act blind, and the mark says where
+it lives. What could mean something on both now does: the whole **`t`
+namespace at the home** acts on what plays underneath (0020 lands on the
+playback foot, since the collection never highlights a track, and a
+highlight left behind by `q` is ignored there — `target` and the insert's
+anchor look at the screen), and **`h`/`l`** move along the journey playing
+underneath. Typing `f` or `e` at the home answers with a word. The `t`
+level of the helper is the same on both screens too; the home's own `t`
+table is gone.
 
 `Cp` and `Cu` stay as they are: Joel weighed `CP` / `Cp` for the lazygit
 reflex (push / pull) and kept the words, since a proposal is not a push and

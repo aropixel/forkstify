@@ -43,6 +43,14 @@ the version it cuts, so this file cannot fall behind.
   `:discography`, `:wander`, `:catalog`, `:sync`, `:setup` and `:library`
   used to answer only while listening. At the home, `:warm` and
   `:discography` aim at the highlighted artist.
+- **One key helper for both screens.** The entry help is the same table
+  at the home and while listening; a row that only means something on the
+  other screen is marked `·` and says where to go. `f`, `e`, `J`/`K` stay
+  with the listening screen, which shows the branches and the queue; `s`,
+  `v`, `r` stay with the home.
+- **The track keys and `h`/`l` work at the home.** `tl`, `ts`, `ta`,
+  `ti`… act on what plays underneath, as `tg` already did; `h`/`l` and the
+  arrows move along the journey playing underneath.
 - **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
   the track alone. While listening it takes the highlighted track out of the
   queue — still proposable, it is not a ban. At the home it takes the
