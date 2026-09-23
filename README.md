@@ -150,7 +150,9 @@ are the project's memory: [`docs/vision.md`](docs/vision.md) for what it
 is, [`docs/decisions/`](docs/decisions/) for every decision taken (one file
 each, dated, never rewritten), [`docs/design/`](docs/design/) for the living
 notes by subject, [`docs/progress.md`](docs/progress.md) for where things
-stand.
+stand. What each version brings is in
+[`CHANGELOG.md`](CHANGELOG.md) — that one is for whoever uses forkstify,
+not for whoever builds it.
 
 ## License
 

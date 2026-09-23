@@ -23,6 +23,7 @@ here; `~/Work/chorizo/AGENTS.md` is authoritative on the machine.
 | `docs/decisions/`  | One decision per file, numbered and dated. **A decision is never changed**: to go back on one, you write a new one that supersedes it. |
 | `docs/design/`     | Working notes by subject, living, rewritten as the exchanges go. Each one distinguishes **decided**, **direction** (proposed, uncontradicted) and **to settle**. |
 | `docs/progress.md` | The current state: done, waiting, next steps. A session's entry point.   |
+| `CHANGELOG.md`     | What each version brings, for whoever **uses** forkstify — never the working log above. `bin/release` promotes its `## Unreleased` section to the version being cut, so it cannot fall behind. |
 | `docs/strengths.md` | Joel's impressions from use, dated: what works and what sets the project apart, so the list is there when the time comes. |
 | `docs/keybindings.md` | The key table: wired, decided, proposed, and the collisions. The single reference. |
 | `docs/tuning.md`   | The engine's settings (`[tuning]`): what each one does, its default value, the effect of raising or lowering it. |

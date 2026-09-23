@@ -444,6 +444,26 @@ vectors do not drift either.
 enough to go through `ae`, which opens it in `$EDITOR`. `add_link`,
 `remove_link` and `link_line` go with it rather than sit unused.
 
+## Release notes, and a way to keep them honest (2026-09-23)
+
+Joel asked for a document recording what changes from one version to the
+next. `CHANGELOG.md`, in the repository's front matter rather than in
+`docs/`: it is for whoever **uses** forkstify, where `docs/progress.md` is
+the working log — why a thing was done, what was measured, what was left
+open. The two say different things about the same work and should not be
+confused.
+
+It opens on `0.1.0` and on everything since, grouped the way a user meets
+it: what is fixed, what changed under the fingers, what listening gained,
+how one installs, what the catalog gains. The market fix carries the two
+commands that clear the caches filled before it — notes that hide a
+required action are worse than none.
+
+**It cannot fall behind**: `bin/release` promotes `## Unreleased` to the
+version being cut, dates it, opens a fresh empty one above, and commits it
+with the version bump. It refuses to cut a release if the section is gone,
+and says so when it is empty.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

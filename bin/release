@@ -46,6 +46,17 @@ else
   say "⚠ docker missing: Cargo.lock keeps $current, CI will update it"
 fi
 
+# --- the changelog -----------------------------------------------------------
+# It only stays true if cutting a version updates it, so the release does:
+# "Unreleased" becomes this version, and a fresh empty one opens above it.
+if [ -f CHANGELOG.md ]; then
+  grep -q '^## Unreleased' CHANGELOG.md || die "CHANGELOG.md has no '## Unreleased' section"
+  filled=$(awk '/^## Unreleased/{f=1;next} /^## /{f=0} f && NF' CHANGELOG.md | wc -l)
+  [ "$filled" -gt 0 ] || say "⚠ the Unreleased section is empty — the notes will say nothing"
+  sed -i "0,/^## Unreleased\$/s//## Unreleased\n\n## $version — $(date +%F)/" CHANGELOG.md
+  say "CHANGELOG.md: Unreleased → $version"
+fi
+
 for f in Cargo.toml manifest.json; do
   got=$(sed -n "s/.*[\"]\?version[\"]\?[[:space:]]*[:=][[:space:]]*\"\([^\"]*\)\".*/\1/p" "$f" | head -1)
   [ "$got" = "$version" ] || die "$f still says '$got' — fix it by hand"
@@ -60,7 +71,7 @@ if ! $yes; then
   case "$answer" in [yY]*) ;; *) git checkout -- Cargo.toml manifest.json Cargo.lock 2>/dev/null; die "aborted, nothing changed" ;; esac
 fi
 
-git add Cargo.toml manifest.json Cargo.lock 2>/dev/null || git add Cargo.toml manifest.json
+git add Cargo.toml manifest.json Cargo.lock CHANGELOG.md 2>/dev/null || git add Cargo.toml manifest.json CHANGELOG.md
 git commit -qm "Version $version"
 git tag "v$version"
 git push -q origin main

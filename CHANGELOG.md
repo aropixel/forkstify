@@ -1,0 +1,92 @@
+# What changed
+
+What each version brings, for whoever uses forkstify. The working log —
+why a thing was done, what was measured, what was left open — lives in
+[`docs/progress.md`](docs/progress.md); this file only says what you would
+notice.
+
+Versions follow the release: a tag `v*` publishes the Linux binary that
+`omarchy/install.sh` and the Arch package fetch.
+
+## Unreleased
+
+### Fixed
+
+- **Tracks that never played, one after another.** Spotify was asked
+  without a market, so it answered with tracks that exist somewhere and
+  play nowhere here: the search succeeded, librespot could not play, and
+  forkstify moved on — to another track picked the same way. Every call now
+  asks for your market, and a result Spotify itself marks unplayable is
+  dropped. **Clear the caches once**, they were filled without a market:
+
+  ```sh
+  rm -f ~/.local/state/forkstify/resolve-cache.json
+  rm -rf ~/.cache/forkstify/discography
+  ```
+
+- **A paused player restarting on its own.** Losing the output — a
+  bluetooth speaker walking away — makes librespot stop the stream, which
+  read as "the track ended". A paused player no longer moves on.
+
+### Keys
+
+- **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
+  the track alone. While listening it takes the highlighted track out of the
+  queue — still proposable, it is not a ban. At the home it takes the
+  highlighted artist out of the liked, without the weight `as` also moves.
+- **`ac` — a connection of your own.** Some artists go together because of
+  one ear and one life, not because anything links them. `ac` draws that
+  connection, asks how close, and writes it into `learned/`: it follows you
+  between machines, and `Cp` can never carry it upstream. The branches
+  follow it immediately, both ways.
+- **`aL` is retired.** Writing a link into a card is rarer, and shared once
+  proposed: it goes through `ae`, which opens the card in `$EDITOR`.
+- **`tg`** — the track and its artist in the browser, as `ag` does for an
+  artist. At the home too, on what sounds underneath.
+- **`u` and `.` leave the grammar.** Undo and repeat are not being built for
+  now, and a helper that lists them promises what the code does not do. `fu`
+  still steps back one branch, and `u` keeps undoing a pending edit inside
+  the discography.
+
+### Listening
+
+- **The evening drifts, and the branches follow.** "Stay within the
+  journey's universe" took the plain average of every artist played, so a
+  long evening was still represented by where it began. It now weighs what
+  was played lately more heavily — `universe_half_life` in
+  [`docs/tuning.md`](docs/tuning.md), in artists.
+- **The heart shows up where the like is made.** Liking a track changes its
+  glyph in the list, and `ta` opens on that glyph with its word. A door
+  keeps its arrow: that says where it leads, not how it was picked.
+
+### Installing
+
+- **No Docker needed.** Each release carries a Linux x86_64 binary;
+  `omarchy/install.sh` fetches it and checks it against the published
+  digest, falling back to a container build only if it cannot. Docker is
+  now only for building from source.
+- **An Arch package**, in `packaging/aur/forkstify-bin` — `makepkg -si` from
+  a clone installs it today; the AUR itself waits on registration reopening.
+- Adding the plugin is **not** installing forkstify: the bar card's
+  "Install" is what puts the binary in place. The README says so now.
+
+### For the catalog
+
+- **The index no longer churns.** Regenerating the vectors rewrote the whole
+  file every time, because the embedding is not reproducible to the last
+  digit. Each line now carries the fingerprint of the text it came from, and
+  only the cards whose text moved go back through the model.
+
+## 0.1.0 — 2026-09-21
+
+First public release: a music player for Linux that plays **by branches**.
+It starts from a seed, plays a few tracks, then offers several directions;
+you pick one, or let it pick. What it knows of artists lives in a catalog
+of TOML cards you fork, edit and propose back, and what it learns of your
+listening lives beside it, yours alone.
+
+In this one: the seven-step setup on first launch, the listening screen and
+its branches, the comfort dial, the keyboard grammar of four namespaces,
+the discography screen, on-the-fly card generation, the catalog namespace
+(`Cd`, `Cp`, `Cu`), synchronisation between machines, and the Omarchy bar
+widget with its card.
