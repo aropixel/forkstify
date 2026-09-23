@@ -96,6 +96,9 @@ pub fn has_refresh() -> bool {
 pub struct SearchHit {
     pub title: String,
     pub artist: String,
+    /// The main artist's Spotify id: what a card generated from this hit
+    /// is identified by, ahead of the name (23/09/2026).
+    pub artist_id: String,
     pub uri: String,
     pub album: String,
     /// The release year alone — "1964" — or empty when Spotify has none.
@@ -285,6 +288,7 @@ impl WebApi {
                 Some(SearchHit {
                     title: track["name"].as_str()?.to_string(),
                     artist: track["artists"][0]["name"].as_str()?.to_string(),
+                    artist_id: track["artists"][0]["id"].as_str().unwrap_or_default().to_string(),
                     uri: track["uri"].as_str()?.to_string(),
                     album: track["album"]["name"].as_str().unwrap_or_default().to_string(),
                     year: track["album"]["release_date"]

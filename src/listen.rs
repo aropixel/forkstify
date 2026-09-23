@@ -582,7 +582,9 @@ pub fn comfort_word(value: u8) -> &'static str {
 #[derive(Clone)]
 enum Hit {
     Artist(String),
-    Track { title: String, artist: String, uri: String, slug: Option<String> },
+    /// `spotify`: the artist's id when the hit came from Spotify — what a
+    /// card generated from it is identified by (23/09/2026).
+    Track { title: String, artist: String, uri: String, slug: Option<String>, spotify: Option<String> },
 }
 
 /// One line of the search modal: what was found, how it shows.
@@ -1033,7 +1035,7 @@ impl Live<'_> {
                 if key == 'd' && !carded {
                     // 0016: arriving at an artist means making them a card
                     let slug = crate::generate::slugify(&name);
-                    self.generate(&slug, Some(&name), None, After::Explore);
+                    self.generate(&slug, Some(&name), None, None, After::Explore);
                 } else if key != 'g' && !carded {
                     self.tell(format!("({name} has no card)"));
                 } else {
@@ -1157,8 +1159,9 @@ impl Live<'_> {
                                 note.push(format!("{}:{:02}", secs / 60, secs % 60));
                             }
                             note.push(if slug.is_some() { "branches next" } else { "⏎ generates the card" }.to_string());
+                            let spotify = (!hit.artist_id.is_empty()).then(|| hit.artist_id.clone());
                             Found {
-                                hit: Hit::Track { title: hit.title, artist: hit.artist, uri: hit.uri, slug },
+                                hit: Hit::Track { title: hit.title, artist: hit.artist, uri: hit.uri, slug, spotify },
                                 mark: '~',
                                 note: note.join(" · "),
                             }
@@ -1236,6 +1239,7 @@ impl Live<'_> {
                     Ok(v) => (Some(v), None),
                     Err(why) => (None, Some(why)),
                 };
+                let replaced = self.catalog.cards.get(&slug).map(|c| c.name.clone());
                 if let Err(why) = self.adopt(draft, vector) {
                     self.mark_pending();
                     return self.tell(format!("⏹ card of {name} — {why}"));
@@ -1243,7 +1247,10 @@ impl Live<'_> {
                 // the card now exists for the engine: the link that asked
                 // for it is no longer a gap
                 self.missing.retain(|m| m.slug != slug);
-                let mut done = format!("✓ {name} — generated card: {tops} top(s), {links} link(s)");
+                let mut done = match replaced {
+                    Some(old) => format!("✓ {name} — card regenerated (was {old}): {tops} top(s), {links} link(s)"),
+                    None => format!("✓ {name} — generated card: {tops} top(s), {links} link(s)"),
+                };
                 if !caveats.is_empty() {
                     done.push_str(&format!(" ({caveats})"));
                 }
@@ -1405,21 +1412,33 @@ impl Live<'_> {
 
     /// Bring a fresh card into the session: the disk, the commit — it is an
     /// edit (0013) — then the catalog **in memory**, without which it would
-    /// only exist at the next launch.
+    /// only exist at the next launch. Over a card that exists, this is a
+    /// regeneration: the file is rewritten, the commit says who it was.
     fn adopt(&mut self, draft: crate::generate::Draft, vector: Option<Vec<f32>>) -> Result<(), String> {
         let card: crate::catalog::Card = toml::from_str(&draft.toml)
             .map_err(|e| format!("the composed card does not read back ({e})"))?;
         // the text the vector came from, fingerprinted into the index so a
         // later regeneration knows this line is current (2026-09-21)
         let text = crate::embed::text_of(&draft.slug, &card, &self.catalog.cards);
-        let mut edit = crate::edit::create_card(
-            &self.catalog_dir,
-            &draft.slug,
-            &draft.name,
-            &draft.toml,
-            draft.tops,
-            draft.links,
-        )?;
+        let mut edit = match self.catalog.cards.get(&draft.slug) {
+            Some(old) => crate::edit::regenerate_card(
+                &self.catalog_dir,
+                &draft.slug,
+                &draft.name,
+                &draft.toml,
+                draft.tops,
+                draft.links,
+                &old.name,
+            )?,
+            None => crate::edit::create_card(
+                &self.catalog_dir,
+                &draft.slug,
+                &draft.name,
+                &draft.toml,
+                draft.tops,
+                draft.links,
+            )?,
+        };
         // the vector goes in the same commit (0019): the index shipped with
         // the fork never lags behind its cards
         if let Some(vector) = &vector {
@@ -1436,13 +1455,23 @@ impl Live<'_> {
     /// Ask for the card of an artist who has none. Four network calls and
     /// the one-second gap MusicBrainz demands: it runs in the background,
     /// like a discography harvest, and the screen does not wait for it.
-    fn generate(&mut self, slug: &str, hint: Option<&str>, mbid: Option<&str>, after: After) {
-        if let Some(name) = self.catalog.cards.get(slug).map(|c| c.name.clone()) {
-            // nothing to generate: what was meant for the artist still
-            // happens, by the same path as a fresh card
-            self.tell(format!("({name} already has a card)"));
-            let _ = self.jobs_tx.send(Job::Existing { slug: slug.to_string(), after });
-            return;
+    ///
+    /// Over an artist who **has** a card, an explicit `mbid` regenerates
+    /// it from the sources (Joel, 23/09/2026 — the `boo` card was Boo! of
+    /// South Africa); without one, the card stands and what was meant for
+    /// the artist happens anyway. `spotify` is the id the caller holds;
+    /// when it holds none, the library's, if the artist is in the
+    /// collection.
+    fn generate(&mut self, slug: &str, hint: Option<&str>, mbid: Option<&str>, spotify: Option<&str>, after: After) {
+        let existing = self.catalog.cards.get(slug).map(|c| c.name.clone());
+        if let Some(name) = &existing {
+            if mbid.is_none() {
+                // nothing to generate: what was meant for the artist still
+                // happens, by the same path as a fresh card
+                self.tell(format!("({name} already has a card)"));
+                let _ = self.jobs_tx.send(Job::Existing { slug: slug.to_string(), after });
+                return;
+            }
         }
         if !self.generating.insert(slug.to_string()) {
             let name = crate::generate::pretty(slug);
@@ -1451,14 +1480,18 @@ impl Live<'_> {
         }
         self.mark_pending();
         let name = hint.map(String::from).unwrap_or_else(|| crate::generate::pretty(slug));
-        self.tell(format!("… card of {name} — musicbrainz then deezer, a few seconds"));
+        match &existing {
+            Some(old) => self.tell(format!("… card of {name} — regenerating (was {old}), musicbrainz then deezer")),
+            None => self.tell(format!("… card of {name} — musicbrainz then deezer, a few seconds")),
+        }
         let known = crate::generate::Known::of(&self.catalog);
+        let spotify = spotify.map(String::from).or_else(|| self.learned.spotify_of(slug));
         let (asked, hint, mbid) = (slug.to_string(), hint.map(String::from), mbid.map(String::from));
         let reported = asked.clone();
         let tx = self.jobs_tx.clone();
         tokio::task::spawn_local(async move {
             let result = tokio::task::spawn_blocking(move || {
-                crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), &known)
+                crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), spotify.as_deref(), &known)
             })
             .await
             .unwrap_or_else(|e| Err(format!("generation was interrupted ({e})")));
@@ -1466,21 +1499,40 @@ impl Live<'_> {
         });
     }
 
-    /// `:generate <name> [mbid]`, from either screen: the name as typed, and
-    /// a last word shaped like a MusicBrainz id in place of the search by
-    /// name. An artist proposed as a gap takes its branch instead of a jump.
+    /// `:generate <name> [mbid] [spotify-id]`, from either screen: the name
+    /// as typed, then the ids, told apart by their shape — a MusicBrainz id
+    /// in place of the search by name, a Spotify id to put in the card and
+    /// to hold the search to (Joel, 23/09/2026). An artist proposed as a
+    /// gap takes its branch instead of a jump. Over an existing card, the
+    /// MBID is what regenerates it: a Spotify id alone is not an identity
+    /// (0009).
     fn generate_asked(&mut self, asked: &str) {
         let mut words: Vec<&str> = asked.split_whitespace().collect();
-        let mbid = match words.last() {
-            Some(last) if crate::generate::is_mbid(last) => words.pop().map(str::to_lowercase),
-            _ => None,
-        };
+        let (mut mbid, mut spotify) = (None, None);
+        for _ in 0..2 {
+            match words.last() {
+                Some(last) if crate::generate::is_mbid(last) && mbid.is_none() => {
+                    mbid = words.pop().map(str::to_lowercase);
+                }
+                Some(last) if crate::generate::is_spotify_id(last) && spotify.is_none() => {
+                    spotify = words.pop().map(String::from);
+                }
+                _ => break,
+            }
+        }
         let name = words.join(" ");
         if name.is_empty() {
-            self.tell("usage: :generate <artist name> [mbid]".to_string());
+            self.tell("usage: :generate <artist name> [mbid] [spotify-id]".to_string());
             return;
         }
         let slug = crate::generate::slugify(&name);
+        if let Some(card) = self.catalog.cards.get(&slug).filter(|_| mbid.is_none()) {
+            self.tell(format!(
+                "({} already has a card — :generate {name} <mbid> [spotify-id] regenerates it)",
+                card.name
+            ));
+            return;
+        }
         let after = match self.missing.iter().find(|m| m.slug == slug) {
             Some(missing) => After::Branch {
                 when: When::EndOfBranch,
@@ -1492,7 +1544,7 @@ impl Live<'_> {
             None if mbid.is_some() && (self.current.is_some() || !self.queue.is_empty()) => After::Offer,
             None => After::Play { title: None, uri: None },
         };
-        self.generate(&slug, Some(&name), mbid.as_deref(), after);
+        self.generate(&slug, Some(&name), mbid.as_deref(), spotify.as_deref(), after);
     }
 
     /// Give the stops of an artist who just got a card their slug: they
@@ -1884,7 +1936,7 @@ impl Live<'_> {
         if n > self.branches.len() && n <= self.branches.len() + self.missing.len() {
             let missing = &self.missing[n - self.branches.len() - 1];
             let (slug, reason, proximity) = (missing.slug.clone(), missing.why.clone(), missing.proximity);
-            self.generate(&slug, None, None, After::Branch { when, reason, proximity });
+            self.generate(&slug, None, None, None, After::Branch { when, reason, proximity });
             return;
         }
         if n == 0 || n > self.branches.len() {
@@ -1909,7 +1961,7 @@ impl Live<'_> {
         }
         let missing = &self.missing[n - self.branches.len() - 1];
         let (slug, reason, proximity) = (missing.slug.clone(), missing.why.clone(), missing.proximity);
-        self.generate(&slug, None, None, After::Gap { reason, proximity });
+        self.generate(&slug, None, None, None, After::Gap { reason, proximity });
     }
 
     /// The gaps, computed again around the context **and** a fresh card:
@@ -3007,6 +3059,7 @@ impl Live<'_> {
                         artist: card.name.clone(),
                         uri: String::new(),
                         slug: Some(slug.clone()),
+                        spotify: None,
                     },
                     mark: if is_liked { '♥' } else { '♪' },
                     note: if is_liked { format!("♥ liked · {note}") } else { note },
@@ -3175,20 +3228,20 @@ impl Live<'_> {
                 }
                 // off-catalog: bring it in (0016). This is the gesture of
                 // 09/09/2026 — "I feel like listening to Jacques Brel".
-                Hit::Track { title, artist, uri, .. } => {
+                Hit::Track { title, artist, uri, spotify, .. } => {
                     let slug = crate::generate::slugify(artist);
                     let after = After::Play {
                         title: Some(title.clone()),
                         uri: Some(uri.clone()),
                     };
-                    self.generate(&slug, Some(artist), None, after);
+                    self.generate(&slug, Some(artist), None, spotify.as_deref(), after);
                 }
             }
             return;
         }
         let stop_of = |hit: &Hit, catalog: &Catalog| -> Option<(crate::engine::Stop, Option<String>)> {
             match hit {
-                Hit::Track { title, artist, uri, slug } => {
+                Hit::Track { title, artist, uri, slug, .. } => {
                     let source = match slug.as_ref().map(|s| &catalog.cards[s]) {
                         Some(card) if card.tops.contains(title) => crate::engine::Source::Top,
                         Some(_) => crate::engine::Source::Outside,
@@ -3213,7 +3266,7 @@ impl Live<'_> {
             // ti: the track enters the queue at the anchor, marked. Off
             // catalog, its card is generated behind (0016) without making
             // it wait: it will be attached when it arrives
-            (Some(at), Hit::Track { artist, slug, .. }) => {
+            (Some(at), Hit::Track { artist, slug, spotify, .. }) => {
                 let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
@@ -3224,7 +3277,7 @@ impl Live<'_> {
                 self.queue.insert(at, stop);
                 if slug.is_none() {
                     let slug = crate::generate::slugify(artist);
-                    self.generate(&slug, Some(artist), None, After::Card);
+                    self.generate(&slug, Some(artist), None, spotify.as_deref(), After::Card);
                 }
             }
             // ti on an artist: their best unplayed track
@@ -3257,11 +3310,11 @@ impl Live<'_> {
             // :search on an off-catalog track: its card is generated, and
             // it plays as soon as it is there — otherwise the branches
             // would start again from nowhere (0016)
-            (None, Hit::Track { title, artist, uri, slug: None }) => {
+            (None, Hit::Track { title, artist, uri, slug: None, spotify }) => {
                 let slug = crate::generate::slugify(artist);
                 let after =
                     After::Play { title: Some(title.clone()), uri: Some(uri.clone()) };
-                self.generate(&slug, Some(artist), None, after);
+                self.generate(&slug, Some(artist), None, spotify.as_deref(), after);
             }
             // :search on a track: it plays now, the branches start again
             // from its artist
@@ -4260,7 +4313,7 @@ impl Live<'_> {
                     Some((Some(slug), name)) => self.open_explore_of(&slug, &name).await,
                     Some((None, name)) => {
                         let slug = crate::generate::slugify(&name);
-                        self.generate(&slug, Some(&name), None, After::Explore);
+                        self.generate(&slug, Some(&name), None, None, After::Explore);
                     }
                     None => say!(self, "(nothing highlighted — ↑↓ to choose)"),
                 }

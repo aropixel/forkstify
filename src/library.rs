@@ -337,8 +337,9 @@ pub struct Coverage {
     pub tiers: Vec<(String, usize, usize)>,
     /// The fifty most present: how many have a card.
     pub top: (usize, usize),
-    /// Score ≥ `COVERAGE_FLOOR` without a card, best first, capped.
-    pub missing: Vec<(String, u32)>,
+    /// Score ≥ `COVERAGE_FLOOR` without a card, best first, capped: the
+    /// name, the score, and the Spotify id the card is identified by.
+    pub missing: Vec<(String, u32, String)>,
     /// How many were above the floor without a card, before the cap.
     pub missing_total: usize,
 }
@@ -367,7 +368,7 @@ pub fn coverage(library: &Library, has_card: impl Fn(&str) -> bool) -> Coverage 
             tiers[tier].2 += 1;
             tiers[tier].1 += usize::from(known);
             if !known {
-                missing.push((artist.name.clone(), artist.score));
+                missing.push((artist.name.clone(), artist.score, artist.spotify.clone()));
             }
         }
     }
@@ -441,7 +442,9 @@ mod tests {
         assert_eq!(coverage.top, (1, 3));
         assert_eq!(coverage.tiers[0], ("score ≥ 20".to_string(), 1, 2));
         assert_eq!(coverage.tiers[2], ("score 5–9".to_string(), 0, 1));
-        assert_eq!(coverage.missing, vec![("Odezenne".to_string(), 71), ("Guilhem Valayé".to_string(), 8)]);
+        let missing: Vec<(&str, u32)> = coverage.missing.iter().map(|(n, s, _)| (n.as_str(), *s)).collect();
+        assert_eq!(missing, vec![("Odezenne", 71), ("Guilhem Valayé", 8)]);
+        assert_eq!(coverage.missing[0].2, library.artists.iter().find(|a| a.name == "Odezenne").unwrap().spotify);
         assert_eq!(coverage.missing_total, 2);
     }
 

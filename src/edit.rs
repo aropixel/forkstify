@@ -194,9 +194,8 @@ pub fn set_tops(
 /// it like the 316 reference cards — it is not serialized here, for the
 /// same reason nothing is rewritten elsewhere.
 ///
-/// It refuses to overwrite an existing card: a generation is an addition,
-/// never a replacement. What exists is fixed by hand or by the other
-/// edits.
+/// It refuses to overwrite an existing card: a generation is an addition.
+/// Replacing one is a separate, explicit act — `regenerate_card`.
 pub fn create_card(
     dir: &Path,
     slug: &str,
@@ -217,6 +216,42 @@ pub fn create_card(
         summary: format!("{name} — card generated"),
         body: Some(format!(
             "{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
+        )),
+        path,
+        also: Vec::new(),
+    })
+}
+
+/// Rewrite an existing card from the sources — `:generate <name> <mbid>`
+/// over a card that exists (Joel, 23/09/2026). The whole text goes, hand
+/// edits included: that is what you want when the card was born under the
+/// wrong artist, and the commit is the undo when it was not. `was` names
+/// who the card used to be, for the commit.
+pub fn regenerate_card(
+    dir: &Path,
+    slug: &str,
+    name: &str,
+    text: &str,
+    tops: usize,
+    links: usize,
+    was: &str,
+) -> Result<Edit, String> {
+    let path = card_path(dir, slug);
+    if !path.exists() {
+        return Err(format!("{name} has no card to regenerate"));
+    }
+    // the old identity, for the record: the commit says who this was
+    let before = read(&path)?;
+    let old_mbid = before
+        .lines()
+        .find_map(|line| line.strip_prefix("mbid = ").map(|v| v.trim_matches('"')))
+        .unwrap_or("no mbid");
+    let was = format!("{was} ({old_mbid})");
+    write(&path, text)?;
+    Ok(Edit {
+        summary: format!("{name} — card regenerated"),
+        body: Some(format!(
+            "Was {was}.\n{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
         )),
         path,
         also: Vec::new(),

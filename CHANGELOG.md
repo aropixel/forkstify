@@ -12,6 +12,23 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Added
+
+- **A card can be regenerated.** `:generate <name> <mbid>` over an artist
+  who already has a card rewrites it from the sources, in one commit that
+  says who the card used to be. For a card born under the wrong artist of
+  the same name.
+- **A Spotify id in `:generate`.** `:generate <name> <mbid> <spotify-id>`
+  puts that id in the card, ahead of the one MusicBrainz carries.
+
+### Fixed
+
+- **A card generated under a namesake.** Generating from a Spotify result
+  or from your collection identified the artist by name alone, so "Boo"
+  could land on another Boo. The artist's Spotify id now travels with the
+  request: MusicBrainz is asked who it links, and a namesake linked to
+  another id is passed over.
+
 ### Fixed
 
 - **Tracks that never played, one after another.** Spotify was asked

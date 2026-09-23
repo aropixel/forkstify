@@ -2733,4 +2733,18 @@ deprecated today: a regeneration by MBID would be thin, and needs the
 Spotify id from Joel. The proposal — `:generate <name> <mbid> [spotify-id]`
 regenerates an existing card, and the name search rejects a MusicBrainz
 candidate whose Spotify link contradicts the id we hold — is in
-`docs/design/on-the-fly-generation.md`, waiting on Joel.
+`docs/design/on-the-fly-generation.md`.
+
+**Joel took all three points the same evening, and they are wired.**
+`generate::draft` takes the Spotify id: MusicBrainz is asked who it links
+first, then the name search passes over a candidate whose link contradicts
+it, accepting an unlinked one with a caveat. The search modal's hits carry
+the artist's id, the collection reads it from the library by slug, the
+setup's coverage step passes it too. `edit::regenerate_card` rewrites an
+existing card and names who it was in the commit; the session takes that
+path when `:generate` comes with an MBID over a card that exists, and says
+"card regenerated (was Boo!)". A bare name over an existing card now spells
+the form instead of stopping mute. Two ignored network tests pin Boo (passed
+over) and The Cure (settled by link). What stays as it was: Deezer's tops
+are still found by name, so a band Deezer lacks gets a namesake's tops
+until edited.

@@ -127,44 +127,49 @@ has a card" and stops, and `edit::create_card` refuses when the file exists.
 `embed::write_vector` already replaces the slug's line, so the index is not
 in the way.
 
-### Direction
+### Decided (Joel, 2026-09-23, "ok for the three points")
 
 1. **`:generate <name> <mbid>` over an existing card regenerates it.** The
    identifier is the intent: without one, the refusal stays, since a bare
-   name over an existing card is almost always a slip. With one, the card
-   is **rewritten from the sources**, not merged — hand edits of the old
-   card go with it, which is what you want when the identity was wrong, and
-   the commit is the undo when it was not (`git revert` in `:catalog
-   shell`). One commit, `generated = true` again, the vector recomputed:
-   "Boo — card regenerated: was Boo! (51108135…)". An edit in the sense of
-   [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md). The same
-   MBID as the card's is allowed too: that is a re-harvest, for a card whose
-   tops came out wrong (Expérience's stray Russian top).
+   name over an existing card is almost always a slip — it now says so and
+   spells the form. With one, the card is **rewritten from the sources**,
+   not merged — hand edits of the old card go with it, which is what you
+   want when the identity was wrong, and the commit is the undo when it was
+   not (`git revert` in `:catalog shell`). One commit, `generated = true`
+   again, the vector recomputed and its line replaced in the index: "Boo —
+   card regenerated", the body naming who it was, name and MBID. An edit in
+   the sense of [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md).
+   The same MBID as the card's is allowed too: that is a re-harvest, for a
+   card whose tops came out wrong (Expérience's stray Russian top).
 
-2. **A Spotify id as a third word**: `:generate Boo <mbid> <spotify-id>`.
-   Shaped unlike an MBID (22 base62 characters), so no flag is needed. It
-   goes into the card and outranks the one MusicBrainz may carry. The MBID
-   stays mandatory — identity is the MBID
-   ([0009](../decisions/0009-mbid-identity.md)) — so a Spotify id alone is
-   refused with the usage line.
+2. **A Spotify id as a further word**: `:generate Boo <mbid> <spotify-id>`,
+   in either order — shaped unlike an MBID (22 base62 characters), so no
+   flag is needed. It goes into the card and outranks the one MusicBrainz
+   may carry. The MBID stays mandatory to regenerate — identity is the MBID
+   ([0009](../decisions/0009-mbid-identity.md)); over a missing card a
+   Spotify id alone is fine, it is the search modal's own case.
 
-3. **The paths that have the Spotify id pass it on, and the name search
-   respects it.** The collection row (`library::Artist.spotify`) and the
-   search modal (its `SearchHit` carries the track uri but not the artist's
-   id: to add) hand the id to the generator; `search_mbid` then **discards
-   a MusicBrainz candidate whose Spotify link contradicts it**. With that
-   rule Boo! would have been rejected and the answer would have been "not
-   found on MusicBrainz — `:generate Boo <mbid>`", which is the right
-   outcome: a card is not born under a name that is not yours. When
-   MusicBrainz links the Spotify id (`url?query=url:…`, `inc=artist-rels`),
-   the lookup by url comes first and the name search is not even needed.
+3. **The paths that hold the Spotify id pass it on, and the name search
+   respects it.** The search modal's hits now carry the main artist's id,
+   the collection reads it from the library (`learned/library.toml`) by
+   slug, and the setup's coverage step passes it for each of its thirty.
+   The generator first asks MusicBrainz **who is linked to that id**
+   (`url?resource=…&inc=artist-rels`): when it knows, the identity is
+   settled without a name. Otherwise the search by name runs, and **a
+   candidate whose own Spotify link contradicts the id is passed over**; a
+   candidate with no link is accepted, with a caveat on screen ("identified
+   by name alone, to review") — refusing every unlinked artist would have
+   shut the door on most small ones. When only contradicting candidates
+   remain, the answer is "somebody else (another Spotify id) — `:generate
+   Boo <mbid>`", which is the right outcome: a card is not born under a
+   name that is not yours. Two ignored network tests pin the two cases,
+   Boo and The Cure.
 
-**Until it is wired, by hand** — in `:catalog shell`, remove
-`cards/boo.toml` and commit, then `:generate Boo a15ba7c3-e02e-440b-bc7e-cc60c328e34a`,
-then set `spotify` and empty the Deezer tops in the card; or write the card
-directly (name, mbid, spotify, `tags = ["cz", "90s"]`, no tops), and let
-`ad` fill the tail. `forkstify vectors` follows a hand-edited card by its
-fingerprint.
+**Wired on 2026-09-23.** For Boo:
+`:generate Boo a15ba7c3-e02e-440b-bc7e-cc60c328e34a 75aF8TBGAxDZlcFPDEhIIK`.
+The tops will still be Deezer's, found by name, and Deezer has no Czech
+Boo: they are somebody else's until edited, and `ad` fills the tail from the
+right Spotify id.
 
 ## To settle
 

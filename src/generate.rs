@@ -175,45 +175,90 @@ pub fn is_mbid(text: &str) -> bool {
         })
 }
 
+/// A Spotify artist id as typed: 22 base62 characters, and nothing an
+/// artist is called.
+pub fn is_spotify_id(text: &str) -> bool {
+    text.len() == 22 && text.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+/// Who MusicBrainz says stands behind a Spotify artist id: the url entity,
+/// when it has one, links back to the artist. `Ok(None)` is an unlinked id
+/// — most small artists —, not an absent artist.
+fn mbid_linked_to(spotify: &str) -> Result<Option<String>, String> {
+    let resource = format!("https://open.spotify.com/artist/{spotify}");
+    let Some(body) = musicbrainz(&format!("url?resource={}&inc=artist-rels&fmt=json", encode(&resource)))?
+    else {
+        return Ok(None);
+    };
+    Ok(body["relations"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+        .iter()
+        .find(|r| r["target-type"].as_str() == Some("artist"))
+        .and_then(|r| r["artist"]["id"].as_str().map(String::from)))
+}
+
+/// What the search by name came back with.
+enum Identified {
+    Found(String, Facts),
+    /// The only candidates carried another Spotify id: somebody else of
+    /// the same name (Boo! of South Africa for the Czech Boo, 23/09/2026).
+    Contradicted,
+    Nobody,
+}
+
 /// Find the artist by name. A slug spelled back out lost its apostrophes
 /// and accents — "Lojo" for Lo’Jo — and MusicBrainz's search does not
 /// bridge that gap; Deezer's does, so when the first try finds nobody it
 /// lends the real spelling, checked against the same key (Joel,
-/// 09/09/2026). `Err` is a server that would not answer.
-fn search_mbid(name: &str) -> Result<Option<String>, String> {
-    if let Some(mbid) = mbid_among(name)? {
-        return Ok(Some(mbid));
+/// 09/09/2026). With a Spotify id in hand, a candidate whose own link
+/// contradicts it is passed over: a card is not born under a name that is
+/// not yours (Joel, 23/09/2026). `Err` is a server that would not answer.
+fn identify(name: &str, spotify: Option<&str>) -> Result<Identified, String> {
+    let mut candidates = mbids_among(name)?;
+    if candidates.is_empty() {
+        let wanted = match_key(&slugify(name));
+        let respelled = deezer(&format!("search/artist?q={}&limit=5", encode(name))).and_then(|body| {
+            body["data"].as_array()?.iter().find_map(|hit| {
+                let hit = hit["name"].as_str()?;
+                (hit != name && match_key(&slugify(hit)) == wanted).then(|| hit.to_string())
+            })
+        });
+        if let Some(other) = respelled {
+            candidates = mbids_among(&other)?;
+        }
     }
-    let wanted = match_key(&slugify(name));
-    let respelled = deezer(&format!("search/artist?q={}&limit=5", encode(name))).and_then(|body| {
-        body["data"].as_array()?.iter().find_map(|hit| {
-            let hit = hit["name"].as_str()?;
-            (hit != name && match_key(&slugify(hit)) == wanted).then(|| hit.to_string())
-        })
-    });
-    match respelled {
-        Some(other) => mbid_among(&other),
-        None => Ok(None),
+    let mut contradicted = false;
+    for mbid in candidates {
+        let Some(facts) = facts(&mbid)? else { continue };
+        match (spotify, facts.spotify.as_deref()) {
+            (Some(held), Some(linked)) if held != linked => contradicted = true,
+            _ => return Ok(Identified::Found(mbid, facts)),
+        }
     }
+    Ok(if contradicted { Identified::Contradicted } else { Identified::Nobody })
 }
 
-/// One MusicBrainz search. The score alone is not enough — "destinys child"
-/// must land on "Destiny's Child" — so the slugs are compared too.
-fn mbid_among(name: &str) -> Result<Option<String>, String> {
+/// One MusicBrainz search: the ids of the hits that are this name, best
+/// first. The score alone is not enough — "destinys child" must land on
+/// "Destiny's Child" — so the slugs are compared too.
+fn mbids_among(name: &str) -> Result<Vec<String>, String> {
     let Some(body) = musicbrainz(&format!("artist?query={}&limit=5&fmt=json", encode(name)))? else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
     let wanted = match_key(&slugify(name));
+    let mut found = Vec::new();
     for hit in body["artists"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
         if hit["score"].as_u64().unwrap_or(0) < 90 {
             break;
         }
-        let Some(found) = hit["name"].as_str() else { continue };
-        if match_key(&slugify(found)) == wanted {
-            return Ok(hit["id"].as_str().map(String::from));
+        let Some(name) = hit["name"].as_str() else { continue };
+        if match_key(&slugify(name)) == wanted {
+            found.extend(hit["id"].as_str().map(String::from));
         }
     }
-    Ok(None)
+    Ok(found)
 }
 
 /// A typed relation of the format (0010), and who it points at.
@@ -471,17 +516,27 @@ fn compose(
 /// is the id found by hand when the search by name fails (Joel,
 /// 09/09/2026): it skips the search, and if MusicBrainz then stays silent
 /// the card is born minimal — name, id, Deezer tops — rather than not at
-/// all.
+/// all. `spotify` is the artist's Spotify id when the caller holds one —
+/// the search modal, the collection, or the third word of `:generate`
+/// (Joel, 23/09/2026): MusicBrainz settles the identity from it when it
+/// links it, the name search must not contradict it otherwise, and it goes
+/// into the card ahead of whatever MusicBrainz carries.
 ///
 /// Blocking, and slow on purpose (MusicBrainz's rate limit): four network
 /// calls, about three seconds.
-pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) -> Result<Draft, String> {
+pub fn draft(
+    slug: &str,
+    hint: Option<&str>,
+    mbid: Option<&str>,
+    spotify: Option<&str>,
+    known: &Known,
+) -> Result<Draft, String> {
     let asked = match hint {
         Some(name) => name.to_string(),
         None => slug.replace('-', " "),
     };
     let mut caveats = Vec::new();
-    let (mbid, facts) = match mbid {
+    let (mbid, mut facts) = match mbid {
         Some(mbid) => {
             let facts = match facts(mbid) {
                 Ok(Some(facts)) => facts,
@@ -504,15 +559,41 @@ pub fn draft(slug: &str, hint: Option<&str>, mbid: Option<&str>, known: &Known) 
             };
             (mbid.to_string(), facts)
         }
-        None => {
-            let mbid = search_mbid(&asked)?.ok_or_else(|| {
-                format!("\"{asked}\" not found on MusicBrainz — :generate {asked} <mbid> with an id found by hand")
-            })?;
-            let facts = facts(&mbid)?
-                .ok_or_else(|| format!("MusicBrainz no longer knows the id {mbid}"))?;
-            (mbid, facts)
-        }
+        // a Spotify id MusicBrainz links settles it without a name
+        None => match spotify.map(mbid_linked_to).transpose()?.flatten() {
+            Some(mbid) => {
+                let facts =
+                    facts(&mbid)?.ok_or_else(|| format!("MusicBrainz no longer knows the id {mbid}"))?;
+                (mbid, facts)
+            }
+            None => match identify(&asked, spotify)? {
+                Identified::Found(mbid, facts) => {
+                    if spotify.is_some() && facts.spotify.is_none() {
+                        caveats.push(
+                            "MusicBrainz has no Spotify link for this artist: identified by name alone, to review"
+                                .to_string(),
+                        );
+                    }
+                    (mbid, facts)
+                }
+                Identified::Contradicted => {
+                    return Err(format!(
+                        "\"{asked}\" on MusicBrainz is somebody else (another Spotify id) — :generate {asked} <mbid> with the right id found by hand"
+                    ))
+                }
+                Identified::Nobody => {
+                    return Err(format!(
+                        "\"{asked}\" not found on MusicBrainz — :generate {asked} <mbid> with an id found by hand"
+                    ))
+                }
+            },
+        },
     };
+    // the id in hand outranks the one MusicBrainz carries: it is what the
+    // listener pointed at
+    if let Some(spotify) = spotify {
+        facts.spotify = Some(spotify.to_string());
+    }
     let deezer_id = facts.deezer.clone().or_else(|| deezer_id_by_name(&facts.name));
     let (tops, similar) = match &deezer_id {
         Some(id) => {
@@ -585,10 +666,42 @@ mod tests {
     #[test]
     #[ignore]
     fn un_slug_sans_apostrophe_se_retrouve_par_deezer() {
+        match identify("Lojo", None).expect("MusicBrainz") {
+            Identified::Found(mbid, _) => assert_eq!(mbid, "a1c1fb23-38e0-4d7f-8fed-3c81fef5ad0f"),
+            _ => panic!("Lo'Jo not found"),
+        }
+    }
+
+    /// Network: "Boo" on MusicBrainz is first Boo! of South Africa, linked
+    /// to another Spotify id than the Czech group's — the search must say
+    /// "somebody else" rather than hand the wrong card over (23/09/2026).
+    #[test]
+    #[ignore]
+    fn a_namesake_with_another_spotify_id_is_passed_over() {
+        let known = Known(Vec::new());
+        let err = draft("boo", Some("BOO"), None, Some("75aF8TBGAxDZlcFPDEhIIK"), &known)
+            .err()
+            .expect("no card under a namesake");
+        assert!(err.contains("somebody else"), "{err}");
+    }
+
+    /// Network: MusicBrainz links The Cure's Spotify id, so the identity
+    /// comes from the id and not from the name.
+    #[test]
+    #[ignore]
+    fn a_linked_spotify_id_settles_the_identity() {
         assert_eq!(
-            search_mbid("Lojo").expect("MusicBrainz").as_deref(),
-            Some("a1c1fb23-38e0-4d7f-8fed-3c81fef5ad0f")
+            mbid_linked_to("7bu3H8JO7d0UbMoVzbo70s").expect("MusicBrainz").as_deref(),
+            Some("69ee3720-a7cb-4402-b48d-a02c366f2bcf")
         );
+    }
+
+    #[test]
+    fn a_spotify_id_is_recognized_by_its_shape() {
+        assert!(is_spotify_id("75aF8TBGAxDZlcFPDEhIIK"));
+        assert!(!is_spotify_id("db6107e1-f692-453a-ab0e-4566faaba298"));
+        assert!(!is_spotify_id("Boo"));
+        assert!(!is_spotify_id("75aF8TBGAxDZlcFPDEhII"));
     }
 
     #[test]
@@ -699,7 +812,7 @@ mod tests {
             (match_key("georges-brassens"), "georges-brassens".to_string()),
             (match_key("serge-gainsbourg"), "serge-gainsbourg".to_string()),
         ]);
-        let draft = draft("jacques-brel", None, None, &known).expect("Jacques Brel");
+        let draft = draft("jacques-brel", None, None, None, &known).expect("Jacques Brel");
         println!("{}", draft.toml);
         assert_eq!(draft.name, "Jacques Brel");
         let card: crate::catalog::Card = toml::from_str(&draft.toml).expect("readable card");

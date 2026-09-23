@@ -100,6 +100,10 @@ pub struct Learned {
     /// The name as written in the ranking — the key is lowercased to
     /// compare, but the collection shows it as is.
     seed_names: HashMap<String, String>,
+    /// The Spotify id the library holds for a seed artist, by the same
+    /// key: what identifies them when their card gets generated from the
+    /// collection (23/09/2026).
+    seed_spotify: HashMap<String, String>,
     /// `classement.json`: the familiarity an artist starts with, before any
     /// listening of our own (0014). Keyed by slug of the name — the seed file
     /// predates slugs.
@@ -137,6 +141,7 @@ impl Learned {
 
         let mut seed = HashMap::new();
         let mut seed_names: HashMap<String, String> = HashMap::new();
+        let mut seed_spotify: HashMap<String, String> = HashMap::new();
         let mut seed_liked = HashSet::new();
         // the library the setup harvested (`library.toml`) comes first;
         // the seed file of the Python scripts stays read as long as it is
@@ -147,6 +152,9 @@ impl Learned {
                 let key = crate::generate::slugify(&artist.name);
                 seed.insert(key.clone(), f64::from(artist.score));
                 seed_names.insert(key.clone(), artist.name.clone());
+                if !artist.spotify.is_empty() {
+                    seed_spotify.insert(key.clone(), artist.spotify.clone());
+                }
                 if artist.liked() {
                     seed_liked.insert(key);
                 }
@@ -181,7 +189,7 @@ impl Learned {
         }
 
         let seed_max = seed.values().copied().fold(1.0, f64::max);
-        Learned { root, artists, seed, seed_max, seed_names, seed_liked, today: today() }
+        Learned { root, artists, seed, seed_max, seed_names, seed_spotify, seed_liked, today: today() }
     }
 
     pub fn known(&self) -> usize {
@@ -268,6 +276,12 @@ impl Learned {
     /// Every name in the ranking, as written there.
     pub fn ranked_names(&self) -> impl Iterator<Item = &String> {
         self.seed_names.values()
+    }
+
+    /// The Spotify id the library holds for this slug, if the artist is in
+    /// the collection.
+    pub fn spotify_of(&self, slug: &str) -> Option<String> {
+        self.seed_spotify.get(slug).cloned()
     }
 
     /// How many days since this artist last played? `None` if it never
@@ -861,7 +875,7 @@ impl Learned {
             artists: HashMap::new(),
             seed: HashMap::new(),
             seed_max: 1.0,
-            seed_names: HashMap::new(),
+            seed_names: HashMap::new(), seed_spotify: HashMap::new(),
             seed_liked: HashSet::new(),
             today: 20_000,
         }
@@ -957,7 +971,7 @@ mod tests {
             artists: HashMap::new(),
             seed,
             seed_max: 10.0,
-            seed_names: HashMap::new(),
+            seed_names: HashMap::new(), seed_spotify: HashMap::new(),
             seed_liked,
             today: 20_000,
         };
@@ -973,7 +987,7 @@ mod tests {
         let mut learned =
             Learned { root: PathBuf::from("/nonexistent"), artists: HashMap::new(),
                       seed: HashMap::new(), seed_max: 1.0,
-                      seed_names: HashMap::new(), seed_liked: HashSet::new(), today: 20_000 };
+                      seed_names: HashMap::new(), seed_spotify: HashMap::new(), seed_liked: HashSet::new(), today: 20_000 };
         for _ in 0..40 {
             learned.skip_artist("x");
         }

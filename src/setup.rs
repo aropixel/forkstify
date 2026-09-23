@@ -967,7 +967,7 @@ impl Setup<'_> {
                 library::COVERAGE_FLOOR,
                 n * 3
             )));
-            rows.push(SetupRow::Names(coverage.missing.iter().map(|(name, _)| name.clone()).collect()));
+            rows.push(SetupRow::Names(coverage.missing.iter().map(|(name, _, _)| name.clone()).collect()));
             if coverage.missing_total > n {
                 rows.push(SetupRow::Dim(format!("{} more above the floor, for a later :library", coverage.missing_total - n)));
             }
@@ -985,14 +985,20 @@ impl Setup<'_> {
         // the generation: one card after the other in the background —
         // MusicBrainz asks for its second between two — each written as it
         // comes, the vectors and the one commit at the end
-        let names: Vec<String> = coverage.missing.iter().map(|(name, _)| name.clone()).collect();
+        let names: Vec<String> = coverage.missing.iter().map(|(name, _, _)| name.clone()).collect();
         let known = std::sync::Arc::new(crate::generate::Known::of(&catalog));
         let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<(usize, String, Result<crate::generate::Draft, String>)>();
-        let names_for_task = names.clone();
+        // the library holds each artist's Spotify id: the card is
+        // identified by it, not by the name alone (23/09/2026)
+        let asked: Vec<(String, String)> =
+            coverage.missing.iter().map(|(name, _, spotify)| (name.clone(), spotify.clone())).collect();
         let task = tokio::task::spawn_local(async move {
-            for (i, name) in names_for_task.iter().enumerate() {
+            for (i, (name, spotify)) in asked.iter().enumerate() {
                 let (slug, hint, known) = (crate::generate::slugify(name), name.clone(), known.clone());
-                let result = tokio::task::spawn_blocking(move || crate::generate::draft(&slug, Some(&hint), None, &known))
+                let spotify = (!spotify.is_empty()).then(|| spotify.clone());
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::generate::draft(&slug, Some(&hint), None, spotify.as_deref(), &known)
+                })
                     .await
                     .unwrap_or_else(|e| Err(format!("interrupted ({e})")));
                 if progress_tx.send((i, name.clone(), result)).is_err() {
