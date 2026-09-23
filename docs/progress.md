@@ -501,6 +501,16 @@ path. The terminal gets its own process group, so closing the one forkstify
 runs in does not take it down. No key: the catalog namespace keeps its
 three gestures, and a shell is not a gesture on the catalog.
 
+## The closeness question waits (2026-09-23)
+
+Joel used `ac` and found the question toast gone after its few seconds,
+and the scale unclear. The toast is now **derived from the state**: as long
+as `link_pending` holds a target, `toast()` returns the question, whatever
+the timer says, so it stays until a digit, ⏎ or esc — the same way the
+loading toast stays while loading. And the question names its ends: **1 the
+farthest, 5 the closest**. One function composes it, `closeness_question`,
+for the log line and the toast.
+
 ## Release notes, and a way to keep them honest (2026-09-23)
 
 Joel asked for a document recording what changes from one version to the

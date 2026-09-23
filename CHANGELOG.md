@@ -57,8 +57,9 @@ the version it cuts, so this file cannot fall behind.
   highlighted artist out of the liked, without the weight `as` also moves.
 - **`ac` — a connection of your own.** Some artists go together because of
   one ear and one life, not because anything links them. `ac` draws that
-  connection, asks how close, and writes it into `learned/`: it follows you
-  between machines, and `Cp` can never carry it upstream. The branches
+  connection, asks how close — 1 the farthest, 5 the closest, and the
+  question stays until answered — and writes it into `learned/`: it follows
+  you between machines, and `Cp` can never carry it upstream. The branches
   follow it immediately, both ways.
 - **`aL` is retired.** Writing a link into a card is rarer, and shared once
   proposed: it goes through `ae`, which opens the card in `$EDITOR`.

@@ -2110,7 +2110,7 @@ impl Live<'_> {
                     self.link_pending = None;
                     say!(self, "(connection dropped, nothing drawn)");
                 }
-                _ => say!(self, "how close? 1 to 5 · ⏎ for 4 · esc cancels"),
+                _ => say!(self, "(how close? a digit, 1 farthest … 5 closest · ⏎ for 4 · esc cancels)"),
             }
             return true;
         }
@@ -2460,6 +2460,13 @@ impl Live<'_> {
     /// The toast of the moment: what is loading, sticky while it loads;
     /// otherwise the last thing said, four seconds.
     fn toast(&self) -> Option<crate::tui::Toast> {
+        // a question waiting on an answer does not fade: `ac` asks how
+        // close, and the toast stays until a digit, ⏎ or esc (Joel,
+        // 23/09/2026)
+        if let Some((_, from_name, _, to_name)) = &self.link_pending {
+            let text = closeness_question(from_name, to_name);
+            return Some(crate::tui::Toast { tone: crate::tui::tone_of(&text), text, sticky: false });
+        }
         if self.loading {
             if let Some(stop) = &self.current {
                 return Some(crate::tui::Toast {
@@ -3092,10 +3099,7 @@ impl Live<'_> {
             if let Some((to_slug, to_name)) = target {
                 // how close, before writing: a link carries its own
                 // proximity, or leaves it to the grid of catalog.toml (0010)
-                say!(
-                    self,
-                    "{from_name} → {to_name} — how close? 1 a distant echo … 5 almost the same universe · ⏎ for 4 · esc cancels"
-                );
+                say!(self, "{}", closeness_question(&from_name, &to_name));
                 self.link_pending = Some((from_slug, from_name, to_slug, to_name));
             }
             return;
@@ -4390,6 +4394,15 @@ impl Live<'_> {
         );
         self.start_segment(vec![current], stops, false, false).await;
     }
+}
+
+/// What `ac` asks once the target is chosen — said in the log, and shown
+/// as a toast for as long as it waits. It says which end is which: 5 is
+/// the closest (Joel, 23/09/2026).
+fn closeness_question(from_name: &str, to_name: &str) -> String {
+    format!(
+        "→ {from_name} → {to_name} — how close? 1 farthest, a distant echo … 5 closest, almost the same universe · ⏎ for 4 · esc cancels"
+    )
 }
 
 /// Where a row of the key helper means something: one table for both
