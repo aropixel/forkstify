@@ -194,9 +194,15 @@ async fn async_run(
                     if let Some(id) = request_started(ev) {
                         live.current_request_id = Some(id);
                     // …and only react to the end of THAT track, not stray
-                    // events from one we already skipped past
+                    // events from one we already skipped past — and never
+                    // while paused: losing the output, a bluetooth speaker
+                    // walking away, makes librespot stop the stream, which
+                    // read as "the track ended" and started the next one on
+                    // its own (Joel, 2026-09-23). A paused player has no
+                    // business moving on.
                     } else if live.current_request_id.is_some()
                         && track_over(ev) == live.current_request_id
+                        && !live.paused
                     {
                         live.progress = None;
                         live.on_track_over(track_finished(ev)).await;

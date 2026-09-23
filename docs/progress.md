@@ -334,6 +334,26 @@ the modal. The free-letter list and the 2026-09-05 collision table are
 updated, the latter with a note rather than a rewrite: a record is not
 corrected after the fact.
 
+## A paused player no longer moves on by itself (2026-09-23)
+
+Joel: "when the bluetooth of the speaker or the headphones cuts out and the
+music was already paused, the music starts again on its own."
+
+The loop reacted to the end of the current track without ever asking
+whether we were paused. `track_over` covers `EndOfTrack`, `Stopped` and
+`Unavailable`; losing the output makes librespot **stop** the stream, which
+read as "the track ended", so forkstify advanced — and advancing plays. One
+condition short: the end of a track is only acted on while something is
+actually playing.
+
+Nothing else relied on that event while paused: `tb` and `ts` call `next()`
+themselves, they do not wait for librespot to say so.
+
+**Left open, and untested here for want of a bluetooth device**: what `p`
+does after the output has gone. The stream librespot stopped may not
+resume, in which case the track has to be reloaded — and the position
+kept, which `Sound` cannot do today, it only knows how to go back to zero.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
