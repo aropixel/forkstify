@@ -27,10 +27,10 @@ of the beginning. **`:` is a level of its own**: the line opens the list
 of the commands, narrowed to the word being typed (`:c` leaves `catalog`
 and `comfort`), and the entry table holds one `:` row instead of every
 command. In every level the **keys come first**, then the two lines, `/`
-and `:`, then the legend. **The table is the same on both screens** (Joel,
-2026-09-23): a row that only means something on the other screen is marked
-`·`, not hidden — `f`, `e`, `J`/`K` live on the listening screen, `s`, `v`,
-`r` at the home; everything else works on both.
+and `:`, then the legend. **One table for both screens** (Joel,
+2026-09-23), and each screen shows only what means something on it: `f`,
+`e`, `J`/`K` appear while listening, `s`, `v`, `r` at the home; everything
+else works on both and is listed on both.
 
 Every key comes from an **English word**, vim-style (`y` yank, `c` change):
 `f` fork, `e` encore, `t` track, `a` artist, then `l` like, `s` skip,

@@ -4220,9 +4220,9 @@ impl Live<'_> {
 
     /// Space, the leader: what can I type from here? With a namespace
     /// half-typed, only that namespace — which-key, in a terminal. **One
-    /// table for both screens** (Joel, 23/09/2026): a row that only means
-    /// something on the other screen is marked, not hidden, so the two
-    /// helpers read the same and say where a key lives.
+    /// table for both screens** (Joel, 23/09/2026), and each screen shows
+    /// only the rows that mean something on it: a key of the other screen
+    /// is left out, not marked — Joel saw the marks and preferred less.
     fn help(&mut self, namespace: Option<char>) {
         use Where::*;
         let home = self.screen == Screen::Home;
@@ -4309,14 +4309,9 @@ impl Live<'_> {
         // whose bottom must never move
         let mut lines: Vec<String> = rows
             .iter()
-            .map(|(keys, what, screen)| {
-                let mark = if *screen == Both || *screen == here { " " } else { "\u{b7}" };
-                format!(" {mark} {keys:<10} {what}")
-            })
+            .filter(|(_, _, screen)| *screen == Both || *screen == here)
+            .map(|(keys, what, _)| format!("   {keys:<10} {what}"))
             .collect();
-        if rows.iter().any(|(_, _, screen)| *screen != Both && *screen != here) {
-            lines.push(if home { " · = while listening — r goes there".into() } else { " · = at the home — q goes there".into() });
-        }
         // it is a key helper: the key typed here performs the action
         lines.push(String::new());
         lines.push(match namespace {
@@ -4363,8 +4358,8 @@ impl Live<'_> {
     }
 }
 
-/// Where a row of the key helper means something: the helper is the same
-/// on both screens, and marks the rows of the other one (Joel, 23/09/2026).
+/// Where a row of the key helper means something: one table for both
+/// screens, each showing only its own rows (Joel, 23/09/2026).
 #[derive(Clone, Copy, PartialEq)]
 enum Where {
     Both,

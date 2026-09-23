@@ -472,11 +472,12 @@ line wherever it was typed (`run_colon`, one path for both screens), and
 `ad` does there.
 
 **Last, one table for both screens.** Joel wanted the helper to be the same
-everywhere. The honest version is one entry table where a row that only
-means something on the other screen is **marked `·`, not hidden** — a key
-that acts on a list the screen does not show (`f`, `e`, `J`/`K` on the
-branches and the queue) is not made to act blind, and the mark says where
-it lives. What could mean something on both now does: the whole **`t`
+everywhere. One entry table, where each row says which screen it belongs
+to, and **each screen shows only its own rows** — a key that acts on a
+list the screen does not show (`f`, `e`, `J`/`K` on the branches and the
+queue) is not made to act blind. A first cut marked those rows `·` and
+said where they lived; Joel saw it and preferred them left out. What could
+mean something on both now does: the whole **`t`
 namespace at the home** acts on what plays underneath (0020 lands on the
 playback foot, since the collection never highlights a track, and a
 highlight left behind by `q` is ignored there — `target` and the insert's
