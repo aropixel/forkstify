@@ -679,6 +679,36 @@ fn walk(
     Branch { label, reason: head_reason, artists, stops, weight: head_weight }
 }
 
+/// Where the journey stands, in the vector space. Not its plain average:
+/// an evening drifts, and what was played lately says where we are better
+/// than where we started — from Can to M83 by way of Paul McCartney, the
+/// flat centroid still sat back at the beginning (Joel, 2026-09-23). Each
+/// artist counts half as much as the one `universe_half_life` artists
+/// after it. `universe` comes oldest first.
+fn drifting_centroid(catalog: &Catalog, universe: &[String]) -> Option<Vec<f32>> {
+    let half_life = tuning().universe_half_life;
+    let last = universe.len().saturating_sub(1) as f32;
+    let known: Vec<(&Vec<f32>, f32)> = universe
+        .iter()
+        .enumerate()
+        .filter_map(|(i, slug)| {
+            catalog.vectors.get(slug).map(|v| (v, 0.5f32.powf((last - i as f32) / half_life)))
+        })
+        .collect();
+    let total: f32 = known.iter().map(|(_, weight)| weight).sum();
+    let (first, _) = known.first()?;
+    if !(total > 0.0) {
+        return None;
+    }
+    let mut centroid = vec![0.0f32; first.len()];
+    for (vector, weight) in &known {
+        for (c, x) in centroid.iter_mut().zip(vector.iter()) {
+            *c += x * weight / total;
+        }
+    }
+    Some(centroid)
+}
+
 /// The "stay in this universe" branch (asked by Joel while testing): a
 /// segment drawn from the whole journey's neighborhood — its artists and
 /// their graph neighbors, ranked by closeness to the journey's centroid.
@@ -698,15 +728,7 @@ fn stay(
     if universe.len() < 2 {
         return None;
     }
-    let known: Vec<&Vec<f32>> =
-        universe.iter().filter_map(|slug| catalog.vectors.get(slug)).collect();
-    let first = known.first()?;
-    let mut centroid = vec![0.0f32; first.len()];
-    for vector in &known {
-        for (c, x) in centroid.iter_mut().zip(vector.iter()) {
-            *c += x / known.len() as f32;
-        }
-    }
+    let centroid = drifting_centroid(catalog, universe)?;
 
     let nobody = HashSet::new();
     let mut seen = HashSet::new();
@@ -1405,6 +1427,43 @@ mod tests {
         // nothing known of the artist: off the map
         let orphan = Stop { slug: "nobody".into(), ..stop("x", Source::Top) };
         assert_eq!(mark(&learned, &orphan), Source::Offmap);
+    }
+
+    /// 2026-09-23: an evening drifts. "Stay in the universe" follows what
+    /// was played lately rather than the plain average of the whole thing.
+    #[test]
+    fn the_universe_centre_follows_the_drift() {
+        // two clusters at right angles: the start, then where we ended up
+        let catalog = Catalog {
+            cards: HashMap::new(),
+            proximities: HashMap::new(),
+            vectors: HashMap::from([
+                ("can".to_string(), vec![1.0, 0.0]),
+                ("lou-reed".to_string(), vec![1.0, 0.0]),
+                ("the-beatles".to_string(), vec![1.0, 0.0]),
+                ("metronomy".to_string(), vec![0.0, 1.0]),
+                ("m83".to_string(), vec![0.0, 1.0]),
+                ("the-xx".to_string(), vec![0.0, 1.0]),
+            ]),
+        };
+        // three artists at the start, three where we ended up: two branches
+        let universe: Vec<String> = [
+            "can", "lou-reed", "the-beatles", "metronomy", "m83", "the-xx",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let centre = drifting_centroid(&catalog, &universe).expect("a centre");
+
+        // the plain average would sit halfway, three against three, and say
+        // nothing of where the evening went
+        assert!(centre[1] > centre[0], "the recent half leads: {centre:?}");
+        assert!(centre[0] > 0.0, "and the journey still counts for something");
+
+        // the order is what matters, not the names: reversed, so is the centre
+        let reversed: Vec<String> = universe.iter().rev().cloned().collect();
+        let back = drifting_centroid(&catalog, &reversed).expect("a centre");
+        assert!(back[0] > back[1], "played last, Can's side leads instead: {back:?}");
     }
 
     /// What a journey already played does not come back (0012 §3).

@@ -82,6 +82,21 @@ The tail's share is `tail_weight × openness × familiarity`: nil at comfort 5
 (nothing to tune here, that is the dial), and nil with an unknown artist,
 who is led by their tops.
 
+## Where the journey stands
+
+The branch that **stays in the universe** aims at the middle of what has
+been played. An evening drifts, though: starting at Can and ending at M83
+by way of Paul McCartney, a plain average still sits back at the beginning,
+and that branch kept proposing the artists of the first hour (Joel,
+2026-09-23). So the middle follows the drift.
+
+| Setting | Default | What it does | Raise / lower |
+|---|---|---|---|
+| `universe_half_life` | `5.0` | In **artists**: one played that far back counts half as much as the last one. At the default, roughly the last two branches say where the evening is. | Very large = the whole journey weighs the same, as it did before. Smaller = only the last few artists count, and the branch follows every turn. |
+
+This changes **that branch alone**. The two others already looked at the
+last branch only, never at the whole journey.
+
 ## The adventurous leap
 
 Every round proposes a branch "through the graph" (the cards' links) and an

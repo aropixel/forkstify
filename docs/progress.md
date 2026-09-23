@@ -374,6 +374,32 @@ word behind it. The two helpers live in `engine.rs`, where the sources are,
 rather than in the session: a test pins the like, the door and the
 off-catalog cases.
 
+## The evening drifts, and the branches follow (2026-09-23)
+
+Joel, showing a journey of 31 artists: started at Can, ended at Metronomy,
+M83 and Archive by way of Paul McCartney and Lou Reed — and the first
+branch on offer was still *Lou Reed → Eagles → The Rolling Stones*. "The
+last tracks should weigh more than the start."
+
+**Which of the three was at fault.** Only one. The graph branch and the
+adventurous one already work from `context`, the **last** round, so they
+were following him: they proposed Air → Sébastien Tellier → Flavien Berger
+and The Dø → Beirut → Girls in Hawaii. The third, "stay within the
+journey's universe", took the **plain average of every artist played**, so
+a 31-artist evening was represented by a middle that sat back near its
+beginning.
+
+**What changed.** `drifting_centroid` weights each artist of the universe by
+how far back it is, halving every `universe_half_life` artists — a new
+setting, default **5**, so roughly the last two branches say where the
+evening stands. A very large value restores the old flat average. The other
+two branches are untouched: they were never the problem.
+
+Picking the default took a measurement rather than a guess: at 8 artists,
+on a journey of 31, the 25 older ones still outweighed the 6 recent. At 5
+they do not. A test pins the direction, not the number — a recent cluster
+leads, and reversing the order reverses the centre.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

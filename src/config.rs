@@ -73,6 +73,11 @@ pub struct Tuning {
     /// scale it down.
     pub tail_weight: f32,
 
+    // --- where the journey stands ---
+    /// In artists: how far back the "stay in the universe" branch has to
+    /// look for a played artist to count half as much as the last one.
+    pub universe_half_life: f32,
+
     // --- the adventurous leap (cosine in the vector space) ---
     /// Under this closeness, no leap outside the graph — at comfort 5…
     pub leap_floor_cocoon: f32,
@@ -103,6 +108,7 @@ impl Default for Tuning {
             door_weight: 0.4,
             door_bonus: 2.5,
             tail_weight: 0.25,
+            universe_half_life: 5.0,
             leap_floor_cocoon: 0.80,
             leap_floor_open: 0.60,
             leap_trust_cocoon: 0.86,
@@ -157,6 +163,7 @@ impl Tuning {
         check!(door_weight, weight, "above 0");
         check!(door_bonus, weight, "above 0");
         check!(tail_weight, weight, "above 0");
+        check!(universe_half_life, days, "artists, above 0");
         check!(leap_floor_cocoon, cosine, "-1 to 1");
         check!(leap_floor_open, cosine, "-1 to 1");
         check!(leap_trust_cocoon, cosine, "-1 to 1");
@@ -290,6 +297,12 @@ liked_weight_open = 2.0
 door_weight = 0.4
 door_bonus = 2.5
 tail_weight = 0.25
+
+# Where the journey stands. The \"stay in the universe\" branch follows the
+# drift: an artist played universe_half_life artists ago counts half as
+# much as the last one. Very large = the whole journey weighs the same, as
+# it did before.
+universe_half_life = 5.0
 
 # The adventurous leap, in closeness (cosine) in the vector space. Under
 # the floor, no leap outside the graph; above the trust, a leap needs no
