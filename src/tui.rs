@@ -645,7 +645,7 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
 
     // — the title carries the key, as everywhere
     let (heading, key, hint) = match &view.linking {
-        Some(name) => (format!("link {name} "), "aL ", "pick an artist to link to"),
+        Some(name) => (format!("connect {name} "), "ac ", "pick an artist to connect"),
         None if view.insert => ("insert a track ".to_string(), "ti ", "tracks only"),
         None => ("search ".to_string(), ":search ", "tracks and artists"),
     };

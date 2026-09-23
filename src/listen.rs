@@ -345,9 +345,10 @@ struct Live<'a> {
     warm_requested: bool,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
-    /// `aL` chose a target and now asks how close: from, to, waiting for a
-    /// proximity (Joel, 2026-09-23).
-    link_pending: Option<(String, String, String, String)>,
+    /// `ac` chose a target and now asks how close — or reopened a drawn
+    /// connection to set it: the question stays until a digit, ⏎, `x` or
+    /// esc (Joel, 2026-09-23).
+    link_pending: Option<LinkPending>,
     /// Enter on a track of the discography: a new seed, once the modal's
     /// sync handler has returned (Joel, 11/09/2026).
     start_requested: Option<Choice>,
@@ -608,13 +609,14 @@ struct Finder {
     asked: String,
     cursor: usize,
     only_catalogue: bool,
-    /// `aL`: this modal writes a `similar` link into that artist's card
-    /// (slug, name) instead of playing the chosen row (Joel, 14/09/2026).
+    /// `ac`: this modal draws a connection from that artist (slug, name)
+    /// instead of playing the chosen row (Joel, 14/09/2026, as `aL`).
     link_from: Option<(String, String)>,
-    /// `aL`: the links the card already has, listed first and marked —
-    /// enter on one **removes** it, one gesture for both directions, as
-    /// `tl` likes and unlikes (Joel, 20/09/2026).
+    /// `ac`: the connections already drawn, on either side, listed first
+    /// and marked — enter on one reopens its question (Joel, 23/09/2026).
     linked: Vec<Found>,
+    /// Behind each of them, where it is held: (from, to, closeness).
+    drawn: Vec<(String, String, u8)>,
 }
 
 fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
@@ -2099,18 +2101,28 @@ impl Live<'_> {
         }
         // `aL` is waiting on a proximity: here a digit says how close, not
         // which branch to take (Joel, 2026-09-23)
-        if self.link_pending.is_some() {
+        if let Some(pending) = self.link_pending.as_mut() {
             self.notices.borrow_mut().clear();
             match cmd {
                 Cmd::Digit(n) if (1..=5).contains(&n) => self.write_connection(n as u8),
-                // 4 is what the grid gives "similar": the middle of "these
-                // two go together" without claiming they are the same world
-                Cmd::Auto => self.write_connection(4),
-                Cmd::Escape => {
-                    self.link_pending = None;
-                    say!(self, "(connection dropped, nothing drawn)");
+                // a notch at a time, as the comfort dial moves (Joel,
+                // 23/09/2026 — "h and l, the neovim way")
+                Cmd::Prev | Cmd::Down => pending.proximity = (pending.proximity - 1).max(1),
+                Cmd::Next | Cmd::Up => pending.proximity = (pending.proximity + 1).min(5),
+                Cmd::Auto => {
+                    let proximity = pending.proximity;
+                    self.write_connection(proximity);
                 }
-                _ => say!(self, "(how close? a digit, 1 farthest … 5 closest · ⏎ for 4 · esc cancels)"),
+                Cmd::Remove if pending.drawn => self.undraw_connection(),
+                Cmd::Escape | Cmd::Remove => {
+                    let drawn = self.link_pending.take().is_some_and(|p| p.drawn);
+                    if drawn {
+                        say!(self, "(connection left as it was)");
+                    } else {
+                        say!(self, "(connection dropped, nothing drawn)");
+                    }
+                }
+                _ => say!(self, "(h l move, a digit jumps · ⏎ · x · esc)"),
             }
             return true;
         }
@@ -2463,8 +2475,8 @@ impl Live<'_> {
         // a question waiting on an answer does not fade: `ac` asks how
         // close, and the toast stays until a digit, ⏎ or esc (Joel,
         // 23/09/2026)
-        if let Some((_, from_name, _, to_name)) = &self.link_pending {
-            let text = closeness_question(from_name, to_name);
+        if let Some(pending) = &self.link_pending {
+            let text = pending.question();
             return Some(crate::tui::Toast { tone: crate::tui::tone_of(&text), text, sticky: false });
         }
         if self.loading {
@@ -2730,7 +2742,7 @@ impl Live<'_> {
         if !linked.is_empty() {
             lines.push(crate::tui::FinderLine::Header {
                 catalogue: true,
-                text: format!("linked  {} — enter on one removes it", linked.len()),
+                text: format!("yours  {} — enter on one sets its closeness, or undraws it", linked.len()),
             });
             for f in linked {
                 lines.push(found_line(f, true));
@@ -2886,6 +2898,7 @@ impl Live<'_> {
             only_catalogue: false,
             link_from: None,
             linked: Vec::new(),
+            drawn: Vec::new(),
         };
         if !query.is_empty() {
             finder.query = query.to_string();
@@ -2899,35 +2912,33 @@ impl Live<'_> {
         }
     }
 
-    /// `aL` — open the modal to **link** the given artist to one chosen by
-    /// search (Joel, 14/09/2026): enter on a row writes the `similar` link
-    /// into `from`'s card. The old `aL` linked only to the artist one came
-    /// from, an implicit target that confused (Joel: "je ne comprends pas
-    /// le geste"). Search makes the target explicit and reaches anyone.
+    /// `ac` — open the modal to **connect** the given artist to one chosen
+    /// by search (Joel, 14/09/2026, as `aL`; 2026-09-23 as `ac`): enter on
+    /// a row asks how close, then writes into `learned/`. The old `aL`
+    /// linked only to the artist one came from, an implicit target that
+    /// confused (Joel: "je ne comprends pas le geste"). Search makes the
+    /// target explicit and reaches anyone.
     fn open_connect(&mut self, from_slug: &str, from_name: &str) {
-        // the connections already drawn from here, first: enter on one
-        // undraws it. The card's own links are not listed — they are not
-        // this gesture's business, `ae` edits those.
-        let linked: Vec<Found> = self
-            .catalog
-            .cards
-            .get(from_slug)
-            .map(|card| {
-                card.links
-                    .iter()
-                    .filter(|link| link.kind == crate::catalog::MINE)
-                    .map(|link| Found {
-                        hit: Hit::Artist(link.to.clone()),
-                        mark: '✓',
-                        note: format!(
-                            "yours · {}{}",
-                            self.catalog.cards.get(&link.to).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(&link.to)),
-                            link.proximity.map(|n| format!(" — closeness {n}")).unwrap_or_default()
-                        ),
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+        // the connections already drawn, first — from here (→) and, since
+        // the engine follows them both ways, those drawn from the other
+        // side (←), which `ac` did not show (Joel, 23/09/2026). Enter on
+        // one reopens its question. The card's own links are not listed —
+        // they are not this gesture's business, `ae` edits those.
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+        let mut drawn: Vec<(String, String, u8)> = Vec::new();
+        let mut linked: Vec<Found> = Vec::new();
+        let all = self.learned.all_connections();
+        for (from, to, n) in all.iter().filter(|(from, _, _)| *from == from_slug) {
+            drawn.push(((*from).clone(), (*to).clone(), *n));
+            linked.push(Found { hit: Hit::Artist((*to).clone()), mark: '✓', note: format!("yours → {} — closeness {n}", name(to)) });
+        }
+        for (from, to, n) in all.iter().filter(|(_, to, _)| *to == from_slug) {
+            if drawn.iter().any(|(_, other, _)| other == *from) {
+                continue;
+            }
+            drawn.push(((*from).clone(), (*to).clone(), *n));
+            linked.push(Found { hit: Hit::Artist((*from).clone()), mark: '✓', note: format!("yours ← {} — closeness {n}, drawn from there", name(from)) });
+        }
         self.finder = Some(Finder {
             insert: None,
             query: String::new(),
@@ -2938,6 +2949,7 @@ impl Live<'_> {
             only_catalogue: false,
             link_from: Some((from_slug.to_string(), from_name.to_string())),
             linked,
+            drawn,
         });
         self.overlay = None;
         self.help_open = false;
@@ -3063,19 +3075,27 @@ impl Live<'_> {
         };
         let insert = finder.insert;
         let link_from = finder.link_from.clone();
-        let already = finder.is_linked(&found);
+        let drawn = match &found.hit {
+            Hit::Artist(other) => finder.drawn.iter().find(|(from, to, _)| from == other || to == other).cloned(),
+            _ => None,
+        };
         self.close_finder();
-        // `ac` on a connection already drawn: undraw it (2026-09-23).
-        // Nothing is committed — it lives in `learned/`, which forkstify
-        // commits on its own schedule (0017).
-        if let (Some((from_slug, from_name)), true, Hit::Artist(to_slug)) = (&link_from, already, &found.hit) {
-            let to_name = self.catalog.cards.get(to_slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(to_slug));
-            self.learned.disconnect(from_slug, to_slug);
-            if let Some(card) = self.catalog.cards.get_mut(from_slug) {
-                card.links.retain(|l| !(&l.to == to_slug && l.kind == crate::catalog::MINE));
-            }
-            say!(self, "✕ {from_name} → {to_name} — connection undrawn");
-            self.recompute();
+        // `ac` on a connection already drawn: the same question, set on
+        // its closeness — h/l move it, ⏎ sets, x undraws (Joel,
+        // 23/09/2026; enter used to undraw on the spot). Whichever side
+        // `ac` was opened on, the connection is edited where it is held.
+        if let Some((from_slug, to_slug, proximity)) = drawn {
+            let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+            let pending = LinkPending {
+                from_name: name(&from_slug),
+                to_name: name(&to_slug),
+                from_slug,
+                to_slug,
+                proximity,
+                drawn: true,
+            };
+            say!(self, "{}", pending.question());
+            self.link_pending = Some(pending);
             return;
         }
         // aL: the chosen row is a target to link to, not a track to play
@@ -3099,8 +3119,11 @@ impl Live<'_> {
             if let Some((to_slug, to_name)) = target {
                 // how close, before writing: a link carries its own
                 // proximity, or leaves it to the grid of catalog.toml (0010)
-                say!(self, "{}", closeness_question(&from_name, &to_name));
-                self.link_pending = Some((from_slug, from_name, to_slug, to_name));
+                // 4 is what the grid gives "similar": the middle of "these
+                // two go together" without claiming they are the same world
+                let pending = LinkPending { from_slug, from_name, to_slug, to_name, proximity: 4, drawn: false };
+                say!(self, "{}", pending.question());
+                self.link_pending = Some(pending);
             }
             return;
         }
@@ -3352,7 +3375,7 @@ impl Live<'_> {
     /// schedule (0017) — no edit, no commit of its own, and `Cp` can never
     /// carry it since that only ever moves `cards/`.
     fn write_connection(&mut self, proximity: u8) {
-        let Some((from_slug, from_name, to_slug, to_name)) = self.link_pending.take() else {
+        let Some(LinkPending { from_slug, from_name, to_slug, to_name, .. }) = self.link_pending.take() else {
             return;
         };
         self.learned.connect(&from_slug, &to_slug, proximity);
@@ -3368,6 +3391,21 @@ impl Live<'_> {
         // the engine follows on the spot, not at the next launch
         self.recompute();
         say!(self, "✓ {from_name} → {to_name} — yours, closeness {proximity}");
+    }
+
+    /// `x` on the question of a drawn connection: undraw it (2026-09-23).
+    /// Nothing is committed — it lives in `learned/`, which forkstify
+    /// commits on its own schedule (0017).
+    fn undraw_connection(&mut self) {
+        let Some(LinkPending { from_slug, from_name, to_slug, to_name, .. }) = self.link_pending.take() else {
+            return;
+        };
+        self.learned.disconnect(&from_slug, &to_slug);
+        if let Some(card) = self.catalog.cards.get_mut(&from_slug) {
+            card.links.retain(|l| !(l.to == to_slug && l.kind == crate::catalog::MINE));
+        }
+        say!(self, "✕ {from_name} → {to_name} — connection undrawn");
+        self.recompute();
     }
 
     /// Search in the default browser: `ag` on an artist, `tg` on a track
@@ -4396,13 +4434,33 @@ impl Live<'_> {
     }
 }
 
-/// What `ac` asks once the target is chosen — said in the log, and shown
-/// as a toast for as long as it waits. It says which end is which: 5 is
-/// the closest (Joel, 23/09/2026).
-fn closeness_question(from_name: &str, to_name: &str) -> String {
-    format!(
-        "→ {from_name} → {to_name} — how close? 1 farthest, a distant echo … 5 closest, almost the same universe · ⏎ for 4 · esc cancels"
-    )
+/// A connection `ac` is asking about: to draw, or already drawn and
+/// reopened to set its closeness or undraw it (Joel, 23/09/2026). `from`
+/// is the side that holds it in `learned/` — a connection drawn from the
+/// other artist is edited there, whichever side `ac` was opened on.
+struct LinkPending {
+    from_slug: String,
+    from_name: String,
+    to_slug: String,
+    to_name: String,
+    /// The closeness on offer: `h`/`l` move it a notch, a digit jumps.
+    proximity: u8,
+    /// Already in `learned/`: ⏎ sets, `x` undraws, esc leaves it.
+    drawn: bool,
+}
+
+impl LinkPending {
+    /// What `ac` asks — said in the log, and shown as a toast for as long
+    /// as it waits. It says which end is which: 5 is the closest.
+    fn question(&self) -> String {
+        let LinkPending { from_name, to_name, proximity, .. } = self;
+        let scale = "h l move · 1 farthest, a distant echo … 5 closest, almost the same universe";
+        if self.drawn {
+            format!("→ {from_name} → {to_name} — closeness {proximity} · {scale} · ⏎ sets it · x undraws · esc leaves it")
+        } else {
+            format!("→ {from_name} → {to_name} — how close? {proximity} · {scale} · ⏎ draws it · esc draws nothing")
+        }
+    }
 }
 
 /// Where a row of the key helper means something: one table for both

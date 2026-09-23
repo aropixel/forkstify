@@ -501,6 +501,28 @@ path. The terminal gets its own process group, so closing the one forkstify
 runs in does not take it down. No key: the catalog namespace keeps its
 three gestures, and a shell is not a gesture on the catalog.
 
+## Seeing and setting the connections (2026-09-23)
+
+`ac` became a gesture Joel uses a lot, and he asked how to see an artist's
+connections, set their closeness, or remove them. Two steps were proposed:
+the modal of `ac` as the one place to see, draw, set and undraw; and later,
+if the web grows, a read-only `:connections` overlay of every pair. Joel
+took the first, with one change: not digits alone but **`h`/`l`, the
+neovim way**, to move the closeness.
+
+So the modal now lists the connections **on either side** — `→` drawn from
+here, `←` drawn from the other artist, which it never showed although the
+engine follows both — straight from `learned/`, and each row remembers
+where it is held (`Finder::drawn`). **Enter on one reopens the question**
+on its current closeness instead of undrawing on the spot: `h`/`l` or the
+arrows move it a notch as the comfort dial does, a digit jumps, ⏎ sets,
+**`x` undraws** — the same key as everywhere —, esc leaves it. A new
+connection starts at 4 and takes the same keys. The question is one struct,
+`LinkPending`, that knows whether it is drawn, and the toast is derived from
+it. A branch reached through a connection already says "yours" as its
+reason, so the connection is visible where it acts. The modal's title
+still said `aL`; it says `ac`.
+
 ## The closeness question waits (2026-09-23)
 
 Joel used `ac` and found the question toast gone after its few seconds,
