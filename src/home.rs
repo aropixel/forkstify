@@ -792,6 +792,19 @@ impl Home {
                     None => Outcome::Stay,
                 }
             }
+            // `x` — out of the liked, without the weight `as` also moves
+            Cmd::Remove => {
+                let Some(index) = self.cursor else {
+                    self.said = "(nothing highlighted — ↑↓ to choose)".into();
+                    return Outcome::Stay;
+                };
+                let Some((slug, row)) = listing.get(index) else { return Outcome::Stay };
+                let slug = slug.clone().unwrap_or_else(|| crate::generate::slugify(&row.name));
+                let name = row.name.clone();
+                learned.unlike_artist(&slug);
+                self.said = format!("✕ {name} — out of the liked · al to come back");
+                Outcome::Stay
+            }
             Cmd::Artist(key @ ('l' | 's' | 'b')) => {
                 let Some(index) = self.cursor else {
                     self.said = "(nothing highlighted — ↑↓ to choose)".into();

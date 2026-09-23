@@ -417,6 +417,15 @@ impl Learned {
         weight
     }
 
+    /// Out of the liked, and only that — no weight moved, unlike `as`
+    /// which also pushes the artist down (Joel, 2026-09-23). The `x` of the
+    /// home: a list one leaves, not a taste one states.
+    pub fn unlike_artist(&mut self, slug: &str) {
+        let artist = self.entry(slug);
+        artist.unliked = true;
+        self.save(slug);
+    }
+
     pub fn skip_artist(&mut self, slug: &str) -> f32 {
         let artist = self.entry(slug);
         artist.weight = (artist.weight * tuning().less_often).max(tuning().weight_floor);

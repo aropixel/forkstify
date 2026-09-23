@@ -311,6 +311,29 @@ when nothing plays. The key helper gains its own `t` level at the home,
 holding that single key, rather than falling back to the full home list:
 the menu never promises what the code does not do.
 
+## `x` removes, wherever you are (2026-09-23)
+
+Joel: make `tx` into `x`, and let `x` be **the** removal gesture — a track
+out of the queue, an artist out of the liked at the home.
+
+Removing is not a verb of the track alone, so `x` leaves the `t` namespace
+and stands on the bare keyboard. While listening it does what `tx` did: the
+highlighted track leaves the queue, and can still be proposed — it is not a
+ban. At the home it takes the highlighted artist **out of the liked**, and
+only that: `learned::unlike_artist` sets the flag without moving the weight,
+where `as` also pushes the artist down. `al` brings them back. It is the
+same shape as the `tl` toggle of 2026-09-14: leaving a list is not the same
+statement as stating a taste.
+
+**`u` and `.` leave the grammar**, asked for in the same breath: undo and
+repeat are not being built for now, and a helper that lists them promises
+what the code does not do. `fu` still steps back one branch, and `u` keeps
+its meaning **inside the discography**, where it undoes a pending edit —
+that one was wired all along. `Cmd::Repeat` is gone; `Cmd::Undo` stays for
+the modal. The free-letter list and the 2026-09-05 collision table are
+updated, the latter with a note rather than a rewrite: a record is not
+corrected after the fact.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

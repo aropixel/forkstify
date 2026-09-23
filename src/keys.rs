@@ -75,7 +75,8 @@ pub enum Cmd {
     /// 07/09/2026). Escape closes it, backspace steps back one key.
     Help(Option<char>),
     Undo,
-    Repeat,
+    /// `x` — take the thing under the cursor out of the list it is in.
+    Remove,
     /// `r` — resume: resume the last journey (home).
     Resume,
     /// `b` — browse: dry run, no sound (not-connected screens).
@@ -177,7 +178,7 @@ pub enum Parse {
 
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
-const TRACK_KEYS: [char; 11] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'x', 'i', 'a', 'g'];
+const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'i', 'a', 'g'];
 const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'L', 'd', 'g'];
 /// `Cd` diff, `Cp` propose, `Cu` update.
 const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
@@ -264,8 +265,10 @@ pub fn parse(buf: &str) -> Parse {
         ['G'] => Parse::Done(Cmd::Bottom),
         ['J'] => Parse::Done(Cmd::MoveDown),
         ['K'] => Parse::Done(Cmd::MoveUp),
-        ['u'] => Parse::Done(Cmd::Undo),
-        ['.'] => Parse::Done(Cmd::Repeat),
+        // `x` — take this out of where it is: a track out of the queue, an
+        // artist out of the liked (Joel, 2026-09-23). It was `tx`, but
+        // removing is not a verb of the track alone.
+        ['x'] => Parse::Done(Cmd::Remove),
         ['q'] => Parse::Done(Cmd::Quit),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 

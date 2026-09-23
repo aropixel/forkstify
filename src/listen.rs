@@ -2119,7 +2119,7 @@ impl Live<'_> {
                 self.selection = None;
                 self.overlay = None;
             }
-            Cmd::Track('x') => self.drop_selected(),
+            Cmd::Remove => self.drop_selected(),
             Cmd::MoveDown => self.move_selected(1),
             Cmd::MoveUp => self.move_selected(-1),
             Cmd::ComfortMode => {
@@ -2173,8 +2173,6 @@ impl Live<'_> {
             // the reader turns `fw` into the `:wander ` line; a bare Wander
             // can only come from elsewhere — it wanders far
             Cmd::Wander => self.wander("").await,
-            Cmd::Undo => self.not_yet("u", "undo the last gesture"),
-            Cmd::Repeat => self.not_yet(".", "repeat the last gesture"),
             // two home keys, with no use once listening
             Cmd::Resume => say!(self, "\n(r is for the home: here, fu backs up one branch)"),
             Cmd::Browse => say!(self, "\n(b is for the home: here, the sound is already on)"),
@@ -2182,7 +2180,7 @@ impl Live<'_> {
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
             Cmd::Sort => say!(self, "(s sorts the collection, at the home)"),
             // a modal's keys: outside of it, they have no purpose
-            Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop => {
+            Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop | Cmd::Undo => {
                 say!(self, "(ad opens the discography: these keys work there)")
             }
             Cmd::Colon(text) => {
@@ -4006,7 +4004,6 @@ impl Live<'_> {
                 ("ta", "about — album, featuring, year, and why this track", true),
                 ("tg", "google — the track and its artist in the browser", true),
                 ("ti", "insert — insert a track here, via search", true),
-                ("tx", "remove — remove the highlighted line from the queue (not a ban)", true),
                 ("ad", "tops are fixed in the discography", true),
             ],
             Some('C') => &[
@@ -4020,6 +4017,7 @@ impl Live<'_> {
             // key that means anything is the one aimed at what plays
             Some('t') if home => &[
                 ("tg", "google — what plays underneath, in the browser", true),
+                ("x", "remove — the highlighted artist out of the liked", true),
             ],
             Some('a') => &[
                 ("al", "like — this artist, more often", true),
@@ -4062,8 +4060,7 @@ impl Live<'_> {
                 (":search", "search — the modal: catalog then Spotify, enter takes", true),
                 ("c<n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 ("cc", "adjust comfort with the arrows", true),
-                ("u", "undo the last gesture", false),
-                (".", "repeat the last gesture", false),
+                ("x", "remove — the highlighted track out of the queue (not a ban)", true),
                 (":size <n>", "branch size", true),
                 (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration", true),
                 (":warm", "fetch the current artist's discography", true),

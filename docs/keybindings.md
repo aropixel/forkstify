@@ -107,7 +107,6 @@ it out of the queue. Escape clears the highlight.
 | `ts` | track **skip** | **Less often** — it does not interest me: takes note, removes the like, and skips | measurement | ✅ |
 | `tb` | track **ban** | "Never that one again" — also removes it from the queue | measurement | ✅ |
 | `tm` | track **mark** | Put into `learned/marks/inbox.toml` | measurement | ✅ |
-| `tx` | track **remove** | Take the selected track out of the queue — it can still be proposed, this is not a ban | queue | ✅ |
 | `J` / `K` | | **Move** the highlighted row one notch down / up, right away — only what is still to come moves, the branch name travels with its track, the opposite key undoes it (Joel, 2026-09-08) | queue | ✅ |
 | `td` | track **door** | Make it a door towards the direction we are heading in (the next artist's tags) | edit | ✅ |
 | `ta` | track **about** | Album, featuring, year (when the discography has them), tags, familiarity, weight, and the first branch out of here — replaces `?` (Joel, 2026-09-14) | session | ✅ |
@@ -189,14 +188,13 @@ carries on.
 | `/text` | | **Filter** a list — the collection on home, the discography; escape clears (Joel, 2026-09-08) | ✅ |
 | `:search` | | **The search modal** (mockup `Recherche.dc.html`, 2026-09-08): a `⟩` input line, results recomputed on every character — the catalog first (artists and titles known to the cards and the learned layer), Spotify behind, never mixed. ↑↓ choose, **enter** branches on an artist or plays a track, **tab** hides Spotify, **escape** closes. `:search <text>` opens it already filled, and typing carries the word on. **It opens from home too** (Joel, 2026-09-09), where enter starts a journey — on the artist, or on the track then the branches of its artist; a result **outside the catalog** generates its artist's card before setting off (2026-09-09, [0016](decisions/0016-broad-base-and-on-the-fly-generation.md)). Every Spotify row says **album · year · length**, to tell versions of the same title apart (2026-09-09) | ✅ |
 | `q` | **quit** | While listening: **back to home**, listening carries on underneath with its playback footer. On home: quit (prints the journey) — Joel, 2026-09-08 | ✅ |
+| `x` | **remove** | **Take this out of the list it is in** (Joel, 2026-09-23, replacing `tx`: removing is not a verb of the track alone). While listening: the highlighted track leaves the queue — it can still be proposed, this is not a ban. At the home: the highlighted artist leaves the liked, **without the weight `as` also moves** — `al` brings them back | ✅ |
 | `r` | **resume** | On home: **back to the listening screen** if a session is playing; otherwise **resume the whole last journey** — history, current track and upcoming tracks (Joel, 2026-09-14). Escape with no cursor does the same | ✅ |
 | `p` | **pause** | On home too: the session plays underneath | ✅ |
 | `s` | **sort** | Change the collection's order: familiarity → a-z → last played — **home only** | ✅ |
 | `v` | **view** | The collection shows **the liked** by default — artist or track liked here, track, album or follow on Spotify — or **all** the catalog's artists (Joel, 2026-09-09). Home only; the same word as in the discography | ✅ |
 | `gg` / `G` | | The two ends of a list, as in vim — the collection on home, the axis while listening. `g` alone waits for its second | ✅ |
 | `b` | **browse** | Browse dry — **disconnected screens only** | 📋 |
-| `u` | **undo** | Undo the last action: measurement or edit (0013) | 📋 |
-| `.` | | Repeat the last action (its vim meaning) | 📋 |
 
 **`u` and `fu` are not the same thing**: `u` undoes the last *gesture* (a top
 set by mistake, a ban), `fu` steps one notch back up the *journey*.
@@ -384,11 +382,13 @@ turn out to be constant.
 ## Free letters
 
 The bare keyboard only keeps `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `C`,
-`o`, `u`, `q` — outside the modal, where `j`, `k`, `s`, `v`, `e` and `A`
-serve (table above). `Q` left on 2026-09-08 along with queue mode. Still
-free: `b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`, `x`, `y`,
-`z`, and the capitals except `C`, `G`, `J`, `K` (`o` was taken on
-2026-09-20, and `C` too). Inside the namespaces, `d` was taken in `a` on
+`o`, `x`, `q` — outside the modal, where `j`, `k`, `s`, `v`, `e`, `A` and
+`u` serve (table above). `Q` left on 2026-09-08 along with queue mode.
+Still free: `b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`,
+`y`, `z`, `u` and `.`, and the capitals except `C`, `G`, `J`, `K` (`o` was
+taken on 2026-09-20, and `C` too; `x` on 2026-09-23, while `u` and `.` went
+back to the pool — undo and repeat are not being built for now, and `u`
+keeps its own meaning inside the discography). Inside the namespaces, `d` was taken in `a` on
 2026-09-07 (`ad`, discography). Queue mode can move in without displacing
 anything.
 
@@ -408,6 +408,11 @@ one namespace, where the letters are under control.
 | `.` overlaps `e` (two keys for encore) | `.` takes back its vim meaning (repeat) |
 | `h`/`l` (reassuring/adventurous) overlap `1 2 3` | `h`/`l` become navigation |
 | `p` both an action (plan) and a prefix (`p1`) | `p` leaves the branches: it is `fp`, and `p` becomes pause |
+
+Two of those resolutions have since lapsed: **`u` and `.` left the grammar
+on 2026-09-23**, undo and repeat not being built for now. `fu` still steps
+back one branch, and `u` keeps its own meaning inside the discography,
+where it undoes a pending edit.
 | `pr` colliding with `p<n>` | `fr`, inside the namespace |
 
 **"Fork" has two meanings, and that is deliberate** (Joel's call,
