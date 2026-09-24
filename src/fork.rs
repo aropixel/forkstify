@@ -478,6 +478,22 @@ fn worktree_dir() -> PathBuf {
     crate::config::state_dir().join("proposal")
 }
 
+/// Whether `wt` is a worktree of this clone — and not of a clone that
+/// has since moved or gone, whose `.git` file points at nothing.
+fn worktree_of(wt: &Path, dir: &Path) -> bool {
+    if !wt.join(".git").exists() {
+        return false;
+    }
+    let common = git(wt, &["rev-parse", "--git-common-dir"]).ok().map(|d| {
+        let d = PathBuf::from(d);
+        if d.is_absolute() { d } else { wt.join(d) }
+    });
+    match (common.and_then(|d| std::fs::canonicalize(d).ok()), std::fs::canonicalize(dir.join(".git")).ok()) {
+        (Some(theirs), Some(ours)) => theirs == ours,
+        _ => false,
+    }
+}
+
 /// The proposal: the state of the cards on a branch `proposal` from
 /// `upstream/main`, in a worktree apart — the clone the session reads
 /// never changes branch, the learned goes on committing on `main` — one
@@ -493,9 +509,13 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
         return Err("nothing beyond the reference — nothing to propose".to_string());
     }
     let wt = worktree_dir();
-    if wt.join(".git").exists() {
+    if worktree_of(&wt, dir) {
         git(&wt, &["checkout", "-q", "-B", PROPOSAL_BRANCH, "upstream/main"])?;
     } else {
+        // a worktree left by a clone that has since moved points at a
+        // gitdir that is gone — "fatal: not a git repository: (null)"
+        // (Joel, 2026-09-24): it is rebuilt, not reused
+        let _ = std::fs::remove_dir_all(&wt);
         let _ = git(dir, &["worktree", "prune"]);
         git(dir, &["worktree", "add", "-q", "-B", PROPOSAL_BRANCH, &wt.display().to_string(), "upstream/main"])?;
     }
@@ -877,6 +897,12 @@ mod tests {
         // a second proposal rewrites the same branch
         let again = propose(&clone).expect("propose again");
         assert_eq!(again.count, 2);
+        // a worktree left by a clone that moved is rebuilt, not reused
+        std::fs::write(worktree_dir().join(".git"), "gitdir: /nowhere/.git/worktrees/proposal\n").unwrap();
+        assert!(!worktree_of(&worktree_dir(), &clone));
+        let rebuilt = propose(&clone).expect("propose after a stale worktree");
+        assert_eq!(rebuilt.count, 2);
+        assert!(worktree_of(&worktree_dir(), &clone));
         assert_eq!(sh(&fork_bare, &["rev-list", "--count", &format!("{}..{PROPOSAL_BRANCH}", sh(&clone, &["rev-parse", "upstream/main"]))]).trim(), "1");
 
         // the reference moves on: a new card — the update merges it, and

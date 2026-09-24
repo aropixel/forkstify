@@ -194,6 +194,14 @@ In the catalog, the 382 lines go in one commit on Joel's fork, for him to
 propose through `Cp` — the first real pull request the gesture makes, on
 a change that is one line per card.
 
+The first `Cp` on it failed: "fatal: not a git repository: (null)". The
+proposal worktree in `~/.local/state/forkstify/proposal` dated from
+2026-09-20 and its `.git` file pointed into `~/Work/forkstify-catalog`,
+the clone the catalog lived in before it moved. `propose` now checks that
+the worktree belongs to this clone (`git rev-parse --git-common-dir`) and
+rebuilds it otherwise; the fork test breaks the worktree on purpose and
+proposes again.
+
 
 After a listening session that generated three cards, `Cd` answered that
 nothing lay beyond the reference. The clone on this machine declares

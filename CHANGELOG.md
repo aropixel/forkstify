@@ -33,6 +33,9 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **`Cp` failed with "not a git repository: (null)".** The proposal
+  worktree of a catalog that has since moved still pointed at the old
+  clone. A worktree that is not this clone's is rebuilt.
 - **`Cd` said "nothing beyond the reference" on a fork that had cards to
   show.** On a fresh clone the reference was never fetched, and the diff
   quietly compared the fork to itself. `Cd` now fetches `upstream` first,
