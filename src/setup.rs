@@ -972,7 +972,7 @@ impl Setup<'_> {
                 rows.push(SetupRow::Dim(format!("{} more above the floor, for a later :library", coverage.missing_total - n)));
             }
             rows.push(SetupRow::Blank);
-            rows.push(SetupRow::Dim("they are born generated = true, with their vectors — and Cp will propose them to the reference one day.".into()));
+            rows.push(SetupRow::Dim("they are born with their vectors, one commit each — and Cp will propose them to the reference one day.".into()));
             self.draw(7, &rows, "[o generate · esc later — :library proposes it again · q]");
             match self.key().await {
                 Cmd::Open => break,
@@ -1091,7 +1091,7 @@ impl Setup<'_> {
         }
         self.generated = written.len();
         let mut rows = base_rows(&coverage);
-        rows.push(SetupRow::Notice(format!("✓ {} card(s) generated — generated = true, to reread at leisure", written.len())));
+        rows.push(SetupRow::Notice(format!("✓ {} card(s) generated — to reread at leisure", written.len())));
         for name in &failed {
             rows.push(SetupRow::Notice(format!("⏹ {name}")));
         }
