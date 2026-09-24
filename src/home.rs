@@ -131,10 +131,12 @@ pub(crate) fn age(days: Option<i64>) -> String {
         None => "never".into(),
         Some(0) => "today".into(),
         Some(1) => "yday".into(),
-        Some(d) if d < 14 => format!("-{d}d"),
-        Some(d) if d < 60 => format!("-{}w", d / 7),
-        Some(d) if d < 365 => format!("-{}mo", d / 30),
-        Some(d) => format!("-{}y", d / 365),
+        // no leading minus: next to "today" and "yday" it read as a count
+        // going down rather than an age (Joel, 2026-09-24)
+        Some(d) if d < 14 => format!("{d}d"),
+        Some(d) if d < 60 => format!("{}w", d / 7),
+        Some(d) if d < 365 => format!("{}mo", d / 30),
+        Some(d) => format!("{}y", d / 365),
     }
 }
 

@@ -10,6 +10,11 @@ Versions follow the release: a tag `v*` publishes the Linux binary that
 becomes that release's notes**. `bin/release` moves `## Unreleased` down to
 the version it cuts, so this file cannot fall behind.
 
+### Listening
+
+- The collection's last-played column drops its leading minus: `2w`, `6d`,
+  next to `today` and `yday`.
+
 ## Unreleased
 
 ### Added
