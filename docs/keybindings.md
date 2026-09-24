@@ -75,7 +75,7 @@ then Deezer, a few seconds — then the branch sets off like the others;
 like any proposed branch — the fresh card at the head, then one track per
 artist crossed — not an encore of the generated artist (Joel, 2026-09-20;
 until then `f<n>` on a gap gave n tracks by that one artist). Generation is
-an **edit**: it commits, and the card carries `generated = true`. See
+an **edit**: it commits, "X — card generated" (0025: no flag in the card). See
 [design/on-the-fly-generation.md](design/on-the-fly-generation.md).
 
 `enter` never draws a gap: it chooses among what can play right away.
@@ -319,7 +319,7 @@ rule, its `tt`/`tT` follow 0013's.
 
 The screen also shows the **tops the discography does not return** — a typo,
 a live version, a compilation title — at the end of the list: `tT` works
-there, and that is where a generated card gets reviewed.
+there, and that is where a fresh card's tops get corrected.
 
 ## Media keys (MPRIS / D-Bus)
 

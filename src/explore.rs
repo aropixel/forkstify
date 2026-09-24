@@ -151,7 +151,6 @@ pub struct Summary {
 pub struct Explore {
     pub slug: String,
     pub name: String,
-    pub generated: bool,
     /// The raw material, kept to rebuild everything after a write or a
     /// measure: the in-memory catalog, for its part, does not move.
     raw: Vec<TailTrack>,
@@ -187,7 +186,6 @@ impl Explore {
         let mut screen = Explore {
             slug: slug.to_string(),
             name: card.name.clone(),
-            generated: card.generated,
             raw: tail.to_vec(),
             tops: card.tops.clone(),
             stats: learned.track_table(slug),
@@ -711,11 +709,10 @@ mod tests {
     }
 
     fn card() -> Card {
-        let mut card: Card = toml::from_str(
+        let card: Card = toml::from_str(
             "format = 1\nname = \"Cat Power\"\nmbid = \"x\"\ntops = [\"Cross Bones Style\", \"Song to Bobby\"]\n",
         )
         .expect("card");
-        card.generated = false;
         card
     }
 

@@ -234,8 +234,6 @@ impl Status {
 pub struct Change {
     pub slug: String,
     pub name: String,
-    /// New card: `generated = true`, or written by hand.
-    pub generated: bool,
     /// New card: its first tags, and how many links.
     pub summary: String,
     /// Edited card: lines added and removed.
@@ -290,9 +288,8 @@ pub fn sections_of(diff: &str) -> (BTreeSet<String>, Vec<String>) {
     (sections, notes)
 }
 
-fn card_summary(text: &str) -> (String, bool, String) {
+fn card_summary(text: &str) -> (String, String) {
     let mut name = String::new();
-    let mut generated = false;
     let mut tags: Vec<String> = Vec::new();
     let mut links = 0;
     let mut similar = 0;
@@ -300,8 +297,6 @@ fn card_summary(text: &str) -> (String, bool, String) {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("name = ") {
             name = rest.trim_matches('"').to_string();
-        } else if trimmed.starts_with("generated = true") {
-            generated = true;
         } else if let Some(rest) = trimmed.strip_prefix("tags = [") {
             tags = rest.trim_end_matches(']').split(',').map(|t| t.trim().trim_matches('"').to_string()).filter(|t| !t.is_empty()).take(2).collect();
         } else if trimmed.starts_with("{ to") {
@@ -318,7 +313,7 @@ fn card_summary(text: &str) -> (String, bool, String) {
         }
         summary.push_str(&if similar == links { format!("{links} similar") } else { format!("{links} links, {similar} similar") });
     }
-    (name, generated, summary)
+    (name, summary)
 }
 
 pub fn diff(dir: &Path) -> Result<Diff, String> {
@@ -335,11 +330,10 @@ pub fn diff(dir: &Path) -> Result<Diff, String> {
         match kind.chars().next() {
             Some('A') => {
                 let text = std::fs::read_to_string(dir.join(path)).unwrap_or_default();
-                let (name, generated, summary) = card_summary(&text);
+                let (name, summary) = card_summary(&text);
                 new.push(Change {
                     name: if name.is_empty() { crate::generate::pretty(&slug) } else { name },
                     slug,
-                    generated,
                     summary,
                     added: 0,
                     removed: 0,
@@ -359,7 +353,6 @@ pub fn diff(dir: &Path) -> Result<Diff, String> {
                 edited.push(Change {
                     name: if name.is_empty() { crate::generate::pretty(&slug) } else { name },
                     slug,
-                    generated: false,
                     summary: String::new(),
                     added,
                     removed: removed_lines,
@@ -401,12 +394,7 @@ impl Diff {
             lines.push(String::new());
             lines.push("new".to_string());
             for change in self.new.iter().take(at_most) {
-                lines.push(format!(
-                    "  + {:<24} {:<10} {}",
-                    change.name.chars().take(24).collect::<String>(),
-                    if change.generated { "generated" } else { "written" },
-                    change.summary
-                ));
+                lines.push(format!("  + {:<24} {}", change.name.chars().take(24).collect::<String>(), change.summary));
             }
             if self.new.len() > at_most {
                 lines.push(format!("  … {} more", self.new.len() - at_most));
@@ -428,15 +416,11 @@ impl Diff {
 
     /// The pull request, written for the reviewer (0022, English): the new
     /// cards first, one line each, to skim; the edited ones after, to read.
+    /// Who wrote a card is a question for git, not for the title (0025).
     pub fn title(&self) -> String {
-        let generated = self.new.iter().filter(|c| c.generated).count();
-        let written = self.new.len() - generated;
         let mut parts = Vec::new();
-        if generated > 0 {
-            parts.push(format!("{generated} generated"));
-        }
-        if written > 0 {
-            parts.push(format!("{written} written"));
+        if !self.new.is_empty() {
+            parts.push(format!("{} new", self.new.len()));
         }
         if !self.edited.is_empty() {
             parts.push(format!("{} edited", self.edited.len()));
@@ -447,9 +431,9 @@ impl Diff {
     pub fn body(&self) -> String {
         let mut body = String::new();
         if !self.new.is_empty() {
-            body.push_str(&format!("## New cards ({}) — pipeline output, nothing to read\n\n", self.new.len()));
+            body.push_str(&format!("## New cards ({}) — to skim\n\n", self.new.len()));
             for change in &self.new {
-                body.push_str(&format!("- {} · {}{}\n", change.slug, if change.generated { "generated" } else { "written by hand" }, if change.summary.is_empty() { String::new() } else { format!(" · {}", change.summary) }));
+                body.push_str(&format!("- {}{}\n", change.slug, if change.summary.is_empty() { String::new() } else { format!(" · {}", change.summary) }));
             }
             body.push('\n');
         }
@@ -780,10 +764,9 @@ mod tests {
 
     #[test]
     fn a_new_card_sums_up_in_a_line() {
-        let card = "format = 1\nname = \"Codeine\"\nmbid = \"x\"\ngenerated = true\n\ntags = [\"slowcore\", \"us\", \"90s\"]\n\nlinks = [\n  { to = \"duster\", type = \"similar\" },\n  { to = \"low\", type = \"similar\" },\n]\n";
-        let (name, generated, summary) = card_summary(card);
+        let card = "format = 1\nname = \"Codeine\"\nmbid = \"x\"\n\ntags = [\"slowcore\", \"us\", \"90s\"]\n\nlinks = [\n  { to = \"duster\", type = \"similar\" },\n  { to = \"low\", type = \"similar\" },\n]\n";
+        let (name, summary) = card_summary(card);
         assert_eq!(name, "Codeine");
-        assert!(generated);
         assert_eq!(summary, "slowcore, us · 2 similar");
     }
 
@@ -793,14 +776,14 @@ mod tests {
     fn the_proposal_reads_in_two_lists() {
         let diff = Diff {
             base: "upstream/main".into(),
-            new: vec![Change { slug: "codeine".into(), name: "Codeine".into(), generated: true, summary: "slowcore · 4 similar".into(), added: 0, removed: 0, sections: String::new(), note: String::new() }],
-            edited: vec![Change { slug: "the-cure".into(), name: "The Cure".into(), generated: false, summary: String::new(), added: 3, removed: 1, sections: "member, tops".into(), note: "listening, 09/2026".into() }],
+            new: vec![Change { slug: "codeine".into(), name: "Codeine".into(), summary: "slowcore · 4 similar".into(), added: 0, removed: 0, sections: String::new(), note: String::new() }],
+            edited: vec![Change { slug: "the-cure".into(), name: "The Cure".into(), summary: String::new(), added: 3, removed: 1, sections: "member, tops".into(), note: "listening, 09/2026".into() }],
             removed: 0,
             updated: None,
         };
-        assert_eq!(diff.title(), "Propose 2 cards (1 generated, 1 edited)");
+        assert_eq!(diff.title(), "Propose 2 cards (1 new, 1 edited)");
         let body = diff.body();
-        assert!(body.starts_with("## New cards (1) — pipeline output, nothing to read\n\n- codeine · generated · slowcore · 4 similar\n"), "{body}");
+        assert!(body.starts_with("## New cards (1) — to skim\n\n- codeine · slowcore · 4 similar\n"), "{body}");
         assert!(body.contains("## Edited cards (1) — please read\n\n- the-cure +3 −1 · member, tops\n  source: listening, 09/2026\n"), "{body}");
         assert!(body.trim_end().ends_with(&crate::sync::trailer("proposal")), "{body}");
         let lines = diff.lines(10);
@@ -861,7 +844,7 @@ mod tests {
         assert!(base(&clone).unwrap_err().contains("not been fetched"));
 
         // what is mine: a new generated card, a top added, some learned
-        std::fs::write(clone.join("cards/codeine.toml"), card("Codeine", &["D"]).replace("mbid", "generated = true\nmbid")).unwrap();
+        std::fs::write(clone.join("cards/codeine.toml"), card("Codeine", &["D"])).unwrap();
         std::fs::write(clone.join("cards/the-cure.toml"), card("The Cure", &["A Forest", "Lullaby"])).unwrap();
         std::fs::create_dir_all(clone.join("learned/artists")).unwrap();
         std::fs::write(clone.join("learned/artists/the-cure.toml"), "plays = 3.0\n").unwrap();
@@ -873,12 +856,11 @@ mod tests {
         assert_eq!(base(&clone).as_deref(), Ok("upstream/main"));
         assert_eq!(diff.new.len(), 1);
         assert_eq!(diff.new[0].name, "Codeine");
-        assert!(diff.new[0].generated);
         assert_eq!(diff.edited.len(), 1);
         assert_eq!(diff.edited[0].slug, "the-cure");
         assert_eq!((diff.edited[0].added, diff.edited[0].removed), (1, 0));
         assert_eq!(diff.edited[0].sections, "tops");
-        assert_eq!(diff.title(), "Propose 2 cards (1 generated, 1 edited)");
+        assert_eq!(diff.title(), "Propose 2 cards (1 new, 1 edited)");
 
         // the proposal: a branch on the fork, from the reference, the
         // cards only — no learned, one commit
@@ -891,7 +873,7 @@ mod tests {
         let history = sh(&fork_bare, &["rev-list", "--count", &format!("upstream_main..{PROPOSAL_BRANCH}").replace("upstream_main", &sh(&clone, &["rev-parse", "upstream/main"]))]);
         assert_eq!(history.trim(), "1");
         let subject = sh(&fork_bare, &["log", "-1", "--format=%s", PROPOSAL_BRANCH]);
-        assert_eq!(subject, "Propose 2 cards (1 generated, 1 edited)");
+        assert_eq!(subject, "Propose 2 cards (1 new, 1 edited)");
         // a second proposal rewrites the same branch
         let again = propose(&clone).expect("propose again");
         assert_eq!(again.count, 2);

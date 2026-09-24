@@ -61,7 +61,7 @@ pub struct View<'a> {
     pub path: Vec<String>,
     pub seed: &'a str,
     pub seed_name: &'a str,
-    /// "written card · 41 links · 12 tops"
+    /// "41 links · 12 tops"
     pub seed_facts: &'a str,
     /// "last played -3s", or "never played"
     pub seed_last: &'a str,
@@ -1788,7 +1788,7 @@ mod tests {
             path: vec!["The Cure".to_string(), "Siouxsie and the Banshees".to_string()],
             seed: "the-cure",
             seed_name: "The Cure",
-            seed_facts: "written card · 41 links · 12 tops",
+            seed_facts: "41 links · 12 tops",
             seed_last: "last played -3s",
             forks: 1,
             segment: 2,
@@ -1956,7 +1956,7 @@ mod tests {
         assert!(rows[0].starts_with("forkstify listen the-cure"), "{}", rows[0]);
         assert!(rows[0].trim_end().ends_with("segment 2 · 6 tracks · → fork in 3 │ comfort 3 ███░░ balanced"), "{}", rows[0]);
         assert!(rows[2].starts_with("── seed ─"), "{}", rows[2]);
-        assert!(rows[3].starts_with("The Cure  [catalog]  written card · 41 links · 12 tops  last played -3s"), "{}", rows[3]);
+        assert!(rows[3].starts_with("The Cure  [catalog]  41 links · 12 tops  last played -3s"), "{}", rows[3]);
         assert!(rows[4].starts_with("1 fork so far — 2 artists traversed"), "{}", rows[4]);
         // the foot (4a): what is playing, then what comes next, where it
         // comes from and the clock — one line, the bar closes it
@@ -2303,8 +2303,7 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                 ),
                 Span::styled(
                     format!(
-                        "{} · {} albums · {} tracks{}",
-                        if screen.generated { "generated card" } else { "written card" },
+                        "{} albums · {} tracks{}",
                         summary.albums,
                         summary.titles,
                         if screen.loading { " · loading…" } else { "" }

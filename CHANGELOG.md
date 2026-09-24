@@ -12,6 +12,15 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Changed
+
+- **No more `generated = true` in the cards.** It was on 382 cards out of
+  383 and nothing ever cleared it. The review is the pull request: a card
+  in the reference is accepted, a card in your fork is yours, and `git log`
+  says who wrote it. The generator no longer writes the line, the screens
+  and the `Cp` proposal drop their "generated card / written card" labels,
+  and a card that still has the line loads as before.
+
 ### Added
 
 - **A card can be regenerated.** `:generate <name> <mbid>` over an artist

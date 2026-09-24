@@ -79,6 +79,10 @@ The detail is in `docs/decisions/`. In summary:
   artist that has none; a user has a **fork** of the repository, not a
   repository of differences
   ([0016](docs/decisions/0016-broad-base-and-on-the-fly-generation.md)).
+- **The review is the pull request**: no `generated` flag in the cards; a
+  card in the reference is accepted, a card in a fork is its owner's, and
+  who wrote it is a question for git
+  ([0025](docs/decisions/0025-the-review-is-the-pull-request.md)).
 - **Keyboard grammar: four namespaces** — `f` the branch, `e` encore, `t`
   the track, `a` the artist; the target is a prefix, the count follows the
   namespace, and the table is authoritative in `docs/keybindings.md`

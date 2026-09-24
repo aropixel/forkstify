@@ -171,7 +171,29 @@ back up: what is done, what is waiting on Joel, what comes next.
   for Expérience.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
-## `Cd` compared the fork to itself (2026-09-24)
+## The review is the pull request (2026-09-24)
+
+Jarvis Cocker's similar links looked odd: they were Deezer's neighbourhood
+filtered by what Joel's library held on 2026-09-01, the four survivors of
+a twenty-long list. Joel rewrote them by hand, and the agent pointed out
+that the card still said `generated = true`. So did 381 others: 382 out of
+383, nothing in the application lifting the flag, nothing in the engine
+reading it. Joel: "I would like to remove every `generated`. If there are
+changes to be made, they will be proposed and examined in a PR with `Cp`."
+
+Decision [0025](decisions/0025-the-review-is-the-pull-request.md): the
+review is the pull request, the flag goes, who wrote a card is a question
+for git. In the code, `Card.generated` leaves with every label built on it
+(the seed line, the finder, the explore header, the `Cd` overlay), the
+generator stops writing the line, the commit bodies lose "to review", and
+the `Cp` title and body stop sorting the new cards into generated and
+written: "Propose 2 cards (1 new, 1 edited)", and the reviewer reads the
+diff. The reader still tolerates the field, so an older fork loads.
+
+In the catalog, the 382 lines go in one commit on Joel's fork, for him to
+propose through `Cp` — the first real pull request the gesture makes, on
+a change that is one line per card.
+
 
 After a listening session that generated three cards, `Cd` answered that
 nothing lay beyond the reference. The clone on this machine declares

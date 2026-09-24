@@ -2759,8 +2759,7 @@ impl Live<'_> {
         let seed_facts = seed_card
             .map(|c| {
                 format!(
-                    "{} · {} link{} · {} top{}",
-                    if c.generated { "generated card" } else { "written card" },
+                    "{} link{} · {} top{}",
                     c.links.len(),
                     if c.links.len() > 1 { "s" } else { "" },
                     c.tops.len(),
@@ -3118,8 +3117,7 @@ impl Live<'_> {
             for slug in self.catalog.search_names(&query, 4) {
                 let card = &self.catalog.cards[&slug];
                 let note = format!(
-                    "{} card · {} links · {} tops",
-                    if card.generated { "generated" } else { "written" },
+                    "{} links · {} tops",
                     card.links.len(),
                     card.tops.len()
                 );

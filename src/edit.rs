@@ -5,7 +5,7 @@
 //!
 //! **Cards are patched textually, never rewritten.** A round trip through
 //! serde would lose everything the code does not model — `format`,
-//! `generated`, `mbid`, `spotify`, `begin`, `origin`, `description`, the
+//! `mbid`, `spotify`, `begin`, `origin`, `description`, the
 //! key order and the quotes chosen by hand. A card is a file a human reads
 //! and corrects ([0002]: "the card format is a public interface"); a line
 //! is inserted into it, the whole is not regenerated.
@@ -221,7 +221,7 @@ pub fn create_card(
     Ok(Edit {
         summary: format!("{name} — card generated"),
         body: Some(format!(
-            "{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
+            "{tops} top(s), {links} link(s) — MusicBrainz and Deezer."
         )),
         path,
         also: Vec::new(),
@@ -258,7 +258,7 @@ pub fn regenerate_card(
     let edit = Edit {
         summary: format!("{name} — card regenerated"),
         body: Some(format!(
-            "Was {was}.\n{tops} top(s), {links} link(s) — MusicBrainz and Deezer.\ngenerated = true: to review."
+            "Was {was}.\n{tops} top(s), {links} link(s) — MusicBrainz and Deezer."
         )),
         path,
         also: Vec::new(),

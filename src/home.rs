@@ -461,7 +461,6 @@ mod tests {
 
     fn catalog() -> Catalog {
         let card = |name: &str| Card {
-            generated: false,
             name: name.into(),
             spotify: None,
             tags: Vec::new(),

@@ -36,9 +36,6 @@ pub struct Card {
     /// The artist's Spotify id, when the card carries one (212 of 214) —
     /// the way in to the long tail.
     pub spotify: Option<String>,
-    /// Written by the generator, not yet reread by a human (0016).
-    #[serde(default)]
-    pub generated: bool,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]

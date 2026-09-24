@@ -57,7 +57,9 @@ proposed branch (`engine::branch_from`), not an encore of the generated
 artist.
 
 **It is an edit in the sense of [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md)** —
-a readable commit, `generated = true` until reviewed — as 0016 intended.
+a readable commit, "X — card generated" — as 0016 intended. The card
+carries no flag: the review is the pull request
+([0025](../decisions/0025-the-review-is-the-pull-request.md)).
 
 **The catalog becomes mutable during a session.** It was lent read-only for
 the whole duration of a listening session (`Live<'a> { catalog: &'a
@@ -135,8 +137,7 @@ in the way.
    spells the form. With one, the card is **rewritten from the sources**,
    not merged — hand edits of the old card go with it, which is what you
    want when the identity was wrong, and the commit is the undo when it was
-   not (`git revert` in `:catalog shell`). One commit, `generated = true`
-   again, the vector recomputed and its line replaced in the index: "Boo —
+   not (`git revert` in `:catalog shell`). One commit, the vector recomputed and its line replaced in the index: "Boo —
    card regenerated", the body naming who it was, name and MBID. An edit in
    the sense of [0013](../decisions/0013-keyboard-tuning-measure-or-edit.md).
    The same MBID as the card's is allowed too: that is a re-harvest, for a

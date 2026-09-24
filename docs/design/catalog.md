@@ -44,7 +44,6 @@ Format 1, as applied to the first batch:
 ```toml
 # cards/the-cure.toml
 format = 1
-generated = true          # goes away on human review
 name = "The Cure"
 mbid = "69ee3720-a7cb-4402-b48d-a02c366f2bcf"
 spotify = "7bu3H8JO7d0UbMoVzbo70s"
@@ -105,7 +104,8 @@ The format's semantics, clarified when reviewing the first batch:
   link of that type at once, with no local override.
 
 Making a card your own = editing it and committing: my tops become
-`["A Forest", "10:15 Saturday Night"]`, and `generated` goes away.
+`["A Forest", "10:15 Saturday Night"]`. No flag says the card was read —
+the review is the pull request ([0025](../decisions/0025-the-review-is-the-pull-request.md)).
 
 ### We write for humans, the machine reads the structure
 
@@ -161,7 +161,7 @@ listening. Signals and effects:
 | Track skipped | not that one, not now | the weight of the top, or of the artist in this context |
 | Track played in full, often | it is one of my tops | the order of the tops, an offer to make it a top |
 | A branch born of the vectors (with no link) that pleases | the link deserves to exist | **writing a link** into the card |
-| Arriving at an artist with no card | they are part of my universe | **generating a card** (Spotify, Last.fm, LLM), flagged as generated until reviewed |
+| Arriving at an artist with no card | they are part of my universe | **generating a card** (MusicBrainz, then Deezer), one commit that says so |
 
 The last two rows are the central mechanism: **the implicit space feeds the
 explicit graph**. What the vectors guess and listening confirms becomes a
@@ -413,8 +413,11 @@ own visible.
   whole of MusicBrainz. Every card is born because somebody arrived at that
   artist — library, journey, other people's PRs. The catalog is complete *in
   the sense of its users*.
-- **Two visible quality levels**: *generated* and *reviewed*. A card
-  reviewed by a human is worth more, and the engine can know it.
+- **Two sides to the review**: a fork, where a card is its owner's, and
+  the reference, where it has been read in a pull request. No flag inside
+  the file: the `generated = true` of the first batches was on 382 cards
+  out of 383 and said nothing
+  ([0025](../decisions/0025-the-review-is-the-pull-request.md)).
 - **The facts and the meaning do not come from the same place.** The facts
   (name, MBID, identifiers, country, years, tags, linked artists) come from
   free and verifiable sources — MusicBrainz, Wikidata, Last.fm for the
@@ -494,8 +497,9 @@ run, generating while listening (a living catalog).
   counters). Still to settle along the PoC: the decay **half-life** (6
   months by default), the **cooldown window** (0012), and the familiarity →
   comfort zone 0–5 formula (0001).
-- **Flagging generated cards**: a field (`generated = true`), a separate
-  folder, or both?
+- ~~**Flagging generated cards**: a field, a separate folder, or both?~~
+  Neither: the review is the pull request, and git says who wrote a card
+  (0025, 2026-09-24).
 - **The shared catalog's licence**: a data licence (ODbL like
   OpenStreetMap, or CC BY-SA), and checking the compatibility of the sources
   poured in — MusicBrainz and Wikidata yes, Last.fm blurrier.

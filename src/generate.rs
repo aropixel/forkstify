@@ -468,7 +468,6 @@ fn compose(
 ) -> String {
     let mut lines = vec![
         "format = 1".to_string(),
-        "generated = true".to_string(),
         format!("name = {}", quoted(name)),
         format!("mbid = {}", quoted(mbid)),
     ];
@@ -775,7 +774,7 @@ mod tests {
         let text = compose("The Cure", "abc", &facts, &tags, &["A Forest".into()], &links);
         let card: crate::catalog::Card = toml::from_str(&text).expect("lisible");
         assert_eq!(card.name, "The Cure");
-        assert!(card.generated);
+        assert!(!text.contains("generated"), "no flag: the review is the pull request (0025)");
         assert_eq!(card.spotify.as_deref(), Some("7bu3H8JO7d0UbMoVzbo70s"));
         assert_eq!(card.tops, vec!["A Forest"]);
         assert_eq!(card.links.len(), 2);
@@ -816,7 +815,6 @@ mod tests {
         println!("{}", draft.toml);
         assert_eq!(draft.name, "Jacques Brel");
         let card: crate::catalog::Card = toml::from_str(&draft.toml).expect("readable card");
-        assert!(card.generated);
         assert_eq!(card.spotify.as_deref(), Some("4RN2vlFWepLa46qQIU2PHs"));
         assert!(!card.tops.is_empty(), "Deezer tops");
         // the neighbour that has a card is targeted by its slug…
