@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-23**. This file is the entry point for picking the work
+Updated on **2026-09-24**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -171,6 +171,23 @@ back up: what is done, what is waiting on Joel, what comes next.
   for Expérience.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
+## `Cd` compared the fork to itself (2026-09-24)
+
+After a listening session that generated three cards, `Cd` answered that
+nothing lay beyond the reference. The clone on this machine declares
+`upstream` but had never fetched it — only `Cp` and `Cu` did — so
+`upstream/main` did not exist locally and the diff's base fell back on
+`origin/main`: the fork itself, where the cards were already committed and
+pushed. An empty diff, honestly computed against the wrong thing.
+
+Two changes in `src/fork.rs`. `diff` fetches `upstream` first, as `Cp` and
+`Cu` do, and `propose` no longer fetches on its own since the diff it asks
+for does; offline, the last fetch serves, and a fork that was never fetched
+says so. And `base` no longer lets `origin` stand in for the reference when
+an `upstream` remote is declared: `origin` is the reference only in local
+mode, where it is the only remote. The fork test drops its explicit fetch
+so the diff is seen doing it.
+
 ## v0.1.0 released, and the AUR package ready but held (2026-09-21)
 
 The release channel is live. The `v0.1.0` tag ran the workflow through in

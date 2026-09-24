@@ -10,11 +10,6 @@ Versions follow the release: a tag `v*` publishes the Linux binary that
 becomes that release's notes**. `bin/release` moves `## Unreleased` down to
 the version it cuts, so this file cannot fall behind.
 
-### Listening
-
-- The collection's last-played column drops its leading minus: `2w`, `6d`,
-  next to `today` and `yday`.
-
 ## Unreleased
 
 ### Added
@@ -29,6 +24,11 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **`Cd` said "nothing beyond the reference" on a fork that had cards to
+  show.** On a fresh clone the reference was never fetched, and the diff
+  quietly compared the fork to itself. `Cd` now fetches `upstream` first,
+  like `Cp` and `Cu`, and a fork never takes its own remote for the
+  reference: offline and never fetched, it says so instead.
 - **A track played by a namesake.** A card's tops were looked up on
   Spotify by title and artist name, and the first hit played whoever it was
   by. A top is now taken from the artist's own discography, fetched by the
@@ -57,6 +57,11 @@ the version it cuts, so this file cannot fall behind.
 - **A paused player restarting on its own.** Losing the output — a
   bluetooth speaker walking away — makes librespot stop the stream, which
   read as "the track ended". A paused player no longer moves on.
+
+### Listening
+
+- The collection's last-played column drops its leading minus: `2w`, `6d`,
+  next to `today` and `yday`.
 
 ### Keys
 

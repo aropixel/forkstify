@@ -4104,7 +4104,7 @@ impl Live<'_> {
         let dir = self.catalog_dir.clone();
         let tx = self.jobs_tx.clone();
         let what = match key {
-            'd' => "… C diff — comparing to the reference",
+            'd' => "… C diff — fetch upstream, comparing to the reference",
             'p' => "… C propose — fetch upstream, worktree proposal, commit, push",
             _ => "… C update — learned committed, fetch upstream, merge, index",
         };

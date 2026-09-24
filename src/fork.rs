@@ -92,13 +92,37 @@ fn remote_url(dir: &Path, remote: &str) -> Option<String> {
 }
 
 /// The reference's branch, as known locally: `upstream/main` in a fork,
-/// `origin/main` in a plain clone of the reference (local mode).
+/// `origin/main` in a plain clone of the reference (local mode). A fork
+/// whose `upstream` was never fetched has no reference yet — it does not
+/// fall back on `origin`, which is the fork itself: every card would then
+/// look already known, and `Cd` would show nothing (Joel, 2026-09-24).
 fn base(dir: &Path) -> Result<String, String> {
-    ["upstream/main", "upstream/master", "origin/main", "origin/master"]
-        .into_iter()
+    let fork = remote_url(dir, "upstream").is_some();
+    let candidates: &[&str] = if fork { &["upstream/main", "upstream/master"] } else { &["origin/main", "origin/master"] };
+    candidates
+        .iter()
         .find(|reference| git(dir, &["rev-parse", "--verify", "--quiet", reference]).is_ok())
-        .map(str::to_string)
-        .ok_or_else(|| "no reference known — this catalog has no remote".to_string())
+        .map(|reference| reference.to_string())
+        .ok_or_else(|| {
+            if fork {
+                "the reference has not been fetched yet — Cd, Cp and Cu fetch it".to_string()
+            } else {
+                "no reference known — this catalog has no remote".to_string()
+            }
+        })
+}
+
+/// Bring the reference up to date before comparing to it: a fork fetches
+/// `upstream`. Offline, the last fetch serves; never fetched, there is
+/// nothing to compare to.
+fn fetch_reference(dir: &Path) -> Result<(), String> {
+    if remote_url(dir, "upstream").is_none() {
+        return Ok(());
+    }
+    match git(dir, &["fetch", "--quiet", "upstream"]) {
+        Ok(_) => Ok(()),
+        Err(why) => base(dir).map(|_| ()).map_err(|_| format!("the reference could not be fetched: {why}")),
+    }
 }
 
 fn updated_file() -> PathBuf {
@@ -298,6 +322,7 @@ fn card_summary(text: &str) -> (String, bool, String) {
 }
 
 pub fn diff(dir: &Path) -> Result<Diff, String> {
+    fetch_reference(dir)?;
     let base = base(dir)?;
     let mut new = Vec::new();
     let mut edited = Vec::new();
@@ -479,8 +504,7 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
     }
     let upstream_url = remote_url(dir, "upstream").ok_or("no upstream remote — this catalog is not a fork of the reference")?;
     let origin_url = remote_url(dir, "origin").ok_or("no origin remote")?;
-    git(dir, &["fetch", "--quiet", "upstream"])?;
-    let diff = diff(dir)?;
+    let diff = diff(dir)?; // fetches upstream first
     if diff.is_empty() {
         return Err("nothing beyond the reference — nothing to propose".to_string());
     }
@@ -832,7 +856,9 @@ mod tests {
         sh(&root, &["clone", "-q", fork_bare.to_str().unwrap(), clone.to_str().unwrap()]);
         identity(&clone);
         sh(&clone, &["remote", "add", "upstream", reference.to_str().unwrap()]);
-        sh(&clone, &["fetch", "-q", "upstream"]);
+        // not fetched yet: the reference is unknown, and origin — the fork
+        // itself — never stands in for it
+        assert!(base(&clone).unwrap_err().contains("not been fetched"));
 
         // what is mine: a new generated card, a top added, some learned
         std::fs::write(clone.join("cards/codeine.toml"), card("Codeine", &["D"]).replace("mbid", "generated = true\nmbid")).unwrap();
@@ -842,7 +868,9 @@ mod tests {
         sh(&clone, &["add", "-A"]);
         sh(&clone, &["commit", "-q", "-m", "mine"]);
 
+        // Cd fetches the reference on its own
         let diff = diff(&clone).expect("diff");
+        assert_eq!(base(&clone).as_deref(), Ok("upstream/main"));
         assert_eq!(diff.new.len(), 1);
         assert_eq!(diff.new[0].name, "Codeine");
         assert!(diff.new[0].generated);
