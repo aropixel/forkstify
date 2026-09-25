@@ -2821,6 +2821,16 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| self.note(stop))
             .collect();
+        // what *you* said of each artist, to put beside their name: the
+        // library's "liked" would mark one row in two and say nothing
+        // (measured 2026-09-25), the weight says what you did
+        let tastes: Vec<i8> = self
+            .past
+            .iter()
+            .chain(self.current.iter())
+            .chain(self.queue.iter())
+            .map(|stop| self.taste_of(stop))
+            .collect();
         // the seed block (maquette 2b): everything descends from it
         let seed_card = self.catalog.cards.get(&seed);
         let seed_name = seed_card.map(|c| c.name.clone()).unwrap_or_else(|| seed.clone());
@@ -2856,6 +2866,7 @@ impl Live<'_> {
             missing: &self.missing,
             panel: true,
             notes: &notes,
+            tastes: &tastes,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice(), self.overlay_scroll)),
             comfort_mode: self.comfort_before.is_some(),
@@ -3057,6 +3068,23 @@ impl Live<'_> {
                 None
             }
             Some(stop) => Some(stop),
+        }
+    }
+
+    /// What this listener said of a stop's artist: `1` favoured with `al`,
+    /// `-1` set aside with `as`, `0` never judged. It reads the **weight**,
+    /// which is what the engine itself acts on — not "liked", which is
+    /// mostly the Spotify library and would mark half the rows (Joel,
+    /// 2026-09-25).
+    fn taste_of(&self, stop: &crate::engine::Stop) -> i8 {
+        let Some(slug) = self.card_of(stop) else { return 0 };
+        let weight = self.learned.weight(&slug);
+        if weight > 1.001 {
+            1
+        } else if weight < 0.999 {
+            -1
+        } else {
+            0
         }
     }
 

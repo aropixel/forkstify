@@ -89,6 +89,8 @@ pub struct View<'a> {
     /// One grey note per track of the axis (past, current, queue), in the
     /// same order: what the plays know about it (mockup 3a).
     pub notes: &'a [String],
+    /// Beside each artist's name: `1` favoured, `-1` set aside, `0` silent.
+    pub tastes: &'a [i8],
     /// The axis line under the selection — highlighted, but not played.
     pub selection: Option<usize>,
     /// A block laid over the screen, which does not go down into the log:
@@ -302,7 +304,7 @@ enum Slot {
 /// what comes is counted from it.
 /// `marked` puts "▸" in the gutter: the next track, when the listening
 /// line is too narrow to name it (mockup 4a′, the fallback of 4b).
-fn track_row(stop: &Stop, slot: Slot, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
+fn track_row(stop: &Stop, slot: Slot, taste: i8, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
     // the number in grey, only the arrow in color (mockup 2b)
     // six cells either way: " 2 →  " or, marked, " 2 ▸→ "
@@ -336,7 +338,15 @@ fn track_row(stop: &Stop, slot: Slot, marked: bool, opening: Option<&str>, note:
         }
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
-    let body: Vec<Span> = match slot {
+    // what you said of the artist, beside their name (Joel, 2026-09-25).
+    // Never a heart: that one is the track's, and it lives at the head of
+    // the row — the place tells them apart.
+    let taste_mark = match taste {
+        1 => Some(('↑', CATALOG)),
+        -1 => Some(('↓', DIM)),
+        _ => None,
+    };
+    let mut body: Vec<Span> = match slot {
         // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
             format!(" {body_text} "),
@@ -360,8 +370,15 @@ fn track_row(stop: &Stop, slot: Slot, marked: bool, opening: Option<&str>, note:
             ]
         }
     };
+    if let Some((glyph, tone)) = taste_mark {
+        // outside the reversed block of the playing row, so it keeps its own
+        // colour rather than turning into the background
+        body.push(Span::styled(format!(" {glyph}"), Style::default().fg(tone)));
+    }
     // the prefix is 6 cells, the reversed body takes two more
-    let body_width = body_text.chars().count() + usize::from(matches!(slot, Slot::Playing { .. })) * 2;
+    let body_width = body_text.chars().count()
+        + usize::from(matches!(slot, Slot::Playing { .. })) * 2
+        + usize::from(taste_mark.is_some()) * 2;
     let used = 6 + body_width + 2 + 2;
     // a note that does not fit is not shown: we don't cut a word
     let note = if used - 2 + note.chars().count() <= width { note } else { "" };
@@ -550,8 +567,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             None => None,
         };
         let note = view.notes.get(stop_index).map(String::as_str).unwrap_or("");
+        let taste = view.tastes.get(stop_index).copied().unwrap_or(0);
         let marked = !next_on_line && current_at.map_or(false, |c| stop_index == c + 1);
-        push(track_row(stop, slot, marked, opening, note, width), index, view.selection, &mut lines);
+        push(track_row(stop, slot, taste, marked, opening, note, width), index, view.selection, &mut lines);
         index += 1;
     }
     if !all.is_empty() {
@@ -1779,6 +1797,34 @@ mod tests {
         assert!(!text.contains("○ no card yet"), "{text}");
     }
 
+    /// 2026-09-25: what you said of the artist sits beside their **name**,
+    /// never as a heart — that one is the track's, and it lives at the head
+    /// of the row, which is what tells the two apart.
+    #[test]
+    fn the_artist_carries_what_you_said_of_them() {
+        let stop = Stop {
+            slug: "the-cure".into(),
+            artist: "The Cure".into(),
+            title: "A Forest".into(),
+            source: Source::Top,
+            head: None,
+            encore: false,
+        };
+        let text = |taste| {
+            track_row(&stop, Slot::Ahead { n: 2 }, taste, false, None, "", 80)
+                .spans
+                .iter()
+                .map(|s| s.content.to_string())
+                .collect::<String>()
+        };
+        assert!(text(1).contains("The Cure ↑"), "{}", text(1));
+        assert!(text(-1).contains("The Cure ↓"), "{}", text(-1));
+        let plain = text(0);
+        assert!(!plain.contains('↑') && !plain.contains('↓'), "silent by default: {plain}");
+        // and the track's own mark has not moved from the head of the row
+        assert!(plain.contains("♪ A Forest"), "{plain}");
+    }
+
     fn playlist(
         width: u16,
         height: u16,
@@ -1809,6 +1855,7 @@ mod tests {
             branches,
             panel: true,
             notes: &notes,
+            tastes: &vec![0; notes.len()],
             selection: None,
             overlay: None,
             comfort_mode: false,

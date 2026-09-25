@@ -30,6 +30,12 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
+- **What you said of an artist now shows in the playlist**: `↑` after their
+  name when you asked for them more often, `↓` when less, nothing when you
+  never judged them. It is not a heart: that one is the track's and sits at
+  the head of the row, and it is not "liked" either — that would mark one
+  row in two, being mostly your imported Spotify library.
+
 - **The search adds instead of taking over.** While listening, enter on a
   row of `:search` queues it at the **end** and leaves the modal open, so
   several can be picked in a row; `esc` closes and what you queued stays.

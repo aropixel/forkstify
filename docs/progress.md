@@ -701,6 +701,30 @@ though it is named `Ye`, so the lookup finds it and `en2` would have worked
 outright. With no card at all, the gesture says so instead of aiming
 elsewhere; `ti` has one on the way anyway. A test pins the three cases.
 
+## What you said of an artist, beside their name (2026-09-25)
+
+Joel: what indicator would show, from the listening page, whether an artist
+is liked — "a heart would be confusing with the track likes, no?"
+
+The heart was not the problem; the notion was. Counted on the catalog:
+**187 of 388 cards** would carry a "liked" mark, and **110 of those come
+from the imported Spotify library alone**, not from anything done here. An
+indicator on one row in two says nothing, and the branch engine leans
+towards the familiar, so in practice it would be worse.
+
+So the row carries **what you said** instead: `↑` after the artist's name
+when their weight has been raised with `al`, `↓` when lowered with `as`,
+nothing at the default. That is rare enough to be read — a fifth of the
+cards one way, a twenty-fifth the other — it is exactly what the engine
+acts on when it draws branch heads, and it reuses the glyphs the `al` /
+`as` toasts already use, so there is nothing new to learn. Blue for `↑`,
+Joel's call, the catalog's own tone; grey for `↓`, which reads as a step
+back.
+
+The confusion with the track's heart is settled by **place**: the track's
+mark is at the head of the row, the artist's after their name. A test pins
+both, and that the head mark has not moved.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four
