@@ -93,9 +93,9 @@ pub struct View<'a> {
     /// the negative of the "liked" the home filters on. Marking the ones
     /// you know would mark nearly every row (Joel, 2026-09-25).
     pub unknown: &'a [bool],
-    /// The same for each branch, on the artist it heads towards: one mark
-    /// per proposal, which is what one reads before picking a direction.
-    pub unknown_branches: &'a [bool],
+    /// The same inside each proposal, one flag per track: the mark sits
+    /// beside the artist it speaks of, never on the branch's own label.
+    pub unknown_branches: &'a [Vec<bool>],
     /// The axis line under the selection — highlighted, but not played.
     pub selection: Option<usize>,
     /// A block laid over the screen, which does not go down into the log:
@@ -1059,12 +1059,6 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 branch.label.clone(),
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
-            // the same `+` as the axis: this direction leads to someone
-            // who is not yours yet (Joel, 2026-09-25)
-            Span::styled(
-                if view.unknown_branches.get(i).copied().unwrap_or(false) { " +" } else { "" },
-                Style::default().fg(MUTED),
-            ),
         ]));
         let (tone, cells, word) = proximity_of(branch);
         // the reason, wrapped at 5 cells; when it is only the link word
@@ -1080,7 +1074,8 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             }
         }
         // the tracks, as they will play: we choose what we will hear
-        for stop in &branch.stops {
+        let unknown = view.unknown_branches.get(i);
+        for (j, stop) in branch.stops.iter().enumerate() {
             lines.push(Line::from(vec![
                 Span::styled("     ", Style::default()),
                 Span::styled(
@@ -1091,6 +1086,12 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 Span::styled(stop.title.clone(), Style::default().fg(Color::White)),
                 Span::styled(" — ", Style::default().fg(DIM)),
                 Span::styled(stop.artist.clone(), Style::default().fg(CATALOG)),
+                // the same `+` as the axis, beside the name it speaks of
+                // (Joel, 2026-09-25)
+                Span::styled(
+                    if unknown.and_then(|u| u.get(j)).copied().unwrap_or(false) { " +" } else { "" },
+                    Style::default().fg(MUTED),
+                ),
             ]));
         }
         let mut gauge = vec![
@@ -1774,7 +1775,7 @@ mod tests {
         width: u16,
         height: u16,
         branches: &[Branch],
-        unknown_branches: &[bool],
+        unknown_branches: &[Vec<bool>],
     ) -> Vec<String> {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
         draw_playlist(width, height, branches, &[], Some(&current), &[], &[], unknown_branches)
@@ -1857,15 +1858,20 @@ mod tests {
         }
     }
 
-    /// And the branch column carries it too, on the artist a proposal
-    /// heads towards: that is what one reads before picking a direction
-    /// (Joel, 2026-09-25).
+    /// And the branch column carries it too, **on the track's own line**,
+    /// beside the artist it speaks of — not on the branch's label (Joel,
+    /// 2026-09-25).
     #[test]
-    fn a_branch_says_when_it_leads_to_someone_new() {
-        let lines = screen_with(100, 38, &branches(), &[false, true]);
+    fn a_branch_marks_the_artist_that_is_not_yours() {
+        // first branch: two tracks, the second one by someone new
+        let lines = screen_with(100, 38, &branches(), &[vec![false, true], vec![false]]);
         let marked: Vec<&String> = lines.iter().filter(|l| l.contains(" +")).collect();
-        assert_eq!(marked.len(), 1, "one mark, on the second branch: {marked:?}");
-        assert!(marked[0].contains(&branches()[1].label), "{:?}", marked[0]);
+        assert_eq!(marked.len(), 1, "one mark, on one track: {marked:?}");
+        assert!(marked[0].contains(&branches()[0].stops[1].title), "{:?}", marked[0]);
+        // the label keeps its line clean
+        let label = &branches()[0].label;
+        let head = lines.iter().find(|l| l.contains(&format!("1  {label}"))).unwrap();
+        assert!(!head.contains('+'), "the label says nothing: {head:?}");
     }
 
     fn playlist(
@@ -1889,7 +1895,7 @@ mod tests {
         current: Option<&Stop>,
         queue: &[Stop],
         missing: &[crate::engine::Missing],
-        unknown_branches: &[bool],
+        unknown_branches: &[Vec<bool>],
     ) -> Vec<String> {
         let total = past.len() + usize::from(current.is_some()) + queue.len();
         let notes: Vec<String> = (0..total)

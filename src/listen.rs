@@ -2830,15 +2830,12 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| !self.liked_artist(stop))
             .collect();
-        // and the same on the branch each proposal heads towards: it is
-        // what one wants to know before picking a direction
-        let unknown_branches: Vec<bool> = self
+        // and the same inside each proposal, on the artist of each track:
+        // the mark belongs beside the name it speaks of (Joel, 2026-09-25)
+        let unknown_branches: Vec<Vec<bool>> = self
             .branches
             .iter()
-            .map(|branch| {
-                let head = branch.artists.first().map(String::as_str).unwrap_or_default();
-                !self.learned.liked(head, &branch.label)
-            })
+            .map(|branch| branch.stops.iter().map(|stop| !self.liked_artist(stop)).collect())
             .collect();
         // the seed block (maquette 2b): everything descends from it
         let seed_card = self.catalog.cards.get(&seed);

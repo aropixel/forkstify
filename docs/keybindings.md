@@ -254,8 +254,9 @@ what carries the mark, in grey, with no tone to insist. A `+` because no
 glyph in use means "new", and the track's own marks stay at the head of the
 row, which is what tells them apart.
 
-**The branch column carries it too**, once per proposal, after the label:
-the artist a direction heads towards is what you read before picking it.
+**The branch column carries it too**, on each track's own line, beside the
+artist it speaks of — never on the branch's label (Joel, 2026-09-25): the
+mark belongs next to the name it is about, here as on the axis.
 
 ## `:` commands
 
