@@ -161,6 +161,7 @@ async fn async_run(
         jobs_tx,
         loading: false,
         dry_advances: 0,
+        dry_tracks: 0,
         harvesting: HashMap::new(),
         screen: Screen::Home,
         home: Home::default(),
@@ -281,6 +282,13 @@ const RESTART_AFTER_MS: u32 = 3_000;
 /// How many branches may auto-advance in a row with nothing reaching the
 /// speakers before the music stops and asks for a hand (Joel, 11/09/2026).
 const MAX_DRY_ADVANCES: u32 = 4;
+/// How many **tracks** may end in a row with nothing having come out before
+/// the music stops and says so. The branch guard above counts branches, so
+/// a single branch could still march twenty-eight tracks past in silence —
+/// which is what a lost Spotify session looks like from inside (Joel,
+/// 2026-09-25). Three: one unplayable track among playable ones is an
+/// accident, three in a row is a wall.
+const MAX_DRY_TRACKS: u32 = 3;
 
 /// `A` — how many tracks of an album get promoted at once. Four: an album
 /// that carries the plays rarely has more that matter, and beyond that
@@ -401,6 +409,11 @@ struct Live<'a> {
     /// so a run of unplayable tracks would cycle branches forever without a
     /// sound (Joel, 11/09/2026). Reset the moment anything actually plays.
     dry_advances: u32,
+    /// Tracks ended in a row with nothing played. Independent of
+    /// `sound.alive()`, which librespot leaves false-negative when the
+    /// connections to the access point drop quietly: the count is what the
+    /// ear would notice, so it does not need the session to own up.
+    dry_tracks: u32,
     /// Discographies being harvested right now, so a second `ad` or `e<n>`
     /// does not launch the same job twice.
     harvesting: HashMap<String, bool>,
@@ -1085,6 +1098,17 @@ impl Live<'_> {
     /// screen never waits for Spotify (Joel, 08/09/2026). The answer comes
     /// back through `Job::Resolved`.
     async fn load_stop(&mut self, stop: crate::engine::Stop) -> Load {
+        // No session to Spotify, no track: the address may be in hand and
+        // librespot still has nothing to open it with. This is a fault of
+        // the connection, not of these tracks, so it holds the queue like
+        // any other — the whole list used to march by in silence instead
+        // (Joel, 2026-09-25, and the same wall that morning: eight
+        // connections to the access point fell to none while the playlist
+        // emptied). `alive()` was drawn in the header and read nowhere else.
+        if !self.sound.alive() {
+            self.web_ok = false;
+            return Load::Failed(stop, "the session to Spotify is gone".to_string());
+        }
         let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         let artist_id = self.artist_id_of(&stop.slug);
         // the artist's own discography first: harvested by id, it cannot
@@ -1853,6 +1877,23 @@ impl Live<'_> {
                 } else if played_ms == 0 {
                     say!(self, "\n⏹ {} — {}: nothing came out, skipped", stop.title, stop.artist);
                 }
+            }
+        }
+        // three in a row and it is not the tracks: the session is gone,
+        // or Spotify is refusing everything. Stop, keep what is left, and
+        // say it — the list used to empty in silence (Joel, 2026-09-25).
+        // A track we cut short ourselves has a position behind it, so only
+        // a silent one counts.
+        if !finished && played_ms == 0 {
+            self.dry_tracks += 1;
+            if self.dry_tracks >= MAX_DRY_TRACKS {
+                self.dry_tracks = 0;
+                if let Some(stop) = self.current.take() {
+                    self.queue.push_front(stop);
+                }
+                self.blocked(&format!("{MAX_DRY_TRACKS} tracks in a row came out silent"));
+                self.render();
+                return;
             }
         }
         // a track played through is the only thing that counts as a listen
@@ -2922,8 +2963,9 @@ impl Live<'_> {
         let duration_ms = self.progress.as_ref().map_or(0, |p| p.duration_ms);
         match event {
             Playing { play_request_id, position_ms, .. } if mine(play_request_id) => {
-                // a track is truly on air: the auto-advance is not dry
+                // a track is truly on air: neither guard is counting
                 self.dry_advances = 0;
+                self.dry_tracks = 0;
                 self.progress =
                     Some(Progress { position_ms: *position_ms, duration_ms, sampled, running: true });
                 true

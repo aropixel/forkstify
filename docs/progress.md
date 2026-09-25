@@ -701,6 +701,53 @@ though it is named `Ye`, so the lookup finds it and `en2` would have worked
 outright. With no card at all, the gesture says so instead of aiming
 elsewhere; `ti` has one on the way anyway. A test pins the three cases.
 
+## The wall: a lost Spotify session emptied the playlist (2026-09-25)
+
+Joel, twice in one day: "I am hitting a wall again, the tracks no longer
+play." The morning's occurrence went undiagnosed. The afternoon's was caught
+while it was happening, and the cause is settled.
+
+**What was measured, on the running process.** Its connections to the
+Spotify **access point** fell to zero while it was watched — eight, then
+three, then none; only one connection to another Spotify host was left.
+Without an AP session there is no audio key, so no track loads: MPRIS
+confirmed it, `mpris:length = 0`, position 0, no `TrackChanged` for the
+current track. The Web API was **separately** rate-limited — 429 with
+`Retry-After` 13 to 17 on `/v1/me` itself — while the application was making
+no Web API call at all, which means the quota is not only Joel's: the client
+id is ncspot's, shared with everyone who uses it, the price of the
+workaround `docs/design/spotify.md` explains. Two faults at once, and
+neither belongs to the tracks.
+
+**The defect.** `sound.alive()` was read in exactly one place,
+`status_now()`, to draw the header. **Nothing consulted it before consuming
+the queue.** So a dead session let every track be requested, nothing come
+back, `on_track_over` skip it, and the list empty in silence — twenty-eight
+tracks that afternoon. The `MAX_DRY_ADVANCES` guard added on 11/09 counts
+**branches**, so a single branch could still march a whole evening past.
+
+**Two guards, because the first is not enough.** `load_stop` now refuses to
+start when the session is gone, returning `Load::Failed` — the existing
+path that puts the track back and says "playback interrupted", the same
+treatment a Web API failure already got. But librespot leaves
+`Session::is_invalid()` false when the connections drop quietly, which is
+probably why the header's `⏹ librespot — session lost` never showed. So the
+real guard counts what the ear notices instead: `MAX_DRY_TRACKS = 3`
+consecutive tracks ending with nothing played holds the queue and says so,
+whatever the session claims about itself. Three, because one unplayable
+track among playable ones is an accident and three in a row is a wall.
+
+Not unit-tested: both guards need a live librespot session to exercise.
+
+**And `CHANGELOG.md` was silently broken.** Since `db6ad55` this morning,
+entries were being written **above** `## Unreleased`, and `bin/release`
+promotes only what sits under it — a day's worth of notes would have been
+dropped from the release. My doing, repeated in every commit since. The
+orphaned block is folded back in, duplicate headings merged, all 31 entries
+accounted for. The file mixes two conventions, `Changed/Added/Fixed` and
+thematic sections (`Listening`, `Keys`, `Installing`); left as it is, since
+choosing between them is an editorial call.
+
 ## The newcomer is what gets marked (2026-09-25)
 
 Joel: what indicator would show, from the listening page, whether an artist

@@ -10,23 +10,16 @@ Versions follow the release: a tag `v*` publishes the Linux binary that
 becomes that release's notes**. `bin/release` moves `## Unreleased` down to
 the version it cuts, so this file cannot fall behind.
 
-### Fixed
+## Unreleased
 
-- **A gesture no longer wanders to another artist.** `e`, `:warm` and `ad`
-  fell back on the journey's last artist when the row under the needle had
-  no card — so an encore on a track just inserted with `ti` added tracks by
-  someone else entirely. They now look the artist up by name, which finds a
-  card filed under another one (`Ye` under `kanye-west`), and say plainly
-  when there is none rather than aiming elsewhere.
+### Changed
 
-- **A track passed over in silence.** When librespot ended a track without
-  playing it, forkstify moved on and said nothing: a whole session could
-  march past with no explanation. It now says which track and why — Spotify
-  refusing to play it here, or nothing having come out at all.
-- **`✓ librespot` meant a file, not a session.** The indicator only checked
-  that a credentials file existed on disk, so it stayed green while nothing
-  could play. It now asks librespot whether the session still holds, and
-  `✓ api web` follows what the API last answered rather than a file.
+- **No more `generated = true` in the cards.** It was on 382 cards out of
+  383 and nothing ever cleared it. The review is the pull request: a card
+  in the reference is accepted, a card in your fork is yours, and `git log`
+  says who wrote it. The generator no longer writes the line, the screens
+  and the `Cp` proposal drop their "generated card / written card" labels,
+  and a card that still has the line loads as before.
 
 ### Added
 
@@ -46,18 +39,6 @@ the version it cuts, so this file cannot fall behind.
   with no card is queued straight away with the card generated behind — no
   need to create one first. At the home, enter still starts a journey.
 
-## Unreleased
-
-### Changed
-
-- **No more `generated = true` in the cards.** It was on 382 cards out of
-  383 and nothing ever cleared it. The review is the pull request: a card
-  in the reference is accepted, a card in your fork is yours, and `git log`
-  says who wrote it. The generator no longer writes the line, the screens
-  and the `Cp` proposal drop their "generated card / written card" labels,
-  and a card that still has the line loads as before.
-
-### Added
 
 - **A card can be regenerated.** `:generate <name> <mbid>` over an artist
   who already has a card rewrites it from the sources, in one commit that
@@ -68,6 +49,33 @@ the version it cuts, so this file cannot fall behind.
   puts that id in the card, ahead of the one MusicBrainz carries.
 
 ### Fixed
+
+- **A gesture no longer wanders to another artist.** `e`, `:warm` and `ad`
+  fell back on the journey's last artist when the row under the needle had
+  no card — so an encore on a track just inserted with `ti` added tracks by
+  someone else entirely. They now look the artist up by name, which finds a
+  card filed under another one (`Ye` under `kanye-west`), and say plainly
+  when there is none rather than aiming elsewhere.
+
+- **A track passed over in silence.** When librespot ended a track without
+  playing it, forkstify moved on and said nothing: a whole session could
+  march past with no explanation. It now says which track and why — Spotify
+  refusing to play it here, or nothing having come out at all.
+- **`✓ librespot` meant a file, not a session.** The indicator only checked
+  that a credentials file existed on disk, so it stayed green while nothing
+  could play. It now asks librespot whether the session still holds, and
+  `✓ api web` follows what the API last answered rather than a file.
+
+
+- **A wall of silent tracks stops the music instead of emptying the list.**
+  When the connection to Spotify goes — the session to the access point can
+  drop without librespot ever admitting it — every track was requested,
+  nothing came out, and the whole playlist marched past in silence. Now
+  three silent tracks in a row hold the queue and say so, the head kept for
+  `j`, and a load attempted with no session says that in one line. The
+  branch guard that already existed counted branches, so one branch could
+  still let twenty-eight tracks go by.
+
 
 - **`Cp` failed with "not a git repository: (null)".** The proposal
   worktree of a catalog that has since moved still pointed at the old
@@ -88,7 +96,6 @@ the version it cuts, so this file cannot fall behind.
   request: MusicBrainz is asked who it links, and a namesake linked to
   another id is passed over.
 
-### Fixed
 
 - **Tracks that never played, one after another.** Spotify was asked
   without a market, so it answered with tracks that exist somewhere and
@@ -110,6 +117,16 @@ the version it cuts, so this file cannot fall behind.
 
 - The collection's last-played column drops its leading minus: `2w`, `6d`,
   next to `today` and `yday`.
+
+
+- **The evening drifts, and the branches follow.** "Stay within the
+  journey's universe" took the plain average of every artist played, so a
+  long evening was still represented by where it began. It now weighs what
+  was played lately more heavily — `universe_half_life` in
+  [`docs/tuning.md`](docs/tuning.md), in artists.
+- **The heart shows up where the like is made.** Liking a track changes its
+  glyph in the list, and `ta` opens on that glyph with its word. A door
+  keeps its arrow: that says where it leads, not how it was picked.
 
 ### Keys
 
@@ -155,17 +172,6 @@ the version it cuts, so this file cannot fall behind.
   now, and a helper that lists them promises what the code does not do. `fu`
   still steps back one branch, and `u` keeps undoing a pending edit inside
   the discography.
-
-### Listening
-
-- **The evening drifts, and the branches follow.** "Stay within the
-  journey's universe" took the plain average of every artist played, so a
-  long evening was still represented by where it began. It now weighs what
-  was played lately more heavily — `universe_half_life` in
-  [`docs/tuning.md`](docs/tuning.md), in artists.
-- **The heart shows up where the like is made.** Liking a track changes its
-  glyph in the list, and `ta` opens on that glyph with its word. A door
-  keeps its arrow: that says where it leads, not how it was picked.
 
 ### Installing
 
