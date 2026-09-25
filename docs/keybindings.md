@@ -238,14 +238,19 @@ tells the two apart (Joel, 2026-09-25):
 
 | Mark | Meaning |
 |---|---|
-| `★` | One of **yours** — the artist is in the home's "liked" list. Blue, the catalog's own tone |
+| `↑` | One of **yours** — the artist is in the home's "liked" list. Blue on what plays and what is to come, grey behind |
 | nothing | Anyone else |
 
 It is the very reading the home's `v` filter uses, so the two screens can
 never disagree: you asked for them with `al`, or you liked a track of
 theirs, or they come from your Spotify library — minus anyone you set
-aside with `as` or banned. A star and not a heart: the heart is the
-track's, and two hearts on one line would read as one thing said twice.
+aside with `as` or banned.
+
+An arrow, not a heart and not a star: the heart is the track's, and two
+hearts on one line would read as one thing said twice; a star was too loud
+on a list where half the artists are yours (Joel, 2026-09-25). It follows
+the artist's name into grey once the track has played — the past does not
+need to be read.
 
 ## `:` commands
 

@@ -30,10 +30,11 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
-- **The playlist says which artists are yours**: a blue `★` after the name
-  when the artist is in the home's "liked" list — the same reading the
-  home's `v` filter uses, so the two screens cannot disagree. A star and
-  not a heart: the heart is the track's, at the head of the row.
+- **The playlist says which artists are yours**: a discreet `↑` after the
+  name when the artist is in the home's "liked" list — the same reading the
+  home's `v` filter uses, so the two screens cannot disagree. Blue on what
+  plays and what is to come, grey behind. Not a heart: the heart is the
+  track's, at the head of the row.
 
 - **The search adds instead of taking over.** While listening, enter on a
   row of `:search` queues it at the **end** and leaves the modal open, so

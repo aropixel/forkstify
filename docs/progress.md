@@ -716,18 +716,25 @@ it." The density was a real measurement and the wrong argument — he is not
 asking to be told something rare, he is asking to recognise **his own
 artists** while they play, and half the rows being his is the point.
 
-So the row carries a blue `★` after the name when `learned.liked` says the
+So the row carries an `↑` after the name when `learned.liked` says the
 artist is one of yours: asked for with `al`, or a liked track of theirs, or
 your Spotify library — minus anyone set aside with `as` or banned. It is
 the **same call the home's `v` filter makes**, so the two screens cannot
 disagree, and it works off-catalog too, `liked` falling back on the name
-when there is no slug yet. The `al` / `as` arrows go: `al` already puts the
-star there, and `as` takes it away.
+when there is no slug yet. The weight arrows go with it: `al` already puts
+the mark there, and `as` takes it away.
 
-The confusion with the track's heart is settled by **glyph and place** at
-once: a star, not a heart, and the track's mark stays at the head of the
-row while the artist's sits after their name. A test pins the star, its
-absence, and that the head mark has not moved.
+**Turned down twice over.** A `★` shipped first and Joel: "too visible."
+Which follows from the density rather than contradicting it — a mark on
+half the rows has to be quiet or it becomes the page. So: the arrow back
+instead of the star, and **blue only on what plays and what is to come**,
+grey behind, following the artist's name into `MUTED` once the track has
+played. The past does not need to be read.
+
+The confusion with the track's heart is settled by **place**: the track's
+mark is at the head of the row, the artist's after their name. A test pins
+the mark, its absence, the tone in each of the three slots, and that the
+head mark has not moved.
 
 ## Keyboard grammar wired (2026-09-05)
 

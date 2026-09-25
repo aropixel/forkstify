@@ -339,10 +339,12 @@ fn track_row(stop: &Stop, slot: Slot, liked: bool, marked: bool, opening: Option
         }
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
-    // one of yours, beside their name (Joel, 2026-09-25). A star, not a
-    // heart: the heart is the track's, at the head of the row, and two of
-    // them on one line would read as one thing said twice.
-    let taste_mark = liked.then_some(('★', CATALOG));
+    // one of yours, beside their name (Joel, 2026-09-25). An arrow, not a
+    // heart or a star: the heart is the track's, at the head of the row,
+    // and a star was too loud on a list where half the artists are yours.
+    // Blue on what plays and what is to come, grey behind, like the name
+    // it sits next to — the past does not need to be read.
+    let taste_mark = liked.then(|| ('↑', if played { MUTED } else { CATALOG }));
     let mut body: Vec<Span> = match slot {
         // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
@@ -1798,7 +1800,7 @@ mod tests {
     /// never as a heart — that one is the track's, and it lives at the head
     /// of the row, which is what tells the two apart.
     #[test]
-    fn one_of_yours_is_starred_beside_their_name() {
+    fn one_of_yours_is_marked_beside_their_name() {
         let stop = Stop {
             slug: "the-cure".into(),
             artist: "The Cure".into(),
@@ -1814,11 +1816,22 @@ mod tests {
                 .map(|s| s.content.to_string())
                 .collect::<String>()
         };
-        assert!(text(true).contains("The Cure ★"), "{}", text(true));
+        assert!(text(true).contains("The Cure ↑"), "{}", text(true));
         let plain = text(false);
-        assert!(!plain.contains('★'), "silent for anyone else: {plain}");
+        assert!(!plain.contains('↑'), "silent for anyone else: {plain}");
         // and the track's own mark has not moved from the head of the row
         assert!(plain.contains("♪ A Forest"), "{plain}");
+        // blue on what is to come, grey behind: the past does not call out
+        let tone = |slot| {
+            track_row(&stop, slot, true, false, None, "", 80)
+                .spans
+                .iter()
+                .find(|s| s.content.contains('↑'))
+                .and_then(|s| s.style.fg)
+        };
+        assert_eq!(tone(Slot::Ahead { n: 2 }), Some(CATALOG));
+        assert_eq!(tone(Slot::Playing { n: 0, paused: false }), Some(CATALOG));
+        assert_eq!(tone(Slot::Played), Some(MUTED));
     }
 
     fn playlist(
