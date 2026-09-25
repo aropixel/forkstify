@@ -701,7 +701,7 @@ though it is named `Ye`, so the lookup finds it and `en2` would have worked
 outright. With no card at all, the gesture says so instead of aiming
 elsewhere; `ti` has one on the way anyway. A test pins the three cases.
 
-## One of yours, beside their name (2026-09-25)
+## The newcomer is what gets marked (2026-09-25)
 
 Joel: what indicator would show, from the listening page, whether an artist
 is liked — "a heart would be confusing with the track likes, no?"
@@ -716,25 +716,41 @@ it." The density was a real measurement and the wrong argument — he is not
 asking to be told something rare, he is asking to recognise **his own
 artists** while they play, and half the rows being his is the point.
 
-So the row carries an `↑` after the name when `learned.liked` says the
-artist is one of yours: asked for with `al`, or a liked track of theirs, or
-your Spotify library — minus anyone set aside with `as` or banned. It is
-the **same call the home's `v` filter makes**, so the two screens cannot
-disagree, and it works off-catalog too, `liked` falling back on the name
-when there is no slug yet. The weight arrows go with it: `al` already puts
-the mark there, and `as` takes it away.
+The notion is `learned.liked`: one of yours is an artist you asked for with
+`al`, or whose track you liked, or who comes from your Spotify library —
+minus anyone set aside with `as` or banned. It is the **same call the
+home's `v` filter makes**, so the two screens cannot disagree, and it works
+off-catalog too, `liked` falling back on the name when there is no slug
+yet. The weight arrows go with it: `al` already puts the mark there, and
+`as` takes it away.
 
-**Turned down twice over.** A `★` shipped first and Joel: "too visible."
-Which follows from the density rather than contradicting it — a mark on
-half the rows has to be quiet or it becomes the page. So: the arrow back
-instead of the star, and **blue only on what plays and what is to come**,
-grey behind, following the artist's name into `MUTED` once the track has
-played. The past does not need to be read.
+**Three tries on the glyph, and the density was the real subject.** A blue
+`★` after the name first — "too visible". Then the `↑` back, blue on what
+plays and what is to come, grey behind — "still overloads, especially at
+comfort 4, arrows almost everywhere". Both were the same mistake made
+politely: the measurement said half the rows, and no tone makes a mark on
+half the rows quiet. Joel's own way out: **mark the ones who are not in the
+liked list instead.**
+
+That is the version that ships. A grey `+` after the name when the artist
+is *not* yours, nothing when they are. It works because it is the rare case
+twice over — half the catalog is yours, and the engine leans towards the
+familiar on top of that — and because it is the more useful signal: you
+already know your own artists, what you want to catch as it goes by is the
+newcomer. No tone at all, in any slot: rarity does the work a colour was
+being asked to do. A `+` because nothing in use means "new" (`♪ ♥ ▶ ▸ → ○
+⊘ │` were all taken, `○` by the gaps).
+
+**And the branch column carries it**, once per branch, after the label:
+`unknown_branches` is built from each proposal's head artist, because what
+you read before picking a direction is where it leads. One mark per
+proposal, not one per track — a branch to a newcomer would otherwise spend
+four marks saying one thing.
 
 The confusion with the track's heart is settled by **place**: the track's
-mark is at the head of the row, the artist's after their name. A test pins
-the mark, its absence, the tone in each of the three slots, and that the
-head mark has not moved.
+marks are at the head of the row, the artist's after their name. Two tests
+pin it: the mark, its silence for one of yours, the grey in all three
+slots, the untouched head mark, and one mark on the right branch.
 
 ## Keyboard grammar wired (2026-09-05)
 

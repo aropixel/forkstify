@@ -30,10 +30,12 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
-- **The playlist says which artists are yours**: a discreet `↑` after the
-  name when the artist is in the home's "liked" list — the same reading the
-  home's `v` filter uses, so the two screens cannot disagree. Blue on what
-  plays and what is to come, grey behind. Not a heart: the heart is the
+- **The playlist points out the artists you do not know yet**: a grey `+`
+  after the name when the artist is *not* in the home's "liked" list — the
+  negative of the home's `v` filter, so the two screens cannot disagree.
+  The newcomer is the rare one, so it is the one that speaks up. The
+  **branch column** carries the same `+` after a proposal's label, saying
+  the direction leads to someone new. Not a heart: the heart is the
   track's, at the head of the row.
 
 - **The search adds instead of taking over.** While listening, enter on a

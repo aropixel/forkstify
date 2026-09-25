@@ -89,9 +89,13 @@ pub struct View<'a> {
     /// One grey note per track of the axis (past, current, queue), in the
     /// same order: what the plays know about it (mockup 3a).
     pub notes: &'a [String],
-    /// Beside each artist's name: whether they are one of yours, the same
-    /// "liked" the home filters on.
-    pub liked: &'a [bool],
+    /// Beside each artist's name: whether they are **not** one of yours —
+    /// the negative of the "liked" the home filters on. Marking the ones
+    /// you know would mark nearly every row (Joel, 2026-09-25).
+    pub unknown: &'a [bool],
+    /// The same for each branch, on the artist it heads towards: one mark
+    /// per proposal, which is what one reads before picking a direction.
+    pub unknown_branches: &'a [bool],
     /// The axis line under the selection — highlighted, but not played.
     pub selection: Option<usize>,
     /// A block laid over the screen, which does not go down into the log:
@@ -305,7 +309,7 @@ enum Slot {
 /// what comes is counted from it.
 /// `marked` puts "▸" in the gutter: the next track, when the listening
 /// line is too narrow to name it (mockup 4a′, the fallback of 4b).
-fn track_row(stop: &Stop, slot: Slot, liked: bool, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
+fn track_row(stop: &Stop, slot: Slot, unknown: bool, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
     // the number in grey, only the arrow in color (mockup 2b)
     // six cells either way: " 2 →  " or, marked, " 2 ▸→ "
@@ -339,12 +343,13 @@ fn track_row(stop: &Stop, slot: Slot, liked: bool, marked: bool, opening: Option
         }
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
-    // one of yours, beside their name (Joel, 2026-09-25). An arrow, not a
-    // heart or a star: the heart is the track's, at the head of the row,
-    // and a star was too loud on a list where half the artists are yours.
-    // Blue on what plays and what is to come, grey behind, like the name
-    // it sits next to — the past does not need to be read.
-    let taste_mark = liked.then(|| ('↑', if played { MUTED } else { CATALOG }));
+    // beside their name, the artists who are **not** yours (Joel,
+    // 2026-09-25). Marking yours was tried and marked nearly every row,
+    // twice over: half the catalog is yours and the engine leans towards
+    // the familiar. The negative is the rare one, so it can be read.
+    // A `+`, for someone new: no glyph in use means that, and the track's
+    // own marks stay at the head of the row.
+    let taste_mark = unknown.then_some(('+', MUTED));
     let mut body: Vec<Span> = match slot {
         // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
@@ -566,9 +571,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             None => None,
         };
         let note = view.notes.get(stop_index).map(String::as_str).unwrap_or("");
-        let liked = view.liked.get(stop_index).copied().unwrap_or(false);
+        let unknown = view.unknown.get(stop_index).copied().unwrap_or(false);
         let marked = !next_on_line && current_at.map_or(false, |c| stop_index == c + 1);
-        push(track_row(stop, slot, liked, marked, opening, note, width), index, view.selection, &mut lines);
+        push(track_row(stop, slot, unknown, marked, opening, note, width), index, view.selection, &mut lines);
         index += 1;
     }
     if !all.is_empty() {
@@ -1053,6 +1058,12 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             Span::styled(
                 branch.label.clone(),
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            ),
+            // the same `+` as the axis: this direction leads to someone
+            // who is not yours yet (Joel, 2026-09-25)
+            Span::styled(
+                if view.unknown_branches.get(i).copied().unwrap_or(false) { " +" } else { "" },
+                Style::default().fg(MUTED),
             ),
         ]));
         let (tone, cells, word) = proximity_of(branch);
@@ -1755,8 +1766,18 @@ mod tests {
 
     /// Screen rows as plain text, so assertions read like the screen.
     fn screen(width: u16, height: u16, branches: &[Branch]) -> Vec<String> {
+        screen_with(width, height, branches, &[])
+    }
+
+    /// The same, saying which branches lead to someone who is not yours.
+    fn screen_with(
+        width: u16,
+        height: u16,
+        branches: &[Branch],
+        unknown_branches: &[bool],
+    ) -> Vec<String> {
         let current = stop("Cities in Dust", "Siouxsie and the Banshees");
-        playlist(width, height, branches, &[], Some(&current), &[], &[])
+        draw_playlist(width, height, branches, &[], Some(&current), &[], &[], unknown_branches)
     }
 
     fn missing(pending: bool) -> crate::engine::Missing {
@@ -1800,7 +1821,7 @@ mod tests {
     /// never as a heart — that one is the track's, and it lives at the head
     /// of the row, which is what tells the two apart.
     #[test]
-    fn one_of_yours_is_marked_beside_their_name() {
+    fn someone_who_is_not_yours_is_marked_beside_their_name() {
         let stop = Stop {
             slug: "the-cure".into(),
             artist: "The Cure".into(),
@@ -1809,29 +1830,42 @@ mod tests {
             head: None,
             encore: false,
         };
-        let text = |liked| {
-            track_row(&stop, Slot::Ahead { n: 2 }, liked, false, None, "", 80)
+        let text = |unknown| {
+            track_row(&stop, Slot::Ahead { n: 2 }, unknown, false, None, "", 80)
                 .spans
                 .iter()
                 .map(|s| s.content.to_string())
                 .collect::<String>()
         };
-        assert!(text(true).contains("The Cure ↑"), "{}", text(true));
+        assert!(text(true).contains("The Cure +"), "{}", text(true));
+        // one of yours says nothing: they are the many, and the silence is
+        // what makes the mark readable
         let plain = text(false);
-        assert!(!plain.contains('↑'), "silent for anyone else: {plain}");
+        assert!(!plain.contains('+'), "silent for one of yours: {plain}");
         // and the track's own mark has not moved from the head of the row
         assert!(plain.contains("♪ A Forest"), "{plain}");
-        // blue on what is to come, grey behind: the past does not call out
+        // grey in every slot: the mark is rare, it does not need a tone
         let tone = |slot| {
             track_row(&stop, slot, true, false, None, "", 80)
                 .spans
                 .iter()
-                .find(|s| s.content.contains('↑'))
+                .find(|s| s.content.contains('+'))
                 .and_then(|s| s.style.fg)
         };
-        assert_eq!(tone(Slot::Ahead { n: 2 }), Some(CATALOG));
-        assert_eq!(tone(Slot::Playing { n: 0, paused: false }), Some(CATALOG));
-        assert_eq!(tone(Slot::Played), Some(MUTED));
+        for slot in [Slot::Ahead { n: 2 }, Slot::Playing { n: 0, paused: false }, Slot::Played] {
+            assert_eq!(tone(slot), Some(MUTED));
+        }
+    }
+
+    /// And the branch column carries it too, on the artist a proposal
+    /// heads towards: that is what one reads before picking a direction
+    /// (Joel, 2026-09-25).
+    #[test]
+    fn a_branch_says_when_it_leads_to_someone_new() {
+        let lines = screen_with(100, 38, &branches(), &[false, true]);
+        let marked: Vec<&String> = lines.iter().filter(|l| l.contains(" +")).collect();
+        assert_eq!(marked.len(), 1, "one mark, on the second branch: {marked:?}");
+        assert!(marked[0].contains(&branches()[1].label), "{:?}", marked[0]);
     }
 
     fn playlist(
@@ -1842,6 +1876,20 @@ mod tests {
         current: Option<&Stop>,
         queue: &[Stop],
         missing: &[crate::engine::Missing],
+    ) -> Vec<String> {
+        draw_playlist(width, height, branches, past, current, queue, missing, &[])
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_playlist(
+        width: u16,
+        height: u16,
+        branches: &[Branch],
+        past: &[Stop],
+        current: Option<&Stop>,
+        queue: &[Stop],
+        missing: &[crate::engine::Missing],
+        unknown_branches: &[bool],
     ) -> Vec<String> {
         let total = past.len() + usize::from(current.is_some()) + queue.len();
         let notes: Vec<String> = (0..total)
@@ -1864,7 +1912,8 @@ mod tests {
             branches,
             panel: true,
             notes: &notes,
-            liked: &vec![false; notes.len()],
+            unknown: &vec![false; notes.len()],
+            unknown_branches,
             selection: None,
             overlay: None,
             comfort_mode: false,

@@ -238,19 +238,24 @@ tells the two apart (Joel, 2026-09-25):
 
 | Mark | Meaning |
 |---|---|
-| `↑` | One of **yours** — the artist is in the home's "liked" list. Blue on what plays and what is to come, grey behind |
-| nothing | Anyone else |
+| `+` | Someone **new** — the artist is *not* in the home's "liked" list. Grey, quiet |
+| nothing | One of yours |
 
-It is the very reading the home's `v` filter uses, so the two screens can
-never disagree: you asked for them with `al`, or you liked a track of
-theirs, or they come from your Spotify library — minus anyone you set
-aside with `as` or banned.
+It is the negative of the home's `v` filter, so the two screens can never
+disagree: yours are the ones you asked for with `al`, whose track you
+liked, or who come from your Spotify library — minus anyone you set aside
+with `as` or banned.
 
-An arrow, not a heart and not a star: the heart is the track's, and two
-hearts on one line would read as one thing said twice; a star was too loud
-on a list where half the artists are yours (Joel, 2026-09-25). It follows
-the artist's name into grey once the track has played — the past does not
-need to be read.
+**Why the negative.** Marking yours was tried twice, `★` then `↑`, and
+marked nearly every row: half the catalog is yours, and the engine leans
+towards the familiar on top of that — at comfort 4 the marks were
+everywhere (Joel, 2026-09-25). The rare case is the newcomer, so that is
+what carries the mark, in grey, with no tone to insist. A `+` because no
+glyph in use means "new", and the track's own marks stay at the head of the
+row, which is what tells them apart.
+
+**The branch column carries it too**, once per proposal, after the label:
+the artist a direction heads towards is what you read before picking it.
 
 ## `:` commands
 

@@ -2821,14 +2821,24 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| self.note(stop))
             .collect();
-        // whether each artist is one of yours, to put beside their name —
-        // the same "liked" the home filters on (Joel, 2026-09-25)
-        let liked: Vec<bool> = self
+        // the artists who are **not** yours, to mark beside their name —
+        // the minority, so the mark stays readable (Joel, 2026-09-25)
+        let unknown: Vec<bool> = self
             .past
             .iter()
             .chain(self.current.iter())
             .chain(self.queue.iter())
-            .map(|stop| self.liked_artist(stop))
+            .map(|stop| !self.liked_artist(stop))
+            .collect();
+        // and the same on the branch each proposal heads towards: it is
+        // what one wants to know before picking a direction
+        let unknown_branches: Vec<bool> = self
+            .branches
+            .iter()
+            .map(|branch| {
+                let head = branch.artists.first().map(String::as_str).unwrap_or_default();
+                !self.learned.liked(head, &branch.label)
+            })
             .collect();
         // the seed block (maquette 2b): everything descends from it
         let seed_card = self.catalog.cards.get(&seed);
@@ -2865,7 +2875,8 @@ impl Live<'_> {
             missing: &self.missing,
             panel: true,
             notes: &notes,
-            liked: &liked,
+            unknown: &unknown,
+            unknown_branches: &unknown_branches,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice(), self.overlay_scroll)),
             comfort_mode: self.comfort_before.is_some(),
