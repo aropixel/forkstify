@@ -622,6 +622,40 @@ and the notes must match the commit that was built. With no section for
 that version it warns in the log and falls back to the commits, so a
 re-release never fails for want of prose.
 
+## A silent session, and two indicators that lied (2026-09-25)
+
+Joel: a session started from a Sparks track, nothing played, every track
+went by one after another — and **nothing was displayed**.
+
+**What the evidence said.** The learned layer recorded 27 artists played the
+evening before and **none** that morning, on the same code, so the commits
+pulled from the other machine were not at fault. Resolution was working:
+166 fresh cache entries, 6 misses, and the Sparks track tried resolved to a
+valid uri. Every harvested discography was younger than the market fix and
+held well-formed uris. The process was alive and **idle** — two seconds of
+cpu in seven minutes — with its https connections up and the ALSA and
+PipeWire threads running. So the failure was at playback, and librespot was
+ending tracks without playing them.
+
+**Why it was so hard to see.** Two indicators lied by construction.
+`Status::read()` only checked that a credentials **file** existed, and a
+file stays where it is when a session is long gone — the header said "✓
+librespot" all morning. And a track ended by librespot rather than by its
+own length passed **in silence**: `on_track_over` counted the listen when it
+was one and said nothing when it was not.
+
+**Both are fixed.** `Sound` keeps its `Session` and answers `alive()` from
+`is_invalid()`, so the header asks rather than reads; `✓ api web` follows
+what the API last answered. And a track that ends without having played
+says so, telling apart Spotify refusing it here (`Unavailable`, which we
+never cause) from nothing having come out at all. A stop we caused ourselves
+lands there too, but always with a position behind it, so a manual skip
+stays quiet.
+
+**The cause itself is still open**: the account is not in use elsewhere, and
+until the session runs again with these two in place, what invalidated it is
+a guess.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

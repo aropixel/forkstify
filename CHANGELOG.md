@@ -10,6 +10,17 @@ Versions follow the release: a tag `v*` publishes the Linux binary that
 becomes that release's notes**. `bin/release` moves `## Unreleased` down to
 the version it cuts, so this file cannot fall behind.
 
+### Fixed
+
+- **A track passed over in silence.** When librespot ended a track without
+  playing it, forkstify moved on and said nothing: a whole session could
+  march past with no explanation. It now says which track and why — Spotify
+  refusing to play it here, or nothing having come out at all.
+- **`✓ librespot` meant a file, not a session.** The indicator only checked
+  that a credentials file existed on disk, so it stayed green while nothing
+  could play. It now asks librespot whether the session still holds, and
+  `✓ api web` follows what the API last answered rather than a file.
+
 ## Unreleased
 
 ### Changed

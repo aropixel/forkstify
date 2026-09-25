@@ -25,7 +25,7 @@ use crate::home::{Choice, Home, LastSession, Outcome};
 use crate::learned::Learned;
 use crate::mediakeys::{self, Control, Shown};
 use std::rc::Rc;
-use crate::sound::{request_started, track_finished, track_over, Sound};
+use crate::sound::{request_started, track_finished, track_over, track_unavailable, Sound};
 use crate::spotify::{Resolved, WebApi};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -141,6 +141,7 @@ async fn async_run(
         overlay_scroll: 0,
         typed: String::new(),
         warm_requested: false,
+        web_ok: true,
         wander_requested: None,
         link_pending: None,
         start_requested: None,
@@ -209,8 +210,7 @@ async fn async_run(
                         && track_over(ev) == live.current_request_id
                         && !live.paused
                     {
-                        live.progress = None;
-                        live.on_track_over(track_finished(ev)).await;
+                        live.on_track_over(track_finished(ev), track_unavailable(ev)).await;
                         live.prefetch_next().await;
                         live.paint();
                     } else if live.follow_needle(ev) {
@@ -343,6 +343,8 @@ struct Live<'a> {
     /// `:warm` asked for a harvest; the command handler is not async, the
     /// loop does it on the next turn.
     warm_requested: bool,
+    /// What the Web API last answered. A file on disk cannot say it.
+    web_ok: bool,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
     /// `ac` chose a target and now asks how close — or reopened a drawn
@@ -1088,7 +1090,10 @@ impl Live<'_> {
                 say!(self, "{heading} — not found on Spotify, skipping");
                 Load::Missing
             }
-            Some(Resolved::Failed(why)) => Load::Failed(stop, why),
+            Some(Resolved::Failed(why)) => {
+                self.web_ok = false;
+                Load::Failed(stop, why)
+            }
             None => {
                 // an identified card without its tail yet: the discography
                 // is fetched first, and the track resolved from it when it
@@ -1136,6 +1141,9 @@ impl Live<'_> {
                     return;
                 }
                 self.loading = false;
+                // the api answered, whatever it answered — only a failure
+                // to reach it says otherwise
+                self.web_ok = !matches!(result, Resolved::Failed(_));
                 let heading = format!("▶ {title} — {artist}");
                 match result {
                     Resolved::Track(uri) => match SpotifyUri::from_uri(&uri) {
@@ -1438,6 +1446,22 @@ impl Live<'_> {
                 );
             }
         }
+    }
+
+    /// What the header shows of the connections — asked, not read off the
+    /// disk. `Status::read()` only ever checked that a credentials file
+    /// exists, and a file stays there when the session is long gone (Joel,
+    /// 2026-09-25: nothing played all morning under a green tick).
+    fn status_now(&self) -> Vec<(String, bool)> {
+        let sound = self.sound.alive();
+        let mut rows = vec![
+            (if sound { "✓ librespot" } else { "⏹ librespot — session lost, q then relaunch" }.to_string(), sound),
+            (if self.web_ok { "✓ api web" } else { "⏹ api web — no answer" }.to_string(), self.web_ok),
+        ];
+        // whatever the caller put after those two — the sync word — is its
+        // own business and stays as it was given
+        rows.extend(self.status.iter().skip(2).cloned());
+        rows
     }
 
     /// Say something, whatever the screen: **everything is said in a
@@ -1786,7 +1810,24 @@ impl Live<'_> {
         }
     }
 
-    async fn on_track_over(&mut self, finished: bool) {
+    async fn on_track_over(&mut self, finished: bool, refused: bool) {
+        // read before clearing: what the track had played says whether it
+        // ended on its own or was cut short
+        let played_ms = self.progress.as_ref().map_or(0, |p| p.now().0);
+        self.progress = None;
+        // A track that ends without having played is not a skip we asked
+        // for, and it used to pass in silence — a whole morning of tracks
+        // marching by with nothing said (Joel, 2026-09-25). A stop we
+        // caused lands here too, but always with a position behind it.
+        if !finished {
+            if let Some(stop) = self.current.clone() {
+                if refused {
+                    say!(self, "\n⏹ {} — {}: Spotify would not play it here, skipped", stop.title, stop.artist);
+                } else if played_ms == 0 {
+                    say!(self, "\n⏹ {} — {}: nothing came out, skipped", stop.title, stop.artist);
+                }
+            }
+        }
         // a track played through is the only thing that counts as a listen
         if finished {
             if let Some(stop) = self.current.clone() {
@@ -2708,7 +2749,7 @@ impl Live<'_> {
                 &self.tail,
                 self.comfort,
                 self.comfort_before.is_some(),
-                &self.status,
+                &self.status_now(),
                 bar,
                 live,
                 finder,

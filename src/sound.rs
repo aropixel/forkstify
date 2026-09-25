@@ -66,6 +66,11 @@ pub async fn discover() -> Result<String, Box<dyn std::error::Error>> {
 
 pub struct Sound {
     player: Arc<Player>,
+    /// Kept to be asked whether it still holds. The credentials file on
+    /// disk says nothing about that, and it is the file the home used to
+    /// read (Joel, 2026-09-25: nothing played all morning, and the
+    /// indicator stayed green).
+    session: Session,
 }
 
 impl Sound {
@@ -83,11 +88,18 @@ impl Sound {
         let backend = audio_backend::find(None).ok_or("no audio backend")?;
         let player = Player::new(
             PlayerConfig::default(),
-            session,
+            session.clone(),
             Box::new(NoOpVolume),
             move || backend(None, AudioFormat::default()),
         );
-        Ok(Sound { player })
+        Ok(Sound { player, session })
+    }
+
+    /// Is the Spotify session still usable? librespot invalidates it when
+    /// the connection drops or another device takes it over. Nothing else
+    /// tells us: a track it cannot play simply ends.
+    pub fn alive(&self) -> bool {
+        !self.session.is_invalid()
     }
 
     pub fn play(&self, uri: librespot_core::SpotifyUri) {
@@ -127,6 +139,12 @@ pub fn track_over(event: &PlayerEvent) -> Option<u64> {
         | PlayerEvent::Unavailable { play_request_id, .. } => Some(*play_request_id),
         _ => None,
     }
+}
+
+/// Did librespot refuse the track outright? `Stopped` can be our own doing
+/// — we stop the player to move on — but this one never is.
+pub fn track_unavailable(event: &PlayerEvent) -> bool {
+    matches!(event, PlayerEvent::Unavailable { .. })
 }
 
 /// Did this event end a track by *playing it through*? A skip or a failure
