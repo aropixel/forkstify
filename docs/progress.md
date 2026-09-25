@@ -741,16 +741,19 @@ newcomer. No tone at all, in any slot: rarity does the work a colour was
 being asked to do. A `+` because nothing in use means "new" (`♪ ♥ ▶ ▸ → ○
 ⊘ │` were all taken, `○` by the gaps).
 
-**And the branch column carries it**, once per branch, after the label:
-`unknown_branches` is built from each proposal's head artist, because what
-you read before picking a direction is where it leads. One mark per
-proposal, not one per track — a branch to a newcomer would otherwise spend
-four marks saying one thing.
+**And the branch column carries it**, on each track's own line, beside the
+artist it speaks of. It first went on the branch's label — one mark per
+proposal, on the reasoning that a branch is chosen on where it heads — and
+Joel put it back where it belongs: the mark is about a name, so it stands
+next to that name, here as on the axis. A branch walks several artists
+anyway (`artists: Vec<String>`), so the label was under-reporting as well
+as misplaced. `unknown_branches` is a flag per track, per branch.
 
 The confusion with the track's heart is settled by **place**: the track's
 marks are at the head of the row, the artist's after their name. Two tests
 pin it: the mark, its silence for one of yours, the grey in all three
-slots, the untouched head mark, and one mark on the right branch.
+slots, the untouched head mark, the mark on the right track of the right
+branch, and the label's line left clean.
 
 ## Keyboard grammar wired (2026-09-05)
 

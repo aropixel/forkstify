@@ -34,9 +34,9 @@ the version it cuts, so this file cannot fall behind.
   after the name when the artist is *not* in the home's "liked" list — the
   negative of the home's `v` filter, so the two screens cannot disagree.
   The newcomer is the rare one, so it is the one that speaks up. The
-  **branch column** carries the same `+` after a proposal's label, saying
-  the direction leads to someone new. Not a heart: the heart is the
-  track's, at the head of the row.
+  **branch column** carries the same `+`, on each track's own line beside
+  the artist it speaks of, so a proposal says who in it you do not know.
+  Not a heart: the heart is the track's, at the head of the row.
 
 - **The search adds instead of taking over.** While listening, enter on a
   row of `:search` queues it at the **end** and leaves the modal open, so
