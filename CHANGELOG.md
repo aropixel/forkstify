@@ -12,6 +12,13 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **A gesture no longer wanders to another artist.** `e`, `:warm` and `ad`
+  fell back on the journey's last artist when the row under the needle had
+  no card — so an encore on a track just inserted with `ti` added tracks by
+  someone else entirely. They now look the artist up by name, which finds a
+  card filed under another one (`Ye` under `kanye-west`), and say plainly
+  when there is none rather than aiming elsewhere.
+
 - **A track passed over in silence.** When librespot ended a track without
   playing it, forkstify moved on and said nothing: a whole session could
   march past with no explanation. It now says which track and why — Spotify

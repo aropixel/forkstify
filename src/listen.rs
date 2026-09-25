@@ -752,11 +752,19 @@ impl Live<'_> {
         // is no longer what plays since choosing a branch queues it (Joel,
         // 09/09/2026). Off-catalog track: the last known artist, as for
         // the branches.
-        let current = self
-            .target()
-            .map(|stop| stop.slug.clone())
-            .filter(|slug| self.catalog.cards.contains_key(slug))
-            .unwrap_or_else(|| self.state().1);
+        let Some(stop) = self.target() else {
+            say!(self, "(nothing playing)");
+            return;
+        };
+        let Some(current) = self.card_of(&stop) else {
+            say!(
+                self,
+                "({} has no card yet — its own is on its way, or :generate {})",
+                stop.artist,
+                stop.artist
+            );
+            return;
+        };
         let (_, _, _, _, played) = self.state();
         // sanding is where depth is wanted: if the card's unplayed tops
         // cannot serve the whole request, go and get the tail first (0012 §1)
@@ -3052,6 +3060,18 @@ impl Live<'_> {
         }
     }
 
+    /// The card this stop belongs to: its own slug, or the one its
+    /// artist's name resolves to. A track inserted from Spotify carries no
+    /// slug until its card lands (0016), and a card written under another
+    /// name — "Ye" for Kanye West — is still found by the slug.
+    ///
+    /// `None` means no card, and the gesture says so. It used to fall back
+    /// on the journey's last artist, which is **someone else**: an encore
+    /// on an inserted Kanye West track sanded Orelsan (Joel, 2026-09-25).
+    fn card_of(&self, stop: &crate::engine::Stop) -> Option<String> {
+        crate::engine::card_of(&self.catalog.cards, stop)
+    }
+
     /// Whether a gesture aims at what plays (no selection, or the
     /// highlighted line is the current track): that is the only case where
     /// "skip" and "ban" also move the music on.
@@ -4491,13 +4511,13 @@ impl Live<'_> {
         if self.screen == Screen::Home {
             return self.home.highlighted(&self.catalog, &self.learned);
         }
-        let slug = self
-            .target()
-            .map(|stop| stop.slug.clone())
-            .filter(|slug| self.catalog.cards.contains_key(slug))
-            .unwrap_or_else(|| self.state().1);
-        let name = self.catalog.cards[&slug].name.clone();
-        Some((Some(slug), name))
+        let stop = self.target()?;
+        let slug = self.card_of(&stop);
+        let name = slug
+            .as_ref()
+            .map(|s| self.catalog.cards[s].name.clone())
+            .unwrap_or_else(|| stop.artist.clone());
+        Some((slug, name))
     }
 
     /// The `:` line is a namespace of its own (Joel, 23/09/2026): as soon

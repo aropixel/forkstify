@@ -680,6 +680,27 @@ queue. The home is untouched — enter starts a journey there, and there is
 nothing to disturb. So are `ti`, which inserts at its anchor, and `ac`,
 which picks a target; the modal's footer now says which of the three it is.
 
+## A gesture that wandered off to another artist (2026-09-25)
+
+Joel: a `ti` inserted a Kanye West track, then `en2` on it "did not work" —
+"it did not take the artist of the track under the cursor but the last
+artist of the list, Orelsan".
+
+**One line did it.** `encore` and `aimed_artist` both read the row under the
+needle (0020), kept its slug only if the catalog had that card, and
+otherwise fell back on `state().1` — the journey's last artist. A track
+inserted from Spotify carries **no slug** until its card lands (0016), so
+the gesture silently changed target. It was written for the branches, where
+an anchor in the graph is needed; for "more of this artist" it is plainly
+wrong.
+
+**Both now resolve the card properly and admit failure.** `engine::card_of`
+takes the stop's own slug, else the slug its artist's **name** resolves to
+— which is what was missing here: the card exists, filed as `kanye-west`
+though it is named `Ye`, so the lookup finds it and `en2` would have worked
+outright. With no card at all, the gesture says so instead of aiming
+elsewhere; `ti` has one on the way anyway. A test pins the three cases.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

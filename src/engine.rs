@@ -444,6 +444,18 @@ fn liked_weight(comfort: Comfort) -> f32 {
     t.top_weight * (t.liked_weight_open + (t.liked_weight_cocoon - t.liked_weight_open) * (1.0 - comfort.openness()))
 }
 
+/// The card a stop belongs to: its own slug, or the one its artist's name
+/// resolves to. A track inserted from Spotify carries no slug until its
+/// card lands (0016), and a card written under another name — "Ye" for
+/// Kanye West — is still found by the slug.
+pub fn card_of(cards: &HashMap<String, Card>, stop: &Stop) -> Option<String> {
+    if cards.contains_key(&stop.slug) {
+        return Some(stop.slug.clone());
+    }
+    let by_name = crate::generate::slugify(&stop.artist);
+    cards.contains_key(&by_name).then_some(by_name)
+}
+
 /// What a track's glyph would be if it were drawn now, likes aside: a top
 /// of the card, a track of its tail, or neither.
 pub fn plain_source(catalog: &Catalog, tail: &Tail, slug: &str, title: &str) -> Source {
@@ -1464,6 +1476,32 @@ mod tests {
         let reversed: Vec<String> = universe.iter().rev().cloned().collect();
         let back = drifting_centroid(&catalog, &reversed).expect("a centre");
         assert!(back[0] > back[1], "played last, Can's side leads instead: {back:?}");
+    }
+
+    /// 2026-09-25: a gesture aims at the row under the needle (0020), and
+    /// a track with no card of its own still finds one under its artist's
+    /// name — "Ye" is filed as `kanye-west`.
+    #[test]
+    fn a_stop_finds_its_card_by_name_when_it_has_no_slug() {
+        let mut ye = the_cure();
+        ye.name = "Ye".into();
+        let cards = HashMap::from([("kanye-west".to_string(), ye)]);
+        let named = |slug: &str, artist: &str| Stop {
+            slug: slug.into(),
+            artist: artist.into(),
+            title: "Flashing Lights".into(),
+            source: Source::Offmap,
+            head: None,
+            encore: false,
+        };
+        // its own slug when it has one
+        assert_eq!(card_of(&cards, &named("kanye-west", "Kanye West")).as_deref(), Some("kanye-west"));
+        // inserted from Spotify, no slug: the name resolves it, even though
+        // the card is called something else
+        assert_eq!(card_of(&cards, &named("", "Kanye West")).as_deref(), Some("kanye-west"));
+        // and nobody's card is nobody's: the gesture must say so rather
+        // than quietly aim at someone else
+        assert_eq!(card_of(&cards, &named("", "Nobody At All")), None);
     }
 
     /// What a journey already played does not come back (0012 §3).
