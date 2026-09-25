@@ -656,22 +656,29 @@ stays quiet.
 until the session runs again with these two in place, what invalidated it is
 a guess.
 
-## `⌃e` queues from the search (2026-09-25)
+## The search adds, it no longer takes over (2026-09-25)
 
-Joel: searching a track by an artist with no card, the only way out was
-enter, which creates the card. He wanted `e` to queue it, as in the
-discography.
+Joel, on searching a track by an artist with no card: the only way out was
+enter, which creates the card. He first asked for `e` to queue it, as in the
+discography — `e` cannot serve there, the modal is a **typing field** and the
+letter belongs to the query, so it went to `⌃e`. Then, on reflection: make
+it **enter**, and change what enter does. "I did not like that it wiped the
+rest of the playlist to come, and that it fired on its own."
 
-`e` cannot serve there: the modal is a **typing field**, and the letter
-belongs to the query — which is why `tab`, the arrows and enter are the only
-keys it answers to. So `⌃e`, which the reader was throwing away with every
-other control byte. The hint sits in the modal's own footer.
+Both grievances were the same arm. `:search` on a track cleared the queue
+and started playing; on an artist it replaced the segment. Enter now
+**adds at the end** and the modal **stays open**, so several rows can be
+picked in a row and `esc` closes on what has been queued. An artist stands
+for their best unplayed track, as `ti` already read them, and a track by an
+artist with no card is queued at once with the card generated behind
+(0016). `⌃e` goes, now that enter does it.
 
-It queues at the **end** and leaves the search open, so several tracks can
-be picked in a row, and an artist with no card gets one generated behind,
-exactly as `ti` already does: the track plays tonight either way, and `tl`
-has somewhere to write when the card lands. `stop_of` left the closure it
-was trapped in so both gestures share it.
+The three destructive arms of `take_found` are gone, replaced by one that
+delegates to the same queueing: enter is routed before it ever reaches
+them, and the arm is what stops another door leading back to a cleared
+queue. The home is untouched — enter starts a journey there, and there is
+nothing to disturb. So are `ti`, which inserts at its anchor, and `ac`,
+which picks a target; the modal's footer now says which of the three it is.
 
 ## Keyboard grammar wired (2026-09-05)
 

@@ -3258,8 +3258,24 @@ impl Live<'_> {
                 }
             }
             Cmd::Escape => self.close_finder(),
-            Cmd::Enqueue => self.enqueue_found(),
-            Cmd::Auto => self.take_found().await,
+            Cmd::Auto => {
+                // In the search opened while listening, enter **adds**: it
+                // used to wipe what was still to come and take the sound
+                // over at once (Joel, 2026-09-25). The modal stays open, so
+                // several tracks can be picked in a row; esc closes it.
+                // `ti` still inserts at its anchor, `ac` still picks a
+                // target, and the home still starts a journey.
+                let adding = self.screen != Screen::Home
+                    && self
+                        .finder
+                        .as_ref()
+                        .is_some_and(|f| f.insert.is_none() && f.link_from.is_none());
+                if adding {
+                    self.queue_highlighted();
+                } else {
+                    self.take_found().await;
+                }
+            }
             // ← → on a drawn connection: its closeness moves in the list,
             // written at once (Joel, 23/09/2026)
             Cmd::Next => self.nudge_connection(1),
@@ -3300,30 +3316,48 @@ impl Live<'_> {
         say!(self, "✓ {from_name} → {to_name} — closeness {proximity}");
     }
 
-    /// ⌃e in the search modal: the highlighted track goes to the **end of
-    /// the queue** and the modal stays open, so several can be picked in a
-    /// row — what `e` does in the discography. The letter itself cannot
-    /// serve here: the modal is a typing field (Joel, 2026-09-25). An
-    /// artist with no card gets one generated behind, as `ti` does: the
-    /// track plays tonight either way, and `tl` will have somewhere to
-    /// write when the card lands.
-    fn enqueue_found(&mut self) {
+    /// Enter in the search opened while listening: the highlighted row goes
+    /// to the **end of the queue**, and the modal stays open so several can
+    /// be picked in a row. Nothing is cleared and nothing starts playing —
+    /// what is decided stays decided (Joel, 2026-09-25).
+    fn queue_highlighted(&mut self) {
         let Some(finder) = self.finder.as_ref() else { return };
         let Some(found) = finder.rows().get(finder.cursor).map(|f| (*f).clone()) else { return };
-        let Some((stop, _)) = stop_of(&found.hit, &self.catalog) else {
-            say!(self, "(⌃e queues a track — this row is an artist)");
-            return;
+        self.queue_found(&found);
+    }
+
+    /// One found row at the end of the queue. An artist stands for their
+    /// best unplayed track, as `ti` reads them; a track by an artist with
+    /// no card is queued at once and the card generated behind (0016), so
+    /// it plays tonight either way and `tl` has somewhere to write when the
+    /// card lands.
+    fn queue_found(&mut self, found: &Found) {
+        let (stop, generate) = match &found.hit {
+            Hit::Artist(slug) => {
+                let (_, _, _, _, played) = self.state();
+                let mut stops = crate::engine::encore(
+                    &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, 1,
+                    &mut self.rng,
+                );
+                let Some(stop) = stops.pop() else {
+                    say!(self, "(nothing unplayed left from {})", self.catalog.cards[slug].name);
+                    return;
+                };
+                (stop, None)
+            }
+            Hit::Track { artist, slug, spotify, .. } => {
+                let Some((stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
+                let behind = slug
+                    .is_none()
+                    .then(|| (crate::generate::slugify(artist), artist.clone(), spotify.clone()));
+                (stop, behind)
+            }
         };
         let (title, artist) = (stop.title.clone(), stop.artist.clone());
-        let (slug, spotify) = match &found.hit {
-            Hit::Track { slug, spotify, .. } => (slug.clone(), spotify.clone()),
-            Hit::Artist(_) => (None, None),
-        };
         self.queue.push_back(stop);
         say!(self, "↻ {title} — {artist}: at the end of the queue ({} to come)", self.queue.len());
-        if slug.is_none() {
-            let slug = crate::generate::slugify(&artist);
-            self.generate(&slug, Some(&artist), None, spotify.as_deref(), After::Card);
+        if let Some((slug, name, spotify)) = generate {
+            self.generate(&slug, Some(&name), None, spotify.as_deref(), After::Card);
         }
     }
 
@@ -3448,36 +3482,12 @@ impl Live<'_> {
                 say!(self, "→ inserted at {}: {} — {}", at + 2, stop.title, stop.artist);
                 self.queue.insert(at, stop);
             }
-            // :search on an artist: a segment from them, like a branch
-            (None, Hit::Artist(slug)) => {
-                let (_, _, _, _, played) = self.state();
-                let stops = crate::engine::encore(
-                    &self.catalog, slug, &self.learned, &self.tail, self.comfort, &played, self.size, &mut self.rng,
-                );
-                say!(self, "→ {} — via :search", self.catalog.cards[slug].name);
-                self.start_segment(vec![slug.clone()], stops, false, false).await;
-            }
-            // :search on an off-catalog track: its card is generated, and
-            // it plays as soon as it is there — otherwise the branches
-            // would start again from nowhere (0016)
-            (None, Hit::Track { title, artist, uri, slug: None, spotify }) => {
-                let slug = crate::generate::slugify(artist);
-                let after =
-                    After::Play { title: Some(title.clone()), uri: Some(uri.clone()) };
-                self.generate(&slug, Some(artist), None, spotify.as_deref(), after);
-            }
-            // :search on a track: it plays now, the branches start again
-            // from its artist
-            (None, Hit::Track { .. }) => {
-                let Some((stop, uri)) = stop_of(&found.hit, &self.catalog) else { return };
-                let round_artists: Vec<String> =
-                    if stop.slug.is_empty() { Vec::new() } else { vec![stop.slug.clone()] };
-                say!(self, "→ {} — via :search", stop.title);
-                match uri {
-                    Some(uri) => self.play_uri(round_artists, stop, &uri).await,
-                    None => self.play_stop_now(round_artists, stop).await,
-                }
-            }
+            // `:search` while listening adds at the end; it used to clear
+            // what was still to come and take the sound over (Joel,
+            // 2026-09-25). Enter is routed to `queue_found` before it ever
+            // gets here — this arm is what stops any other door leading
+            // back to a cleared queue.
+            (None, _) => self.queue_found(&found),
         }
     }
 

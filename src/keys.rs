@@ -513,10 +513,6 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                     },
                     b'\r' | b'\n' => Some(Cmd::Auto),
                     b'\t' => Some(Cmd::Filter),
-                    // ⌃e queues the highlighted track, as `e` does in the
-                    // discography. The letter itself cannot: here it is
-                    // part of the query (Joel, 2026-09-25).
-                    0x05 => Some(Cmd::Enqueue),
                     0x7f | 0x08 => {
                         line.pop();
                         Some(Cmd::Typing(Some(line.clone())))

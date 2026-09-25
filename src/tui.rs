@@ -744,22 +744,28 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         rule("│ "),
         Span::styled("enter ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled(
-            if view.insert { "insert here   " } else { "branch there, or play the track   " },
+            match (view.insert, view.linking.is_some()) {
+                (true, _) => "insert here   ",
+                (_, true) => "connect to it   ",
+                _ => "queue it at the end   ",
+            },
             Style::default().fg(MUTED),
         ),
         Span::styled("↑↓ ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled("choose   ", Style::default().fg(MUTED)),
         Span::styled("tab ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("catalog only   ", Style::default().fg(MUTED)),
-        Span::styled("⌃e ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("queue it at the end", Style::default().fg(MUTED)),
+        Span::styled("catalog only", Style::default().fg(MUTED)),
     ]));
     lines.push(ruled(
         vec![
             rule("└─ "),
             Span::styled("esc ", Style::default().fg(MUTED)),
             Span::styled(
-                if view.insert { "closes without inserting — the queue is unchanged" } else { "closes the search — playback hasn't stopped" },
+                match (view.insert, view.linking.is_some()) {
+                    (true, _) => "closes without inserting — the queue is unchanged",
+                    (_, true) => "closes — nothing drawn",
+                    _ => "closes the search — what you queued stays, and nothing stopped",
+                },
                 Style::default().fg(DIM),
             ),
         ],

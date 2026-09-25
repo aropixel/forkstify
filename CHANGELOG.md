@@ -23,10 +23,13 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
-- **`⌃e` in the search modal** queues the highlighted track at the end and
-  leaves the search open, so several can be picked in a row — what `e` does
-  in the discography. A track from an artist with no card no longer forces
-  you to create one: the card is generated behind, as `ti` does.
+- **The search adds instead of taking over.** While listening, enter on a
+  row of `:search` queues it at the **end** and leaves the modal open, so
+  several can be picked in a row; `esc` closes and what you queued stays.
+  It used to clear everything still to come and start playing at once. An
+  artist stands for their best unplayed track, and a track by an artist
+  with no card is queued straight away with the card generated behind — no
+  need to create one first. At the home, enter still starts a journey.
 
 ## Unreleased
 
