@@ -21,6 +21,13 @@ the version it cuts, so this file cannot fall behind.
   could play. It now asks librespot whether the session still holds, and
   `✓ api web` follows what the API last answered rather than a file.
 
+### Added
+
+- **`⌃e` in the search modal** queues the highlighted track at the end and
+  leaves the search open, so several can be picked in a row — what `e` does
+  in the discography. A track from an artist with no card no longer forces
+  you to create one: the card is generated behind, as `ti` does.
+
 ## Unreleased
 
 ### Changed

@@ -656,6 +656,23 @@ stays quiet.
 until the session runs again with these two in place, what invalidated it is
 a guess.
 
+## `⌃e` queues from the search (2026-09-25)
+
+Joel: searching a track by an artist with no card, the only way out was
+enter, which creates the card. He wanted `e` to queue it, as in the
+discography.
+
+`e` cannot serve there: the modal is a **typing field**, and the letter
+belongs to the query — which is why `tab`, the arrows and enter are the only
+keys it answers to. So `⌃e`, which the reader was throwing away with every
+other control byte. The hint sits in the modal's own footer.
+
+It queues at the **end** and leaves the search open, so several tracks can
+be picked in a row, and an artist with no card gets one generated behind,
+exactly as `ti` already does: the track plays tonight either way, and `tl`
+has somewhere to write when the card lands. `stop_of` left the closure it
+was trapped in so both gestures share it.
+
 ## Keyboard grammar wired (2026-09-05)
 
 **Decision [0015](decisions/0015-keyboard-grammar-namespaces.md)**: four

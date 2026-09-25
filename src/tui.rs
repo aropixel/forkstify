@@ -750,7 +750,9 @@ fn render_finder(frame: &mut ratatui::Frame, area: Rect, view: &FinderView) {
         Span::styled("↑↓ ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled("choose   ", Style::default().fg(MUTED)),
         Span::styled("tab ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("catalog only", Style::default().fg(MUTED)),
+        Span::styled("catalog only   ", Style::default().fg(MUTED)),
+        Span::styled("⌃e ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        Span::styled("queue it at the end", Style::default().fg(MUTED)),
     ]));
     lines.push(ruled(
         vec![

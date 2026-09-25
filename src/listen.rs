@@ -623,6 +623,32 @@ struct Finder {
     drawn: Vec<(String, String, u8)>,
 }
 
+/// A found row turned into a stop of the axis, and its uri when the search
+/// gave one. `None` for an artist row: there is no one track behind it.
+fn stop_of(hit: &Hit, catalog: &Catalog) -> Option<(crate::engine::Stop, Option<String>)> {
+    match hit {
+        Hit::Track { title, artist, uri, slug, .. } => {
+            let source = match slug.as_ref().map(|s| &catalog.cards[s]) {
+                Some(card) if card.tops.contains(title) => crate::engine::Source::Top,
+                Some(_) => crate::engine::Source::Outside,
+                None => crate::engine::Source::Offmap,
+            };
+            Some((
+                crate::engine::Stop {
+                    slug: slug.clone().unwrap_or_default(),
+                    artist: artist.clone(),
+                    title: title.clone(),
+                    source,
+                    head: None,
+                    encore: false,
+                },
+                if uri.is_empty() { None } else { Some(uri.clone()) },
+            ))
+        }
+        Hit::Artist(_) => None,
+    }
+}
+
 fn found_line(f: &Found, catalogue: bool) -> crate::tui::FinderLine {
     let (title, artist) = match &f.hit {
         Hit::Artist(slug) => (slug.replace('-', " "), String::new()),
@@ -3232,6 +3258,7 @@ impl Live<'_> {
                 }
             }
             Cmd::Escape => self.close_finder(),
+            Cmd::Enqueue => self.enqueue_found(),
             Cmd::Auto => self.take_found().await,
             // ← → on a drawn connection: its closeness moves in the list,
             // written at once (Joel, 23/09/2026)
@@ -3271,6 +3298,33 @@ impl Live<'_> {
         let (from_name, to_name) = (name(&from), name(&to));
         self.set_connection(&from, &to, proximity);
         say!(self, "✓ {from_name} → {to_name} — closeness {proximity}");
+    }
+
+    /// ⌃e in the search modal: the highlighted track goes to the **end of
+    /// the queue** and the modal stays open, so several can be picked in a
+    /// row — what `e` does in the discography. The letter itself cannot
+    /// serve here: the modal is a typing field (Joel, 2026-09-25). An
+    /// artist with no card gets one generated behind, as `ti` does: the
+    /// track plays tonight either way, and `tl` will have somewhere to
+    /// write when the card lands.
+    fn enqueue_found(&mut self) {
+        let Some(finder) = self.finder.as_ref() else { return };
+        let Some(found) = finder.rows().get(finder.cursor).map(|f| (*f).clone()) else { return };
+        let Some((stop, _)) = stop_of(&found.hit, &self.catalog) else {
+            say!(self, "(⌃e queues a track — this row is an artist)");
+            return;
+        };
+        let (title, artist) = (stop.title.clone(), stop.artist.clone());
+        let (slug, spotify) = match &found.hit {
+            Hit::Track { slug, spotify, .. } => (slug.clone(), spotify.clone()),
+            Hit::Artist(_) => (None, None),
+        };
+        self.queue.push_back(stop);
+        say!(self, "↻ {title} — {artist}: at the end of the queue ({} to come)", self.queue.len());
+        if slug.is_none() {
+            let slug = crate::generate::slugify(&artist);
+            self.generate(&slug, Some(&artist), None, spotify.as_deref(), After::Card);
+        }
     }
 
     /// Enter in the modal: the row under the cursor — branched, played, or
@@ -3358,29 +3412,6 @@ impl Live<'_> {
             }
             return;
         }
-        let stop_of = |hit: &Hit, catalog: &Catalog| -> Option<(crate::engine::Stop, Option<String>)> {
-            match hit {
-                Hit::Track { title, artist, uri, slug, .. } => {
-                    let source = match slug.as_ref().map(|s| &catalog.cards[s]) {
-                        Some(card) if card.tops.contains(title) => crate::engine::Source::Top,
-                        Some(_) => crate::engine::Source::Outside,
-                        None => crate::engine::Source::Offmap,
-                    };
-                    Some((
-                        crate::engine::Stop {
-                            slug: slug.clone().unwrap_or_default(),
-                            artist: artist.clone(),
-                            title: title.clone(),
-                            source,
-                            head: None,
-                            encore: false,
-                        },
-                        if uri.is_empty() { None } else { Some(uri.clone()) },
-                    ))
-                }
-                Hit::Artist(_) => None,
-            }
-        };
         match (insert, &found.hit) {
             // ti: the track enters the queue at the anchor, marked. Off
             // catalog, its card is generated behind (0016) without making
