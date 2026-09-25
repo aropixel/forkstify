@@ -347,9 +347,10 @@ fn track_row(stop: &Stop, slot: Slot, unknown: bool, marked: bool, opening: Opti
     // 2026-09-25). Marking yours was tried and marked nearly every row,
     // twice over: half the catalog is yours and the engine leans towards
     // the familiar. The negative is the rare one, so it can be read.
-    // A `+`, for someone new: no glyph in use means that, and the track's
-    // own marks stay at the head of the row.
-    let taste_mark = unknown.then_some(('+', MUTED));
+    // A `◦`, an empty circle for "not in": it reads as the negative it is,
+    // and the track's own marks stay at the head of the row. Beware of
+    // `○`, the gap — same shape, one size up — if the two ever meet.
+    let taste_mark = unknown.then_some(('◦', MUTED));
     let mut body: Vec<Span> = match slot {
         // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
@@ -1089,7 +1090,7 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
                 // the same `+` as the axis, beside the name it speaks of
                 // (Joel, 2026-09-25)
                 Span::styled(
-                    if unknown.and_then(|u| u.get(j)).copied().unwrap_or(false) { " +" } else { "" },
+                    if unknown.and_then(|u| u.get(j)).copied().unwrap_or(false) { " ◦" } else { "" },
                     Style::default().fg(MUTED),
                 ),
             ]));
@@ -1838,11 +1839,11 @@ mod tests {
                 .map(|s| s.content.to_string())
                 .collect::<String>()
         };
-        assert!(text(true).contains("The Cure +"), "{}", text(true));
+        assert!(text(true).contains("The Cure ◦"), "{}", text(true));
         // one of yours says nothing: they are the many, and the silence is
         // what makes the mark readable
         let plain = text(false);
-        assert!(!plain.contains('+'), "silent for one of yours: {plain}");
+        assert!(!plain.contains('◦'), "silent for one of yours: {plain}");
         // and the track's own mark has not moved from the head of the row
         assert!(plain.contains("♪ A Forest"), "{plain}");
         // grey in every slot: the mark is rare, it does not need a tone
@@ -1850,7 +1851,7 @@ mod tests {
             track_row(&stop, slot, true, false, None, "", 80)
                 .spans
                 .iter()
-                .find(|s| s.content.contains('+'))
+                .find(|s| s.content.contains('◦'))
                 .and_then(|s| s.style.fg)
         };
         for slot in [Slot::Ahead { n: 2 }, Slot::Playing { n: 0, paused: false }, Slot::Played] {
@@ -1865,13 +1866,13 @@ mod tests {
     fn a_branch_marks_the_artist_that_is_not_yours() {
         // first branch: two tracks, the second one by someone new
         let lines = screen_with(100, 38, &branches(), &[vec![false, true], vec![false]]);
-        let marked: Vec<&String> = lines.iter().filter(|l| l.contains(" +")).collect();
+        let marked: Vec<&String> = lines.iter().filter(|l| l.contains(" ◦")).collect();
         assert_eq!(marked.len(), 1, "one mark, on one track: {marked:?}");
         assert!(marked[0].contains(&branches()[0].stops[1].title), "{:?}", marked[0]);
         // the label keeps its line clean
         let label = &branches()[0].label;
         let head = lines.iter().find(|l| l.contains(&format!("1  {label}"))).unwrap();
-        assert!(!head.contains('+'), "the label says nothing: {head:?}");
+        assert!(!head.contains('◦'), "the label says nothing: {head:?}");
     }
 
     fn playlist(

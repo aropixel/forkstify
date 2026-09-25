@@ -30,11 +30,11 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
-- **The playlist points out the artists you do not know yet**: a grey `+`
+- **The playlist points out the artists you do not know yet**: a grey `◦`
   after the name when the artist is *not* in the home's "liked" list — the
   negative of the home's `v` filter, so the two screens cannot disagree.
   The newcomer is the rare one, so it is the one that speaks up. The
-  **branch column** carries the same `+`, on each track's own line beside
+  **branch column** carries the same `◦`, on each track's own line beside
   the artist it speaks of, so a proposal says who in it you do not know.
   Not a heart: the heart is the track's, at the head of the row.
 

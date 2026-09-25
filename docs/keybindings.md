@@ -238,7 +238,7 @@ tells the two apart (Joel, 2026-09-25):
 
 | Mark | Meaning |
 |---|---|
-| `+` | Someone **new** — the artist is *not* in the home's "liked" list. Grey, quiet |
+| `◦` | Someone **new** — the artist is *not* in the home's "liked" list. Grey, quiet |
 | nothing | One of yours |
 
 It is the negative of the home's `v` filter, so the two screens can never
@@ -250,9 +250,11 @@ with `as` or banned.
 marked nearly every row: half the catalog is yours, and the engine leans
 towards the familiar on top of that — at comfort 4 the marks were
 everywhere (Joel, 2026-09-25). The rare case is the newcomer, so that is
-what carries the mark, in grey, with no tone to insist. A `+` because no
-glyph in use means "new", and the track's own marks stay at the head of the
-row, which is what tells them apart.
+what carries the mark, in grey, with no tone to insist. An **empty circle**,
+which reads as the negative it is; the track's own marks stay at the head of
+the row, which is what tells them apart. Careful with `○`, the gap: same
+shape one size up, and both appear in the branch column — `°` or `✧` are a
+one-character change if the two ever get confused.
 
 **The branch column carries it too**, on each track's own line, beside the
 artist it speaks of — never on the branch's label (Joel, 2026-09-25): the

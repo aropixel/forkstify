@@ -732,14 +732,29 @@ politely: the measurement said half the rows, and no tone makes a mark on
 half the rows quiet. Joel's own way out: **mark the ones who are not in the
 liked list instead.**
 
-That is the version that ships. A grey `+` after the name when the artist
-is *not* yours, nothing when they are. It works because it is the rare case
-twice over — half the catalog is yours, and the engine leans towards the
-familiar on top of that — and because it is the more useful signal: you
-already know your own artists, what you want to catch as it goes by is the
-newcomer. No tone at all, in any slot: rarity does the work a colour was
-being asked to do. A `+` because nothing in use means "new" (`♪ ♥ ▶ ▸ → ○
-⊘ │` were all taken, `○` by the gaps).
+That is the version that ships. A grey `◦` after the name when the artist
+is *not* yours, nothing when they are. It works because it is the more
+useful signal — you already know your own artists, what you want to catch as
+it goes by is the newcomer — and because it is the minority in every zone.
+No tone at all, in any slot: rarity does the work a colour was being asked
+to do.
+
+**Measured, since a proposal turned on it.** The suggestion came back to
+show favourites in zones 0–2 "where they are rare" and newcomers in 3–5.
+Weighting the 388 cards by `favours(familiarity)`, the share of liked
+artists among the branch heads the draw would pick runs 45 · 46 · 49 · 52 ·
+59 · 65 % from zone 0 to zone 5: **favourites are never rare**, they sit at
+half the rows at the open end. The reason is in the data — mean familiarity
+0.23 for a liked artist against 0.06 for the others, because the seed is
+`score / seed_max` and most of a Spotify library is liked but barely
+played, so `favours` hardly separates them. And a mark on `al` alone would
+show on 10 artists out of 388. One glyph, one meaning, every zone.
+
+The glyph went `★` → `↑` → `+` → `◦`, an empty circle reading as the
+negative it is (Joel, 2026-09-25). `+` had a collision I had missed: it
+counts a diff's lines in the `Cd` overlay. `◦` has its own risk, `○` the
+gap, same shape one size up, and both live in the branch column — `°` or
+`✧` are a one-character change if it shows.
 
 **And the branch column carries it**, on each track's own line, beside the
 artist it speaks of. It first went on the branch's label — one mark per
