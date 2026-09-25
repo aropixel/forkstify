@@ -648,13 +648,6 @@ impl Finder {
             .collect()
     }
 
-    fn is_linked(&self, found: &Found) -> bool {
-        match &found.hit {
-            Hit::Artist(slug) => self.linked.iter().any(|l| matches!(&l.hit, Hit::Artist(s) if s == slug)),
-            _ => false,
-        }
-    }
-
     fn rows(&self) -> Vec<&Found> {
         let mut rows: Vec<&Found> = self.linked_rows();
         rows.extend(self.catalogue.iter());
