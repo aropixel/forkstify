@@ -27,6 +27,7 @@ here; `~/Work/chorizo/AGENTS.md` is authoritative on the machine.
 | `docs/strengths.md` | Joel's impressions from use, dated: what works and what sets the project apart, so the list is there when the time comes. |
 | `docs/keybindings.md` | The key table: wired, decided, proposed, and the collisions. The single reference. |
 | `docs/tuning.md`   | The engine's settings (`[tuning]`): what each one does, its default value, the effect of raising or lowering it. |
+| `docs/tour.md`, `docs/screenshots/` | The screens in pictures, one paragraph each, and the captures themselves. The README shows two of them. |
 | `manifest.json`, `omarchy/` | The repository is also an Omarchy plugin ([0021](docs/decisions/0021-the-repository-is-the-omarchy-plugin.md)): the bar widget, and the script that builds and installs the binary. |
 | `bin/dev-install`, `bin/release`, `bin/release-aur` | The maintainer's three: make this clone the forkstify that runs; cut a release (version, tag, push — the workflow does the rest); refresh the Arch package from a published archive and optionally push it to the AUR. |
 | `bin/build`, `bin/test` | Build and test in the `forkstify-build` container (mise puts `bin/` on the `PATH`: `build`, `test`). The binary lands in `target/release/forkstify` and runs on the host. The image has had `git` since 2026-09-20 (`fork.rs`'s tests): `docker build -t forkstify-build .` if it is older. |

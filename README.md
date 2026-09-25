@@ -15,6 +15,8 @@ one TOML card per artist: tags, top tracks, typed links to other artists
 feature: *any automatic decision must be explainable in one sentence and
 changeable in one commit.*
 
+![Listening: the axis of tracks with their reasons on the left, three branches to fork into on the right](docs/screenshots/listen.png)
+
 ## What it does
 
 - **Branches.** From what is playing, three directions with their reasons
@@ -35,7 +37,10 @@ changeable in one commit.*
 The interface is a terminal one, driven by a vim-like grammar: `f` the
 branch, `e` encore, `t` the track, `a` the artist, `C` the catalog; space
 is the leader and shows what you can type. The whole table is in
-[`docs/keybindings.md`](docs/keybindings.md).
+[`docs/keybindings.md`](docs/keybindings.md), and the screens are in
+[`docs/tour.md`](docs/tour.md).
+
+![The input hints, opened with space: every key and what it does](docs/screenshots/keys.png)
 
 ## What it needs
 
