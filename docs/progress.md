@@ -701,29 +701,33 @@ though it is named `Ye`, so the lookup finds it and `en2` would have worked
 outright. With no card at all, the gesture says so instead of aiming
 elsewhere; `ti` has one on the way anyway. A test pins the three cases.
 
-## What you said of an artist, beside their name (2026-09-25)
+## One of yours, beside their name (2026-09-25)
 
 Joel: what indicator would show, from the listening page, whether an artist
 is liked — "a heart would be confusing with the track likes, no?"
 
-The heart was not the problem; the notion was. Counted on the catalog:
-**187 of 388 cards** would carry a "liked" mark, and **110 of those come
-from the imported Spotify library alone**, not from anything done here. An
-indicator on one row in two says nothing, and the branch engine leans
-towards the familiar, so in practice it would be worse.
+**Answered wrong once.** Counted on the catalog, a "liked" mark would land
+on **187 of 388 cards**, **110 of them from the imported Spotify library
+alone**; an indicator on one row in two seemed to say nothing, so the row
+got `↑` / `↓` on the artist's **weight** (`al` / `as`) instead. Joel, on
+seeing it: "what I would like to see at a glance is whether the artist in
+the list is in the home's *liked* list. With the change made I do not see
+it." The density was a real measurement and the wrong argument — he is not
+asking to be told something rare, he is asking to recognise **his own
+artists** while they play, and half the rows being his is the point.
 
-So the row carries **what you said** instead: `↑` after the artist's name
-when their weight has been raised with `al`, `↓` when lowered with `as`,
-nothing at the default. That is rare enough to be read — a fifth of the
-cards one way, a twenty-fifth the other — it is exactly what the engine
-acts on when it draws branch heads, and it reuses the glyphs the `al` /
-`as` toasts already use, so there is nothing new to learn. Blue for `↑`,
-Joel's call, the catalog's own tone; grey for `↓`, which reads as a step
-back.
+So the row carries a blue `★` after the name when `learned.liked` says the
+artist is one of yours: asked for with `al`, or a liked track of theirs, or
+your Spotify library — minus anyone set aside with `as` or banned. It is
+the **same call the home's `v` filter makes**, so the two screens cannot
+disagree, and it works off-catalog too, `liked` falling back on the name
+when there is no slug yet. The `al` / `as` arrows go: `al` already puts the
+star there, and `as` takes it away.
 
-The confusion with the track's heart is settled by **place**: the track's
-mark is at the head of the row, the artist's after their name. A test pins
-both, and that the head mark has not moved.
+The confusion with the track's heart is settled by **glyph and place** at
+once: a star, not a heart, and the track's mark stays at the head of the
+row while the artist's sits after their name. A test pins the star, its
+absence, and that the head mark has not moved.
 
 ## Keyboard grammar wired (2026-09-05)
 

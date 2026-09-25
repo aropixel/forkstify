@@ -2821,15 +2821,14 @@ impl Live<'_> {
             .chain(self.queue.iter())
             .map(|stop| self.note(stop))
             .collect();
-        // what *you* said of each artist, to put beside their name: the
-        // library's "liked" would mark one row in two and say nothing
-        // (measured 2026-09-25), the weight says what you did
-        let tastes: Vec<i8> = self
+        // whether each artist is one of yours, to put beside their name —
+        // the same "liked" the home filters on (Joel, 2026-09-25)
+        let liked: Vec<bool> = self
             .past
             .iter()
             .chain(self.current.iter())
             .chain(self.queue.iter())
-            .map(|stop| self.taste_of(stop))
+            .map(|stop| self.liked_artist(stop))
             .collect();
         // the seed block (maquette 2b): everything descends from it
         let seed_card = self.catalog.cards.get(&seed);
@@ -2866,7 +2865,7 @@ impl Live<'_> {
             missing: &self.missing,
             panel: true,
             notes: &notes,
-            tastes: &tastes,
+            liked: &liked,
             selection: self.selection,
             overlay: self.overlay.as_ref().map(|(t, l)| (t.as_str(), l.as_slice(), self.overlay_scroll)),
             comfort_mode: self.comfort_before.is_some(),
@@ -3071,21 +3070,17 @@ impl Live<'_> {
         }
     }
 
-    /// What this listener said of a stop's artist: `1` favoured with `al`,
-    /// `-1` set aside with `as`, `0` never judged. It reads the **weight**,
-    /// which is what the engine itself acts on — not "liked", which is
-    /// mostly the Spotify library and would mark half the rows (Joel,
-    /// 2026-09-25).
-    fn taste_of(&self, stop: &crate::engine::Stop) -> i8 {
-        let Some(slug) = self.card_of(stop) else { return 0 };
-        let weight = self.learned.weight(&slug);
-        if weight > 1.001 {
-            1
-        } else if weight < 0.999 {
-            -1
-        } else {
-            0
-        }
+    /// Is this stop's artist one of **yours** — the ones the home lists
+    /// under "liked"? That is the question asked of the playlist at a
+    /// glance (Joel, 2026-09-25). The same reading as the home's filter,
+    /// so the two never disagree: a gesture here, a liked track of theirs,
+    /// or your Spotify library, minus anyone you set aside.
+    ///
+    /// It works off-catalog too: `liked` falls back on the artist's name
+    /// when the slug is empty, which is the case of a track just inserted.
+    fn liked_artist(&self, stop: &crate::engine::Stop) -> bool {
+        let slug = self.card_of(stop).unwrap_or_default();
+        self.learned.liked(&slug, &stop.artist)
     }
 
     /// The card this stop belongs to: its own slug, or the one its

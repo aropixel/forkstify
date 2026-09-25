@@ -89,8 +89,9 @@ pub struct View<'a> {
     /// One grey note per track of the axis (past, current, queue), in the
     /// same order: what the plays know about it (mockup 3a).
     pub notes: &'a [String],
-    /// Beside each artist's name: `1` favoured, `-1` set aside, `0` silent.
-    pub tastes: &'a [i8],
+    /// Beside each artist's name: whether they are one of yours, the same
+    /// "liked" the home filters on.
+    pub liked: &'a [bool],
     /// The axis line under the selection — highlighted, but not played.
     pub selection: Option<usize>,
     /// A block laid over the screen, which does not go down into the log:
@@ -304,7 +305,7 @@ enum Slot {
 /// what comes is counted from it.
 /// `marked` puts "▸" in the gutter: the next track, when the listening
 /// line is too narrow to name it (mockup 4a′, the fallback of 4b).
-fn track_row(stop: &Stop, slot: Slot, taste: i8, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
+fn track_row(stop: &Stop, slot: Slot, liked: bool, marked: bool, opening: Option<&str>, note: &str, width: usize) -> Line<'static> {
     let played = slot == Slot::Played;
     // the number in grey, only the arrow in color (mockup 2b)
     // six cells either way: " 2 →  " or, marked, " 2 ▸→ "
@@ -338,14 +339,10 @@ fn track_row(stop: &Stop, slot: Slot, taste: i8, marked: bool, opening: Option<&
         }
     };
     let body_text = format!("{} {} — {}", stop.source.mark(), stop.title, stop.artist);
-    // what you said of the artist, beside their name (Joel, 2026-09-25).
-    // Never a heart: that one is the track's, and it lives at the head of
-    // the row — the place tells them apart.
-    let taste_mark = match taste {
-        1 => Some(('↑', CATALOG)),
-        -1 => Some(('↓', DIM)),
-        _ => None,
-    };
+    // one of yours, beside their name (Joel, 2026-09-25). A star, not a
+    // heart: the heart is the track's, at the head of the row, and two of
+    // them on one line would read as one thing said twice.
+    let taste_mark = liked.then_some(('★', CATALOG));
     let mut body: Vec<Span> = match slot {
         // reversed, as everywhere something is active
         Slot::Playing { .. } => vec![Span::styled(
@@ -567,9 +564,9 @@ fn render(frame: &mut ratatui::Frame, view: &View) {
             None => None,
         };
         let note = view.notes.get(stop_index).map(String::as_str).unwrap_or("");
-        let taste = view.tastes.get(stop_index).copied().unwrap_or(0);
+        let liked = view.liked.get(stop_index).copied().unwrap_or(false);
         let marked = !next_on_line && current_at.map_or(false, |c| stop_index == c + 1);
-        push(track_row(stop, slot, taste, marked, opening, note, width), index, view.selection, &mut lines);
+        push(track_row(stop, slot, liked, marked, opening, note, width), index, view.selection, &mut lines);
         index += 1;
     }
     if !all.is_empty() {
@@ -1801,7 +1798,7 @@ mod tests {
     /// never as a heart — that one is the track's, and it lives at the head
     /// of the row, which is what tells the two apart.
     #[test]
-    fn the_artist_carries_what_you_said_of_them() {
+    fn one_of_yours_is_starred_beside_their_name() {
         let stop = Stop {
             slug: "the-cure".into(),
             artist: "The Cure".into(),
@@ -1810,17 +1807,16 @@ mod tests {
             head: None,
             encore: false,
         };
-        let text = |taste| {
-            track_row(&stop, Slot::Ahead { n: 2 }, taste, false, None, "", 80)
+        let text = |liked| {
+            track_row(&stop, Slot::Ahead { n: 2 }, liked, false, None, "", 80)
                 .spans
                 .iter()
                 .map(|s| s.content.to_string())
                 .collect::<String>()
         };
-        assert!(text(1).contains("The Cure ↑"), "{}", text(1));
-        assert!(text(-1).contains("The Cure ↓"), "{}", text(-1));
-        let plain = text(0);
-        assert!(!plain.contains('↑') && !plain.contains('↓'), "silent by default: {plain}");
+        assert!(text(true).contains("The Cure ★"), "{}", text(true));
+        let plain = text(false);
+        assert!(!plain.contains('★'), "silent for anyone else: {plain}");
         // and the track's own mark has not moved from the head of the row
         assert!(plain.contains("♪ A Forest"), "{plain}");
     }
@@ -1855,7 +1851,7 @@ mod tests {
             branches,
             panel: true,
             notes: &notes,
-            tastes: &vec![0; notes.len()],
+            liked: &vec![false; notes.len()],
             selection: None,
             overlay: None,
             comfort_mode: false,

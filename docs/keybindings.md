@@ -232,19 +232,20 @@ A door only takes its mark **when it opens**: outside its direction, it
 stays a track like any other. That is what 0011 calls "an additional
 criterion, never the main one".
 
-Those marks are the **track's**, and they sit at the head of the row. What
-you said of the **artist** sits after their name instead, and the place is
-what tells the two apart (Joel, 2026-09-25):
+Those marks are the **track's**, and they sit at the head of the row. The
+**artist's** own mark sits after their name instead, and the place is what
+tells the two apart (Joel, 2026-09-25):
 
 | Mark | Meaning |
 |---|---|
-| `↑` | This artist, more often — you pressed `al`. Blue, the catalog's own tone |
-| `↓` | This artist, less often — you pressed `as`. Grey, a step back |
-| nothing | You have never judged them |
+| `★` | One of **yours** — the artist is in the home's "liked" list. Blue, the catalog's own tone |
+| nothing | Anyone else |
 
-It reads the artist's **weight**, which is what the engine acts on, not
-"liked": that one is mostly the imported Spotify library and would mark
-one row in two, saying nothing (measured on 388 cards, 2026-09-25).
+It is the very reading the home's `v` filter uses, so the two screens can
+never disagree: you asked for them with `al`, or you liked a track of
+theirs, or they come from your Spotify library — minus anyone you set
+aside with `as` or banned. A star and not a heart: the heart is the
+track's, and two hearts on one line would read as one thing said twice.
 
 ## `:` commands
 
