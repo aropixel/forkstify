@@ -14,6 +14,16 @@ the version it cuts, so this file cannot fall behind.
 
 ### Changed
 
+- **`fw` proposes instead of setting off.** The wander used to build its
+  branch and queue it on its own — the one key of the branch namespace that
+  chose for you. It now fills the branch column with three far directions
+  and **keeps them there** while the tracks go by, the column headed
+  `wander`; `f<n>` takes one like any branch, `enter` draws among them.
+  **`fr` comes back**: it puts the wander down and reads the playlist
+  again. `fw <artist>` proposes that artist the same way. While a wander
+  stands the grey gaps are hidden — it is leaving the universe, the local
+  links have nothing to say about where it goes.
+
 - **No more `generated = true` in the cards.** It was on 382 cards out of
   383 and nothing ever cleared it. The review is the pull request: a card
   in the reference is accepted, a card in your fork is yours, and `git log`

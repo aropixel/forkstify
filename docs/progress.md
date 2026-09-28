@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-24**. This file is the entry point for picking the work
+Updated on **2026-09-28**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -3037,3 +3037,35 @@ good), and `Job::Harvested` resolves the waiting track from it — the title
 search only if the tail does not name it. The prefetch fetches the tail
 ahead by the same rule. A card without a Spotify id keeps the old path.
 The cache needs no cleaning: the tail comes before it.
+
+## `fw` proposes, it no longer applies (2026-09-28)
+
+`fw` was the one gesture of the `f` namespace that decided for you: it drew
+a head far from the journey, built the branch and appended it to the queue
+in one go. Nothing to look at, nothing to refuse. Joel asked for the wander
+to **propose** instead, and for `fr` to be the way back.
+
+- **`engine::wander` returns a `Vec<Branch>`** and takes a `count`. With no
+  target it draws up to `count` heads from the same far pool (the reservoir
+  draw removes what it picks, so the heads differ); with a target there is
+  one head, as before. Each head walks like any branch, and an empty walk is
+  dropped. New test: three heads asked, three different heads back.
+- **The session holds the wander**: `wandering: Option<Option<String>>` —
+  `None` nothing, `Some(None)` a bare wander, `Some(Some(slug))` one aimed
+  at an artist. `recompute` reads it: while it stands, the column is
+  wander branches instead of `propose`'s, and **the gaps are hidden** — a
+  wander leaves the universe, the links of the artist being left say
+  nothing about where it goes. The "more often / less often" weighting of
+  0014 rides on both kinds.
+- **It holds track after track.** That is why the flag exists rather than a
+  one-shot fill: `recompute` runs on every advance, and a column wiped by
+  the next track would make `fw` unusable.
+- **It is put down** by `fr` (which then says "branches from the playlist
+  again"), by taking any branch — the choice is made, the next directions
+  read the playlist — and by a fresh seed (`start_*`, the `fu` restore).
+- **The column says which it is showing**: the header reads `wander`
+  instead of `branches`, with a grey "far from the journey — fr comes
+  back" under it. Same numbers, so `f<n>` and `enter` work unchanged.
+
+Docs: the `fw`, `fr` and `:wander` rows of `docs/keybindings.md`, and
+feedback no. 6 in `docs/design/usage-feedback.md`.

@@ -76,6 +76,10 @@ pub struct View<'a> {
     pub loading: bool,
     pub queue: &'a [Stop],
     pub branches: &'a [Branch],
+    /// A `fw` stands: the branches above are far directions, not the ones
+    /// the playlist leads to. The column says so, since the numbers are
+    /// the same and nothing else would tell them apart (Joel, 2026-09-28).
+    pub wandering: bool,
     /// Links pointing to a missing card (0016): directions the catalog names
     /// but cannot walk yet. They are numbered **after** the branches, and
     /// taking one generates the card instead of playing right away.
@@ -1030,7 +1034,10 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
     let mut lines: Vec<Line> = Vec::new();
     lines.push(Line::from(vec![
         Span::styled("── ", Style::default().fg(BRANCH)),
-        Span::styled("branches", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            if view.wandering { "wander" } else { "branches" },
+            Style::default().fg(BRANCH).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(format!(" {}", view.branches.len()), Style::default().fg(DIM)),
         // the gaps are counted apart: they don't play yet
         Span::styled(
@@ -1048,6 +1055,13 @@ fn render_panel(frame: &mut ratatui::Frame, column: Rect, view: &View) {
             "dead end — fu to go back",
             Style::default().fg(MUTED),
         )));
+    }
+    if view.wandering {
+        lines.push(Line::from(Span::styled(
+            "far from the journey — fr comes back",
+            Style::default().fg(MUTED),
+        )));
+        lines.push(Line::from(""));
     }
     for (i, branch) in view.branches.iter().enumerate() {
         // "1  label" — 2 cells of indentation, as the PoC prints it
@@ -1917,6 +1931,7 @@ mod tests {
             queue,
             missing,
             branches,
+            wandering: false,
             panel: true,
             notes: &notes,
             unknown: &vec![false; notes.len()],

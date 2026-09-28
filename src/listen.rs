@@ -143,6 +143,7 @@ async fn async_run(
         warm_requested: false,
         web_ok: true,
         wander_requested: None,
+        wandering: None,
         link_pending: None,
         start_requested: None,
         album_requested: None,
@@ -290,6 +291,10 @@ const MAX_DRY_ADVANCES: u32 = 4;
 /// accident, three in a row is a wall.
 const MAX_DRY_TRACKS: u32 = 3;
 
+/// `fw` — how many far directions it proposes at once. Three, like the
+/// branches it replaces in the column: the numbers stay the numbers.
+const WANDER_BRANCHES: usize = 3;
+
 /// `A` — how many tracks of an album get promoted at once. Four: an album
 /// that carries the plays rarely has more that matter, and beyond that
 /// nobody reads back what they just did.
@@ -355,6 +360,12 @@ struct Live<'a> {
     web_ok: bool,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
+    /// A `fw` stands: the branch column proposes far directions instead of
+    /// the playlist's own, and holds them across the tracks that follow.
+    /// `Some(None)` is a bare wander, `Some(Some(slug))` one aimed at an
+    /// artist. `fr` puts it down, and so does taking a branch (Joel,
+    /// 28/09/2026: `fw` proposes, it no longer applies).
+    wandering: Option<Option<String>>,
     /// `ac` chose a target and now asks how close — or reopened a drawn
     /// connection to set it: the question stays until a digit, ⏎, `x` or
     /// esc (Joel, 2026-09-23).
@@ -861,6 +872,7 @@ impl Live<'_> {
         self.past.clear();
         self.queue.clear();
         self.branches.clear();
+        self.wandering = None;
         self.selection = None;
         self.overlay = None;
         self.help_open = false;
@@ -911,6 +923,7 @@ impl Live<'_> {
         self.past.clear();
         self.queue.clear();
         self.branches.clear();
+        self.wandering = None;
         self.selection = None;
         self.overlay = None;
         self.help_open = false;
@@ -2050,10 +2063,31 @@ impl Live<'_> {
 
     fn recompute(&mut self) {
         let (context, _, universe, visited, played) = self.state();
-        self.branches = crate::engine::propose(
-            &self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort, &visited,
-            &played, self.size, &mut self.rng,
-        );
+        match self.wandering.clone() {
+            // a `fw` stands: the column holds the far directions, track
+            // after track, until `f<n>` takes one or `fr` gives the
+            // playlist's own back (Joel, 28/09/2026)
+            Some(target) => {
+                self.branches = crate::engine::wander(
+                    &self.catalog, &context, &universe, target.as_deref(), &self.learned,
+                    &self.tail, self.comfort, &visited, &played, self.size, WANDER_BRANCHES,
+                    &mut self.rng,
+                );
+                // a wander leaves the universe on purpose: the gaps around
+                // the artist we are leaving have nothing to say about it
+                self.missing.clear();
+            }
+            None => {
+                self.branches = crate::engine::propose(
+                    &self.catalog, &context, &universe, &self.learned, &self.tail, self.comfort,
+                    &visited, &played, self.size, &mut self.rng,
+                );
+                // the links that lead nowhere: no longer thrown away, they
+                // are proposed (0016 — on-the-fly generation)
+                self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
+                self.missing.truncate(3);
+            }
+        }
         // "less often" / "more often" ride on the branches that
         // start with the artist concerned (0014)
         for branch in &mut self.branches {
@@ -2061,10 +2095,6 @@ impl Live<'_> {
                 branch.weight *= self.learned.weight(first);
             }
         }
-        // the links that lead nowhere: no longer thrown away, they are
-        // proposed (0016 — on-the-fly generation)
-        self.missing = crate::engine::missing_neighbors(&self.catalog, &context, &visited);
-        self.missing.truncate(3);
         self.mark_pending();
         self.harvest_proposed();
     }
@@ -2179,6 +2209,9 @@ impl Live<'_> {
     /// `choose` because a generated card comes by the same path, several
     /// seconds after the keystroke.
     async fn take_branch(&mut self, branch: crate::engine::Branch, when: When) {
+        // a branch taken settles where we go: the wander, if one stood, has
+        // done its job and the next directions read the playlist again
+        self.wandering = None;
         if self.current.is_none() {
             self.start_branch(branch, when).await;
             return;
@@ -2468,8 +2501,15 @@ impl Live<'_> {
             Cmd::ForkGenerate(n) => self.generate_gap(n),
             Cmd::Peek => self.preview(),
             Cmd::Reroll => {
+                // after a `fw`, `fr` is what puts the wander down and reads
+                // the playlist again (Joel, 28/09/2026)
+                let wandering = self.wandering.take().is_some();
                 self.recompute();
-                say!(self, "\n\u{21bb} other branches:");
+                if wandering {
+                    say!(self, "\n\u{21bb} branches from the playlist again:");
+                } else {
+                    say!(self, "\n\u{21bb} other branches:");
+                }
                 self.preview();
             }
             Cmd::ForkUndo => self.fork_undo().await,
@@ -2506,7 +2546,7 @@ impl Live<'_> {
             Cmd::Artist(k) => self.on_artist_key(k),
             // the reader turns `fw` into the `:wander ` line; a bare Wander
             // can only come from elsewhere — it wanders far
-            Cmd::Wander => self.wander("").await,
+            Cmd::Wander => self.wander(""),
             // two home keys, with no use once listening
             Cmd::Resume => say!(self, "\n(r is for the home: here, fu backs up one branch)"),
             Cmd::Browse => say!(self, "\n(b is for the home: here, the sound is already on)"),
@@ -2910,6 +2950,7 @@ impl Live<'_> {
             loading: self.loading,
             queue: self.queue.as_slices().0, // whole, made contiguous above
             branches: &self.branches,
+            wandering: self.wandering.is_some(),
             missing: &self.missing,
             panel: true,
             notes: &notes,
@@ -4453,6 +4494,7 @@ impl Live<'_> {
         self.explore = None;
         self.notices.borrow_mut().clear();
         self.branches.clear();
+        self.wandering = None;
         self.past = saved.past;
         self.queue = saved.queue.into_iter().collect();
         self.rounds = saved.rounds;
@@ -4483,10 +4525,12 @@ impl Live<'_> {
     }
 
     /// `fw` / `:wander [artist]` (feedback no. 6, settled on 2026-09-11):
-    /// leave the universe. Bare, the engine draws a head far from the
-    /// journey; with a name, the head is that artist of the catalog. The
-    /// branch goes at the end of what is decided, as `f<n>` does.
-    async fn wander(&mut self, target: &str) {
+    /// leave the universe. Bare, the engine draws heads far from the
+    /// journey; with a name, the head is that artist of the catalog.
+    /// It **proposes**, it does not apply (Joel, 28/09/2026): the far
+    /// directions take the branch column and hold it, `f<n>` takes one
+    /// like any branch, `fr` gives the playlist's own directions back.
+    fn wander(&mut self, target: &str) {
         if self.rounds.is_empty() {
             say!(self, "(nothing is playing — fw wanders from a journey)");
             return;
@@ -4503,17 +4547,23 @@ impl Live<'_> {
                 }
             }
         };
-        let (context, _, universe, visited, played) = self.state();
-        let branch = crate::engine::wander(
-            &self.catalog, &context, &universe, slug.as_deref(), &self.learned, &self.tail,
-            self.comfort, &visited, &played, self.size, &mut self.rng,
-        );
-        match branch {
-            Some(branch) => {
-                say!(self, "→ {} — {}", branch.label, branch.reason);
-                self.take_branch(branch, When::EndOfBranch).await;
+        let named = slug.as_ref().map(|s| self.catalog.cards[s].name.clone());
+        self.wandering = Some(slug);
+        self.recompute();
+        if self.branches.is_empty() {
+            // nothing came of it: put the wander back down rather than
+            // leave an empty column standing
+            self.wandering = None;
+            self.recompute();
+            match named {
+                Some(name) => say!(self, "(nothing of {name} left to play — the branches stay as they were)"),
+                None => say!(self, "(nowhere far enough to wander — everything near is played)"),
             }
-            None => say!(self, "(nowhere far enough to wander — everything near is played)"),
+            return;
+        }
+        match named {
+            Some(name) => say!(self, "\n↝ wander to {name} — f<n> takes it, fr comes back"),
+            None => say!(self, "\n↝ wander — f<n> takes one, fr comes back to the playlist"),
         }
     }
 
@@ -4536,7 +4586,7 @@ impl Live<'_> {
             self.open_finder(None, &query);
         }
         if let Some(target) = self.wander_requested.take() {
-            self.wander(&target).await;
+            self.wander(&target);
         }
         if std::mem::take(&mut self.warm_requested) {
             match self.aimed_artist() {
@@ -4616,7 +4666,7 @@ impl Live<'_> {
             (":discography", "the artist's discography by album — shortcut ad"),
             (":connections", "every connection drawn with ac, by artist"),
             (":warm", "fetch the artist's discography now — the long tail"),
-            (":wander [artist]", "far away, or to that artist — shortcut fw"),
+            (":wander [artist]", "propose far away, or that artist — shortcut fw"),
             (":size <n>", "branch size, 1 to 9"),
             (":comfort <n>", "comfort zone, 5 cocoon → 0 exploration"),
             (":catalog", "the fork's state in one line"),
@@ -4692,9 +4742,9 @@ impl Live<'_> {
                 ("f!<n>", "branch n, after the track, the rest dropped", Both),
                 ("fg<n>", "generate — the card of gap n, the branch stays on show", Both),
                 ("fp", "peek — preview the branches", Both),
-                ("fr", "reroll — propose three others", Both),
+                ("fr", "reroll — three others, from the playlist", Both),
                 ("fu", "undo — back to the previous branch", Both),
-                ("fw", "wander — far away, or `fw <artist>` to their universe", Both),
+                ("fw", "wander — propose far away, or `fw <artist>`", Both),
             ],
             Some('e') if !home => &[
                 ("e<n>", "n encores, at the end of the branch", Both),

@@ -146,11 +146,19 @@ exposing.
 ### 6. "Go off to something completely different"
 
 **Status**: **settled and wired on 2026-09-11** — reading **(a)**, with an
-optional target: `fw` alone leaps far (a head below the comfort floor,
+optional target: `fw` alone leaps far (heads below the comfort floor,
 outside the journey and its graph neighbors, the furthest weighing the most,
-the dial leaning as for any head), `fw <artist>` leaps to that catalog
-artist. The key opens the `:wander ` line already filled in, enter sets off.
-The branch goes at the end of what is decided.
+the dial leaning as for any head), `fw <artist>` aims at that catalog
+artist. The key opens the `:wander ` line already filled in, enter proposes.
+
+**Decided on 2026-09-28 (Joel): `fw` proposes, it does not apply.** It used
+to take its branch on its own — the one gesture of the `f` namespace that
+decided for you. Now it fills the branch column with three far directions
+and holds them track after track, the column headed `wander`; `f<n>` takes
+one like any branch, and **`fr` puts the wander down** and reads the
+playlist again. The gaps are hidden while it stands: a wander leaves the
+universe on purpose, the links of the artist being left say nothing about
+where it goes.
 
 Two possible readings, and they do not lead to the same work:
 
