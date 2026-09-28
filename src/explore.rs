@@ -570,9 +570,25 @@ impl Explore {
         self.pending.iter().position(|p| normalize(&p.title) == key)
     }
 
-    /// `A` — promote the album: its most played tracks that are not tops
+    /// The album the cursor is **in** — its header line or any of its
+    /// tracks — as a playlist: the playable titles in the album's own
+    /// order. `a` and `A` work from anywhere inside it, since listening to
+    /// an album aims at nothing in particular and folding back up to reach
+    /// its header would be a chore (Joel, 2026-09-28). A banned track is
+    /// left out; None when none of it would play.
+    pub fn album_playlist(&self) -> Option<(String, Vec<&Track>)> {
+        let album = self.albums.get(self.cursor.album)?;
+        let mut playable: Vec<&Track> = album.tracks.iter().filter(|track| !track.banned).collect();
+        // the record's order, not the screen's: `s` sorts what you read,
+        // it does not re-cut the album
+        playable.sort_by_key(|track| track.number);
+        (!playable.is_empty()).then(|| (album.title.clone(), playable))
+    }
+
+    /// `T` — promote the album: its most played tracks that are not tops
     /// yet. This is the grain of the problem ("I only like this album"),
-    /// and the gesture that exists nowhere else.
+    /// and the gesture that exists nowhere else. It was `A` until
+    /// 2026-09-28, when `a`/`A` took the album into the playlist.
     pub fn top_album(&mut self, most: usize) {
         let Some(album) = self.albums.get(self.cursor.album) else { return };
         let name = album.title.clone();
@@ -730,6 +746,32 @@ mod tests {
         assert!(titles.contains(&"Metal Heart"));
     }
 
+    /// `a` / `A` take the album the cursor is **in**, in the record's own
+    /// order whatever the screen's, and leave the banned out (2026-09-28).
+    #[test]
+    fn the_album_goes_to_the_playlist_in_its_own_order() {
+        let mut screen = screen();
+        // from a track row, and with the plays order on: the album still
+        // comes out as the record runs
+        screen.cursor = Cursor { album: 0, track: Some(1) };
+        screen.toggle_sort();
+        let (album, tracks) = screen.album_playlist().expect("a playlist");
+        assert_eq!(album, "Moon Pix");
+        let titles: Vec<&str> = tracks.iter().map(|t| t.title.as_str()).collect();
+        assert_eq!(titles, vec!["Cross Bones Style", "Metal Heart", "Colors and the Kids"]);
+
+        // a banned track is not queued
+        let banned = screen.albums[0]
+            .tracks
+            .iter()
+            .position(|t| t.title == "Metal Heart")
+            .expect("the track");
+        screen.albums[0].tracks[banned].banned = true;
+        let (_, tracks) = screen.album_playlist().expect("a playlist");
+        let titles: Vec<&str> = tracks.iter().map(|t| t.title.as_str()).collect();
+        assert_eq!(titles, vec!["Cross Bones Style", "Colors and the Kids"]);
+    }
+
     #[test]
     fn albums_are_in_order_and_tops_marked() {
         let screen = screen();
@@ -753,11 +795,11 @@ mod tests {
 
     #[test]
     fn what_is_written_becomes_true_on_screen() {
-        // `A` only promotes what was played: one play of Metal Heart
+        // `T` only promotes what was played: one play of Metal Heart
         let mut learned = Learned::blank();
         learned.played("cat-power", "Metal Heart");
         let mut screen = Explore::open("cat-power", &card(), &tail(), &learned, Some("Metal Heart"));
-        // `A` on Moon Pix, a single track: the most played non-top
+        // `T` on Moon Pix, a single track: the most played non-top
         screen.cursor = Cursor { album: 0, track: Some(1) };
         screen.top_album(1);
         assert_eq!(screen.adds(), vec!["Metal Heart".to_string()]);

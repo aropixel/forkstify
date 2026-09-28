@@ -2588,16 +2588,25 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
         line.insert(0, rule("│ "));
         foot.push(Line::from(line));
     }
+    // two lines, and the first is playback: `A the album` on its own said
+    // nothing of what it did (Joel, 2026-09-28)
     foot.push(Line::from(vec![
         rule("│ "),
-        Span::styled("A ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
-        Span::styled("the album  ", Style::default().fg(MUTED)),
+        Span::styled("e ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled("track to the queue  ", Style::default().fg(MUTED)),
+        Span::styled("a ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled("album to the queue  ", Style::default().fg(MUTED)),
+        Span::styled("A ", Style::default().fg(BRANCH).add_modifier(Modifier::BOLD)),
+        Span::styled("album as the playlist", Style::default().fg(MUTED)),
+    ]));
+    foot.push(Line::from(vec![
+        rule("│ "),
         Span::styled("tl ", Style::default().fg(PLAYING)),
         Span::styled("like  ", Style::default().fg(MUTED)),
         Span::styled("tb ", Style::default().fg(DANGER)),
         Span::styled("ban  ", Style::default().fg(MUTED)),
-        Span::styled("e ", Style::default().fg(BRANCH)),
-        Span::styled("to the queue  ", Style::default().fg(MUTED)),
+        Span::styled("T ", Style::default().fg(EDIT).add_modifier(Modifier::BOLD)),
+        Span::styled("the album's tops  ", Style::default().fg(MUTED)),
         Span::styled("s v / ", Style::default().fg(VECTOR)),
         Span::styled("order, view, filter", Style::default().fg(MUTED)),
     ]));

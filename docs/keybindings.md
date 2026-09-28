@@ -327,7 +327,9 @@ artist that is open, so any doubt is settled on screen.
 | `j` / `k`, ↑ / ↓ | Down, up — the album under the cursor opens by itself | ✅ |
 | `h` / `l` | Fold everything (twelve rows), reopen the album under the cursor | ✅ |
 | `gg` / `G` | The two ends of the list | ✅ |
-| `A` | **Album**: promote the album's four most played tracks, outside the tops — put **pending**. No more `tt` / `tT` here either (Joel, 2026-09-08): a single track gets liked, it does not get promoted | ✅ |
+| `a` | **The whole album at the end of the queue**, in the record's own order, the modal staying open — the sibling of `e`, which queues one track. Works from **anywhere inside the album**, its header line or one of its tracks; banned tracks are left out (Joel, 2026-09-28) | ✅ |
+| `A` | **The whole album as the playlist**: what was still to come is dropped, the album opens a fresh journey in its order, and the branches fork from the artist afterwards. The same thing ⏎ does on an album row, reachable from a track row too. The capital is the heavy one, as `f!` is to `f` while listening (Joel, 2026-09-28) | ✅ |
+| `T` | **Tops**: promote the album's four most played tracks, outside the tops — put **pending**. It was `A` until 2026-09-28, when `a`/`A` took the album into the playlist; `T` reads as tops, beside the `t` of the track. No more `tt` / `tT` here either (Joel, 2026-09-08): a single track gets liked, it does not get promoted | ✅ |
 | `tb` | Ban the row — a **measurement**, written right away (like / unlike: `tl`, a toggle) | ✅ |
 | `e` | Put the track **in the queue**, without closing | ✅ |
 | `tl` | Like / **unlike** (toggle) the row — a measurement written right away (Joel, 2026-09-14) | ✅ |
@@ -426,8 +428,10 @@ turn out to be constant.
 ## Free letters
 
 The bare keyboard only keeps `h`, `l`, `p`, `e`, `f`, `t`, `a`, `c`, `C`,
-`o`, `x`, `q` — outside the modal, where `j`, `k`, `s`, `v`, `e`, `A` and
-`u` serve (table above). `Q` left on 2026-09-08 along with queue mode.
+`o`, `x`, `q` — outside the modal, where `j`, `k`, `s`, `v`, `e`, `a`, `A`,
+`T` and `u` serve (table above; `a` and `A` took the album into the
+playlist on 2026-09-28, and `T` took over the tops that `A` used to
+promote). `Q` left on 2026-09-08 along with queue mode.
 Still free: `b`, `d`, `g`, `i`, `j`, `k`, `m`, `n`, `r`, `s`, `v`, `w`,
 `y`, `z`, `u` and `.`, and the capitals except `C`, `G`, `J`, `K` (`o` was
 taken on 2026-09-20, and `C` too; `x` on 2026-09-23, while `u` and `.` went

@@ -2567,7 +2567,8 @@ impl Live<'_> {
             Cmd::Pending(_) | Cmd::Typing(_) | Cmd::Unknown(_) => {}
             Cmd::Sort => say!(self, "(s sorts the collection, at the home)"),
             // a modal's keys: outside of it, they have no purpose
-            Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop | Cmd::Undo => {
+            Cmd::Enqueue | Cmd::Filter | Cmd::AlbumTop | Cmd::AlbumQueue | Cmd::AlbumNow
+            | Cmd::Undo => {
                 say!(self, "(ad opens the discography: these keys work there)")
             }
             Cmd::Colon(text) => return self.run_colon(&text).await,
@@ -4040,6 +4041,8 @@ impl Live<'_> {
             Cmd::Track('l') => self.explore_measure(true),
             Cmd::Track('b') => self.explore_measure(false),
             Cmd::Enqueue => self.explore_enqueue(),
+            Cmd::AlbumQueue => self.explore_album_queue(),
+            Cmd::AlbumNow => self.explore_album_now(),
             Cmd::Auto => self.explore_enter(),
             Cmd::Escape => self.close_explore(),
             Cmd::Typing(line) => self.typed = line.unwrap_or_default(),
@@ -4059,6 +4062,10 @@ impl Live<'_> {
                     Cmd::Sort => screen.toggle_sort(),
                     Cmd::Filter => screen.cycle_filter(),
                     Cmd::AlbumTop => screen.top_album(ALBUM_TOPS),
+                    // `a`/`A` are handled outside this arm: they touch the
+                    // queue, and the queue is not the modal's to reach
+                    // through `screen`
+                    Cmd::AlbumQueue | Cmd::AlbumNow => {}
                     Cmd::Undo => screen.undo(),
                     Cmd::Search(query) => screen.search(&query),
                     Cmd::Unknown(seq) => screen.notice = format!("({seq} does nothing here)"),
@@ -4104,18 +4111,9 @@ impl Live<'_> {
     /// we leave the discography.
     fn explore_enqueue(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
-        let Some((title, source)) = screen.track().map(|track| {
-            (
-                track.title.clone(),
-                if track.is_top() {
-                    crate::engine::Source::Top
-                } else if track.liked {
-                    crate::engine::Source::Liked
-                } else {
-                    crate::engine::Source::Tail
-                },
-            )
-        }) else {
+        let Some((title, source)) =
+            screen.track().map(|track| (track.title.clone(), source_of(track)))
+        else {
             screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
             return;
@@ -4130,6 +4128,67 @@ impl Live<'_> {
             encore: true,
         });
         screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
+        self.explore = Some(screen);
+    }
+
+    /// `a` in the discography — **the whole album at the end of the
+    /// queue**, in its own order, the modal staying open: the sibling of
+    /// `e`, which queues one track (Joel, 2026-09-28). The album is the
+    /// one the cursor is in, header line or track row alike; banned
+    /// tracks are left out.
+    fn explore_album_queue(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        let queued: Option<(String, Vec<(String, crate::engine::Source)>)> =
+            screen.album_playlist().map(|(album, tracks)| {
+                let tracks = tracks
+                    .into_iter()
+                    .map(|track| (track.title.clone(), source_of(track)))
+                    .collect();
+                (album, tracks)
+            });
+        let Some((album, tracks)) = queued else {
+            screen.notice = "(nothing playable in this album)".into();
+            self.explore = Some(screen);
+            return;
+        };
+        let count = tracks.len();
+        for (title, source) in tracks {
+            self.queue.push_back(crate::engine::Stop {
+                slug: screen.slug.clone(),
+                artist: screen.name.clone(),
+                title,
+                source,
+                head: None,
+                // the encore's ↻ glyph, like `e`: it is the same gesture,
+                // a handful of tracks at once
+                encore: true,
+            });
+        }
+        screen.notice =
+            format!("↻ {album} — {count} track(s) queued ({} up next)", self.queue.len());
+        self.explore = Some(screen);
+    }
+
+    /// `A` in the discography — **the whole album as the playlist**: what
+    /// was still to come is dropped, the album opens a fresh journey in
+    /// its own order and the branches fork from the artist afterwards
+    /// (Joel, 2026-09-28). The same thing ⏎ does on an album line, from
+    /// anywhere inside the album. The capital is the heavy one, as `f!` is
+    /// to `f` while listening.
+    fn explore_album_now(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        let titles: Option<Vec<String>> = screen
+            .album_playlist()
+            .map(|(_, tracks)| tracks.into_iter().map(|track| track.title.clone()).collect());
+        let Some(titles) = titles else {
+            screen.notice = "(nothing playable in this album)".into();
+            self.explore = Some(screen);
+            return;
+        };
+        let (slug, name) = (screen.slug.clone(), screen.name.clone());
+        crate::keys::set_modal(false);
+        self.album_requested = Some((slug, name, titles));
+        // `start_album` closes the modal: it starts a journey from nothing
         self.explore = Some(screen);
     }
 
@@ -4184,17 +4243,11 @@ impl Live<'_> {
             }
             return;
         }
-        // on an album line: start a seed of the whole album (Joel, 14/09/2026)
-        if let Some(album) = screen.album_here() {
-            let titles: Vec<String> =
-                album.tracks.iter().filter(|t| !t.banned).map(|t| t.title.clone()).collect();
-            if titles.is_empty() {
-                screen.notice = "(nothing playable in this album)".into();
-                return;
-            }
-            let (slug, name) = (screen.slug.clone(), screen.name.clone());
-            crate::keys::set_modal(false);
-            self.album_requested = Some((slug, name, titles));
+        // on an album line: start a seed of the whole album (Joel,
+        // 14/09/2026). The same gesture as `A`, through the same helper so
+        // the two cannot disagree on the order
+        if screen.album_here().is_some() {
+            self.explore_album_now();
         }
     }
 
@@ -4878,6 +4931,19 @@ impl Live<'_> {
             &mut self.rng,
         );
         self.start_segment(vec![current], stops, false, false).await;
+    }
+}
+
+/// Where a track of the discography comes from, for the playlist's glyph:
+/// a top of the card, a liked track, otherwise the long tail. `e` and `a`
+/// read it the same way.
+fn source_of(track: &crate::explore::Track) -> crate::engine::Source {
+    if track.is_top() {
+        crate::engine::Source::Top
+    } else if track.liked {
+        crate::engine::Source::Liked
+    } else {
+        crate::engine::Source::Tail
     }
 }
 

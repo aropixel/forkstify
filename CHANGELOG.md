@@ -14,6 +14,17 @@ the version it cuts, so this file cannot fall behind.
 
 ### Changed
 
+- **`A` in the discography puts the album on, instead of editing the
+  card.** It used to promote the album's four most played tracks into the
+  card's tops — a useful gesture, but nothing on screen said so. The album
+  keys are now about listening: **`a`** queues the whole album at the end
+  of what is playing, in the record's own order, without closing the
+  modal; **`A`** makes the album *the* playlist — what was still to come is
+  dropped and it starts, the branches forking from the artist afterwards.
+  Both work from anywhere inside the album, its header row or one of its
+  tracks, and leave banned tracks out. Promoting the album's tops moved to
+  **`T`**, and the modal's footer now says what each key does.
+
 - **`fw` proposes instead of setting off.** The wander used to build its
   branch and queue it on its own — the one key of the branch namespace that
   chose for you. It now fills the branch column with three far directions

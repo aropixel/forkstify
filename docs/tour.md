@@ -63,8 +63,9 @@ bring the terminal forward.
 its liked and its plays; one unfolded to its tracks. Above, what the
 engine's **pool** draws from for this artist — the tops, the liked, the
 banned, and the long tail that only weighs as comfort opens up — and
-where your plays actually went. `A` promotes an album, `tl` and `tb` work
-on a track, `e` queues it.
+where your plays actually went. `e` queues a track, `a` the whole album
+after it, `A` the whole album in place of everything; `T` promotes the
+album's most played into the tops, `tl` and `tb` work on a track.
 
 ## What the fork holds
 

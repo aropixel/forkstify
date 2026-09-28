@@ -3098,3 +3098,34 @@ toast that waits for the answer.
 
 Two tests: the five rows with their kinds and the marker, and the wrap
 keeping what it was given.
+
+## The album keys are about listening (2026-09-28)
+
+"`A` — the album" in the discography's footer, and `A` promoted the
+album's four most played tracks into the card's tops. Joel: "je n'ai pas
+bien compris ce que ça faisait". Nothing on screen said it was an edit,
+and `A` sat next to `e` (queue a track) where a reader expects the album
+to play.
+
+- **`a` — the album at the end of the queue.** The sibling of `e`: same
+  `Stop`s, same `↻` glyph, same source rule (top / liked / tail, now one
+  `source_of` shared by the two), the modal staying open.
+- **`A` — the album as the playlist.** `start_album`, which already
+  existed for ⏎ on an album row: everything still to come is dropped, the
+  album opens a fresh journey, the branches fork from the artist
+  afterwards. The capital is the heavy one, as `f!` is to `f`.
+- **Both work from anywhere inside the album** — its header row or one of
+  its tracks. `album_here()` only answered on the header, which is right
+  for ⏎ (a track row means something else there) and wrong for `a`/`A`:
+  new `album_playlist()`, keyed on `cursor.album`, returns the playable
+  tracks **in the record's own order** (`number`), banned ones out. `s`
+  sorts what you read, it does not re-cut the album. ⏎ on an album row now
+  goes through the same helper, so the two cannot disagree.
+- **Promoting the album's tops moved to `T`**, which reads as tops beside
+  the `t` of the track. `Cmd::AlbumTop` kept its name.
+- **The footer says what the keys do**, in two lines instead of one: the
+  playback keys first (`e` track to the queue, `a` album to the queue,
+  `A` album as the playlist), the edits and the view below.
+
+One test: the album comes out in its own order from a track row with the
+plays sort on, and a banned track is left out.

@@ -100,14 +100,24 @@ pub enum Cmd {
     Enqueue,
     /// `v` — the view: cycle the provenance filter.
     Filter,
-    /// `A` — promote the whole album, at the grain of the problem.
+    /// `T` — promote the whole album's most played into the tops, at the
+    /// grain of the problem. It was `A` until 2026-09-28, where `a`/`A`
+    /// now put the album in the playlist: `T` reads as tops, beside the
+    /// `t` of the track.
     AlbumTop,
+    /// `a` — the whole album at the **end of the queue**, in its own
+    /// order: the sibling of `e`, which queues one track.
+    AlbumQueue,
+    /// `A` — the whole album **as the playlist**: what was still to come
+    /// is dropped and the album starts. The capital is the heavy one, as
+    /// `f!` is to `f` while listening.
+    AlbumNow,
     /// `o` — open: the setup's "open the browser", "generate"; while
     /// listening, the first card a stopped merge left to resolve.
     Open,
     /// `C<k>` — the catalog namespace, upper case (Joel, 19/09/2026):
     /// `Cd` diff, `Cp` propose, `Cu` update. The first namespace in a
-    /// capital: the rare, heavy gesture, as `A` promotes a whole album.
+    /// capital: the rare, heavy gesture, as `A` takes a whole album.
     Catalog(char),
 }
 
@@ -321,7 +331,9 @@ pub fn parse_modal(buf: &str) -> Parse {
         ['e'] => Parse::Done(Cmd::Enqueue),
         ['s'] => Parse::Done(Cmd::Sort),
         ['v'] => Parse::Done(Cmd::Filter),
-        ['A'] => Parse::Done(Cmd::AlbumTop),
+        ['a'] => Parse::Done(Cmd::AlbumQueue),
+        ['A'] => Parse::Done(Cmd::AlbumNow),
+        ['T'] => Parse::Done(Cmd::AlbumTop),
         ['u'] => Parse::Done(Cmd::Undo),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 
