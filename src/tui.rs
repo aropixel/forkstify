@@ -967,24 +967,38 @@ fn render_progress(frame: &mut ratatui::Frame, bar: Rect, view: &Bar) {
 /// Wraps a text into lines of at most `width` characters, on spaces. A
 /// reason folds (it is prose), a track gets cut (it is a list): that is why
 /// the pane does not leave wrapping to ratatui.
+///
+/// A **newline is a line**, kept as it was written, indentation included:
+/// `ac` lays its closeness scale out as a small table, and a table that
+/// reflows is no longer one (Joel, 2026-09-28). Only a line too long for
+/// the width folds on its spaces, as before.
 fn wrap_words(text: &str, width: usize) -> Vec<String> {
     let width = width.max(8);
     let mut lines = Vec::new();
-    let mut line = String::new();
-    for word in text.split_whitespace() {
-        let fits = line.chars().count() + 1 + word.chars().count() <= width;
-        if line.is_empty() {
-            line.push_str(word);
-        } else if fits {
-            line.push(' ');
-            line.push_str(word);
-        } else {
-            lines.push(std::mem::take(&mut line));
-            line.push_str(word);
-        }
+    if text.is_empty() {
+        return lines;
     }
-    if !line.is_empty() {
-        lines.push(line);
+    for written in text.split('\n') {
+        if written.chars().count() <= width {
+            lines.push(written.to_string());
+            continue;
+        }
+        let mut line = String::new();
+        for word in written.split_whitespace() {
+            let fits = line.chars().count() + 1 + word.chars().count() <= width;
+            if line.is_empty() {
+                line.push_str(word);
+            } else if fits {
+                line.push(' ');
+                line.push_str(word);
+            } else {
+                lines.push(std::mem::take(&mut line));
+                line.push_str(word);
+            }
+        }
+        if !line.is_empty() {
+            lines.push(line);
+        }
     }
     lines
 }
@@ -2246,6 +2260,17 @@ mod tests {
     /// `:search` also opens from home (Joel, 09/09/2026): the modal covers
     /// the body — collection included — and leaves the playback foot and
     /// the prompt.
+    /// A written line stays a line: `ac`'s scale is a small table, and a
+    /// table that reflows is no longer one (Joel, 2026-09-28). Only what
+    /// is too long for the width still folds.
+    #[test]
+    fn the_toast_keeps_the_lines_it_was_given() {
+        let lines = wrap_words("head\n\n  1  a distant echo\n▸ 4  they go together", 44);
+        assert_eq!(lines, vec!["head", "", "  1  a distant echo", "▸ 4  they go together"]);
+        let folded = wrap_words("one two three four five six seven", 12);
+        assert_eq!(folded, vec!["one two", "three four", "five six", "seven"]);
+    }
+
     #[test]
     fn the_home_says_everything_in_a_toast() {
         // "every notification must show as a toast" (Joel, 10/09/2026):

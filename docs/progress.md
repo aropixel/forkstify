@@ -3069,3 +3069,32 @@ to **propose** instead, and for `fr` to be the way back.
 
 Docs: the `fw`, `fr` and `:wander` rows of `docs/keybindings.md`, and
 feedback no. 6 in `docs/design/usage-feedback.md`.
+
+## `ac` lays the closeness scale out (2026-09-28)
+
+The question `ac` asks after choosing a target said its two ends — "1
+farthest, a distant echo … 5 closest, almost the same universe" — and left
+2, 3 and 4 to guess. Joel asked for all five, with their meanings, in the
+toast that waits for the answer.
+
+- **The words are a table in the code**, `CLOSENESS`: a distant echo, an
+  influence far back, a family or a scene, they go together, almost the
+  same universe.
+- **The kinds are the catalog's**, not the code's: each row shows the link
+  kinds whose default proximity sits at that level, read from
+  `catalog.proximities` — the grid of `catalog.toml` (0010), which a fork
+  may change. So the reference catalog shows `(influence)` at 2,
+  `(family, scene)` at 3, `(collab, similar)` at 4, `(member)` at 5, and a
+  fork that moved `similar` to 3 is read as it is on disk. Level 1 has no
+  kind and stands on its words.
+- **`▸` marks the one on offer**, which `h`/`l` and the digits move; the
+  toast is recomputed at each draw, so the marker follows.
+- `LinkPending::question()` stays as it was, one line, for the **log**: a
+  record does not need the scale. The toast calls the new `scale()`.
+- **`wrap_words` now keeps a written line as a line**, indentation
+  included, and folds only what is too long for the width. A table that
+  reflows is no longer a table. The rows are held to 44 characters, the
+  toast's inside width, by a test.
+
+Two tests: the five rows with their kinds and the marker, and the wrap
+keeping what it was given.

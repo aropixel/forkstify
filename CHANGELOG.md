@@ -33,6 +33,14 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
+- **`ac` shows the whole closeness scale while it asks.** The question used
+  to name its two ends — "1 farthest … 5 closest" — and leave the middle to
+  guess. It now lists the five, one per line, each with what it means and
+  **the link kinds your catalog puts there** (`(collab, similar)` at 4,
+  `(member)` at 5…), read from your own grid, so a fork that moved one
+  shows it moved. `▸` marks the one on offer; `h`/`l` and the digits move
+  it as before.
+
 - **The playlist points out the artists you do not know yet**: a grey `◦`
   after the name when the artist is *not* in the home's "liked" list — the
   negative of the home's `v` filter, so the two screens cannot disagree.

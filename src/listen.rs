@@ -291,6 +291,19 @@ const MAX_DRY_ADVANCES: u32 = 4;
 /// accident, three in a row is a wall.
 const MAX_DRY_TRACKS: u32 = 3;
 
+/// What each closeness means, from the farthest to the closest — the
+/// words `ac` lays out while it asks (Joel, 2026-09-28). The **kinds** at
+/// each level are not here: they belong to the catalog's own grid
+/// ([0010](../docs/decisions/0010-revised-format-links-without-doors.md)),
+/// which a fork may change, and are read from it.
+const CLOSENESS: [(u8, &str); 5] = [
+    (1, "a distant echo"),
+    (2, "an influence, far back"),
+    (3, "a family or a scene"),
+    (4, "they go together"),
+    (5, "almost the same universe"),
+];
+
 /// `fw` — how many far directions it proposes at once. Three, like the
 /// branches it replaces in the column: the numbers stay the numbers.
 const WANDER_BRANCHES: usize = 3;
@@ -2764,7 +2777,7 @@ impl Live<'_> {
         // close, and the toast stays until a digit, ⏎ or esc (Joel,
         // 23/09/2026)
         if let Some(pending) = &self.link_pending {
-            let text = pending.question();
+            let text = pending.scale(&self.catalog.proximities);
             return Some(crate::tui::Toast { tone: crate::tui::tone_of(&text), text, sticky: false });
         }
         if self.loading {
@@ -4894,16 +4907,56 @@ struct LinkPending {
 }
 
 impl LinkPending {
-    /// What `ac` asks — said in the log, and shown as a toast for as long
-    /// as it waits. It says which end is which: 5 is the closest.
+    /// What `ac` asks, in one line — the record left in the log. The scale
+    /// itself is in the toast, which stays on screen until it is answered.
     fn question(&self) -> String {
         let LinkPending { from_name, to_name, proximity, .. } = self;
-        let scale = "h l move · 1 farthest, a distant echo … 5 closest, almost the same universe";
         if self.drawn {
-            format!("→ {from_name} → {to_name} — closeness {proximity} · {scale} · ⏎ sets it · x undraws · esc leaves it")
+            format!("→ {from_name} → {to_name} — closeness {proximity} · h l move · a digit jumps · ⏎ sets it · x undraws · esc leaves it")
         } else {
-            format!("→ {from_name} → {to_name} — how close? {proximity} · {scale} · ⏎ draws it · esc draws nothing")
+            format!("→ {from_name} → {to_name} — how close? {proximity} · h l move · a digit jumps · ⏎ draws it · esc draws nothing")
         }
+    }
+
+    /// The same question laid out: **the five closenesses, each with what
+    /// it means and the link kinds that sit there** (Joel, 28/09/2026 —
+    /// "1 farthest … 5 closest" said the ends and left the middle to
+    /// guess). The kinds come from the **active catalog's** grid, so a
+    /// fork that moved `similar` to 3 is read here as it is on disk
+    /// (0010); a level no kind defaults to shows its words alone. `▸`
+    /// marks the closeness on offer, which `h`/`l` and the digits move.
+    fn scale(&self, proximities: &HashMap<String, u8>) -> String {
+        let mut lines = vec![
+            if self.drawn {
+                format!("→ {} → {} — closeness {}", self.from_name, self.to_name, self.proximity)
+            } else {
+                format!("→ {} → {} — how close?", self.from_name, self.to_name)
+            },
+            String::new(),
+        ];
+        for (level, meaning) in CLOSENESS {
+            let mut kinds: Vec<&str> = proximities
+                .iter()
+                .filter(|(_, at)| **at == level)
+                .map(|(kind, _)| kind.as_str())
+                .collect();
+            kinds.sort_unstable();
+            let kinds =
+                if kinds.is_empty() { String::new() } else { format!(" ({})", kinds.join(", ")) };
+            let here = if level == self.proximity { "▸" } else { " " };
+            lines.push(format!("{here} {level}  {meaning}{kinds}"));
+        }
+        lines.push(String::new());
+        lines.push("h l move · a digit jumps".to_string());
+        lines.push(
+            if self.drawn {
+                "⏎ sets it · x undraws · esc leaves it"
+            } else {
+                "⏎ draws it · esc draws nothing"
+            }
+            .to_string(),
+        );
+        lines.join("\n")
     }
 }
 
@@ -4918,7 +4971,44 @@ enum Where {
 
 #[cfg(test)]
 mod proposal_tests {
-    use super::abridged_body;
+    use super::{abridged_body, LinkPending};
+    use std::collections::HashMap;
+
+    /// `ac` lays the whole scale out (28/09/2026): the five closenesses,
+    /// each with what it means and the kinds the **active catalog** puts
+    /// there. The one on offer is marked, and a level no kind defaults to
+    /// stands on its words alone.
+    #[test]
+    fn the_closeness_question_lists_the_five_and_their_kinds() {
+        let proximities: HashMap<String, u8> = [("member", 5u8), ("similar", 4), ("collab", 4), ("influence", 2)]
+            .into_iter()
+            .map(|(kind, at)| (kind.to_string(), at))
+            .collect();
+        let pending = LinkPending {
+            from_slug: "the-cure".into(),
+            from_name: "The Cure".into(),
+            to_slug: "siouxsie".into(),
+            to_name: "Siouxsie".into(),
+            proximity: 4,
+            drawn: false,
+        };
+        let text = pending.scale(&proximities);
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines[0], "→ The Cure → Siouxsie — how close?", "{text}");
+        // the kinds come from the grid, sorted, and only where there are any
+        assert!(lines.contains(&"  1  a distant echo"), "{text}");
+        assert!(lines.contains(&"  2  an influence, far back (influence)"), "{text}");
+        assert!(lines.contains(&"  3  a family or a scene"), "{text}");
+        assert!(lines.contains(&"▸ 4  they go together (collab, similar)"), "{text}");
+        assert!(lines.contains(&"  5  almost the same universe (member)"), "{text}");
+        assert_eq!(lines[lines.len() - 2], "h l move · a digit jumps", "{text}");
+        assert!(text.ends_with("⏎ draws it · esc draws nothing"), "{text}");
+        // the rows have to fit the toast, 44 characters wide inside, or
+        // the table folds and stops being one
+        for line in &lines {
+            assert!(line.chars().count() <= 44, "too wide: {line}");
+        }
+    }
 
     /// The confirmation shows two new cards and counts the rest; the
     /// edited cards stay whole.
