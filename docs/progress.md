@@ -3240,3 +3240,38 @@ was nothing to ask anyone again.
 
 One test: the backoff's rhythm, which is where the state machine could
 lie. The reconnection itself needs a session to be worth testing.
+
+## Issue-first: the repository stops taking patches (2026-09-29)
+
+Joel's call, after Fabien Potencier's move on Symfony: **contributions
+arrive as issues, not as pull requests**. A maintainer triages them, the
+change is implemented — by an agent, most of the time — and reviewed by a
+human before it lands. Contributors are encouraged to prepare their issue
+with their own agent: precision is the whole contribution.
+
+- **`CONTRIBUTING.md`**: the model, why (an unsolicited patch costs more
+  to read than it saves; what was scarce is the understanding, and that
+  is still scarce), and what a usable issue holds — the smallest
+  reproduction, the files you believe are involved, **what you verified
+  yourself** as opposed to what an agent told you, what should happen
+  instead, and the approach you would take. A patch is welcome *inside*
+  an issue, as evidence of what is meant.
+- **`.github/ISSUE_TEMPLATE/`**: two forms, `bug.yml` and `change.yml`,
+  both asking for that; `config.yml` points at the catalog, at
+  `CONTRIBUTING.md` and at `docs/decisions/`. The change form asks which
+  decision a proposal goes against — a decision is superseded, never
+  rewritten.
+- **`.github/workflows/issue-first.yml`**: GitHub has no setting that
+  turns pull requests off, so a workflow closes them. It fires on
+  `pull_request_target` — the token can comment and close on a fork's
+  pull request — and **never checks out the branch**: it only talks. The
+  exemption is `author_association` in OWNER / MEMBER / COLLABORATOR,
+  which is everyone with write access, so no username is hardcoded and
+  nothing to update when a maintainer is added.
+- **`.github/PULL_REQUEST_TEMPLATE.md`** says it before the button is
+  pressed, and the README carries the short version.
+
+**The catalog is the exception**, and says so everywhere: cards, links,
+tags and tops live in `forkstify-catalog`, which takes pull requests — a
+card is data you can read in full, and there the review *is* the pull
+request (0025).

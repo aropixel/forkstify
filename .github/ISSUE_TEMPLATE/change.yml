@@ -1,0 +1,64 @@
+name: Something should change
+description: A behaviour, a key, a default, a feature — an argued proposal.
+labels: ["proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is **issue-first**: a triaged proposal is turned
+        into a change, implemented and reviewed. Argue it here rather
+        than sending a patch — the argument is the part that is scarce.
+
+        forkstify's rule: **any automatic decision must be explainable in
+        one sentence and changeable in one commit.** A proposal is held
+        to it.
+
+  - type: textarea
+    id: want
+    attributes:
+      label: What should forkstify do
+      description: In one sentence if you can, then as much as it needs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What made you want it
+      description: >-
+        The evening it got in your way, the gesture you kept reaching for
+        and not finding. A use, not a principle — principles are easy to
+        agree with and hard to act on.
+    validations:
+      required: true
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: What it touches in what is already decided
+      description: >-
+        Read `docs/decisions/`. Name any decision your proposal goes
+        against and say why it should be superseded — a decision is never
+        rewritten, it is superseded by a new one. "None that I could
+        find" is a fine answer.
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: How you would do it
+      description: >-
+        Optional, and worth a lot. Files, the shape of the change, and —
+        as much — what you would **not** do, and why. A rejected approach,
+        argued, is worth as much as a chosen one.
+
+  - type: checkboxes
+    id: read
+    attributes:
+      label: Before posting
+      options:
+        - label: I read `docs/vision.md` and searched the open issues.
+          required: true
+        - label: This is about the application. Anything about which artists exist and how they connect belongs to the catalog repository.
+          required: true

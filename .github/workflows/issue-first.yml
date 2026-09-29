@@ -1,0 +1,65 @@
+# forkstify is issue-first (CONTRIBUTING.md): the contribution asked for
+# is a well-described issue, not a patch. A pull request opened from
+# outside the maintainers is closed here, with a comment saying why and
+# where to go — silence would read as neglect, which is worse.
+#
+# `pull_request_target` so the job has a token that can comment and close
+# even when the pull request comes from a fork. Nothing from the branch is
+# ever checked out or run: this job only talks.
+name: issue-first
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    name: close and say why
+    # OWNER, MEMBER and COLLABORATOR are the people with write access:
+    # the repository's owner, the organization's members, anyone invited.
+    # They open pull requests as usual — the rule is about unsolicited
+    # patches from outside, nothing else.
+    if: >-
+      github.event.pull_request.author_association != 'OWNER' &&
+      github.event.pull_request.author_association != 'MEMBER' &&
+      github.event.pull_request.author_association != 'COLLABORATOR'
+    runs-on: ubuntu-latest
+    steps:
+      - name: comment, then close
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          cat > body.md <<EOF
+          Thank you for this, @${AUTHOR} — and sorry for the machine
+          answering first.
+
+          **forkstify does not take unsolicited pull requests.** It works
+          on an *issue-first* model: contributions arrive as
+          well-described issues, a maintainer triages them, and the change
+          is then implemented — by an agent, most of the time — and
+          reviewed by a human before it lands. So this one is closed
+          automatically, and it is nothing about your code.
+
+          Please [open an issue](https://github.com/${GITHUB_REPOSITORY}/issues/new/choose)
+          instead, as detailed as you can make it: what breaks or what
+          should change, where you think it is, what you verified
+          yourself. You are encouraged to prepare it **with your own
+          agent** — precision is the whole contribution here, and that is
+          what agents are good at. Your patch is welcome *inside* the
+          issue, as a link or a diff, to show what you mean.
+
+          Why, and what a usable issue holds:
+          [CONTRIBUTING.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CONTRIBUTING.md).
+
+          One exception: the **catalog** — which artists exist and how they
+          connect — lives in
+          [forkstify-catalog](https://github.com/aropixel/forkstify-catalog),
+          and that repository does take pull requests.
+          EOF
+          gh pr comment "$PR" --body-file body.md
+          gh pr close "$PR"

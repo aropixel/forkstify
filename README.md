@@ -159,6 +159,25 @@ stand. What each version brings is in
 [`CHANGELOG.md`](CHANGELOG.md) — that one is for whoever uses forkstify,
 not for whoever builds it.
 
+## Contributing
+
+**Open an issue, not a pull request.** forkstify is *issue-first*: a
+contribution arrives as a well-described issue, a maintainer triages it,
+and the change is implemented — by an agent, most of the time — and
+reviewed by a human before it lands. Writing code stopped being the
+bottleneck; knowing precisely what to write never did, so that is the
+half being asked for. Prepare the issue with your own agent if you like —
+precision is the contribution. Pull requests from outside the maintainers
+are closed automatically, with a pointer to
+[`CONTRIBUTING.md`](CONTRIBUTING.md), which says why and what a usable
+issue holds.
+
+The **catalog** is the exception: artists, links, tags and tops live in
+[forkstify-catalog](https://github.com/aropixel/forkstify-catalog), and
+that repository takes pull requests — a card is data you can read in
+full, and there the review *is* the pull request
+([0025](docs/decisions/0025-the-review-is-the-pull-request.md)).
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE). The catalog's own license is decided in

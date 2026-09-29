@@ -1,0 +1,13 @@
+# forkstify is issue-first (CONTRIBUTING.md): an issue is the
+# contribution, and these two forms ask for what makes one usable.
+blank_issues_enabled: true
+contact_links:
+  - name: The catalog — artists, links, tags, tops
+    url: https://github.com/aropixel/forkstify-catalog/issues
+    about: Anything about which artists exist and how they connect lives in the catalog repository, which takes pull requests.
+  - name: How contributing works here
+    url: https://github.com/aropixel/forkstify/blob/main/CONTRIBUTING.md
+    about: Why this repository asks for issues rather than pull requests, and what a usable issue holds.
+  - name: What is already decided
+    url: https://github.com/aropixel/forkstify/tree/main/docs/decisions
+    about: One decision per file, dated, never rewritten. Read before proposing a change that goes against one.

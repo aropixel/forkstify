@@ -1,0 +1,76 @@
+name: Something is wrong
+description: forkstify does something other than what it says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is **issue-first**: a triaged issue is turned into
+        a change, implemented and reviewed. So the issue is the
+        contribution — the more precise it is, the sooner it lands.
+
+        You are encouraged to prepare it **with your own agent**: point it
+        at your clone, let it reproduce and read the code around the
+        fault. Then check what it wrote before you post it.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what should happen instead
+      description: Two or three sentences. The second half matters as much as the first.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: The smallest way to reproduce it
+      description: >-
+        The keys pressed, the state of the queue, what the screen said.
+        If it needs a particular card or a particular artist, name them.
+      placeholder: |
+        1. `forkstify listen the-cure`
+        2. `fw`, then …
+        3. the branch column shows …
+    validations:
+      required: true
+
+  - type: textarea
+    id: where
+    attributes:
+      label: Where you think it is
+      description: >-
+        Files and functions, with paths, and how sure you are. Leave it
+        empty rather than guess — "I did not look" is more useful than a
+        wrong pointer.
+      placeholder: "`src/listen.rs`, `load_stop` — fairly sure; the `alive()` check runs before …"
+
+  - type: textarea
+    id: checked
+    attributes:
+      label: What you verified yourself
+      description: >-
+        Which parts of the above you ran and saw with your own eyes, and
+        which you are taking on trust — from an agent, from a hunch, from
+        someone else. Both are welcome; only the confusion between them
+        is costly.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`forkstify --version`, or the commit you built."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: read
+    attributes:
+      label: Before posting
+      options:
+        - label: I searched the open issues and `docs/progress.md`.
+          required: true
+        - label: This is about the application. Anything about which artists exist and how they connect belongs to the catalog repository.
+          required: true
