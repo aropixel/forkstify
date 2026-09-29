@@ -662,10 +662,18 @@ struct Finder {
 
 /// A found row turned into a stop of the axis, and its uri when the search
 /// gave one. `None` for an artist row: there is no one track behind it.
-fn stop_of(hit: &Hit, catalog: &Catalog) -> Option<(crate::engine::Stop, Option<String>)> {
+fn stop_of(
+    hit: &Hit,
+    catalog: &Catalog,
+    learned: &crate::learned::Learned,
+) -> Option<(crate::engine::Stop, Option<String>)> {
     match hit {
         Hit::Track { title, artist, uri, slug, .. } => {
+            // the like first (0018), then the card: a liked track queued
+            // from the search wore the top's ♪, or the search's +
+            let liked = slug.as_ref().is_some_and(|s| learned.track_liked(s, title));
             let source = match slug.as_ref().map(|s| &catalog.cards[s]) {
+                Some(_) if liked => crate::engine::Source::Liked,
                 Some(card) if card.tops.contains(title) => crate::engine::Source::Top,
                 Some(_) => crate::engine::Source::Outside,
                 None => crate::engine::Source::Offmap,
@@ -909,13 +917,18 @@ impl Live<'_> {
         );
         if let Some(title) = opening_track {
             opening.retain(|stop| stop.title != title);
+            // the glyph the track deserves, not "top" whatever it is: the
+            // home's track seed is a **liked** one by construction
+            // (Joel, 2026-09-29)
+            let source =
+                crate::engine::source_of(&self.catalog, &self.tail, &self.learned, &seed, &title);
             opening.insert(
                 0,
                 crate::engine::Stop {
                     slug: seed.clone(),
                     artist: self.catalog.cards[&seed].name.clone(),
                     title,
-                    source: crate::engine::Source::Top,
+                    source,
                     head: None,
                     encore: false,
                 },
@@ -945,17 +958,18 @@ impl Live<'_> {
         self.help_open = false;
         self.explore = None;
         self.notices.borrow_mut().clear();
-        let card_tops = self.catalog.cards.get(slug).map(|c| c.tops.clone()).unwrap_or_default();
         let opening: Vec<crate::engine::Stop> = titles
             .into_iter()
             .map(|title| crate::engine::Stop {
                 slug: slug.to_string(),
                 artist: name.to_string(),
-                source: if card_tops.contains(&title) {
-                    crate::engine::Source::Top
-                } else {
-                    crate::engine::Source::Tail
-                },
+                source: crate::engine::source_of(
+                    &self.catalog,
+                    &self.tail,
+                    &self.learned,
+                    slug,
+                    &title,
+                ),
                 title,
                 head: None,
                 encore: false,
@@ -1722,11 +1736,15 @@ impl Live<'_> {
     fn attach_stops(&mut self, slug: &str) {
         let Some(card) = self.catalog.cards.get(slug) else { return };
         let tops = card.tops.clone();
+        let learned = &self.learned;
         let stops = self.past.iter_mut().chain(self.current.iter_mut()).chain(self.queue.iter_mut());
         for stop in stops {
             if stop.slug.is_empty() && crate::generate::slugify(&stop.artist) == slug {
                 stop.slug = slug.to_string();
-                stop.source = if tops.contains(&stop.title) {
+                // the like first (0018), then the card
+                stop.source = if learned.track_liked(slug, &stop.title) {
+                    crate::engine::Source::Liked
+                } else if tops.contains(&stop.title) {
                     crate::engine::Source::Top
                 } else {
                     crate::engine::Source::Outside
@@ -1753,7 +1771,10 @@ impl Live<'_> {
                 slug: slug.to_string(),
                 artist: card.name.clone(),
                 title: title.clone(),
-                source: if card.tops.contains(&title) {
+                // the like first (0018), then the card
+                source: if self.learned.track_liked(slug, &title) {
+                    crate::engine::Source::Liked
+                } else if card.tops.contains(&title) {
                     crate::engine::Source::Top
                 } else {
                     crate::engine::Source::Outside
@@ -3497,7 +3518,7 @@ impl Live<'_> {
                 (stop, None)
             }
             Hit::Track { artist, slug, spotify, .. } => {
-                let Some((stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
+                let Some((stop, _)) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
                 let behind = slug
                     .is_none()
                     .then(|| (crate::generate::slugify(artist), artist.clone(), spotify.clone()));
@@ -3602,7 +3623,7 @@ impl Live<'_> {
             // catalog, its card is generated behind (0016) without making
             // it wait: it will be attached when it arrives
             (Some(at), Hit::Track { artist, slug, spotify, .. }) => {
-                let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog) else { return };
+                let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
                     reason: "inserted (ti)".to_string(),
@@ -4115,7 +4136,7 @@ impl Live<'_> {
     fn explore_enqueue(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
         let Some((title, source)) =
-            screen.track().map(|track| (track.title.clone(), source_of(track)))
+            screen.track().map(|track| (track.title.clone(), mark_of(track)))
         else {
             screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
@@ -4145,7 +4166,7 @@ impl Live<'_> {
             screen.album_playlist().map(|(album, tracks)| {
                 let tracks = tracks
                     .into_iter()
-                    .map(|track| (track.title.clone(), source_of(track)))
+                    .map(|track| (track.title.clone(), mark_of(track)))
                     .collect();
                 (album, tracks)
             });
@@ -4937,14 +4958,16 @@ impl Live<'_> {
     }
 }
 
-/// Where a track of the discography comes from, for the playlist's glyph:
-/// a top of the card, a liked track, otherwise the long tail. `e` and `a`
-/// read it the same way.
-fn source_of(track: &crate::explore::Track) -> crate::engine::Source {
-    if track.is_top() {
-        crate::engine::Source::Top
-    } else if track.liked {
+/// Where a track of the discography comes from, for the playlist's glyph.
+/// The **like first** (0018), as everywhere else: `e` and `a` used to
+/// queue a liked top under the top's ♪ (Joel, 2026-09-29). The modal's own
+/// `card_top` is read rather than the card's list, since it knows the
+/// exact string even when the discography spells the title otherwise.
+fn mark_of(track: &crate::explore::Track) -> crate::engine::Source {
+    if track.liked {
         crate::engine::Source::Liked
+    } else if track.is_top() {
+        crate::engine::Source::Top
     } else {
         crate::engine::Source::Tail
     }

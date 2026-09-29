@@ -12,6 +12,16 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Fixed
+
+- **A liked track now wears its heart, wherever it enters the list.** A
+  journey started on the home's track seed showed ♪, the top's glyph, on a
+  track that is liked and is not a top — and the home proposes a liked
+  track by construction, so it was wrong every time. The like outranks the
+  top everywhere now: the seed from the home, a whole album, `e` and `a`
+  in the discography, a track from `:search`, and one whose card has just
+  been generated.
+
 ### Changed
 
 - **`A` in the discography puts the album on, instead of editing the

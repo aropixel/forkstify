@@ -471,18 +471,36 @@ pub fn plain_source(catalog: &Catalog, tail: &Tail, slug: &str, title: &str) -> 
     }
 }
 
-/// The glyph a track deserves as things stand. The like outranks the rest
-/// (0018); a door keeps its own, which says where it leads rather than how
-/// it was picked. A source is fixed when a track is drawn, so liking one
-/// afterwards left the old glyph in the list (Joel, 2026-09-23).
-pub fn current_source(catalog: &Catalog, tail: &Tail, learned: &Learned, stop: &Stop) -> Source {
-    if learned.track_liked(&stop.slug, &stop.title) {
-        Source::Liked
-    } else if stop.source == Source::Door {
-        Source::Door
-    } else {
-        plain_source(catalog, tail, &stop.slug, &stop.title)
+/// The glyph a track gets when it enters the list **from its title
+/// alone** — a seed chosen at the home, an album, a track queued from the
+/// discography. The like outranks the rest (0018): a top is the card's
+/// knowledge, a like is the listener's. Then what the card and the tail
+/// say. Nobody composes a `Source` by hand: a seed the home proposed was
+/// marked "top" whatever it was, and the home proposes a **liked** track
+/// (Joel, 2026-09-29, "Danzón" of Control Machete, liked and not a top).
+pub fn source_of(
+    catalog: &Catalog,
+    tail: &Tail,
+    learned: &Learned,
+    slug: &str,
+    title: &str,
+) -> Source {
+    if learned.track_liked(slug, title) {
+        return Source::Liked;
     }
+    plain_source(catalog, tail, slug, title)
+}
+
+/// The glyph a track deserves as things stand. The same rule as
+/// `source_of`, for a stop **already in the list**: it may carry a door,
+/// which says where it leads rather than how it was picked. A source is
+/// fixed when a track is drawn, so liking one afterwards left the old
+/// glyph in the list (Joel, 2026-09-23).
+pub fn current_source(catalog: &Catalog, tail: &Tail, learned: &Learned, stop: &Stop) -> Source {
+    if !learned.track_liked(&stop.slug, &stop.title) && stop.source == Source::Door {
+        return Source::Door;
+    }
+    source_of(catalog, tail, learned, &stop.slug, &stop.title)
 }
 
 fn reservoir(
@@ -1497,6 +1515,16 @@ mod tests {
         // nothing known of the artist: off the map
         let orphan = Stop { slug: "nobody".into(), ..stop("x", Source::Top) };
         assert_eq!(mark(&learned, &orphan), Source::Offmap);
+
+        // a track entering the list from its title alone follows the same
+        // rule: the home proposes a **liked** track as a seed, and it was
+        // marked "top" whatever it was (Joel, 2026-09-29, "Danzón")
+        let from_title =
+            |title: &str| source_of(&catalog, &tail, &learned, "the-cure", title);
+        assert_eq!(from_title("Killing an Arab"), Source::Liked, "liked, not a top");
+        assert_eq!(from_title("A Forest"), Source::Liked, "liked *and* a top: ♥ wins");
+        assert_eq!(from_title("Boys Don't Cry"), Source::Top);
+        assert_eq!(from_title("Never played"), Source::Outside);
     }
 
     /// 2026-09-23: an evening drifts. "Stay in the universe" follows what

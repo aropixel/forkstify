@@ -3161,3 +3161,38 @@ open.
 
 One test each: the fold (accents, case, punctuation, the slug) and the
 exact match coming first.
+
+## The seed's glyph said "top" whatever it was (2026-09-29)
+
+Joel started a journey on the home's track seed — "Danzón" by Control
+Machete — and the line wore ♪, the top's glyph. The track is **liked**,
+and it is not a top of the card at all.
+
+`start_journey` composed the opening stop by hand with
+`source: Source::Top`, hardcoded. The home's track seed is
+`learned.liked_anywhere()` first, so the case it got wrong was the common
+one — every track seed the home proposes is liked.
+
+The rule already existed and is 0018's: **the like outranks the top**, a
+top is the card's knowledge and a like is the listener's. `current_source`
+applied it to a stop already in the list (that is what `remark` uses after
+a `tl`), but five places composed a `Source` by hand and asked only "is it
+a top?":
+
+- `start_journey` — the seed chosen at the home, hardcoded to `Top`;
+- `start_album` — `A` and ⏎ on an album row;
+- the discography's `e` and `a` (`source_of`, now `mark_of`, which reads
+  the modal's own `card_top` — it knows the exact string even when the
+  discography spells the title otherwise);
+- `stop_of` — a track row of `:search`;
+- `attach_stops` and `play_fresh` — a track whose card has just been born.
+
+New `engine::source_of(catalog, tail, learned, slug, title)`: the glyph a
+track gets when it enters the list **from its title alone**. The like
+first, then the card and the tail. `current_source` is now the same rule
+for a stop already there, with the door's arrow kept. The three places
+that distinguish `Outside` (a search brought it in) keep that, with the
+like tried first.
+
+The test on the glyph gained four lines: liked and not a top, liked *and*
+a top, a plain top, an unknown title.
