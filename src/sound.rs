@@ -64,6 +64,29 @@ pub async fn discover() -> Result<String, Box<dyn std::error::Error>> {
     Ok(session.username())
 }
 
+/// A session on the cached credentials, and a player on that session.
+/// A lost session is opened again by building a whole fresh `Sound` and
+/// putting it in the old one's place (`listen::watch_sound`): the player
+/// belongs to its session, and the two go together.
+async fn open() -> Result<(Session, Arc<Player>), Box<dyn std::error::Error>> {
+    let cache = Cache::new(Some(credentials_cache()), None, None, None)?;
+    let credentials = cache
+        .credentials()
+        .ok_or("no librespot credentials — the home screen asks the phone for them")?;
+
+    let session = Session::new(SessionConfig::default(), Some(cache));
+    session.connect(credentials, true).await?;
+
+    let backend = audio_backend::find(None).ok_or("no audio backend")?;
+    let player = Player::new(
+        PlayerConfig::default(),
+        session.clone(),
+        Box::new(NoOpVolume),
+        move || backend(None, AudioFormat::default()),
+    );
+    Ok((session, player))
+}
+
 pub struct Sound {
     player: Arc<Player>,
     /// Kept to be asked whether it still holds. The credentials file on
@@ -77,21 +100,7 @@ impl Sound {
     /// Reuse the credentials cached by the discovery step; the phone tap
     /// only ever happens once per machine.
     pub async fn connect() -> Result<Sound, Box<dyn std::error::Error>> {
-        let cache = Cache::new(Some(credentials_cache()), None, None, None)?;
-        let credentials = cache
-            .credentials()
-            .ok_or("no librespot credentials — the home screen asks the phone for them")?;
-
-        let session = Session::new(SessionConfig::default(), Some(cache));
-        session.connect(credentials, true).await?;
-
-        let backend = audio_backend::find(None).ok_or("no audio backend")?;
-        let player = Player::new(
-            PlayerConfig::default(),
-            session.clone(),
-            Box::new(NoOpVolume),
-            move || backend(None, AudioFormat::default()),
-        );
+        let (session, player) = open().await?;
         Ok(Sound { player, session })
     }
 

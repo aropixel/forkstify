@@ -3196,3 +3196,47 @@ like tried first.
 
 The test on the glyph gained four lines: liked and not a top, liked *and*
 a top, a plain top, an unknown title.
+
+## A lost session opens itself again (2026-09-29)
+
+"⏹ librespot — session lost, q then relaunch" was the honest state of
+things: the walk held, the track stayed at the head of the queue, and the
+evening ended there. The credentials on disk survive a lost session —
+what goes is the connection, not the pairing with the phone — so there
+was nothing to ask anyone again.
+
+- **`sound::open()`**: a session on the cached credentials and a player on
+  that session. `Sound::connect` wraps the pair; a reconnection builds a
+  whole fresh `Sound` and puts it in the old one's place. The player
+  belongs to its session, the two go together.
+- **`watch_sound()`, on the one-second tick.** It **does not wait**:
+  opening a session takes seconds and a dead access point takes the whole
+  timeout, so the work goes to a job (`Job::Reconnected`) like a resolve
+  or a harvest, and the keyboard keeps answering. The rhythm is
+  `next_attempt`, a pure function: at once on the first loss, **one
+  attempt at a time** (a zero wait marks one as out), the wait doubling
+  from 5 s to a minute, each attempt capped at 20 s — without that cap a
+  connection that never answers would leave the retry marked "out" for
+  good.
+- **`reconnected()` is answered by the loop, not `on_job`**: it hands back
+  the new player's **event channel**, and only the loop can swap it. The
+  one it holds belongs to the player being dropped, and the next `recv`
+  would read its closing as the end of the session and quit.
+- **The walk picks up by itself.** The track that could not load is at the
+  head of the queue already (`Advance::Blocked` puts it back); one that
+  was *shown* as playing when the session went is put back there too — the
+  fresh player holds nothing, and skipping it would lose a track for a
+  fault that is not its own. Then `advance()`.
+- **Paused stays paused**: that is still what the listener asked for, and
+  the toast says `p` starts again. `toggle_pause` now returns whether the
+  queue has to be started rather than resumed — a fresh player has nothing
+  to resume, so `p` and the media key used to do nothing after a
+  reconnection.
+- Only `alive()` triggers it. A run of tracks ending in silence
+  (`dry_tracks`) is a different ailment, more often a region lock, and
+  reopening the session on it would cut the sound for nothing.
+- The header reads `⟳ librespot — session lost, opening it again`, and
+  `blocked()` no longer orders a relaunch when the session is the cause.
+
+One test: the backoff's rhythm, which is where the state machine could
+lie. The reconnection itself needs a session to be worth testing.

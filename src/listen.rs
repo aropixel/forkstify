@@ -29,7 +29,7 @@ use crate::sound::{request_started, track_finished, track_over, track_unavailabl
 use crate::spotify::{Resolved, WebApi};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use librespot_playback::player::PlayerEvent;
+use librespot_playback::player::{PlayerEvent, PlayerEventChannel};
 use crate::{state_of, Round};
 use librespot_core::SpotifyUri;
 use rand::distributions::WeightedIndex;
@@ -142,6 +142,8 @@ async fn async_run(
         typed: String::new(),
         warm_requested: false,
         web_ok: true,
+        sound_retry: None,
+        sound_next_wait: RECONNECT_FIRST_WAIT,
         wander_requested: None,
         wandering: None,
         link_pending: None,
@@ -222,13 +224,25 @@ async fn async_run(
                 None => break,
             },
             _ = tick.tick() => {
+                // a lost session is opened again by itself, off the loop
+                live.watch_sound();
                 if live.progress.as_ref().is_some_and(|p| p.running) || live.toast_active() {
                     live.paint();
                 }
             }
             job = jobs_rx.recv() => {
                 if let Some(job) = job {
-                    live.on_job(job).await;
+                    // the reconnection is answered here, not in `on_job`:
+                    // it hands back the new player's event channel, which
+                    // only the loop can swap in
+                    match job {
+                        Job::Reconnected(result) => {
+                            if let Some(fresh) = live.reconnected(*result).await {
+                                events = fresh;
+                            }
+                        }
+                        job => live.on_job(job).await,
+                    }
                     live.prefetch_next().await;
                     live.paint();
                 }
@@ -304,6 +318,36 @@ const CLOSENESS: [(u8, &str); 5] = [
     (5, "almost the same universe"),
 ];
 
+/// Whether to open the session again **now**, and with what wait if this
+/// attempt fails in turn. `None` means hold: either an attempt is already
+/// out — a zero wait marks it — or the backoff has not run out. Pure, so
+/// the rhythm can be read without a Spotify session in the room.
+fn next_attempt(
+    retry: Option<(std::time::Instant, std::time::Duration)>,
+    now: std::time::Instant,
+) -> Option<std::time::Duration> {
+    match retry {
+        // one attempt at a time: the job that is out has to come back
+        Some((_, wait)) if wait.is_zero() => None,
+        Some((last, wait)) if now.duration_since(last) < wait => None,
+        // it failed and the wait has run out: try again, and wait longer
+        // next time
+        Some((_, wait)) => Some((wait * 2).min(RECONNECT_MAX_WAIT)),
+        // the first loss: at once
+        None => Some(RECONNECT_FIRST_WAIT),
+    }
+}
+
+/// How long to wait before opening the session again after a first
+/// failure, and the ceiling the wait doubles up to: an access point that
+/// is not coming back must not be asked once a second.
+const RECONNECT_FIRST_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+const RECONNECT_MAX_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+/// How long one attempt is given. Without it a connection that never
+/// answers would leave the retry marked "a job is out" for good, and the
+/// session would never be tried again.
+const RECONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+
 /// `fw` — how many far directions it proposes at once. Three, like the
 /// branches it replaces in the column: the numbers stay the numbers.
 const WANDER_BRANCHES: usize = 3;
@@ -371,6 +415,13 @@ struct Live<'a> {
     warm_requested: bool,
     /// What the Web API last answered. A file on disk cannot say it.
     web_ok: bool,
+    /// A reconnection to librespot is being backed off: when the last
+    /// attempt was, and how long to wait before the next. `None` while the
+    /// session holds. The wait doubles up to a minute — a dead access
+    /// point must not be hammered once a second (Joel, 2026-09-29).
+    sound_retry: Option<(std::time::Instant, std::time::Duration)>,
+    /// The wait to apply if the attempt now out comes back a failure.
+    sound_next_wait: std::time::Duration,
     /// `:wander [artist]` asked; the command handler is not async either.
     wander_requested: Option<String>,
     /// A `fw` stands: the branch column proposes far directions instead of
@@ -495,6 +546,10 @@ enum Job {
     /// The fresh card's vector (0019) — or why there is none; the card is
     /// adopted either way.
     Vectorized { slug: String, after: After, draft: crate::generate::Draft, vector: Result<Vec<f32>, String> },
+    /// A session opened again after librespot lost the old one. Boxed:
+    /// a `Sound` is far larger than the other answers, and every `Job`
+    /// would carry the weight.
+    Reconnected(Box<Result<crate::sound::Sound, String>>),
     /// The catalog gestures, run off the loop (workstream B).
     Diffed(Result<crate::fork::Diff, String>),
     Proposed(Result<crate::fork::Proposal, String>),
@@ -986,7 +1041,9 @@ impl Live<'_> {
     /// rest is the home's grammar.
     async fn on_home_cmd(&mut self, cmd: Cmd) -> bool {
         if matches!(cmd, Cmd::PlayPause) {
-            self.toggle_pause();
+            if self.toggle_pause() {
+                self.resume_queue().await;
+            }
             return true;
         }
         // the key helper, as when listening (Joel, 10/09/2026): space opens
@@ -1226,6 +1283,8 @@ impl Live<'_> {
     /// A job came back: finish the gesture it was part of.
     async fn on_job(&mut self, job: Job) {
         match job {
+            // answered by the loop, which alone can swap the event channel
+            Job::Reconnected(_) => {}
             Job::Resolved { title, artist, result } => {
                 let is_current = self.loading
                     && self.current.as_ref().is_some_and(|s| s.title == title && s.artist == artist);
@@ -1549,7 +1608,16 @@ impl Live<'_> {
     fn status_now(&self) -> Vec<(String, bool)> {
         let sound = self.sound.alive();
         let mut rows = vec![
-            (if sound { "✓ librespot" } else { "⏹ librespot — session lost, q then relaunch" }.to_string(), sound),
+            (
+                if sound {
+                    "✓ librespot".to_string()
+                } else {
+                    // it opens again by itself now: what the header owes
+                    // the reader is what is going on, not an order
+                    "⟳ librespot — session lost, opening it again".to_string()
+                },
+                sound,
+            ),
             (if self.web_ok { "✓ api web" } else { "⏹ api web — no answer" }.to_string(), self.web_ok),
         ];
         // whatever the caller put after those two — the sync word — is its
@@ -1828,8 +1896,15 @@ impl Live<'_> {
     fn blocked(&self, why: &str) {
         say!(self, "\n⏹ playback interrupted: {why}.");
         say!(self, "   The track stays at the head of the queue — j to retry.");
-        say!(self, "   If it persists: q then relaunch — the Spotify");
-        say!(self, "   authorization is asked again by itself if it expired.");
+        if self.sound.alive() {
+            say!(self, "   If it persists: q then relaunch — the Spotify");
+            say!(self, "   authorization is asked again by itself if it expired.");
+        } else {
+            // it opens again by itself now (Joel, 2026-09-29): what the
+            // reader needs is what is going on, not an order
+            say!(self, "   The session opens again by itself and the walk");
+            say!(self, "   picks up here — nothing to relaunch.");
+        }
     }
 
     /// Move to the next track (the current one falls into the past). No
@@ -2080,11 +2155,8 @@ impl Live<'_> {
                 self.render();
             }
             Control::PlayPause => {
-                self.paused = !self.paused;
-                if self.paused {
-                    self.sound.pause();
-                } else {
-                    self.sound.resume();
+                if self.toggle_pause() {
+                    self.resume_queue().await;
                 }
             }
             Control::Stop => {
@@ -2560,7 +2632,11 @@ impl Live<'_> {
                 self.back().await;
                 self.render();
             }
-            Cmd::PlayPause => self.toggle_pause(),
+            Cmd::PlayPause => {
+                if self.toggle_pause() {
+                    self.resume_queue().await;
+                }
+            }
             Cmd::Help(namespace) => {
                 // space opens the help, and closes it at the entry level;
                 // esc closes it from anywhere
@@ -4657,6 +4733,92 @@ impl Live<'_> {
         }
     }
 
+    /// The session to librespot is opened again by itself, and the walk
+    /// picks up at the track it was holding. It used to be "q then
+    /// relaunch" on screen, and the evening stopped there (Joel,
+    /// 2026-09-29).
+    ///
+    /// Called on the one-second tick, and it **does not wait**: opening a
+    /// session takes seconds, and a dead access point takes all of the
+    /// timeout. The work goes to a job, like a resolve or a harvest, so
+    /// the keyboard stays answering while it tries.
+    ///
+    /// Only `alive()` triggers it — the session saying it is gone. A run
+    /// of tracks that end in silence (`dry_tracks`) is a different
+    /// ailment, more often a region lock than a broken session, and
+    /// reopening on it would cut the sound for nothing.
+    fn watch_sound(&mut self) {
+        if self.sound.alive() {
+            self.sound_retry = None;
+            return;
+        }
+        let now = std::time::Instant::now();
+        let first = self.sound_retry.is_none();
+        let Some(wait) = next_attempt(self.sound_retry, now) else { return };
+        if first {
+            say!(self, "\n⟳ librespot — session lost, opening it again…");
+        }
+        // a zero wait marks "a job is out"; the answer sets the real one
+        self.sound_retry = Some((now, std::time::Duration::ZERO));
+        self.sound_next_wait = wait;
+        let tx = self.jobs_tx.clone();
+        tokio::task::spawn_local(async move {
+            let result = match tokio::time::timeout(RECONNECT_TIMEOUT, crate::sound::Sound::connect()).await {
+                Ok(opened) => opened.map_err(|why| why.to_string()),
+                Err(_) => Err("no answer in time".to_string()),
+            };
+            let _ = tx.send(Job::Reconnected(Box::new(result)));
+        });
+    }
+
+    /// The reconnection came back. On success the old `Sound` is dropped
+    /// here — which stops the player that went with the dead session — and
+    /// the **new** event channel goes back to the loop: the one it holds
+    /// belongs to that player and closes with it, which the next `recv`
+    /// would read as the end of the session.
+    async fn reconnected(&mut self, result: Result<crate::sound::Sound, String>) -> Option<PlayerEventChannel> {
+        let fresh = match result {
+            Ok(sound) => sound,
+            Err(why) => {
+                let wait = self.sound_next_wait;
+                self.sound_retry = Some((std::time::Instant::now(), wait));
+                say!(self, "⏹ librespot — {why}; trying again in {}s", wait.as_secs());
+                return None;
+            }
+        };
+        // the old player lets go of the sound card before the new one ever
+        // asks for it; dropping it here takes its event channel with it
+        self.sound.stop();
+        self.sound = fresh;
+        self.sound_retry = None;
+        // the Web API was blamed for the same outage: let the next call
+        // say whether it is really down
+        self.web_ok = true;
+        let events = self.sound.events();
+        // a track shown as playing when the session went is not playing
+        // any more, and the fresh player holds nothing: put it back at the
+        // head so the walk resumes **on it** rather than skipping it. The
+        // one that failed to load is already there (`Advance::Blocked`).
+        if let Some(stop) = self.current.take() {
+            self.loading = false;
+            self.progress = None;
+            self.queue.push_front(stop);
+        }
+        // a session that went while paused stays paused: that is still
+        // what the listener asked for, and `p` picks the queue back up
+        if self.paused {
+            say!(self, "✓ librespot — session back (paused: p starts again)");
+            return Some(events);
+        }
+        say!(self, "✓ librespot — session back");
+        if !self.queue.is_empty() {
+            if let Advance::Blocked(why) = self.advance().await {
+                self.blocked(&why);
+            }
+        }
+        Some(events)
+    }
+
     /// A gesture the grammar accepts but the code does not serve yet. Saying
     /// so beats a silent no-op: the key is right, the wiring is missing.
     fn not_yet(&self, keys: &str, what: &str) {
@@ -4922,12 +5084,28 @@ impl Live<'_> {
         self.overlay = Some((title.to_string(), lines));
     }
 
-    fn toggle_pause(&mut self) {
+    fn toggle_pause(&mut self) -> bool {
         self.paused = !self.paused;
         if self.paused {
             self.sound.pause();
-        } else {
-            self.sound.resume();
+            return false;
+        }
+        // nothing loaded but a queue waiting: the player is a fresh one,
+        // opened after the session was lost, and `resume` has nothing to
+        // resume. Start the head instead (Joel, 2026-09-29).
+        if self.current.is_none() && !self.queue.is_empty() {
+            return true;
+        }
+        self.sound.resume();
+        false
+    }
+
+    /// Start the head of the queue when there is nothing on air — after a
+    /// session was opened again, or any other time the player holds
+    /// nothing while the walk still has somewhere to go.
+    async fn resume_queue(&mut self) {
+        if let Advance::Blocked(why) = self.advance().await {
+            self.blocked(&why);
         }
     }
 
@@ -5063,8 +5241,36 @@ enum Where {
 
 #[cfg(test)]
 mod proposal_tests {
-    use super::{abridged_body, LinkPending};
+    use super::{
+        abridged_body, next_attempt, LinkPending, RECONNECT_FIRST_WAIT, RECONNECT_MAX_WAIT,
+    };
     use std::collections::HashMap;
+    use std::time::{Duration, Instant};
+
+    /// The rhythm of a session being opened again (2026-09-29): at once on
+    /// the first loss, one attempt at a time, the wait doubling up to a
+    /// minute so a dead access point is not asked once a second.
+    #[test]
+    fn a_lost_session_is_retried_on_a_widening_wait() {
+        let now = Instant::now();
+        // the first loss: try at once, and wait five seconds if it fails
+        assert_eq!(next_attempt(None, now), Some(RECONNECT_FIRST_WAIT));
+        // an attempt is out (a zero wait): nothing else is launched
+        assert_eq!(next_attempt(Some((now, Duration::ZERO)), now), None);
+        // it failed, the wait is on: hold until it runs out…
+        let failed = Some((now, RECONNECT_FIRST_WAIT));
+        assert_eq!(next_attempt(failed, now + Duration::from_secs(1)), None);
+        // …then try again, and wait twice as long next time
+        assert_eq!(
+            next_attempt(failed, now + RECONNECT_FIRST_WAIT),
+            Some(RECONNECT_FIRST_WAIT * 2)
+        );
+        // the wait has a ceiling
+        assert_eq!(
+            next_attempt(Some((now, RECONNECT_MAX_WAIT)), now + RECONNECT_MAX_WAIT),
+            Some(RECONNECT_MAX_WAIT)
+        );
+    }
 
     /// `ac` lays the whole scale out (28/09/2026): the five closenesses,
     /// each with what it means and the kinds the **active catalog** puts

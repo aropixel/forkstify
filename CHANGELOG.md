@@ -14,6 +14,15 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **A lost Spotify session no longer ends the evening.** When librespot's
+  session went — the access point dropping, the account taken over
+  elsewhere — the screen said "q then relaunch" and that was that. It now
+  opens again by itself, in the background, and the walk picks up on the
+  very track it was holding: at once on the first loss, then every 5, 10,
+  20… seconds up to a minute for as long as it fails, without ever
+  blocking the keyboard. If it went while paused, it stays paused and `p`
+  starts it again.
+
 - **A liked track now wears its heart, wherever it enters the list.** A
   journey started on the home's track seed showed ♪, the top's glyph, on a
   track that is liked and is not a top — and the home proposes a liked
