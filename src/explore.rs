@@ -695,7 +695,9 @@ impl Explore {
 }
 
 fn contains(haystack: &str, needle: &str) -> bool {
-    haystack.to_lowercase().contains(&needle.to_lowercase())
+    // folded on both sides: accents, case and punctuation out, so
+    // `pienso` finds "Pienso en tu mirá" (Joel, 2026-09-29)
+    crate::generate::fold_text(haystack).contains(&crate::generate::fold_text(needle))
 }
 
 #[cfg(test)]

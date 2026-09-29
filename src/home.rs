@@ -215,8 +215,10 @@ fn collection(
         });
     }
     if !filter.is_empty() {
-        let needle = filter.to_lowercase();
-        rows.retain(|(_, row)| row.name.to_lowercase().contains(&needle));
+        // the same folded search as everywhere else: `rosalia` finds
+        // ROSALÍA (Joel, 2026-09-29)
+        let needle = crate::generate::fold_text(filter);
+        rows.retain(|(_, row)| crate::generate::fold_text(&row.name).contains(&needle));
     }
     rows
 }

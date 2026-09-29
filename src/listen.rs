@@ -698,13 +698,16 @@ impl Finder {
     /// The links already there that the query keeps: all of them on an
     /// empty query, else those whose slug or name contains it.
     fn linked_rows(&self) -> Vec<&Found> {
-        let query = self.query.trim().to_lowercase();
+        let query = crate::generate::fold_text(self.query.trim());
         self.linked
             .iter()
             .filter(|f| {
                 query.is_empty()
                     || match &f.hit {
-                        Hit::Artist(slug) => slug.contains(&query) || f.note.to_lowercase().contains(&query),
+                        Hit::Artist(slug) => {
+                            crate::generate::fold_text(slug).contains(&query)
+                                || crate::generate::fold_text(&f.note).contains(&query)
+                        }
                         _ => false,
                     }
             })
@@ -3319,7 +3322,7 @@ impl Live<'_> {
             finder.asked.clear();
             return;
         }
-        let needle = query.to_lowercase();
+        let needle = crate::generate::fold_text(&query);
         // artists first — a card is where a branch can start
         if finder.insert.is_none() {
             for slug in self.catalog.search_names(&query, 4) {
@@ -3338,7 +3341,7 @@ impl Live<'_> {
             let liked = self.learned.liked_tracks(slug);
             let known = card.tops.iter().chain(liked.iter().copied());
             for title in known {
-                if !title.to_lowercase().contains(&needle) || titles.iter().any(|f| matches!(&f.hit, Hit::Track { title: t, slug: Some(s), .. } if t == title && s == slug)) {
+                if !crate::generate::fold_text(title).contains(&needle) || titles.iter().any(|f| matches!(&f.hit, Hit::Track { title: t, slug: Some(s), .. } if t == title && s == slug)) {
                     continue;
                 }
                 let is_liked = liked.contains(&title);

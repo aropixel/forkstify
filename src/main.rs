@@ -70,11 +70,11 @@ fn resolve(catalog: &Catalog, text: &str) -> Option<String> {
     if catalog.cards.contains_key(text) {
         return Some(text.to_string());
     }
-    let lower = text.to_lowercase();
+    let needle = generate::fold_text(text);
     let matches: Vec<&String> = catalog
         .cards
         .iter()
-        .filter(|(_, card)| card.name.to_lowercase().contains(&lower))
+        .filter(|(_, card)| generate::fold_text(&card.name).contains(&needle))
         .map(|(slug, _)| slug)
         .collect();
     match matches.as_slice() {

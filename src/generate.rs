@@ -80,6 +80,24 @@ pub fn slugify(name: &str) -> String {
         .join("-")
 }
 
+/// A text folded down for **searching**: accents to ASCII, lower case,
+/// and nothing but letters and digits — so `rosalia` finds ROSALÍA,
+/// `motorhead` finds Motörhead, and a slug reads the same as the name it
+/// was made from. One rule for every search of the application: the
+/// collection's `/`, the discography's, `:search`, `fw <artist>`, the
+/// seed on the command line (Joel, 2026-09-29 — `fw rosalia` found
+/// nothing because the card is spelled ROSALÍA).
+///
+/// Punctuation and spaces going means `catpower` finds Cat Power too; the
+/// query is folded the same way, so the two sides always agree.
+pub fn fold_text(text: &str) -> String {
+    text.chars()
+        .map(fold)
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
 /// Accented latin letters down to ASCII. Enough for the artist names the
 /// two sources return; anything else falls out at the slug's separators.
 fn fold(c: char) -> char {

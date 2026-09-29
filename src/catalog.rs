@@ -120,19 +120,30 @@ impl Catalog {
         Ok(Catalog { cards, proximities, vectors })
     }
 
-    /// Slugs whose card name matches the query (case-insensitive substring),
-    /// for the `/` search — best-effort, name only.
+    /// Slugs matching the query, **folded**: accents down to ASCII, case
+    /// and punctuation gone (`generate::fold_text`), against the card's
+    /// name *and* its slug — the name of its TOML file. So `rosalia`
+    /// finds ROSALÍA and `the cure` finds `the-cure` (Joel, 2026-09-29).
+    /// An exact match comes first, then the shorter names, then
+    /// alphabetical.
     pub fn search_names(&self, query: &str, limit: usize) -> Vec<String> {
-        let needle = query.to_lowercase();
-        let mut hits: Vec<(&String, &String)> = self
+        let needle = crate::generate::fold_text(query);
+        if needle.is_empty() {
+            return Vec::new();
+        }
+        let mut hits: Vec<(&String, &String, bool)> = self
             .cards
             .iter()
-            .filter(|(_, card)| card.name.to_lowercase().contains(&needle))
-            .map(|(slug, card)| (slug, &card.name))
+            .filter_map(|(slug, card)| {
+                let name = crate::generate::fold_text(&card.name);
+                let file = crate::generate::fold_text(slug);
+                let exact = name == needle || file == needle;
+                (exact || name.contains(&needle) || file.contains(&needle))
+                    .then_some((slug, &card.name, exact))
+            })
             .collect();
-        // exact-ish first (shorter names rank higher), then alphabetical
-        hits.sort_by(|a, b| a.1.len().cmp(&b.1.len()).then(a.0.cmp(b.0)));
-        hits.into_iter().take(limit).map(|(slug, _)| slug.clone()).collect()
+        hits.sort_by(|a, b| b.2.cmp(&a.2).then(a.1.len().cmp(&b.1.len())).then(a.0.cmp(b.0)));
+        hits.into_iter().take(limit).map(|(slug, ..)| slug.clone()).collect()
     }
 
     /// A link's proximity, resolved in cascade: the link itself, the
@@ -141,5 +152,51 @@ impl Catalog {
         link.proximity
             .or_else(|| self.proximities.get(&link.kind).copied())
             .unwrap_or(3)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn catalog(names: &[(&str, &str)]) -> Catalog {
+        let cards = names
+            .iter()
+            .map(|(slug, name)| {
+                let text = format!("format = 1\nname = \"{name}\"\nmbid = \"x\"\n");
+                (slug.to_string(), toml::from_str::<Card>(&text).expect("card"))
+            })
+            .collect();
+        Catalog { cards, proximities: HashMap::new(), vectors: HashMap::new() }
+    }
+
+    /// `fw rosalia` found nothing: the card is spelled ROSALÍA, and the
+    /// search compared the accent (Joel, 2026-09-29). Folded, it matches —
+    /// and so does the name of the TOML file.
+    #[test]
+    fn the_search_folds_accents_case_and_punctuation() {
+        let catalog = catalog(&[
+            ("rosalia", "ROSALÍA"),
+            ("the-cure", "The Cure"),
+            ("motorhead", "Motörhead"),
+            ("cat-power", "Cat Power"),
+        ]);
+        let one = |query: &str| catalog.search_names(query, 1).into_iter().next();
+        assert_eq!(one("rosalia").as_deref(), Some("rosalia"));
+        assert_eq!(one("ROSALÍA").as_deref(), Some("rosalia"));
+        assert_eq!(one("motorhead").as_deref(), Some("motorhead"));
+        // the slug is searched too: the name of the file works as typed
+        assert_eq!(one("the-cure").as_deref(), Some("the-cure"));
+        // punctuation and spaces are out on both sides
+        assert_eq!(one("catpower").as_deref(), Some("cat-power"));
+        assert_eq!(one("zzz"), None);
+    }
+
+    /// An exact name wins over a longer one that merely contains it: `fw`
+    /// takes the first hit, and it has to be the obvious one.
+    #[test]
+    fn an_exact_name_comes_first() {
+        let catalog = catalog(&[("boo", "Boo!"), ("the-boo-radleys", "The Boo Radleys")]);
+        assert_eq!(catalog.search_names("boo", 2), vec!["boo", "the-boo-radleys"]);
     }
 }

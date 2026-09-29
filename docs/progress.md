@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-28**. This file is the entry point for picking the work
+Updated on **2026-09-29**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -3129,3 +3129,35 @@ to play.
 
 One test: the album comes out in its own order from a track row with the
 plays sort on, and a banned track is left out.
+
+## One folded search, everywhere (2026-09-29)
+
+`fw rosalia` found nothing: the card is spelled **ROSALÍA**, and every
+search in the application compared `to_lowercase()` strings, so the accent
+made the two words different. The slug on disk is `rosalia.toml` — the
+name Joel typed — and it was not looked at.
+
+- **`generate::fold_text`**: accents down to ASCII (the `fold` the slugs
+  already used), lower case, and nothing but letters and digits. Both
+  sides of every comparison go through it, so they always agree.
+- **`Catalog::search_names` searches the slug too** — the name of the TOML
+  file — and puts an **exact** match first, then the shorter names. `boo`
+  gives Boo! before The Boo Radleys; `fw` takes the first hit, so it has
+  to be the obvious one.
+- **The same fold in every search**: the collection's `/` (`home`), the
+  discography's `/` (`explore::contains`), `:search`'s artists and titles,
+  the drawn connections `ac` filters, and the seed on the command line.
+  One rule, or `rosalia` would work in one place and not the next.
+- Punctuation and spaces going means `catpower` finds Cat Power and
+  `the-cure` finds The Cure, typed as the file is named.
+
+**Not done: a modal for `fw`.** `ac` needs one because it picks a target
+among many; `fw <artist>` names one on purpose, and since `fw` proposes
+rather than applies (2026-09-28) the column shows what it found before
+anything plays, `fr` putting it down. What the `:wander ` line still does
+not do is **show the matching artists as you type** — the helper lists
+commands, not cards. That is the useful half of a modal, and it is left
+open.
+
+One test each: the fold (accents, case, punctuation, the slug) and the
+exact match coming first.

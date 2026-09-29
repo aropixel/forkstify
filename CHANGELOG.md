@@ -44,6 +44,15 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
+- **Searching no longer trips on accents.** `fw rosalia` found nothing
+  because the card is spelled ROSALÍA. Every search now folds both sides —
+  accents to ASCII, case and punctuation out — and looks at the **name of
+  the card's file** as well as the artist's name: `rosalia` finds ROSALÍA,
+  `motorhead` finds Motörhead, `the-cure` and `catpower` find their
+  artists. The same rule in the collection's `/`, the discography's,
+  `:search`, `ac` and the seed on the command line. An exact name now
+  comes first, so `boo` gives Boo! before The Boo Radleys.
+
 - **`ac` shows the whole closeness scale while it asks.** The question used
   to name its two ends — "1 farthest … 5 closest" — and leave the middle to
   guess. It now lists the five, one per line, each with what it means and
