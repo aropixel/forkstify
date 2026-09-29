@@ -14,6 +14,23 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **The desktop saying "play" no longer pauses forkstify.** MPRIS's
+  `Play` and `Pause` were both wired to the play/pause **toggle**, so
+  anything that asked forkstify to play while it already was — a bar
+  reacting to a track change, `playerctl play`, a media key mapped to
+  Play — stopped it instead. It would strike just as a new track began,
+  which is when a desktop is most likely to ask.
+
+- **A track that ends while paused no longer blocks the list.** Its end
+  was dropped rather than kept, so pressing play afterwards asked for a
+  finished track to resume, and nothing ever came. The list picks up
+  where it was.
+
+- **A branch taken while nothing is playing keeps what was queued.**
+  `f<n>` between two tracks, or after an interruption, replaced the rest
+  of the list with the branch instead of appending it. It also lost the
+  branch's name and reason in the list; both are back.
+
 - **A lost Spotify session no longer ends the evening.** When librespot's
   session went — the access point dropping, the account taken over
   elsewhere — the screen said "q then relaunch" and that was that. It now

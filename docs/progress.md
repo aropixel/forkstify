@@ -3275,3 +3275,46 @@ with their own agent: precision is the whole contribution.
 tags and tops live in `forkstify-catalog`, which takes pull requests — a
 card is data you can read in full, and there the review *is* the pull
 request (0025).
+
+## Two faults in a row, one evening (2026-09-30)
+
+### `Play` and `Pause` were wired to the toggle
+
+`src/mediakeys.rs` connected MPRIS's `Play`, `Pause` **and** `PlayPause`
+to the same `Control::PlayPause`, which flips. MPRIS means the first two
+to say what they want and to be idempotent: `Play` on a player already
+playing does nothing. So **anything on the desktop that said "play"
+paused forkstify** — a bar reacting to the new metadata of a track
+change, a `playerctl play`, a compositor mapping a media key to Play
+rather than PlayPause. Joel's list stopped dead the moment it reached the
+tracks he had added, on ⏸, the new track never having played a second.
+
+`Control::Play` and `Control::Pause` now exist and go to `set_paused(bool)`,
+which does nothing when it is already in that state. `play_pause()` is
+the only toggle left.
+
+### The end of a track was lost if it ended while paused
+
+A paused player has no business moving on (2026-09-23), so the loop
+dropped the end-of-track event while `paused`. It **dropped** it: pressing
+`p` afterwards asked librespot to resume a track that was over, which
+answers nothing and emits nothing, and the list was stuck for good with
+no way out but `j`. The end is now kept in `over_while_paused` and acted
+on when the listening starts again; a fresh track clears it.
+
+### A branch taken with nothing on air replaced the queue
+
+`f1` after starting on Drake ate the last Drake track (Joel). With no
+current track, `take_branch` handed over to `start_branch` →
+`start_segment`, which did `self.queue = stops.into()` for anything but
+`fn<n>`: everything still to come was thrown away. The case is common —
+between two tracks, and after any block, which leaves `current` at `None`
+and the queue full.
+
+`take_branch` now does the whole job itself, `when` deciding where the
+branch lands as it does anywhere else, and only *starts* it when nothing
+was on air. `start_branch` is gone; the auto draw goes through the same
+door. A branch taken that way also gains the `head` it used to lose — its
+name and reason in the list. `start_segment` is left to what opens a
+journey (a seed, an album, the artist `fu` backs up to), and its two dead
+parameters with it.

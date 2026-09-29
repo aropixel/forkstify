@@ -142,6 +142,7 @@ async fn async_run(
         typed: String::new(),
         warm_requested: false,
         web_ok: true,
+        over_while_paused: None,
         sound_retry: None,
         sound_next_wait: RECONNECT_FIRST_WAIT,
         wander_requested: None,
@@ -203,6 +204,9 @@ async fn async_run(
                     // remember which track is really current…
                     if let Some(id) = request_started(ev) {
                         live.current_request_id = Some(id);
+                        // a fresh track: the end kept from a paused one is
+                        // not about this one
+                        live.over_while_paused = None;
                     // …and only react to the end of THAT track, not stray
                     // events from one we already skipped past — and never
                     // while paused: losing the output, a bluetooth speaker
@@ -212,11 +216,19 @@ async fn async_run(
                     // business moving on.
                     } else if live.current_request_id.is_some()
                         && track_over(ev) == live.current_request_id
-                        && !live.paused
                     {
-                        live.on_track_over(track_finished(ev), track_unavailable(ev)).await;
-                        live.prefetch_next().await;
-                        live.paint();
+                        if live.paused {
+                            // a paused player has no business moving on
+                            // (Joel, 2026-09-23) — but the end must not be
+                            // lost either: `p` acts on it (2026-09-30)
+                            live.over_while_paused =
+                                Some((track_finished(ev), track_unavailable(ev)));
+                            live.paint();
+                        } else {
+                            live.on_track_over(track_finished(ev), track_unavailable(ev)).await;
+                            live.prefetch_next().await;
+                            live.paint();
+                        }
                     } else if live.follow_needle(ev) {
                         live.paint();
                     }
@@ -415,6 +427,12 @@ struct Live<'a> {
     warm_requested: bool,
     /// What the Web API last answered. A file on disk cannot say it.
     web_ok: bool,
+    /// The current track ended **while paused**, and the end was not
+    /// acted on — a paused player has no business moving on (Joel,
+    /// 2026-09-23). What it was: `(finished, refused)`. Kept so that
+    /// starting again moves on instead of asking librespot to resume a
+    /// track that is over, which leaves the list stuck for good.
+    over_while_paused: Option<(bool, bool)>,
     /// A reconnection to librespot is being backed off: when the last
     /// attempt was, and how long to wait before the next. `None` while the
     /// session holds. The wait doubles up to a minute — a dead access
@@ -811,12 +829,16 @@ enum Advance {
 impl Live<'_> {
     /// Start a segment: record it, make it the future, play its first track.
     /// `opening` = the seed's own tops (already the first round, don't push).
+    /// A segment that **opens** — a seed, a whole album, the artist `fu`
+    /// backs up to. The queue is its own: these all start from nothing,
+    /// and each one cleared it just before calling. A branch does not come
+    /// through here; it has a `when` saying where it lands, and goes
+    /// through `take_branch` (2026-09-30).
     async fn start_segment(
         &mut self,
         artists: Vec<String>,
         stops: Vec<crate::engine::Stop>,
         opening: bool,
-        keep_queue: bool,
     ) {
         if stops.is_empty() {
             return;
@@ -827,15 +849,7 @@ impl Live<'_> {
         } else {
             self.rounds.push(Round { artists, tracks });
         }
-        // `now` keeps what was queued behind the new segment; the plain
-        // and `force` forms replace it (0015)
-        if keep_queue {
-            for stop in stops.into_iter().rev() {
-                self.queue.push_front(stop);
-            }
-        } else {
-            self.queue = stops.into();
-        }
+        self.queue = stops.into();
         if let Advance::Blocked(why) = self.advance().await {
             self.blocked(&why);
             return;
@@ -991,7 +1005,7 @@ impl Live<'_> {
         }
         self.screen = Screen::Session;
         self.tui.clear();
-        self.start_segment(vec![seed], opening, true, false).await;
+        self.start_segment(vec![seed], opening, true).await;
     }
 
     /// Play a whole album as a new seed (⏎ on an album line of the
@@ -1034,16 +1048,14 @@ impl Live<'_> {
         self.screen = Screen::Session;
         self.tui.clear();
         say!(self, "▶ {name} — the whole album");
-        self.start_segment(vec![slug.to_string()], opening, true, false).await;
+        self.start_segment(vec![slug.to_string()], opening, true).await;
     }
 
     /// A key at the home: the sound goes on underneath, `p` holds it, the
     /// rest is the home's grammar.
     async fn on_home_cmd(&mut self, cmd: Cmd) -> bool {
         if matches!(cmd, Cmd::PlayPause) {
-            if self.toggle_pause() {
-                self.resume_queue().await;
-            }
+            self.play_pause().await;
             return true;
         }
         // the key helper, as when listening (Joel, 10/09/2026): space opens
@@ -2067,10 +2079,6 @@ impl Live<'_> {
     }
 
     /// Start a chosen branch (records it, plays its first track, shows it).
-    async fn start_branch(&mut self, branch: crate::engine::Branch, when: When) {
-        self.start_segment(branch.artists, branch.stops, false, when == When::Now).await;
-    }
-
     /// Show what plays now and what comes next; on the segment's last track,
     /// show the branches instead of an empty "up next" (Joel, 04/09/2026).
     /// The axis and the panel are drawn from the state: nothing is left to
@@ -2154,11 +2162,11 @@ impl Live<'_> {
                 self.back().await;
                 self.render();
             }
-            Control::PlayPause => {
-                if self.toggle_pause() {
-                    self.resume_queue().await;
-                }
-            }
+            Control::PlayPause => self.play_pause().await,
+            // `Play` and `Pause` are not the toggle: they say which one
+            // they want, and repeating them changes nothing
+            Control::Play => self.set_paused(false).await,
+            Control::Pause => self.set_paused(true).await,
             Control::Stop => {
                 self.paused = true;
                 self.sound.stop();
@@ -2257,7 +2265,7 @@ impl Live<'_> {
         let weights: Vec<f32> = self.branches.iter().map(|b| b.weight.max(0.1)).collect();
         let index = WeightedIndex::new(&weights).unwrap().sample(&mut self.rng);
         let branch = self.branches.swap_remove(index);
-        self.start_branch(branch, When::EndOfBranch).await;
+        self.take_branch(branch, When::EndOfBranch).await;
     }
 
     /// Choosing a branch **adds it to what is already decided** instead of
@@ -2321,10 +2329,14 @@ impl Live<'_> {
         // a branch taken settles where we go: the wander, if one stood, has
         // done its job and the next directions read the playlist again
         self.wandering = None;
-        if self.current.is_none() {
-            self.start_branch(branch, when).await;
-            return;
-        }
+        // nothing on air — the seed has not started, or a fault left the
+        // walk holding: the branch has to be *started*, not only queued.
+        // It used to go through `start_segment`, which **replaced the
+        // queue** for anything but `fn<n>`: a branch taken between two
+        // tracks, or after a block, threw away everything still to come
+        // (Joel, 2026-09-30 — `f1` ate the last Drake track). Where the
+        // branch lands is `when`'s business, here as anywhere.
+        let starting = self.current.is_none();
         let mut stops = branch.stops;
         if let Some(first) = stops.first_mut() {
             // only the first track carries the name: it is the one that
@@ -2354,8 +2366,14 @@ impl Live<'_> {
                 self.queue.extend(stops);
             }
         }
+        if starting {
+            if let Advance::Blocked(why) = self.advance().await {
+                self.blocked(&why);
+            }
+        }
         // the next directions start from where the queue ends
         self.recompute();
+        self.render();
     }
 
     /// `x` — remove the track under the selection from the queue. It can
@@ -2632,11 +2650,7 @@ impl Live<'_> {
                 self.back().await;
                 self.render();
             }
-            Cmd::PlayPause => {
-                if self.toggle_pause() {
-                    self.resume_queue().await;
-                }
-            }
+            Cmd::PlayPause => self.play_pause().await,
             Cmd::Help(namespace) => {
                 // space opens the help, and closes it at the entry level;
                 // esc closes it from anywhere
@@ -5084,20 +5098,40 @@ impl Live<'_> {
         self.overlay = Some((title.to_string(), lines));
     }
 
-    fn toggle_pause(&mut self) -> bool {
-        self.paused = !self.paused;
-        if self.paused {
+    /// `p`, and the desktop's ⏯: hold or start again, whichever we are
+    /// not doing.
+    async fn play_pause(&mut self) {
+        self.set_paused(!self.paused).await;
+    }
+
+    /// Hold, or start again — said outright rather than toggled. MPRIS
+    /// has `Play` and `Pause` beside `PlayPause`, and they mean what they
+    /// say: asking a playing player to play changes nothing (Joel,
+    /// 2026-09-30).
+    async fn set_paused(&mut self, paused: bool) {
+        if self.paused == paused {
+            return;
+        }
+        self.paused = paused;
+        if paused {
             self.sound.pause();
-            return false;
+            return;
+        }
+        // the track ended while we were holding: librespot has nothing
+        // left to resume and would answer nothing at all, which left the
+        // list stuck for good. Act on that end now (Joel, 2026-09-30).
+        if let Some((finished, refused)) = self.over_while_paused.take() {
+            self.on_track_over(finished, refused).await;
+            return;
         }
         // nothing loaded but a queue waiting: the player is a fresh one,
         // opened after the session was lost, and `resume` has nothing to
         // resume. Start the head instead (Joel, 2026-09-29).
         if self.current.is_none() && !self.queue.is_empty() {
-            return true;
+            self.resume_queue().await;
+            return;
         }
         self.sound.resume();
-        false
     }
 
     /// Start the head of the queue when there is nothing on air — after a
@@ -5132,7 +5166,7 @@ impl Live<'_> {
             self.size,
             &mut self.rng,
         );
-        self.start_segment(vec![current], stops, false, false).await;
+        self.start_segment(vec![current], stops, false).await;
     }
 }
 

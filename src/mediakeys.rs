@@ -15,7 +15,17 @@ use tokio::sync::mpsc::UnboundedSender;
 pub enum Control {
     Next,
     Previous,
+    /// `PlayPause` — the only one that toggles.
     PlayPause,
+    /// `Play` and `Pause` are **not** the toggle, and MPRIS means them to
+    /// be idempotent: `Play` on a player already playing does nothing.
+    /// Both were wired to the toggle until 2026-09-30, so anything on the
+    /// desktop that says "play" — a bar reacting to a track change, a
+    /// `playerctl play`, a media key a compositor maps to Play rather
+    /// than PlayPause — **paused** forkstify instead (Joel: the list
+    /// stopped dead the moment it reached the tracks he had added).
+    Play,
+    Pause,
     Stop,
 }
 
@@ -44,8 +54,8 @@ pub async fn start(tx: UnboundedSender<Control>) -> Result<Player, Box<dyn std::
     player.connect_next(forward(tx.clone(), Control::Next));
     player.connect_previous(forward(tx.clone(), Control::Previous));
     player.connect_play_pause(forward(tx.clone(), Control::PlayPause));
-    player.connect_play(forward(tx.clone(), Control::PlayPause));
-    player.connect_pause(forward(tx.clone(), Control::PlayPause));
+    player.connect_play(forward(tx.clone(), Control::Play));
+    player.connect_pause(forward(tx.clone(), Control::Pause));
     player.connect_stop(forward(tx, Control::Stop));
 
     tokio::task::spawn_local(player.run());
