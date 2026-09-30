@@ -78,6 +78,16 @@ the version it cuts, so this file cannot fall behind.
   and the `Cp` proposal drop their "generated card / written card" labels,
   and a card that still has the line loads as before.
 
+### Changed
+
+- **"Your regulars" no longer opens on the same two artists.** They were
+  the two most familiar, and the track under them the first liked one, so
+  the home showed the same three lines at every launch. They are now
+  drawn at each launch among your most familiar — weighted by
+  familiarity, so the closest still come up most often and they really
+  are regulars. How wide the draw reaches is `regulars_pool` in
+  `[tuning]`, 12 by default; `2` gives the old behaviour back.
+
 ### Added
 
 - **Searching no longer trips on accents.** `fw rosalia` found nothing

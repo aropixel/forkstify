@@ -78,6 +78,13 @@ pub struct Tuning {
     /// look for a played artist to count half as much as the last one.
     pub universe_half_life: f32,
 
+    // --- the home's regulars ---
+    /// How many of the most familiar artists "your regulars" draws its two
+    /// from. Wide enough for a surprise, narrow enough that they really
+    /// are regulars — raise it for more variety, lower it to keep the very
+    /// closest (Joel, 2026-09-30: it was always the same two).
+    pub regulars_pool: f32,
+
     // --- the adventurous leap (cosine in the vector space) ---
     /// Under this closeness, no leap outside the graph — at comfort 5…
     pub leap_floor_cocoon: f32,
@@ -109,6 +116,7 @@ impl Default for Tuning {
             door_bonus: 2.5,
             tail_weight: 0.25,
             universe_half_life: 5.0,
+            regulars_pool: 12.0,
             leap_floor_cocoon: 0.80,
             leap_floor_open: 0.60,
             leap_trust_cocoon: 0.86,
@@ -164,6 +172,7 @@ impl Tuning {
         check!(door_bonus, weight, "above 0");
         check!(tail_weight, weight, "above 0");
         check!(universe_half_life, days, "artists, above 0");
+        check!(regulars_pool, |v: f32| v.is_finite() && v >= 2.0, "artists, 2 and above");
         check!(leap_floor_cocoon, cosine, "-1 to 1");
         check!(leap_floor_open, cosine, "-1 to 1");
         check!(leap_trust_cocoon, cosine, "-1 to 1");
@@ -303,6 +312,12 @@ tail_weight = 0.25
 # much as the last one. Very large = the whole journey weighs the same, as
 # it did before.
 universe_half_life = 5.0
+
+# The home's \"your regulars\": the two doors are drawn, at each launch,
+# among the regulars_pool most familiar artists, weighted by familiarity.
+# Raise it for more surprise, lower it to keep the very closest. 2 = the
+# two most familiar, every time.
+regulars_pool = 12.0
 
 # The adventurous leap, in closeness (cosine) in the vector space. Under
 # the floor, no leap outside the graph; above the trust, a leap needs no

@@ -3318,3 +3318,29 @@ door. A branch taken that way also gains the `head` it used to lose — its
 name and reason in the list. `start_segment` is left to what opens a
 journey (a seed, an album, the artist `fu` backs up to), and its two dead
 parameters with it.
+
+## "Your regulars" stops opening on the same pair (2026-09-30)
+
+Joel: "ce sont toujours les 2 premiers qui sont proposés… j'ai toujours
+Odezenne et Calexico". `entries()` did `.take(2)` on the familiarity
+order, and the track door took the first of `liked_anywhere()`. Three
+lines that never moved.
+
+- **`draw_regulars`**: the two artists are drawn among the
+  `tuning().regulars_pool` most familiar (12 by default), **weighted by
+  familiarity** — the closest still come up most often, so "regulars" is
+  still true, and twelve is wide enough that the pair changes. The track
+  door is drawn among the liked ones the same way.
+- **Drawn once, then held.** `Home` keeps it in a `OnceCell`: the home
+  redraws at every tick while a session plays underneath, and `entries()`
+  is called both to draw the page *and* to resolve the digit that picks
+  from it. A page that reshuffled between the two would make `1` and `2`
+  lie. A `OnceCell` rather than a field filled at construction, because
+  the home is built before the catalog and `draw` only has `&self`.
+- **`regulars_pool` is in `[tuning]`** (0023), documented in
+  `docs/tuning.md`: the width of the surprise is exactly the thing Joel
+  was unsure about, so it is a knob rather than a constant. `2` gives the
+  old behaviour back.
+
+One test: over two hundred draws the three played artists all come up,
+never twice in the same pair, and one with no plays never does.

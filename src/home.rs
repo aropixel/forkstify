@@ -336,8 +336,61 @@ pub fn disconnected_rows(status: &Status, catalog: &Catalog) -> Vec<Row> {
     rows
 }
 
-/// The home doors, in the order comfort decides.
-fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(String, Vec<Entry>)> {
+/// Which two artists "your regulars" offers, and which liked track sits
+/// under them — **drawn once per launch**, then held. They were the two
+/// most familiar and the first liked track, so the home opened on the
+/// same three lines for ever (Joel, 2026-09-30: "j'ai toujours Odezenne
+/// et Calexico").
+///
+/// The draw is over the `tuning().regulars_pool` most familiar artists,
+/// weighted by familiarity: the closest still come up most often, so the
+/// promise holds, and the pool is wide enough that the pair changes. It
+/// is **decided once** and kept: the home redraws at every tick while a
+/// session plays underneath, and a page that reshuffles under the fingers
+/// would make `1` and `2` untrustworthy.
+#[derive(Default)]
+struct Regulars {
+    artists: Vec<String>,
+    track: Option<(String, String)>,
+}
+
+fn draw_regulars(catalog: &Catalog, learned: &Learned, familiar: &[(&String, f32)]) -> Regulars {
+    let mut rng = rand::thread_rng();
+    let pool_size = crate::config::tuning().regulars_pool.max(2.0) as usize;
+    let mut pool: Vec<(String, f32)> = familiar
+        .iter()
+        .filter(|(_, f)| *f > 0.0)
+        .take(pool_size)
+        .map(|(slug, f)| ((*slug).clone(), *f))
+        .collect();
+    let mut artists = Vec::new();
+    while artists.len() < 2 && !pool.is_empty() {
+        let weights = pool.iter().map(|(_, f)| f.max(0.01));
+        let Ok(dist) = WeightedIndex::new(weights) else { break };
+        artists.push(pool.swap_remove(dist.sample(&mut rng)).0);
+    }
+    // the track door: one of the liked, drawn too — it was always the
+    // first one the learned layer listed
+    let mut liked = learned.liked_anywhere();
+    let track = if liked.is_empty() {
+        familiar.first().and_then(|(slug, _)| {
+            catalog.cards[*slug].tops.first().map(|t| ((*slug).clone(), t.clone()))
+        })
+    } else {
+        Some(liked.swap_remove(rng.gen_range(0..liked.len())))
+    };
+    Regulars { artists, track }
+}
+
+/// The home doors, in the order comfort decides. `regulars` is what the
+/// launch drew: the same two artists and the same track for as long as
+/// the home is up, so a digit always picks what is on screen.
+fn entries(
+    catalog: &Catalog,
+    learned: &Learned,
+    comfort: Comfort,
+    regulars: &Regulars,
+) -> Vec<(String, Vec<Entry>)> {
     let mut familiar: Vec<(&String, f32)> = catalog
         .cards
         .iter()
@@ -346,14 +399,15 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
         .collect();
     familiar.sort_by(|a, b| b.1.total_cmp(&a.1));
 
-    let mut habitues: Vec<Entry> = familiar
+    let mut habitues: Vec<Entry> = regulars
+        .artists
         .iter()
-        .filter(|(_, f)| *f > 0.0)
-        .take(2)
-        .map(|(slug, f)| {
-            let card = &catalog.cards[*slug];
+        .filter(|slug| !learned.artist_is_banned(slug))
+        .filter_map(|slug| catalog.cards.get(slug).map(|card| (slug, card)))
+        .map(|(slug, card)| {
+            let f = learned.familiarity01(slug, &card.name);
             Entry {
-                choice: Choice::Artist((*slug).clone()),
+                choice: Choice::Artist(slug.clone()),
                 label: card.name.clone(),
                 artist: None,
                 reason: format!("familiarity {:.0}%", f * 100.0),
@@ -367,13 +421,9 @@ fn entries(catalog: &Catalog, learned: &Learned, comfort: Comfort) -> Vec<(Strin
         })
         .collect();
 
-    // a seed that is a track, not an artist — a liked track if there is one,
-    // else a top of the most familiar artist
-    let track = learned.liked_anywhere().into_iter().next().or_else(|| {
-        familiar.first().and_then(|(slug, _)| {
-            catalog.cards[*slug].tops.first().map(|t| ((*slug).clone(), t.clone()))
-        })
-    });
+    // a seed that is a track, not an artist — one of the liked, drawn with
+    // the two above; a top of the most familiar artist when none is liked
+    let track = regulars.track.clone();
     if let Some((slug, title)) = track {
         if let Some(card) = catalog.cards.get(&slug) {
             habitues.push(Entry {
@@ -461,6 +511,21 @@ mod tests {
     use crate::catalog::Card;
     use std::collections::HashMap;
 
+    fn card_of(name: &str) -> Card {
+        Card {
+            name: name.into(),
+            spotify: None,
+            tags: Vec::new(),
+            tops: vec![format!("{name} — one")],
+            doors: Vec::new(),
+            links: Vec::new(),
+            begin: None,
+            end: None,
+            origin: None,
+            description: None,
+        }
+    }
+
     fn catalog() -> Catalog {
         let card = |name: &str| Card {
             name: name.into(),
@@ -481,13 +546,60 @@ mod tests {
         }
     }
 
+    /// 2026-09-30: the two regulars are drawn among the most familiar
+    /// rather than being the top two, so the home does not open on the
+    /// same pair for ever — and a pool of one gives that one every time.
+    #[test]
+    fn the_regulars_are_drawn_among_the_most_familiar() {
+        let catalog = Catalog {
+            cards: HashMap::from([
+                ("the-cure".to_string(), card_of("The Cure")),
+                ("siouxsie".to_string(), card_of("Siouxsie")),
+                ("joy-division".to_string(), card_of("Joy Division")),
+                ("nobody".to_string(), card_of("Nobody")),
+            ]),
+            proximities: HashMap::new(),
+            vectors: HashMap::new(),
+        };
+        let mut learned = Learned::blank();
+        for (slug, plays) in [("the-cure", 20), ("siouxsie", 12), ("joy-division", 6)] {
+            for _ in 0..plays {
+                learned.played(slug, "a track");
+            }
+        }
+        let familiar = |learned: &Learned| {
+            let mut all: Vec<(&String, f32)> = catalog
+                .cards
+                .iter()
+                .map(|(slug, card)| (slug, learned.familiarity01(slug, &card.name)))
+                .collect();
+            all.sort_by(|a, b| b.1.total_cmp(&a.1));
+            all
+        };
+        // over many draws the three come up, so the pair is not fixed…
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for _ in 0..200 {
+            let drawn = draw_regulars(&catalog, &learned, &familiar(&learned));
+            assert_eq!(drawn.artists.len(), 2, "two doors, always");
+            assert_ne!(drawn.artists[0], drawn.artists[1], "never the same one twice");
+            seen.extend(drawn.artists.iter().cloned());
+        }
+        assert!(seen.len() >= 3, "only {seen:?} ever came up");
+        // …and every one of them is someone actually played: an artist
+        // with no plays is not a regular
+        assert!(!seen.contains("nobody"), "{seen:?}");
+    }
+
     /// ecran-d-accueil.md: the cocoon puts the regulars first, the
     /// exploration the neglected — it was the other way round.
     #[test]
     fn the_cocoon_puts_the_regulars_first() {
         let learned = Learned::blank();
         let titles = |comfort: u8| -> Vec<String> {
-            entries(&catalog(), &learned, Comfort::new(comfort)).into_iter().map(|(t, _)| t).collect()
+            entries(&catalog(), &learned, Comfort::new(comfort), &Regulars::default())
+                .into_iter()
+                .map(|(t, _)| t)
+                .collect()
         };
         assert_eq!(titles(5)[0], "your regulars");
         assert_eq!(titles(3)[0], "your regulars");
@@ -600,6 +712,11 @@ pub struct Home {
     cursor: Option<usize>,
     /// `/text` filters the collection (Joel, 08/09/2026); esc clears it.
     filter: String,
+    /// The two regulars and the track under them, drawn on the first draw
+    /// of the home and held from then on. A `OnceCell` rather than a field
+    /// filled at construction: the home is built before the catalog is,
+    /// and `draw` only has `&self` (Joel, 2026-09-30).
+    regulars: std::cell::OnceCell<Regulars>,
 }
 
 impl Default for Home {
@@ -611,11 +728,27 @@ impl Default for Home {
             scope: Scope::Liked,
             cursor: None,
             filter: String::new(),
+            regulars: std::cell::OnceCell::new(),
         }
     }
 }
 
 impl Home {
+    /// What this launch drew for "your regulars" — the same answer every
+    /// time it is asked, so what is on screen is what a digit picks.
+    fn regulars(&self, catalog: &Catalog, learned: &Learned) -> &Regulars {
+        self.regulars.get_or_init(|| {
+            let mut familiar: Vec<(&String, f32)> = catalog
+                .cards
+                .iter()
+                .filter(|(slug, _)| !learned.artist_is_banned(slug))
+                .map(|(slug, card)| (slug, learned.familiarity01(slug, &card.name)))
+                .collect();
+            familiar.sort_by(|a, b| b.1.total_cmp(&a.1));
+            draw_regulars(catalog, learned, &familiar)
+        })
+    }
+
     /// The highlighted artist of the collection — for a gesture the session
     /// aims at it from here (`:warm`, `:discography`; Joel, 23/09/2026).
     /// The slug is absent for an artist without a card.
@@ -659,7 +792,7 @@ impl Home {
         let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
         let shelf: Vec<CollectionRow> = listing.iter().map(|(_, row)| row.clone()).collect();
         let carded = listing.iter().filter(|(slug, _)| slug.is_some()).count();
-        let blocks = entries(catalog, learned, comfort);
+        let blocks = entries(catalog, learned, comfort, self.regulars(catalog, learned));
         let (rows, count) = rows_of(learned, &blocks);
         let _ = tui.draw_home(&HomeView {
             status: status.to_vec(),
@@ -736,7 +869,7 @@ impl Home {
             }
         }
         let listing = collection(catalog, learned, self.sort, self.scope, &self.filter);
-        let blocks = entries(catalog, learned, *comfort);
+        let blocks = entries(catalog, learned, *comfort, self.regulars(catalog, learned));
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
         let pick = |entry: &Entry| match &entry.choice {
             Choice::Artist(slug) => Choice::Artist(slug.clone()),

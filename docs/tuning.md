@@ -97,6 +97,23 @@ and that branch kept proposing the artists of the first hour (Joel,
 This changes **that branch alone**. The two others already looked at the
 last branch only, never at the whole journey.
 
+## The home's regulars
+
+"Your regulars" offers two doors and a liked track. They used to be the
+**two most familiar artists and the first liked track** — the same three
+lines at every launch (Joel, 2026-09-30: "j'ai toujours Odezenne et
+Calexico"). They are now **drawn at each launch**, among the most
+familiar, weighted by familiarity: the closest still come up most often,
+so the promise holds, and the pool is wide enough that the pair changes.
+
+The draw happens once and is then held for as long as the home is up: it
+redraws at every tick while a session plays underneath, and a page that
+reshuffled under the fingers would make `1` and `2` untrustworthy.
+
+| Setting | Default | What it does | Raise / lower |
+|---|---|---|---|
+| `regulars_pool` | `12.0` | In **artists**: how many of the most familiar the two doors are drawn from. Only artists actually played enter it. | Raise it for more surprise, and the pair reaches further down your regulars. `2` gives the two most familiar every time, as before. |
+
 ## The adventurous leap
 
 Every round proposes a branch "through the graph" (the cards' links) and an
