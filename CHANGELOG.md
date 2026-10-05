@@ -19,7 +19,8 @@ the version it cuts, so this file cannot fall behind.
   could queue the live one again. The row's exact track now goes into the
   list, from the listening as from the home. And where forkstify picks a
   recording by title on its own, a live album now comes after the studio
-  one, even when its track is titled plainly.
+  one, even when its track is titled plainly. `ta` names the album of the
+  recording that plays, no longer the first one carrying the title.
 
 - **The desktop saying "play" no longer pauses forkstify.** MPRIS's
   `Play` and `Pause` were both wired to the play/pause **toggle**, so

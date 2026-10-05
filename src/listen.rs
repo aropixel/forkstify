@@ -2745,9 +2745,17 @@ impl Live<'_> {
             self.overlay = Some((title, lines));
             return;
         }
-        // album and year from the discography, if it has been harvested
-        let key = crate::discography::normalize(&stop.title);
-        if let Some(t) = self.tail.of(&stop.slug).iter().find(|t| crate::discography::normalize(&t.title) == key) {
+        // album and year from the discography, if it has been harvested:
+        // the recording the line holds, else the one a title would play —
+        // the first copy of the title used to answer, the live album for
+        // the studio take (Joel, 2026-10-05)
+        let tail = self.tail.of(&stop.slug);
+        let copy = stop
+            .uri
+            .as_ref()
+            .and_then(|uri| tail.iter().find(|t| &t.uri == uri))
+            .or_else(|| crate::discography::find(tail, &stop.title));
+        if let Some(t) = copy {
             let mut album = t.album.clone();
             if let Some(year) = t.year() {
                 album = format!("{album} ({year})");
