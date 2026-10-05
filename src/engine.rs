@@ -76,6 +76,11 @@ pub struct Stop {
     /// "→", which is how the gesture is verified — no notice needed
     /// (Joel, 07/09/2026).
     pub encore: bool,
+    /// The exact recording, when the gesture that queued it named one — a
+    /// search row says which "Coffee Cold" it is, the live or the studio
+    /// take, and the title alone cannot (Joel, 2026-10-05).
+    #[serde(default)]
+    pub uri: Option<String>,
 }
 
 /// What opens a link of the playlist: the branch's label and its reason.
@@ -635,6 +640,7 @@ pub fn encore(
             source,
             head: None,
             encore: false,
+            uri: None,
         });
     }
     stops
@@ -673,6 +679,7 @@ fn walk(
                 source,
                 head: None,
                 encore: false,
+                uri: None,
             });
         }
         hops += 1;
@@ -806,6 +813,7 @@ fn stay(
                 source,
                 head: None,
                 encore: false,
+                uri: None,
             });
             artists.push(slug);
         }
@@ -1496,6 +1504,7 @@ mod tests {
             source,
             head: None,
             encore: false,
+            uri: None,
         };
         let mut learned = Learned::blank();
         let mark = |learned: &Learned, s: &Stop| current_source(&catalog, &tail, learned, s);
@@ -1579,6 +1588,7 @@ mod tests {
             source: Source::Offmap,
             head: None,
             encore: false,
+            uri: None,
         };
         // its own slug when it has one
         assert_eq!(card_of(&cards, &named("kanye-west", "Kanye West")).as_deref(), Some("kanye-west"));
@@ -1613,6 +1623,7 @@ mod tests {
             source: Source::Top,
             head: head.then(|| Head { label: slug.into(), reason: String::new() }),
             encore: false,
+            uri: None,
         };
         let known = |slug: &str| slug != "nobody";
         // the seed's opening: no head at all, the whole axis is the segment

@@ -14,6 +14,13 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **The search plays the version you chose.** Enter on a search row kept
+  its title and dropped the recording, so picking the studio "Coffee Cold"
+  could queue the live one again. The row's exact track now goes into the
+  list, from the listening as from the home. And where forkstify picks a
+  recording by title on its own, a live album now comes after the studio
+  one, even when its track is titled plainly.
+
 - **The desktop saying "play" no longer pauses forkstify.** MPRIS's
   `Play` and `Pause` were both wired to the play/pause **toggle**, so
   anything that asked forkstify to play while it already was — a bar

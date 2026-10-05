@@ -1766,6 +1766,7 @@ mod tests {
             source: Source::Top,
             head: None,
             encore: false,
+            uri: None,
         }
     }
 
@@ -1859,6 +1860,7 @@ mod tests {
             source: Source::Top,
             head: None,
             encore: false,
+            uri: None,
         };
         let text = |unknown| {
             track_row(&stop, Slot::Ahead { n: 2 }, unknown, false, None, "", 80)

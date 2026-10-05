@@ -733,13 +733,14 @@ struct Finder {
     drawn: Vec<(String, String, u8)>,
 }
 
-/// A found row turned into a stop of the axis, and its uri when the search
-/// gave one. `None` for an artist row: there is no one track behind it.
+/// A found row turned into a stop of the axis, holding the very recording
+/// the row showed when the search gave its uri. `None` for an artist row:
+/// there is no one track behind it.
 fn stop_of(
     hit: &Hit,
     catalog: &Catalog,
     learned: &crate::learned::Learned,
-) -> Option<(crate::engine::Stop, Option<String>)> {
+) -> Option<crate::engine::Stop> {
     match hit {
         Hit::Track { title, artist, uri, slug, .. } => {
             // the like first (0018), then the card: a liked track queued
@@ -751,17 +752,15 @@ fn stop_of(
                 Some(_) => crate::engine::Source::Outside,
                 None => crate::engine::Source::Offmap,
             };
-            Some((
-                crate::engine::Stop {
-                    slug: slug.clone().unwrap_or_default(),
-                    artist: artist.clone(),
-                    title: title.clone(),
-                    source,
-                    head: None,
-                    encore: false,
-                },
-                if uri.is_empty() { None } else { Some(uri.clone()) },
-            ))
+            Some(crate::engine::Stop {
+                slug: slug.clone().unwrap_or_default(),
+                artist: artist.clone(),
+                title: title.clone(),
+                source,
+                head: None,
+                encore: false,
+                uri: (!uri.is_empty()).then(|| uri.clone()),
+            })
         }
         Hit::Artist(_) => None,
     }
@@ -954,7 +953,7 @@ impl Live<'_> {
     async fn start_journey(&mut self, choice: Choice) {
         let (seed, opening_track) = match choice {
             Choice::Artist(slug) => (slug, None),
-            Choice::Track { slug, title } => (slug, Some(title)),
+            Choice::Track { slug, title, uri } => (slug, Some((title, uri))),
         };
         if self.current.is_some() {
             self.sound.stop();
@@ -984,7 +983,7 @@ impl Live<'_> {
             self.size,
             &mut self.rng,
         );
-        if let Some(title) = opening_track {
+        if let Some((title, uri)) = opening_track {
             opening.retain(|stop| stop.title != title);
             // the glyph the track deserves, not "top" whatever it is: the
             // home's track seed is a **liked** one by construction
@@ -1000,6 +999,7 @@ impl Live<'_> {
                     source,
                     head: None,
                     encore: false,
+                    uri,
                 },
             );
         }
@@ -1042,6 +1042,7 @@ impl Live<'_> {
                 title,
                 head: None,
                 encore: false,
+                uri: None,
             })
             .collect();
         self.rounds = vec![Round { artists: vec![slug.to_string()], tracks: Vec::new() }];
@@ -1185,6 +1186,7 @@ impl Live<'_> {
                     source: crate::engine::Source::Outside,
                     head: None,
                     encore: false,
+                    uri: None,
                 };
                 if key == 'd' && !carded {
                     // 0016: arriving at an artist means making them a card
@@ -1223,9 +1225,10 @@ impl Live<'_> {
         }
         let heading = format!("▶ {} {} — {}", stop.source.mark(), stop.title, stop.artist);
         let artist_id = self.artist_id_of(&stop.slug);
-        // the artist's own discography first: harvested by id, it cannot
-        // hand over a namesake's track, which the title search can
-        let known = match self.tail_uri(&stop.slug, &stop.title) {
+        // the recording the gesture named first, then the artist's own
+        // discography: harvested by id, it cannot hand over a namesake's
+        // track, which the title search can
+        let known = match stop.uri.clone().or_else(|| self.tail_uri(&stop.slug, &stop.title)) {
             Some(uri) => Some(Resolved::Track(uri)),
             None => self
                 .web
@@ -1839,7 +1842,7 @@ impl Live<'_> {
     async fn play_fresh(&mut self, slug: &str, title: Option<String>, uri: Option<String>) {
         if self.screen == Screen::Home {
             let choice = match title {
-                Some(title) => Choice::Track { slug: slug.to_string(), title },
+                Some(title) => Choice::Track { slug: slug.to_string(), title, uri: None },
                 None => Choice::Artist(slug.to_string()),
             };
             self.start_journey(choice).await;
@@ -1861,6 +1864,7 @@ impl Live<'_> {
                 },
                 head: None,
                 encore: false,
+                uri: None,
             },
             None => {
                 let (_, _, _, _, played) = self.state();
@@ -3608,7 +3612,7 @@ impl Live<'_> {
                 (stop, None)
             }
             Hit::Track { artist, slug, spotify, .. } => {
-                let Some((stop, _)) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
+                let Some(stop) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
                 let behind = slug
                     .is_none()
                     .then(|| (crate::generate::slugify(artist), artist.clone(), spotify.clone()));
@@ -3691,8 +3695,9 @@ impl Live<'_> {
         if self.screen == Screen::Home {
             match &found.hit {
                 Hit::Artist(slug) => self.start_journey(Choice::Artist(slug.clone())).await,
-                Hit::Track { title, slug: Some(slug), .. } => {
-                    self.start_journey(Choice::Track { slug: slug.clone(), title: title.clone() })
+                Hit::Track { title, slug: Some(slug), uri, .. } => {
+                    let uri = (!uri.is_empty()).then(|| uri.clone());
+                    self.start_journey(Choice::Track { slug: slug.clone(), title: title.clone(), uri })
                         .await
                 }
                 // off-catalog: bring it in (0016). This is the gesture of
@@ -3713,7 +3718,7 @@ impl Live<'_> {
             // catalog, its card is generated behind (0016) without making
             // it wait: it will be attached when it arrives
             (Some(at), Hit::Track { artist, slug, spotify, .. }) => {
-                let Some((mut stop, _)) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
+                let Some(mut stop) = stop_of(&found.hit, &self.catalog, &self.learned) else { return };
                 stop.head = Some(crate::engine::Head {
                     label: stop.title.clone(),
                     reason: "inserted (ti)".to_string(),
@@ -4106,6 +4111,7 @@ impl Live<'_> {
             source: crate::engine::Source::Outside,
             head: None,
             encore: false,
+            uri: None,
         };
         // a harvest from before the dates cannot make an album: the cache
         // is regenerable and outside the repo, redo it rather than show it
@@ -4240,6 +4246,7 @@ impl Live<'_> {
             head: None,
             // the encore's ↻ glyph: it is the same gesture, the list says so
             encore: true,
+            uri: None,
         });
         screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
         self.explore = Some(screen);
@@ -4276,6 +4283,7 @@ impl Live<'_> {
                 // the encore's ↻ glyph, like `e`: it is the same gesture,
                 // a handful of tracks at once
                 encore: true,
+                uri: None,
             });
         }
         screen.notice =
@@ -4351,7 +4359,7 @@ impl Live<'_> {
             if track.banned {
                 screen.notice = format!("(⊘ {} is banned — tl takes it back)", track.title);
             } else {
-                let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone() };
+                let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone(), uri: None };
                 crate::keys::set_modal(false);
                 self.start_requested = Some(choice);
             }
@@ -4659,7 +4667,7 @@ impl Live<'_> {
     /// 14/09/2026).
     async fn restore(&mut self, saved: LastSession) {
         let (Some(current), false) = (saved.current, saved.rounds.is_empty()) else {
-            self.start_journey(Choice::Track { slug: saved.slug, title: saved.title }).await;
+            self.start_journey(Choice::Track { slug: saved.slug, title: saved.title, uri: None }).await;
             return;
         };
         if self.current.is_some() {

@@ -122,7 +122,10 @@ impl Tail {
 
 /// The track of a harvested discography that a card's top names: same
 /// title once the version noise is off, the plain-titled copy ahead of a
-/// live or a remaster, the earliest release ahead of the rest. The
+/// live or a remaster, a studio album ahead of a live one — a live record
+/// titles its tracks plainly, "Coffee Cold" with nothing to say it was
+/// recorded on stage (Joel, 2026-10-05) — the earliest release ahead of
+/// the rest. The
 /// discography comes from the artist's own Spotify id, so a hit here
 /// cannot be a namesake's — which the title search can (Joel, 23/09/2026,
 /// "The Answer" by Boo played The Boo Radleys).
@@ -131,7 +134,9 @@ pub fn find<'a>(tracks: &'a [TailTrack], title: &str) -> Option<&'a TailTrack> {
     tracks
         .iter()
         .filter(|t| normalize(&t.title) == wanted)
-        .min_by_key(|t| (clean_title(&t.title) != t.title, t.single, t.released.clone()))
+        .min_by_key(|t| {
+            (clean_title(&t.title) != t.title, crate::spotify::is_live(&t.album), t.single, t.released.clone())
+        })
 }
 
 fn cache_dir() -> PathBuf {
@@ -198,6 +203,15 @@ mod tests {
         assert_eq!(find(&tail, "The Answer").map(|t| t.uri.as_str()), Some("spotify:track:album"));
         assert_eq!(find(&tail, "the answer - 2010 remaster").map(|t| t.uri.as_str()), Some("spotify:track:album"));
         assert!(find(&tail, "Stones").is_none());
+    }
+
+    /// A live album's copy carries a plain title: the album gives it away,
+    /// and the studio take wins even when the live one came out first.
+    #[test]
+    fn a_live_album_comes_after_the_studio_one() {
+        let live = TailTrack { album: "Live at the Village Gate".into(), ..track("Coffee Cold", "spotify:track:live", "1965", false) };
+        let studio = TailTrack { album: "Shapes of Rhythm".into(), ..track("Coffee Cold", "spotify:track:studio", "1966", false) };
+        assert_eq!(find(&[live, studio], "Coffee Cold").map(|t| t.uri.as_str()), Some("spotify:track:studio"));
     }
 
     #[test]

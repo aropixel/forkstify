@@ -28,7 +28,8 @@ use std::path::PathBuf;
 /// branches from its artist.
 pub enum Choice {
     Artist(String),
-    Track { slug: String, title: String },
+    /// `uri`: the exact recording, when the search showed which one.
+    Track { slug: String, title: String, uri: Option<String> },
 }
 
 /// The last journey, to "resume". Lives in the cache, not in the catalog:
@@ -427,7 +428,7 @@ fn entries(
     if let Some((slug, title)) = track {
         if let Some(card) = catalog.cards.get(&slug) {
             habitues.push(Entry {
-                choice: Choice::Track { slug: slug.clone(), title: title.clone() },
+                choice: Choice::Track { slug: slug.clone(), title: title.clone(), uri: None },
                 label: title.clone(),
                 artist: Some(card.name.clone()),
                 reason: format!(
@@ -873,7 +874,7 @@ impl Home {
         let flat: Vec<&Entry> = blocks.iter().flat_map(|(_, b)| b.iter()).collect();
         let pick = |entry: &Entry| match &entry.choice {
             Choice::Artist(slug) => Choice::Artist(slug.clone()),
-            Choice::Track { slug, title } => Choice::Track { slug: slug.clone(), title: title.clone() },
+            Choice::Track { slug, title, uri } => Choice::Track { slug: slug.clone(), title: title.clone(), uri: uri.clone() },
         };
         match cmd {
             Cmd::Quit => Outcome::Quit,

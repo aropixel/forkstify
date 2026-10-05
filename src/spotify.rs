@@ -115,7 +115,7 @@ fn pick(body: &serde_json::Value, artist_id: Option<&str>, prefer_studio: bool) 
         .and_then(|item| item["uri"].as_str().map(String::from))
 }
 
-fn is_live(text: &str) -> bool {
+pub fn is_live(text: &str) -> bool {
     let lower = text.to_lowercase();
     if lower.contains("en public") {
         return true;
