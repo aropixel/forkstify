@@ -3357,7 +3357,10 @@ Beatles sit in a **closed loop** (two links, the Kinks leading back). The
 direction: the engine finds orphans and loops with no AI; the agent
 proposes anchors among the listener's liked artists only, each with a
 closeness and a one-sentence reason; the listener accepts in one key
-(`x` refuses, remembered). An accepted proposal is an `ac` in `learned/`,
-and it runs on demand from Claude Code first — floor 1 of the agent. Four
-questions left in the note (thin cards like the Beatles', where proposals
-and refusals live, the thresholds, the trace once accepted).
+(`x` refuses, remembered), and **chooses, proposal by proposal, where it
+goes**: a typed link in the card (knowledge — it leaves with `Cp` and
+sharpens the vectors; the orphan's card alone is enough, the engine walks
+links both ways) or an `ac` in `learned/` (taste). It runs on demand from
+Claude Code first — floor 1 of the agent. Five questions left in the note
+(thin cards like the Beatles', where proposals and refusals live, the
+thresholds, the trace once accepted, the destination keys).

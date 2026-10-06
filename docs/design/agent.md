@@ -163,9 +163,21 @@ spotting.
    accepts at the proposed closeness, `h`/`l` correct it first, `x`
    refuses, and **a refusal is remembered** so the proposal does not come
    back. Nothing to imagine, nothing written without a yes.
-4. **An accepted proposal is an `ac`**, written in `learned/` like one drawn
-   by hand. Not a link in the card, for simplicity, even though an orphan
-   is an orphan for everyone.
+4. **The listener chooses where it goes, proposal by proposal** (Joel,
+   2026-10-06): the agent proposes, the listener decides whether to accept
+   it *and how*. Two destinations:
+   - **a link in the card** — a typed link (`influence`, `similar`…) with
+     its closeness and the agent's sentence as its `note`, committed into
+     the fork. It is knowledge: it leaves with `Cp`, the review is the pull
+     request (0025), and since a card's links feed the vectorized text, it
+     also sharpens the orphan's vector. Written in the orphan's card alone
+     is enough: the engine walks links both ways, so `arthur-satan →
+     the-beatles` brings Arthur Satàn up from the Beatles too;
+   - **an `ac`** — in `learned/`, like one drawn by hand: taste, never
+     carried by `Cp`, invisible to the vectors.
+
+   The agent may say which one it leans to (a typed kinship of sound reads
+   like a card link), but it never settles it.
 5. **On demand first**: a subcommand (`forkstify suggest`, name to be
    settled) run from Claude Code — floor 1 above. In the background after a
    like, perhaps later.
@@ -180,8 +192,13 @@ spotting.
    (synced between machines, 0017) or in local state.
 3. **The detection's thresholds**: how few incoming links make an orphan,
    how small a group makes a loop — numbers for `[tuning]` (0023).
-4. **Whether a proposal says it came from the agent** once accepted, or
-   becomes an `ac` like any other.
+4. **Whether a proposal says it came from the agent** once accepted: the
+   trailer of the card commit can carry it (0017's `kind`); an `ac` has no
+   commit of its own, so it would become one like any other.
+5. **The keys for the destination**: in the closeness question, a toggle
+   between "card (kind)" and "mine" — `Tab`, proposed — with the link kind
+   editable on the card side; or two keys at acceptance. To settle against
+   `docs/keybindings.md`.
 
 ## What this reopens
 
