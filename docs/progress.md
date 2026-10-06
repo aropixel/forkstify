@@ -3414,3 +3414,7 @@ both sides, 616 stay, 347 go to `audience` (Expérience's and Arthur
 Satàn's among them); the 239 without a card become `audience` until it is
 born. The vectors stay out: they echo the links (Expérience → Les Ogres de
 Barback at 0.87, above Nina Simone → Nat King Cole at 0.70).
+
+**Accepted by Joel the same day.** `AGENTS.md` and `catalog.md` carry it;
+the code (generator, validator, label, vectors, the one-off retyping of
+the catalog) is still to write.

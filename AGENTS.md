@@ -84,6 +84,11 @@ The detail is in `docs/decisions/`. In summary:
   card in the reference is accepted, a card in a fork is its owner's, and
   who wrote it is a question for git
   ([0025](docs/decisions/0025-the-review-is-the-pull-request.md)).
+- **`audience`: what a service reports is not a similarity** — a seventh
+  link type at 2; a Deezer neighbour stays `similar` only when the two
+  cards share a genre tag, otherwise it is `audience`, at birth and once
+  over the existing cards; `audience` stays out of the vectors
+  ([0026](docs/decisions/0026-audience-what-the-services-report.md)).
 - **Keyboard grammar: four namespaces** — `f` the branch, `e` encore, `t`
   the track, `a` the artist; the target is a prefix, the count follows the
   namespace, and the table is authoritative in `docs/keybindings.md`

@@ -1,7 +1,7 @@
 # 0026 — `audience`: what a service reports is not a similarity
 
 - **Date**: 2026-10-06
-- **Status**: proposed (awaiting Joel) · **Amends** the closed list of link types of
+- **Status**: accepted · **Amends** the closed list of link types of
   [0010](0010-revised-format-links-without-doors.md)
 
 ## Context

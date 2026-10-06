@@ -194,6 +194,7 @@ splits in two by itself:
 | `member` `collab` `family` | **facts** — who played where, with whom | valuable to everybody |
 | `scene` `influence` | a critical reading, debatable but arguable | defensible, with its note |
 | `similar` | **a matching of taste** | the one that pulls the base towards one ear |
+| `audience` | **what a service reports**, unconfirmed by the catalog ([0026](../decisions/0026-audience-what-the-services-report.md)) | a pointer, weighed at 2, to promote or drop in review |
 
 `ac` draws a connection of your own into `learned/`, never into the card;
 a card link is written by hand through `ae`, and `similar` is the honest
@@ -443,7 +444,7 @@ A new user must have nothing to write:
 | identity, dates, origin, tags | MusicBrainz / Wikidata |
 | tops | Deezer `/artist/top` (no key) + the user's liked tracks |
 | `member` / `collab` / `family` links | MusicBrainz relations (typed, factual) |
-| `similar` links | Deezer `/artist/related` (no key), Last.fm as backup |
+| `similar` / `audience` links | Deezer `/artist/related` (no key), Last.fm as backup — `similar` when the two cards share a genre tag, `audience` otherwise ([0026](../decisions/0026-audience-what-the-services-report.md)) |
 | `scene` links | cross-referencing era + country + genres |
 | notes, description | a language model, or absent (everything is optional) |
 
