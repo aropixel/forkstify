@@ -3402,5 +3402,15 @@ Arthur Satàn's four (Porridge Radio, King Hannah…) are the same fault.
 **status proposed**, waiting on Joel: a seventh type `audience` ("a
 service reports them together") at 2, `similar` back to a judgment, the
 reason "same listeners", `audience` left out of the vectors, the existing
-cards retyped once (untouched `similar` with no note) and proposed through
-`Cp`, format still 1 since the grid declares the type. Nothing coded.
+cards retyped once and proposed through `Cp`, format still 1 since the
+grid declares the type. Nothing coded.
+
+Revised the same day on Joel's objection ("many `similar` links were
+coherent on other cards"): **the selective rule** — a service's neighbour
+stays `similar` when the two cards share a genre tag, otherwise it is
+`audience`; the generator applies it at birth and again when a neighbour's
+card is born. Measured: of the 963 unannotated `similar` with a card on
+both sides, 616 stay, 347 go to `audience` (Expérience's and Arthur
+Satàn's among them); the 239 without a card become `audience` until it is
+born. The vectors stay out: they echo the links (Expérience → Les Ogres de
+Barback at 0.87, above Nina Simone → Nat King Cole at 0.70).
