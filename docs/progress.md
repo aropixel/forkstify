@@ -3364,3 +3364,27 @@ links both ways) or an `ac` in `learned/` (taste). It runs on demand from
 Claude Code first — floor 1 of the agent. Five questions left in the note
 (thin cards like the Beatles', where proposals and refusals live, the
 thresholds, the trace once accepted, the destination keys).
+
+## The graph draws from all its links (2026-10-06)
+
+Found while answering how an `ac` reaches the branches: Joel's
+`the-beatles → arthur-satan` at 3 never came up, and the Beatles kept
+leading to the same handful. The Beatles have fifteen graph neighbors
+(three members at 5, eleven similars at 4, the connection at 3);
+`propose` kept the best **six** before drawing, and `walk` the best
+**three** for each hop, sorted by proximity **then by name**. So the
+pool was always Harrison, Lennon, McCartney, Dylan, Bowie, Young — the
+alphabet chose — and anything at 3 was out. The same fault as the
+regulars of 09-30: a `.take(n)` on a fixed order, against 0012.
+
+- **Both draws now take every graph neighbor**, weighted as before:
+  proximity² × comfort's lean × artist freshness for the heads,
+  proximity² for a hop (it was linear over three). A 3 weighs 9 against
+  16 for a 4: Arthur Satàn comes up seldom, but he comes up.
+- The vector side keeps its cut (`6` heads, `3` hops): its scores are
+  continuous, there are no ties for the alphabet to break.
+
+One test, `every_link_of_a_hub_can_come_up`, on the Beatles' shape: over
+three hundred rounds the connection and the end of the alphabet both
+lead and both are hops. Against the old cuts it fails, printing the six
+fixed names.

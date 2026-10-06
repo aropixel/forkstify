@@ -14,6 +14,13 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **A well-linked artist no longer leads to the same few.** The branches
+  only drew from an artist's six closest links, and the next hop from its
+  three closest, ties settled by name: from the Beatles it was always the
+  members, Dylan, Bowie and Young, and a connection drawn with `ac` at 3
+  never came up. Every link is now in the draw, the closest still the most
+  likely.
+
 - **The search plays the version you chose.** Enter on a search row kept
   its title and dropped the recording, so picking the studio "Coffee Cold"
   could queue the live one again. The row's exact track now goes into the

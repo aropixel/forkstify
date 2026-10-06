@@ -689,11 +689,12 @@ fn walk(
         let mut excluded: HashSet<String> = visited.clone();
         excluded.insert(current.to_string());
         excluded.extend(artists.iter().cloned());
-        // draw the next hop among the closest few, not always the closest
+        // draw the next hop among every link, weighted as the heads are:
+        // a cut to the closest few broke its ties by name, so the same
+        // artists led every walk (Joel, 06/10/2026)
         let mut nexts: Vec<(String, f32)> = graph_neighbors(catalog, &last, &excluded)
             .into_iter()
-            .take(3)
-            .map(|(slug, proximity, _)| (slug, proximity as f32))
+            .map(|(slug, proximity, _)| (slug, (proximity as f32).powi(2)))
             .collect();
         if nexts.is_empty() {
             nexts = vector_neighbors(catalog, &last, &excluded)
@@ -895,9 +896,11 @@ pub fn propose(
         comfort.favours(learned.familiarity01(slug, &catalog.cards[slug].name))
             * learned.artist_freshness(slug)
     };
+    // every graph neighbor is in the draw: cut to the best six, a
+    // well-linked artist (fifteen for the Beatles) kept the same six, ties
+    // broken by name, and a connection at 3 never came up (Joel, 06/10/2026)
     let mut graph_pool: Vec<(String, f32)> = graph
         .iter()
-        .take(6)
         .map(|(slug, weight, _)| (slug.clone(), weight * weight * favours(slug)))
         .collect();
     while heads.len() < graph_slots {
@@ -1272,6 +1275,68 @@ mod tests {
             &HashSet::new(), &HashSet::new(), 3, &mut rng
         )
         .is_none());
+    }
+
+    /// A well-linked artist (06/10/2026): fifteen neighbors, three members
+    /// at 5, eleven similars at 4 and a connection at 3. Cut to the best
+    /// few, ties broken by name, the same ones led every time and the
+    /// connection never came up — neither as a head nor as a hop.
+    #[test]
+    fn every_link_of_a_hub_can_come_up() {
+        let named = |name: &str| {
+            let mut card = the_cure();
+            card.name = name.into();
+            card.tops = vec![format!("{name} — one")];
+            card.doors = Vec::new();
+            card
+        };
+        let link = |to: &str, kind: &str, proximity: Option<u8>| Link {
+            to: to.into(),
+            kind: kind.into(),
+            note: None,
+            proximity,
+        };
+        let members = ["george-harrison", "john-lennon", "paul-mccartney"];
+        let similars = [
+            "bob-dylan", "david-bowie", "neil-young", "the-beach-boys", "the-kinks", "the-rolling-stones",
+            "the-velvet-underground", "the-who", "t-rex", "wings", "yusuf-cat-stevens",
+        ];
+        let mut beatles = named("The Beatles");
+        beatles.links = members
+            .iter()
+            .map(|m| link(m, "member", None))
+            .chain(similars.iter().map(|s| link(s, "similar", None)))
+            .chain(std::iter::once(link("arthur-satan", crate::catalog::MINE, Some(3))))
+            .collect();
+        let mut cards = HashMap::from([("the-beatles".to_string(), beatles)]);
+        for slug in members.iter().chain(similars.iter()).chain(["arthur-satan", "start"].iter()) {
+            cards.insert(slug.to_string(), named(slug));
+        }
+        let catalog = Catalog {
+            cards,
+            proximities: HashMap::from([("member".to_string(), 5), ("similar".to_string(), 4)]),
+            vectors: HashMap::new(),
+        };
+        let learned = Learned::blank();
+        let context = vec!["the-beatles".to_string()];
+        let visited: HashSet<String> = context.iter().cloned().collect();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(3);
+
+        let mut heads = HashSet::new();
+        let mut hops = HashSet::new();
+        for _ in 0..300 {
+            for branch in propose(&catalog, &context, &context, &learned, &no_tail(), Comfort::new(3), &visited, &HashSet::new(), 1, &mut rng) {
+                heads.insert(branch.artists[0].clone());
+            }
+            // a walk through the Beatles: its second artist is a hop
+            let branch = branch_from(&catalog, &["start".to_string()], "the-beatles", String::new(), 4.0, &learned, &no_tail(), Comfort::new(3), &HashSet::new(), &HashSet::new(), 2, &mut rng)
+                .expect("something to play");
+            hops.extend(branch.artists.get(1).cloned());
+        }
+        assert!(heads.contains("arthur-satan"), "the connection never leads: {heads:?}");
+        assert!(heads.contains("yusuf-cat-stevens"), "the end of the alphabet never leads: {heads:?}");
+        assert!(hops.contains("arthur-satan"), "the connection is never a hop: {hops:?}");
+        assert!(hops.contains("yusuf-cat-stevens"), "the end of the alphabet is never a hop: {hops:?}");
     }
 
     /// An artist already visited does not come back as a card to generate.

@@ -138,7 +138,8 @@ sense: the trust threshold would never be used.
 - **Interface delays** (how long a toast lasts, the threshold for restarting
   a track, the seed offer): they decide nothing about what plays.
 - **The shapes of the draw**: the number of candidates kept before the draw
-  (`6` heads, `12` for `stay` and `fw`), the powers that deepen the
+  (`6` vector heads, `12` for `stay` and `fw`; the graph keeps all its
+  links since 2026-10-06), the powers that deepen the
   weighting (`weight²` on the graph, `(proximity − 0.5)³` on the vectors),
   the fixed `4.0` weight of the `stay` branch, the `0.25`–`2` range of what
   comfort does to a familiarity. Those are mechanics, not numbers; opening
