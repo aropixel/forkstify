@@ -3415,6 +3415,20 @@ Satàn's among them); the 239 without a card become `audience` until it is
 born. The vectors stay out: they echo the links (Expérience → Les Ogres de
 Barback at 0.87, above Nina Simone → Nat King Cole at 0.70).
 
-**Accepted by Joel the same day.** `AGENTS.md` and `catalog.md` carry it;
-the code (generator, validator, label, vectors, the one-off retyping of
-the catalog) is still to write.
+**Accepted by Joel the same day, and coded.** `catalog::neighbour_kind`
+is the rule; the generator types Deezer's neighbours with it (`Known`
+now carries the tags), and `edit::confirm_audience` re-applies it at a
+card's birth — from the listening and from the setup's batch — patching
+the waiting `audience` lines into `similar` in the birth commit. The
+built-in grid and the validator know `audience` (2), the engine says
+"same listeners", `Cp`'s summary counts it, `embed` gives it no phrase.
+
+The catalog retyped once (Joel's fork, `32257c2`, pushed; `Cp` is his
+to send): kept 616 by a shared genre, 16 with a note, 3 last touched by
+"edited by hand" (`git blame`); 344 with no genre in common and 239
+pointing at no card became `audience`. Vectors regenerated. Expérience
+moves away from Zebda (0.74 → 0.52) but only a little from Les Ogres de
+Barback (0.87 → 0.78): its vector is now thin — `fr`, `90s`, Toulouse,
+Michel Cloup —, close to anything French and Toulousain. As 0026 says,
+the rule demotes; a genre tag on the card, or the agent's review, is
+what will place it.

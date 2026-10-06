@@ -12,6 +12,16 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Changed
+
+- **What Deezer reports is no longer called "similar".** A generated
+  card's neighbours from Deezer stay `similar` only when the two cards
+  share a genre; otherwise they are a new link type, `audience`, at
+  closeness 2, shown as "same listeners" in the branches and left out of
+  the vectors. A card born later confirms the ones that were waiting for
+  it. Raise `audience` in your catalog's `catalog.toml` if you trust the
+  service more.
+
 ### Fixed
 
 - **A well-linked artist no longer leads to the same few.** The branches
