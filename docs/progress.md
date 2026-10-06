@@ -3388,3 +3388,19 @@ One test, `every_link_of_a_hub_can_come_up`, on the Beatles' shape: over
 three hundred rounds the connection and the end of the alphabet both
 lead and both are hops. Against the old cuts it fails, printing the six
 fixed names.
+
+## `audience`: a decision drafted (2026-10-06)
+
+Joel, on a session started from Expérience: the band leads to "the bands
+of the same scene of the time" — Mano Negra, Zebda, Loïc Lantoine, Les
+Ogres de Barback, all four Deezer `/artist/related` written as `similar`
+at 4, on a card with no genre tag so that the vector leans the same way.
+Arthur Satàn's four (Porridge Radio, King Hannah…) are the same fault.
+1,218 `similar` on 354 cards, 16 with a note.
+
+[0026](decisions/0026-audience-what-the-services-report.md) is drafted,
+**status proposed**, waiting on Joel: a seventh type `audience` ("a
+service reports them together") at 2, `similar` back to a judgment, the
+reason "same listeners", `audience` left out of the vectors, the existing
+cards retyped once (untouched `similar` with no note) and proposed through
+`Cp`, format still 1 since the grid declares the type. Nothing coded.
