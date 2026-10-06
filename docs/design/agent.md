@@ -115,6 +115,74 @@ Two floors, in this order:
   quoting. Its memory serves to *choose* between branches and to name a
   mood, not to replace the engine.
 
+## Suggested connections — the agent proposes `ac`, you say yes
+
+Discussed on **2026-10-06**, on an idea of Joel's: proposals of `ac`
+connections drawn from the artists he likes, so that he does not have to
+think of them.
+
+### The problem, on a real case
+
+Joel wanted to connect **Arthur Satàn** to **The Beatles** or **The Kinks**
+"without having to think of it": otherwise Arthur Satàn hardly ever comes
+up, and listening to the Beatles always leads back to the same four or five
+artists. The catalog shows both halves:
+
+- **An orphan.** Arthur Satàn's card has four links, all Deezer similars
+  (Porridge Radio, King Hannah, Cate Le Bon, Ghostwoman) that miss the
+  point, and one tag (`fr`), so its vector is blurry too. **No card leads
+  to it.** Neither the links nor the vectors can bring it up.
+- **A closed loop.** The Beatles' card has two links (the Stones, the
+  Kinks), the Kinks' four lead back to the Beatles, the Zombies, Donovan
+  and Dylan: five or six artists going round.
+
+Joel had drawn `the-beatles → arthur-satan` and `the-kinks → arthur-satan`
+at 3 by hand. The feature is that those two be **offered** to him.
+
+The kinship here is one of sound — sixties English pop, melody, a Ray
+Davies irony. No database carries it, any ear hears it: it is neither a
+MusicBrainz fact nor a pure whim, and it is exactly what an LLM is good at
+spotting.
+
+### Direction (agreed by Joel, 2026-10-06)
+
+1. **The engine finds the cases, with no AI.** It knows where things get
+   stuck, deterministically:
+   - **orphans**: artists the listener likes (liked tracks, plays) that
+     nothing leads to;
+   - **loops**: artists whose branches keep landing on the same small
+     group.
+2. **The agent proposes, among the listener's own catalog only.** For each
+   orphan it is handed the liked artists that have a card, and picks one to
+   three anchors, each with a closeness and a one-sentence reason — "Arthur
+   Satàn → The Kinks, 3: sixties English pop, melodies, a Ray Davies
+   irony". It invents no name, it matches: the agent drives, it does not
+   choose in its head (above).
+3. **The listener says yes in one key.** The proposals wait in a list (a
+   "suggested" section of the `ac` modal, or a dedicated `:` command): ⏎
+   accepts at the proposed closeness, `h`/`l` correct it first, `x`
+   refuses, and **a refusal is remembered** so the proposal does not come
+   back. Nothing to imagine, nothing written without a yes.
+4. **An accepted proposal is an `ac`**, written in `learned/` like one drawn
+   by hand. Not a link in the card, for simplicity, even though an orphan
+   is an orphan for everyone.
+5. **On demand first**: a subcommand (`forkstify suggest`, name to be
+   settled) run from Claude Code — floor 1 above. In the background after a
+   like, perhaps later.
+
+### To settle
+
+1. **The Beatles' loop**: should the agent also widen the cards that are too
+   thin (two links for the Beatles is very little)? That would be the
+   "review by an LLM" part below — links proposed into the card, through
+   `Cp`, rather than connections.
+2. **Where the pending proposals and the refusals live**: in `learned/`
+   (synced between machines, 0017) or in local state.
+3. **The detection's thresholds**: how few incoming links make an orphan,
+   how small a group makes a loop — numbers for `[tuning]` (0023).
+4. **Whether a proposal says it came from the agent** once accepted, or
+   becomes an `ac` like any other.
+
 ## What this reopens
 
 - **Saving the playlist** (question 0 of

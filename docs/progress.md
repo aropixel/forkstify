@@ -1,6 +1,6 @@
 # Progress
 
-Updated on **2026-09-29**. This file is the entry point for picking the work
+Updated on **2026-10-06**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
 ## Done
@@ -3344,3 +3344,20 @@ lines that never moved.
 
 One test: over two hundred draws the three played artists all come up,
 never twice in the same pair, and one with no plays never does.
+
+## Suggested connections: the agent proposes `ac` (2026-10-06)
+
+Joel: "j'aurais aimé que cela puisse me proposer de connecter Arthur Satan
+à The Beatles ou The Kinks sans que j'aie à y penser". Discussed, nothing
+coded; the direction is in [`agent.md`](design/agent.md).
+
+The catalog explains the complaint: Arthur Satàn is an **orphan** (four
+off-target Deezer similars, one tag, no card leading to it), and the
+Beatles sit in a **closed loop** (two links, the Kinks leading back). The
+direction: the engine finds orphans and loops with no AI; the agent
+proposes anchors among the listener's liked artists only, each with a
+closeness and a one-sentence reason; the listener accepts in one key
+(`x` refuses, remembered). An accepted proposal is an `ac` in `learned/`,
+and it runs on demand from Claude Code first — floor 1 of the agent. Four
+questions left in the note (thin cards like the Beatles', where proposals
+and refusals live, the thresholds, the trace once accepted).
