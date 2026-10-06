@@ -45,18 +45,29 @@ pub struct Draft {
 }
 
 /// The catalog, reduced to what a background job may carry: the match key of
-/// every card and the slug it belongs to. `Catalog` itself cannot cross into
+/// every card, the slug it belongs to, and its tags — what 0026's rule
+/// compares a neighbour by. `Catalog` itself cannot cross into
 /// `spawn_blocking`, and nothing else of it is needed here.
-pub struct Known(Vec<(String, String)>);
+pub struct Known(Vec<(String, String, Vec<String>)>);
 
 impl Known {
     pub fn of(catalog: &crate::catalog::Catalog) -> Known {
-        Known(catalog.cards.keys().map(|slug| (match_key(slug), slug.clone())).collect())
+        Known(
+            catalog
+                .cards
+                .iter()
+                .map(|(slug, card)| (match_key(slug), slug.clone(), card.tags.clone()))
+                .collect(),
+        )
+    }
+
+    fn tags_of(&self, slug: &str) -> Option<&[String]> {
+        self.0.iter().find(|(_, s, _)| s == slug).map(|(_, _, tags)| tags.as_slice())
     }
 
     fn slug_of(&self, name: &str) -> Option<&str> {
         let key = match_key(&slugify(name));
-        self.0.iter().find(|(k, _)| *k == key).map(|(_, slug)| slug.as_str())
+        self.0.iter().find(|(k, ..)| *k == key).map(|(_, slug, _)| slug.as_str())
     }
 }
 
@@ -647,22 +658,26 @@ pub fn draft(
         });
         links.push(Link { to: target.to_string(), kind: relation.kind.to_string(), note });
     }
-    // then Deezer's neighbourhood, kept whether or not the target has a card
+    // then Deezer's neighbourhood, kept whether or not the target has a
+    // card, and typed by 0026's rule: `similar` only where a genre tag
+    // confirms it, `audience` otherwise
+    let tags = compose_tags(&facts);
+    let from_service = |l: &&Link| l.kind == "similar" || l.kind == crate::catalog::AUDIENCE;
     for name in &similar {
-        if links.iter().filter(|l| l.kind == "similar").count() == 4 {
+        if links.iter().filter(from_service).count() == 4 {
             break;
         }
         let target = known.slug_of(name).map(String::from).unwrap_or_else(|| slugify(name));
         if target == slug || target.is_empty() || links.iter().any(|l| l.to == target) {
             continue;
         }
-        links.push(Link { to: target, kind: "similar".to_string(), note: None });
+        let kind = crate::catalog::neighbour_kind(&tags, known.tags_of(&target));
+        links.push(Link { to: target, kind: kind.to_string(), note: None });
     }
     if links.is_empty() {
         caveats.push("no links: this card will only branch through its tags".to_string());
     }
 
-    let tags = compose_tags(&facts);
     let toml = compose(&facts.name, &mbid, &facts, &tags, &tops, &links);
     Ok(Draft {
         slug: slug.to_string(),
@@ -826,8 +841,8 @@ mod tests {
     #[ignore]
     fn le_pipeline_compose_une_vraie_fiche() {
         let known = Known(vec![
-            (match_key("georges-brassens"), "georges-brassens".to_string()),
-            (match_key("serge-gainsbourg"), "serge-gainsbourg".to_string()),
+            (match_key("georges-brassens"), "georges-brassens".to_string(), vec!["chanson".to_string()]),
+            (match_key("serge-gainsbourg"), "serge-gainsbourg".to_string(), vec!["chanson".to_string()]),
         ]);
         let draft = draft("jacques-brel", None, None, None, &known).expect("Jacques Brel");
         println!("{}", draft.toml);

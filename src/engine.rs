@@ -101,7 +101,7 @@ pub struct Branch {
 }
 
 // Reason labels are interface text.
-const LABELS: [(&str, &str); 7] = [
+const LABELS: [(&str, &str); 8] = [
     (crate::catalog::MINE, "yours"),
     ("member", "shared members"),
     ("collab", "collaboration"),
@@ -109,6 +109,7 @@ const LABELS: [(&str, &str); 7] = [
     ("family", "family ties"),
     ("scene", "same scene"),
     ("influence", "influence"),
+    (crate::catalog::AUDIENCE, "same listeners"),
 ];
 
 fn label(kind: &str) -> &str {
@@ -128,14 +129,9 @@ fn shared_tags(a: &Card, b: &Card) -> Vec<String> {
     a.tags.iter().filter(|t| b.tags.contains(t)).cloned().collect()
 }
 
-/// Genre tags only: countries (2 letters) and decades ("80s", "2010s")
-/// are context, not kinship — they must not justify a bridge alone.
+/// Genre tags only — they must not justify a bridge alone otherwise.
 fn genre_tags(card: &Card) -> impl Iterator<Item = &str> {
-    card.tags.iter().map(String::as_str).filter(|t| {
-        let decade = t.ends_with('s') && t[..t.len() - 1].chars().all(|c| c.is_ascii_digit());
-        let country = t.len() == 2 && t.chars().all(|c| c.is_ascii_alphabetic());
-        !decade && !country
-    })
+    crate::catalog::genre_tags(&card.tags)
 }
 
 fn reason(kind: &str, note: Option<&str>, a: &Card, b: &Card) -> String {

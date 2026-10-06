@@ -13,8 +13,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-/// The closed list of link types (0010), what `catalog.toml` may extend.
-const LINK_TYPES: [&str; 6] = ["member", "collab", "similar", "family", "scene", "influence"];
+/// The closed list of link types (0010, `audience` since 0026), what
+/// `catalog.toml` may extend.
+const LINK_TYPES: [&str; 7] = ["member", "collab", "similar", "family", "scene", "influence", "audience"];
 
 #[derive(Default, Debug)]
 pub struct Report {

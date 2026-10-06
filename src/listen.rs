@@ -1693,6 +1693,10 @@ impl Live<'_> {
                 false,
             ),
         };
+        // 0026: the `audience` links that waited for this card are checked
+        // now, after `text` — which is what the vector came from, so the
+        // index records it as it was and knows when to catch up
+        crate::edit::confirm_audience(&self.catalog_dir, &mut edit, &draft.slug, &card.tags, &mut self.catalog.cards)?;
         let mut learned_dropped = false;
         if identity_changed {
             if let Some(path) = self.learned.forget(&draft.slug) {

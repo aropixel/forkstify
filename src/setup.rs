@@ -1030,7 +1030,12 @@ impl Setup<'_> {
                     match result {
                         Ok(draft) => match toml::from_str::<crate::catalog::Card>(&draft.toml) {
                             Ok(card) => match crate::edit::create_card(&dir, &draft.slug, &draft.name, &draft.toml, draft.tops, draft.links) {
-                                Ok(_) => {
+                                Ok(mut edit) => {
+                                    // 0026: what pointed at it as `audience` is
+                                    // checked now; the batch commit takes `cards/`
+                                    if let Err(why) = crate::edit::confirm_audience(&dir, &mut edit, &draft.slug, &card.tags, &mut catalog.cards) {
+                                        failed.push(format!("{name} — {why}"));
+                                    }
                                     catalog.cards.insert(draft.slug.clone(), card);
                                     written.push(draft.slug);
                                 }

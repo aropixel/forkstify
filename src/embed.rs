@@ -59,6 +59,8 @@ fn phrases(kind: &str) -> Option<(&'static str, &'static str)> {
         "family" => ("lié familialement à {}", "lié familialement à {}"),
         "scene" => ("même scène que {}", "même scène que {}"),
         "influence" => ("influencé par {}", "a influencé {}"),
+        // `audience` says nothing about the sound (0026): left out, or the
+        // vector would lean towards what the link failed to confirm
         _ => return None,
     })
 }

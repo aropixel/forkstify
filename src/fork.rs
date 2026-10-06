@@ -293,6 +293,7 @@ fn card_summary(text: &str) -> (String, String) {
     let mut tags: Vec<String> = Vec::new();
     let mut links = 0;
     let mut similar = 0;
+    let mut audience = 0;
     for line in text.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("name = ") {
@@ -303,6 +304,8 @@ fn card_summary(text: &str) -> (String, String) {
             links += 1;
             if trimmed.contains("type = \"similar\"") {
                 similar += 1;
+            } else if trimmed.contains("type = \"audience\"") {
+                audience += 1;
             }
         }
     }
@@ -311,7 +314,16 @@ fn card_summary(text: &str) -> (String, String) {
         if !summary.is_empty() {
             summary.push_str(" · ");
         }
-        summary.push_str(&if similar == links { format!("{links} similar") } else { format!("{links} links, {similar} similar") });
+        let counted: Vec<String> = [(similar, "similar"), (audience, "audience")]
+            .iter()
+            .filter(|(n, _)| *n > 0)
+            .map(|(n, kind)| format!("{n} {kind}"))
+            .collect();
+        summary.push_str(&match counted.as_slice() {
+            [only] if similar + audience == links => only.clone(),
+            [] => format!("{links} links"),
+            _ => format!("{links} links, {}", counted.join(", ")),
+        });
     }
     (name, summary)
 }
@@ -788,6 +800,9 @@ mod tests {
         let (name, summary) = card_summary(card);
         assert_eq!(name, "Codeine");
         assert_eq!(summary, "slowcore, us · 2 similar");
+        // 0026: what a service reports is counted for what it is
+        let (_, summary) = card_summary(&card.replace("{ to = \"low\", type = \"similar\" }", "{ to = \"low\", type = \"audience\" }"));
+        assert_eq!(summary, "slowcore, us · 2 links, 1 similar, 1 audience");
     }
 
     /// The pull request is written for the reviewer: the new cards to

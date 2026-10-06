@@ -10,6 +10,31 @@ use std::path::Path;
 /// `learned/`, so the engine walks it while `cards/` stays untouched.
 pub const MINE: &str = "mine";
 
+/// What a service reports and nothing in the catalog confirms (0026):
+/// Deezer's related artists, when the two cards share no genre tag.
+pub const AUDIENCE: &str = "audience";
+
+/// Genre tags only: countries (2 letters) and decades ("80s", "2010s")
+/// are context, not kinship.
+pub fn genre_tags(tags: &[String]) -> impl Iterator<Item = &str> {
+    tags.iter().map(String::as_str).filter(|t| {
+        let decade = t.ends_with('s') && t[..t.len() - 1].chars().all(|c| c.is_ascii_digit());
+        let country = t.len() == 2 && t.chars().all(|c| c.is_ascii_alphabetic());
+        !decade && !country
+    })
+}
+
+/// 0026's rule, in one sentence: a service's neighbour is `similar` when
+/// the two cards share a genre tag, `audience` otherwise — and `audience`
+/// too when the neighbour has no card yet to compare with.
+pub fn neighbour_kind(tags: &[String], neighbour: Option<&[String]>) -> &'static str {
+    let shared = neighbour.is_some_and(|other| {
+        let theirs: Vec<&str> = genre_tags(other).collect();
+        genre_tags(tags).any(|t| theirs.contains(&t))
+    });
+    if shared { "similar" } else { AUDIENCE }
+}
+
 #[derive(Deserialize)]
 pub struct Link {
     pub to: String,
@@ -60,13 +85,14 @@ pub struct Catalog {
 }
 
 // Built-in defaults, identical to the reference catalog's grid.
-const DEFAULT_PROXIMITIES: [(&str, u8); 6] = [
+const DEFAULT_PROXIMITIES: [(&str, u8); 7] = [
     ("member", 5),
     ("collab", 4),
     ("similar", 4),
     ("family", 3),
     ("scene", 3),
     ("influence", 2),
+    (AUDIENCE, 2),
 ];
 
 #[derive(Deserialize)]
@@ -168,6 +194,20 @@ mod tests {
             })
             .collect();
         Catalog { cards, proximities: HashMap::new(), vectors: HashMap::new() }
+    }
+
+    /// 0026's rule on the two cases that brought it (2026-10-06): Nina
+    /// Simone and Ray Charles share a genre, Expérience has none; a country
+    /// or a decade in common is not kinship, and no card is no verdict.
+    #[test]
+    fn a_neighbour_is_similar_only_where_a_genre_confirms_it() {
+        let tags = |list: &[&str]| list.iter().map(|t| t.to_string()).collect::<Vec<_>>();
+        let nina = tags(&["jazz", "soul", "us"]);
+        assert_eq!(neighbour_kind(&nina, Some(&tags(&["soul", "rhythm-and-blues", "us"]))), "similar");
+        let experience = tags(&["fr", "90s"]);
+        assert_eq!(neighbour_kind(&experience, Some(&tags(&["rock", "fr", "90s"]))), AUDIENCE);
+        assert_eq!(neighbour_kind(&tags(&["noise-rock", "fr"]), Some(&tags(&["ska", "fr"]))), AUDIENCE);
+        assert_eq!(neighbour_kind(&nina, None), AUDIENCE);
     }
 
     /// `fw rosalia` found nothing: the card is spelled ROSALÍA, and the

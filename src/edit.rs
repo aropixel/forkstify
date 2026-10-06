@@ -229,6 +229,62 @@ pub fn create_card(
     })
 }
 
+/// **0026, at a card's birth**: the `audience` links pointing at it had no
+/// card to be compared with; now they do. Those whose card shares a genre
+/// tag with the newborn become `similar`, patched line by line into their
+/// own cards — which go into the birth commit, `edit` — and in memory, so
+/// the session walks them as they now are. Returns the slugs retyped.
+pub fn confirm_audience(
+    dir: &Path,
+    edit: &mut Edit,
+    slug: &str,
+    tags: &[String],
+    cards: &mut std::collections::HashMap<String, crate::catalog::Card>,
+) -> Result<Vec<String>, String> {
+    let mut sources: Vec<String> = cards
+        .iter()
+        .filter(|(from, card)| {
+            from.as_str() != slug
+                && card.links.iter().any(|l| l.to == slug && l.kind == crate::catalog::AUDIENCE)
+                && crate::catalog::neighbour_kind(&card.tags, Some(tags)) == "similar"
+        })
+        .map(|(from, _)| from.clone())
+        .collect();
+    sources.sort();
+    let head = format!("{{ to = {},", quoted(slug));
+    let (from_kind, to_kind) = (format!("type = {}", quoted(crate::catalog::AUDIENCE)), "type = \"similar\"");
+    for from in &sources {
+        let path = card_path(dir, from);
+        let text = read(&path)?;
+        let patched: Vec<String> = text
+            .lines()
+            .map(|line| {
+                if line.trim_start().starts_with(&head) && line.contains(&from_kind) {
+                    line.replace(&from_kind, to_kind)
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect();
+        write(&path, &(patched.join("\n") + "\n"))?;
+        edit.also.push(path);
+        for link in cards.get_mut(from).into_iter().flat_map(|c| c.links.iter_mut()) {
+            if link.to == slug && link.kind == crate::catalog::AUDIENCE {
+                link.kind = "similar".to_string();
+            }
+        }
+    }
+    if !sources.is_empty() {
+        let names: Vec<&str> = sources.iter().map(|s| cards[s].name.as_str()).collect();
+        let line = format!("audience → similar, a genre in common: {}", names.join(", "));
+        edit.body = Some(match edit.body.take() {
+            Some(body) => format!("{body}\n{line}"),
+            None => line,
+        });
+    }
+    Ok(sources)
+}
+
 /// Rewrite an existing card from the sources — `:generate <name> <mbid>`
 /// over a card that exists (Joel, 23/09/2026). The whole text goes, hand
 /// edits included: that is what you want when the card was born under the
@@ -383,6 +439,41 @@ mod tests {
         let (_, moved) = regenerate_card(&dir, "the-cure", "The Cure", &other, 2, 1, "The Cure").expect("edit");
         assert!(!moved);
         assert!(regenerate_card(&dir, "nobody", "Nobody", CARD, 0, 0, "x").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 0026 at a birth: the `audience` link from a card sharing a genre
+    /// with the newborn becomes `similar`, on disk and in memory, and the
+    /// commit says so; the one from a card that shares none stays.
+    #[test]
+    fn a_birth_confirms_the_audience_that_shares_a_genre() {
+        let dir = std::env::temp_dir().join(format!("forkstify-audience-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cards")).expect("temp dir");
+        let card = |name: &str, tags: &str| {
+            format!("format = 1\nname = \"{name}\"\nmbid = \"x\"\n\ntags = [{tags}]\n\nlinks = [\n  {{ to = \"duster\", type = \"audience\" }},\n  {{ to = \"low\", type = \"audience\" }},\n]\n")
+        };
+        let codeine = card("Codeine", "\"slowcore\", \"us\"");
+        let zebda = card("Zebda", "\"ska\", \"fr\"");
+        std::fs::write(card_path(&dir, "codeine"), &codeine).expect("card");
+        std::fs::write(card_path(&dir, "zebda"), &zebda).expect("card");
+        let mut cards = std::collections::HashMap::from([
+            ("codeine".to_string(), toml::from_str::<crate::catalog::Card>(&codeine).expect("card")),
+            ("zebda".to_string(), toml::from_str::<crate::catalog::Card>(&zebda).expect("card")),
+        ]);
+        let mut edit = create_card(&dir, "duster", "Duster", "format = 1\nname = \"Duster\"\nmbid = \"y\"\n", 0, 0).expect("born");
+        let tags = vec!["slowcore".to_string(), "us".to_string()];
+        let retyped = confirm_audience(&dir, &mut edit, "duster", &tags, &mut cards).expect("confirmed");
+
+        assert_eq!(retyped, vec!["codeine".to_string()]);
+        let on_disk = std::fs::read_to_string(card_path(&dir, "codeine")).expect("card");
+        assert!(on_disk.contains("{ to = \"duster\", type = \"similar\" },"), "{on_disk}");
+        assert!(on_disk.contains("{ to = \"low\", type = \"audience\" },"), "the other link moves not: {on_disk}");
+        assert_eq!(std::fs::read_to_string(card_path(&dir, "zebda")).expect("card"), zebda);
+        assert!(cards["codeine"].links.iter().any(|l| l.to == "duster" && l.kind == "similar"));
+        assert!(cards["zebda"].links.iter().all(|l| l.kind == "audience"));
+        assert_eq!(edit.also, vec![card_path(&dir, "codeine")]);
+        assert!(edit.body.as_deref().unwrap_or("").contains("audience → similar, a genre in common: Codeine"), "{:?}", edit.body);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
