@@ -3547,3 +3547,15 @@ before the fix was built (12:53). Not provable: the panic message dies
 with the screen. So `main` now installs a panic hook that appends the
 message, the place and a backtrace to `$XDG_STATE_HOME/forkstify/
 crash.log` before the default one runs.
+
+## The crash, read this time (2026-10-07)
+
+Joel relaunched everything and crashed again on a connection from
+`:suggest`. `crash.log` gave it at once: `state_of` (`main.rs`) unwrapped
+the last round with an artist, and there is none at the home before
+anything plays — `recompute` → `state` → `state_of`, *before*
+`engine::propose`, so the earlier fix sat one step too late. Now
+`recompute` does nothing with no session (the home's own rule), and
+`state_of` returns an empty state instead of panicking (test
+`no_round_yet_is_an_empty_state`). `ac` at the home had the same fault,
+unseen until now.

@@ -2206,6 +2206,13 @@ impl Live<'_> {
     }
 
     fn recompute(&mut self) {
+        // no session: no branch to propose — the home recomputes only when
+        // one is live, and an edit made there must not ask for more
+        if self.rounds.is_empty() {
+            self.branches.clear();
+            self.missing.clear();
+            return;
+        }
         let (context, _, universe, visited, played) = self.state();
         match self.wandering.clone() {
             // a `fw` stands: the column holds the far directions, track

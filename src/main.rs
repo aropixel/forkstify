@@ -105,15 +105,18 @@ pub struct Round {
 /// The engine state derived from the journey so far: the context (last
 /// non-empty branch), the current artist, the universe/visited artists and
 /// the played tracks. Shared by the dry navigator and the live listener.
+///
+/// With no round yet — the home, nothing played — everything is empty: it
+/// used to unwrap, and a connection accepted from the home brought the
+/// player down (Joel, 2026-10-07, read in `crash.log`).
 pub fn state_of(rounds: &[Round]) -> (Vec<String>, String, Vec<String>, HashSet<String>, HashSet<String>) {
     let context: Vec<String> = rounds
         .iter()
         .rev()
         .find(|round| !round.artists.is_empty())
-        .unwrap()
-        .artists
-        .clone();
-    let current = context.last().unwrap().clone();
+        .map(|round| round.artists.clone())
+        .unwrap_or_default();
+    let current = context.last().cloned().unwrap_or_default();
     let mut universe: Vec<String> = Vec::new();
     for slug in rounds.iter().flat_map(|round| round.artists.iter()) {
         if !universe.contains(slug) {
@@ -502,4 +505,21 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Nothing played yet — the home — is an empty state, not a panic
+    /// (2026-10-07: a connection accepted from `:suggest` at the home).
+    #[test]
+    fn no_round_yet_is_an_empty_state() {
+        let (context, current, universe, visited, played) = state_of(&[]);
+        assert!(context.is_empty() && current.is_empty() && universe.is_empty());
+        assert!(visited.is_empty() && played.is_empty());
+        let rounds = [Round { artists: vec!["the-cure".into()], tracks: vec!["A Forest".into()] }];
+        let (context, current, ..) = state_of(&rounds);
+        assert_eq!((context, current.as_str()), (vec!["the-cure".to_string()], "the-cure"));
+    }
 }
