@@ -3572,3 +3572,13 @@ other link there is still refused), the session replaces it in memory,
 the commit body adds "It replaces the audience link (0026)", and the
 screen says it beforehand: "audience today" in the list, the `-` line
 above the `+` one in the diff.
+
+## The toast stays while the agent thinks (2026-10-07)
+
+Joel: "leave the toast up while Claude's suggest request runs". The
+"asking Claude Code…" line was a plain four-second toast; the call takes
+ten seconds to a minute. `suggesting` now keeps what each call is about
+and since when, `toast()` shows the oldest as a sticky loading toast
+counting its seconds ("… asking Claude Code about Expérience — 12 s, the
+music goes on"), and `toast_active` keeps the screen repainting while a
+call runs, music or not.

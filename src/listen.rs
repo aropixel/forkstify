@@ -150,7 +150,7 @@ async fn async_run(
         link_pending: None,
         suggest: None,
         suggestions: crate::suggest::Store::load(),
-        suggesting: HashSet::new(),
+        suggesting: HashMap::new(),
         start_requested: None,
         album_requested: None,
         search_requested: None,
@@ -465,9 +465,11 @@ struct Live<'a> {
     suggest: Option<crate::suggest::Screen>,
     /// The waiting list, which is also the cache (local state).
     suggestions: crate::suggest::Store,
-    /// The artists the agent is being asked about, so a second `aS` does
-    /// not launch the same call again.
-    suggesting: HashSet<String>,
+    /// The calls to the agent under way — by artist, or `*` for the
+    /// orphans — with what they are about and since when: a second `aS`
+    /// does not launch the same call again, and the toast stays up while
+    /// one runs (Joel, 2026-10-07).
+    suggesting: HashMap<String, (String, std::time::Instant)>,
     /// Enter on a track of the discography: a new seed, once the modal's
     /// sync handler has returned (Joel, 11/09/2026).
     start_requested: Option<Choice>,
@@ -2927,7 +2929,8 @@ impl Live<'_> {
 
     /// A toast is on screen, or just faded: a repaint is needed.
     fn toast_active(&self) -> bool {
-        self.toast
+        // a call to the agent counts its seconds in the toast
+        !self.suggesting.is_empty() || self.toast
             .borrow()
             .as_ref()
             .is_some_and(|(_, at, secs)| at.elapsed().as_secs_f32() < *secs as f32 + 1.5)
@@ -2951,6 +2954,15 @@ impl Live<'_> {
                     sticky: true,
                 });
             }
+        }
+        // the agent thinks for ten seconds to a minute: the toast stays up,
+        // counting, until it answers (Joel, 2026-10-07)
+        if let Some((about, since)) = self.suggesting.values().min_by_key(|(_, since)| *since) {
+            return Some(crate::tui::Toast {
+                text: format!("… asking Claude Code {about} — {} s, the music goes on", since.elapsed().as_secs()),
+                tone: crate::tui::LOADING,
+                sticky: true,
+            });
         }
         if let Some((slug, _)) = self.harvesting.iter().find(|(_, quiet)| !**quiet) {
             let name = self.catalog.cards.get(slug).map(|c| c.name.as_str()).unwrap_or(slug);
@@ -4014,10 +4026,10 @@ impl Live<'_> {
 
     /// Call the agent in the background — once per `key` at a time.
     fn ask_agent(&mut self, key: String, about: String, ask: crate::suggest::Ask) {
-        if !self.suggesting.insert(key.clone()) {
+        if self.suggesting.contains_key(&key) {
             return say!(self, "(already asking Claude Code {about})");
         }
-        self.tell(format!("… asking Claude Code {about} — the music goes on"));
+        self.suggesting.insert(key.clone(), (about, std::time::Instant::now()));
         let tx = self.jobs_tx.clone();
         tokio::task::spawn_local(async move {
             let prompt = ask.prompt.clone();
