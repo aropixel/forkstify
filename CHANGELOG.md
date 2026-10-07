@@ -12,6 +12,8 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+## 0.2.0 — 2026-10-07
+
 Two weeks of daily listening. The agent can now propose the connections
 your catalog is missing, a service's word gets a link type of its own,
 the branches stop circling the same few artists, and Spotify losing the

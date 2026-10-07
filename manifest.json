@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.aropixel.forkstify",
   "name": "forkstify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Joel Gomez Caballe",
   "license": "MIT",
   "description": "Now playing in forkstify: animated bars while it plays, and a popover with the track, the progress and what comes next. Installs and launches forkstify itself.",
