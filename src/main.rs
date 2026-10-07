@@ -30,6 +30,7 @@ mod sync;
 mod tui;
 mod validate;
 mod spotify;
+mod suggest;
 
 use catalog::Catalog;
 use rand::distributions::WeightedIndex;

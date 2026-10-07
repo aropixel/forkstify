@@ -229,6 +229,45 @@ pub fn create_card(
     })
 }
 
+/// One link, on one line, as 0010 writes them: the closeness only when it
+/// differs from the grid's, the note last.
+pub fn link_line(to: &str, kind: &str, proximity: Option<u8>, note: &str) -> String {
+    let mut parts = vec![format!("to = {}", quoted(to)), format!("type = {}", quoted(kind))];
+    if let Some(proximity) = proximity {
+        parts.push(format!("proximity = {proximity}"));
+    }
+    if !note.is_empty() {
+        parts.push(format!("note = {}", quoted(note)));
+    }
+    format!("{{ {} }},", parts.join(", "))
+}
+
+/// `:suggest` — a proposal accepted as a **card link** (2026-10-07): the
+/// line goes into the artist's card, and the commit says where it came
+/// from, so the history can always tell it apart. `summary` is what the
+/// screen previewed.
+pub fn add_link(
+    dir: &Path,
+    slug: &str,
+    to: &str,
+    kind: &str,
+    proximity: Option<u8>,
+    note: &str,
+    summary: String,
+    body: String,
+) -> Result<Edit, String> {
+    let path = card_path(dir, slug);
+    let text = read(&path)?;
+    if let Some((from, end)) = array_span(&text, "links") {
+        if text[from..end].lines().any(|l| l.trim_start().starts_with(&format!("{{ to = {},", quoted(to)))) {
+            return Err(format!("the card already links to {to}"));
+        }
+    }
+    let updated = insert_into_array(&text, "links", &format!("  {}", link_line(to, kind, proximity, note)));
+    write(&path, &updated)?;
+    Ok(Edit { summary, body: Some(body), path, also: Vec::new(), removed: Vec::new() })
+}
+
 /// **0026, at a card's birth**: the `audience` links pointing at it had no
 /// card to be compared with; now they do. Those whose card shares a genre
 /// tag with the newborn become `similar`, patched line by line into their
@@ -474,6 +513,27 @@ mod tests {
         assert!(cards["zebda"].links.iter().all(|l| l.kind == "audience"));
         assert_eq!(edit.also, vec![card_path(&dir, "codeine")]);
         assert!(edit.body.as_deref().unwrap_or("").contains("audience → similar, a genre in common: Codeine"), "{:?}", edit.body);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `:suggest`, accepted as a card link: one line, as 0010 writes them,
+    /// the note last; a second link to the same artist is refused.
+    #[test]
+    fn a_suggested_link_is_one_line_in_the_card() {
+        let dir = std::env::temp_dir().join(format!("forkstify-add-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cards")).expect("temp dir");
+        std::fs::write(card_path(&dir, "the-cure"), CARD).expect("card");
+        let edit = add_link(&dir, "the-cure", "siouxsie", "influence", Some(3), "Gothic post-punk, \"dark\" guitars.", "s".into(), "b".into())
+            .expect("written");
+        assert_eq!(edit.body.as_deref(), Some("b"));
+        let text = std::fs::read_to_string(card_path(&dir, "the-cure")).expect("card");
+        assert!(
+            text.contains("  { to = \"joy-division\", type = \"scene\" },\n  { to = \"siouxsie\", type = \"influence\", proximity = 3, note = \"Gothic post-punk, \\\"dark\\\" guitars.\" },\n]"),
+            "{text}"
+        );
+        assert!(toml::from_str::<crate::catalog::Card>(&text).is_ok(), "{text}");
+        assert!(add_link(&dir, "the-cure", "siouxsie", "scene", None, "", "s".into(), "b".into()).is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

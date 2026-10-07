@@ -148,6 +148,9 @@ async fn async_run(
         wander_requested: None,
         wandering: None,
         link_pending: None,
+        suggest: None,
+        suggestions: crate::suggest::Store::load(),
+        suggesting: HashSet::new(),
         start_requested: None,
         album_requested: None,
         search_requested: None,
@@ -330,6 +333,11 @@ const CLOSENESS: [(u8, &str); 5] = [
     (5, "almost the same universe"),
 ];
 
+/// What a closeness means, in the words `ac` and `:suggest` lay out.
+pub fn closeness_meaning(level: u8) -> &'static str {
+    CLOSENESS.iter().find(|(at, _)| *at == level).map(|(_, words)| *words).unwrap_or("")
+}
+
 /// Whether to open the session again **now**, and with what wait if this
 /// attempt fails in turn. `None` means hold: either an attempt is already
 /// out — a zero wait marks it — or the backoff has not run out. Pure, so
@@ -452,6 +460,14 @@ struct Live<'a> {
     /// connection to set it: the question stays until a digit, ⏎, `x` or
     /// esc (Joel, 2026-09-23).
     link_pending: Option<LinkPending>,
+    /// `:suggest` — the screen of what the agent proposed, while open
+    /// (2026-10-07). It takes the keyboard, like the `ac` question.
+    suggest: Option<crate::suggest::Screen>,
+    /// The waiting list, which is also the cache (local state).
+    suggestions: crate::suggest::Store,
+    /// The artists the agent is being asked about, so a second `aS` does
+    /// not launch the same call again.
+    suggesting: HashSet<String>,
     /// Enter on a track of the discography: a new seed, once the modal's
     /// sync handler has returned (Joel, 11/09/2026).
     start_requested: Option<Choice>,
@@ -573,6 +589,8 @@ enum Job {
     Proposed(Result<crate::fork::Proposal, String>),
     Updated(Result<crate::fork::Update, String>),
     PullRequest(Result<String, String>),
+    /// What the agent answered about one artist (`:suggest`).
+    Suggested { ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String> },
 }
 
 /// What was meant for the artist **once it has a card**. Generation takes
@@ -1544,6 +1562,7 @@ impl Live<'_> {
                 Ok(url) => self.tell(format!("✓ pull request opened — {url}")),
                 Err(why) => self.tell(format!("⏹ pull request: {why}")),
             },
+            Job::Suggested { ask, result } => self.suggested(ask, result),
             Job::Updated(result) => {
                 self.catalog_busy = false;
                 match result {
@@ -2448,6 +2467,12 @@ impl Live<'_> {
         if self.finder.is_some() {
             return self.on_finder_key(cmd).await;
         }
+        // the agent's proposals take the keyboard while their screen is
+        // open, on both screens (2026-10-07)
+        if self.suggest.is_some() {
+            self.on_suggest_key(cmd);
+            return true;
+        }
         // the discography modal too: it has its own table (keys.rs), and
         // opens from the home as from the listening (Joel, 10/09/2026)
         if self.explore.is_some() && self.comfort_before.is_none() {
@@ -2695,7 +2720,7 @@ impl Live<'_> {
             }
             Cmd::Colon(text) => return self.run_colon(&text).await,
             // routed before the screens split
-            Cmd::Open | Cmd::Catalog(_) => {}
+            Cmd::Open | Cmd::Catalog(_) | Cmd::Letter(_) => {}
         }
         // `ad` and `:discography` ask for the tail before opening: the
         // keyboard is not async, the loop is
@@ -2979,6 +3004,16 @@ impl Live<'_> {
     /// it decides nothing.
     fn paint(&mut self) {
         self.mirror();
+        if let Some(screen) = &self.suggest {
+            let cards = &self.catalog.cards;
+            let name = |slug: &str| cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+            let (title, lines) = screen.view(&name, &self.catalog.proximities, &crate::learned::today_iso());
+            // the highlighted row stays in sight on a long list
+            let cursor_line = lines.iter().position(|l| l.starts_with('▸')).unwrap_or(0);
+            let visible = self.tui_height().saturating_sub(6) as usize;
+            self.overlay_scroll = cursor_line.saturating_sub(visible.saturating_sub(3));
+            self.overlay = Some((title, lines));
+        }
         if self.screen == Screen::Home {
             let live = !self.rounds.is_empty();
             // the footer is built field by field: the screen needs `tui`
@@ -3926,6 +3961,193 @@ impl Live<'_> {
         self.recompute();
     }
 
+    /// `aS`, `:suggest <artist>` — what the agent proposes around one
+    /// artist (2026-10-07). What still waits for it is shown with no call,
+    /// as long as it was asked from the same card and the same liked
+    /// artists; otherwise — or when `again` asks — Claude Code is called
+    /// in the background, and the music goes on.
+    fn suggest_for(&mut self, slug: &str, again: bool) {
+        let name = self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
+        let ask = match crate::suggest::ask(&self.catalog, &self.learned, slug) {
+            Ok(ask) => ask,
+            Err(why) => return say!(self, "⏹ {why}"),
+        };
+        if !again && self.suggestions.fresh(&ask) {
+            return self.open_suggest(Some(slug));
+        }
+        if ask.candidates.is_empty() {
+            return say!(self, "({name}: every artist you like is already tied to it, or declined)");
+        }
+        if !self.suggesting.insert(slug.to_string()) {
+            return say!(self, "(already asking about {name})");
+        }
+        self.tell(format!("… asking Claude Code about {name} — the music goes on"));
+        let tx = self.jobs_tx.clone();
+        tokio::task::spawn_local(async move {
+            let prompt = ask.prompt.clone();
+            let result = tokio::task::spawn_blocking(move || crate::suggest::call(&prompt))
+                .await
+                .unwrap_or_else(|e| Err(format!("interrupted ({e})")));
+            let _ = tx.send(Job::Suggested { ask, result });
+        });
+    }
+
+    /// The agent answered: keep what holds, file it, and show it — unless
+    /// something else holds the keyboard, then say where it waits.
+    fn suggested(&mut self, ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String>) {
+        self.suggesting.remove(&ask.target);
+        let name = self.catalog.cards.get(&ask.target).map(|c| c.name.clone()).unwrap_or_else(|| ask.target.clone());
+        let proposals = match result {
+            Ok(proposals) => crate::suggest::keep(&ask, proposals),
+            Err(why) => return self.tell(format!("⏹ suggest {name}: {why}")),
+        };
+        let count = proposals.len();
+        self.suggestions.put(&ask, proposals);
+        if count == 0 {
+            return self.tell(format!("(nothing close enough to {name} among your artists, says Claude Code)"));
+        }
+        let busy = self.finder.is_some() || self.explore.is_some() || self.link_pending.is_some() || self.comfort_before.is_some();
+        if busy || self.suggest.is_some() {
+            self.tell(format!("✓ {count} suggestion(s) for {name} — :suggest to see them"));
+        } else {
+            self.open_suggest(Some(&ask.target));
+        }
+    }
+
+    /// Open the screen on what waits — for one artist, or for all.
+    fn open_suggest(&mut self, only: Option<&str>) {
+        let rows = self.suggestions.waiting(only);
+        if rows.is_empty() {
+            return say!(self, "(nothing waiting — aS on an artist, or :suggest <artist>)");
+        }
+        self.suggest = Some(crate::suggest::Screen::new(rows));
+        self.help_open = false;
+        crate::keys::set_choice(true);
+    }
+
+    fn close_suggest(&mut self) {
+        self.suggest = None;
+        self.overlay = None;
+        self.overlay_scroll = 0;
+        crate::keys::set_choice(false);
+        self.tui.clear();
+    }
+
+    /// The screen's keys (`keys::parse_choice`): the list, then for the
+    /// highlighted proposal how close, where, and for a card link its type.
+    fn on_suggest_key(&mut self, cmd: Cmd) {
+        use crate::suggest::{Step, KINDS};
+        let Some(screen) = self.suggest.as_mut() else { return };
+        let Some(current) = screen.current().cloned() else {
+            return self.close_suggest();
+        };
+        match (screen.step, cmd) {
+            (Step::List, Cmd::Down) => screen.cursor = (screen.cursor + 1).min(screen.rows.len() - 1),
+            (Step::List, Cmd::Up) => screen.cursor = screen.cursor.saturating_sub(1),
+            (Step::List, Cmd::Auto) => screen.step = Step::Closeness(current.proximity),
+            (Step::List, Cmd::Remove) => self.decline_suggestion(&current),
+            (Step::List, Cmd::Letter('r')) => {
+                self.close_suggest();
+                self.suggest_for(&current.artist, true);
+            }
+            (Step::List, Cmd::Escape | Cmd::Quit) => self.close_suggest(),
+
+            (Step::Closeness(p), Cmd::Prev | Cmd::Down) => screen.step = Step::Closeness(p.saturating_sub(1).max(1)),
+            (Step::Closeness(p), Cmd::Next | Cmd::Up) => screen.step = Step::Closeness((p + 1).min(5)),
+            (Step::Closeness(_), Cmd::Digit(n)) if (1..=5).contains(&n) => screen.step = Step::Closeness(n as u8),
+            (Step::Closeness(p), Cmd::Auto) => {
+                screen.step = Step::Destination { proximity: p, card: current.lean == "card" }
+            }
+            (Step::Closeness(_), Cmd::Escape) => screen.step = Step::List,
+
+            (Step::Destination { proximity, card }, Cmd::Up | Cmd::Down) => {
+                screen.step = Step::Destination { proximity, card: !card }
+            }
+            (Step::Destination { proximity, card: true }, Cmd::Auto) | (Step::Destination { proximity, .. }, Cmd::Letter('c')) => {
+                let kind = KINDS.iter().position(|k| *k == current.kind).unwrap_or(0);
+                screen.step = Step::Kind { proximity, kind };
+            }
+            (Step::Destination { proximity, card: false }, Cmd::Auto) | (Step::Destination { proximity, .. }, Cmd::Letter('a')) => {
+                self.accept_connection(&current, proximity)
+            }
+            (Step::Destination { proximity, .. }, Cmd::Escape) => screen.step = Step::Closeness(proximity),
+
+            (Step::Kind { proximity, kind }, Cmd::Prev) => {
+                screen.step = Step::Kind { proximity, kind: (kind + KINDS.len() - 1) % KINDS.len() }
+            }
+            (Step::Kind { proximity, kind }, Cmd::Next) => screen.step = Step::Kind { proximity, kind: (kind + 1) % KINDS.len() },
+            (Step::Kind { proximity, kind }, Cmd::Letter('y')) => self.accept_link(&current, proximity, KINDS[kind]),
+            (Step::Kind { proximity, .. }, Cmd::Escape) => {
+                screen.step = Step::Destination { proximity, card: true }
+            }
+            // what the screen does not read is ignored, the keys are on it
+            _ => {}
+        }
+    }
+
+    /// The proposal is settled: out of the screen and out of the list; the
+    /// screen closes when nothing is left.
+    fn settle_suggestion(&mut self, proposal: &crate::suggest::Proposal, said: String) {
+        self.suggestions.settle(&proposal.artist, &proposal.anchor);
+        let Some(screen) = self.suggest.as_mut() else { return };
+        screen.drop_current();
+        screen.notice = said.clone();
+        if screen.rows.is_empty() {
+            self.close_suggest();
+            say!(self, "{said}");
+        }
+    }
+
+    /// `a` — a connection of the listener's own, as `ac` draws it: in
+    /// `learned/`, and no trace of where it came from (`agent.md`).
+    fn accept_connection(&mut self, proposal: &crate::suggest::Proposal, proximity: u8) {
+        self.set_connection(&proposal.artist, &proposal.anchor, proximity);
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_default();
+        let said = format!("✓ connected {} → {} ({proximity} · learned/)", name(&proposal.artist), name(&proposal.anchor));
+        self.settle_suggestion(proposal, said);
+    }
+
+    /// `c` then `y` — a link in the artist's card, committed, its body
+    /// saying the agent suggested it; the engine follows on the spot.
+    fn accept_link(&mut self, proposal: &crate::suggest::Proposal, proximity: u8, kind: &str) {
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_default();
+        let (from, to) = (name(&proposal.artist), name(&proposal.anchor));
+        let written = crate::suggest::written_proximity(&self.catalog.proximities, kind, proximity);
+        let summary = crate::suggest::link_summary(&from, &to, kind, proximity);
+        let body = format!("Suggested by the agent (Claude Code), {}.", crate::learned::today_iso());
+        let edit = crate::edit::add_link(&self.catalog_dir, &proposal.artist, &proposal.anchor, kind, written, &proposal.reason, summary, body);
+        let said = match edit.and_then(|edit| crate::edit::commit(&self.catalog_dir, &edit)) {
+            Ok(()) => {
+                if let Some(card) = self.catalog.cards.get_mut(&proposal.artist) {
+                    card.links.push(crate::catalog::Link {
+                        to: proposal.anchor.clone(),
+                        kind: kind.to_string(),
+                        note: Some(proposal.reason.clone()),
+                        proximity: written,
+                    });
+                }
+                self.recompute();
+                format!("✓ linked {from} → {to} ({kind}, {proximity} · committed)")
+            }
+            Err(why) => {
+                if let Some(screen) = self.suggest.as_mut() {
+                    screen.notice = format!("⏹ not written: {why}");
+                    screen.step = crate::suggest::Step::List;
+                }
+                return;
+            }
+        };
+        self.settle_suggestion(proposal, said);
+    }
+
+    /// `x` — declined: remembered in `learned/`, so it never comes back.
+    fn decline_suggestion(&mut self, proposal: &crate::suggest::Proposal) {
+        self.learned.decline(&proposal.artist, &proposal.anchor);
+        let name = |slug: &str| self.catalog.cards.get(slug).map(|c| c.name.clone()).unwrap_or_default();
+        let said = format!("declined {} → {} (won't come back)", name(&proposal.artist), name(&proposal.anchor));
+        self.settle_suggestion(proposal, said);
+    }
+
     /// `:connections` — every connection drawn with `ac`, by artist, with
     /// its closeness, in a block that scrolls like `Cd` (Joel, 23/09/2026).
     /// Read-only: to set or undraw one, `ac` on either of its artists. It
@@ -4027,6 +4249,14 @@ impl Live<'_> {
                 self.recompute();
             }
             'e' => self.edit_card(&stop),
+            // `aS` — what the agent proposes around this artist (2026-10-07)
+            'S' => {
+                if stop.slug.is_empty() || !self.catalog.cards.contains_key(&stop.slug) {
+                    say!(self, "({} has no card — :generate them first, then aS)", stop.artist);
+                    return;
+                }
+                self.suggest_for(&stop.slug.clone(), false);
+            }
             'c' => {
                 // `ac` — a connection of your own (Joel, 2026-09-23). It
                 // lives in `learned/`, never in the card: a card is
@@ -4635,6 +4865,21 @@ impl Live<'_> {
             // every connection drawn with `ac`, in one block (Joel,
             // 23/09/2026) — read-only: setting one goes through `ac`
             (Some("connections"), _) => self.connections_overlay(),
+            // what the agent proposes: the list, or one artist — `again`
+            // asks anew rather than showing what waits (2026-10-07)
+            (Some("suggest"), None) => self.open_suggest(None),
+            (Some("suggest"), Some(_)) => {
+                let mut words: Vec<&str> = text.split_whitespace().skip(1).collect();
+                let again = words.last() == Some(&"again");
+                if again {
+                    words.pop();
+                }
+                let name = words.join(" ");
+                match self.catalog.search_names(&name, 1).into_iter().next() {
+                    Some(slug) => self.suggest_for(&slug, again),
+                    None => say!(self, "({name}: no card of that name)"),
+                }
+            }
             (Some("catalog"), Some("diff")) => self.catalog_gesture('d'),
             (Some("catalog"), Some("propose")) => self.catalog_gesture('p'),
             (Some("catalog"), Some("update")) => self.catalog_gesture('u'),
@@ -4951,6 +5196,7 @@ impl Live<'_> {
             (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
             (":discography", "the artist's discography by album — shortcut ad"),
             (":connections", "every connection drawn with ac, by artist"),
+            (":suggest [artist] [again]", "what the agent proposes — all that waits, or around one artist; shortcut aS"),
             (":warm", "fetch the artist's discography now — the long tail"),
             (":wander [artist]", "propose far away, or that artist — shortcut fw"),
             (":size <n>", "branch size, 1 to 9"),
@@ -5064,6 +5310,7 @@ impl Live<'_> {
                 ("ag", "google — the artist in the browser", Both),
                 ("ae", "edit — the card in $EDITOR, committed when it changed", Both),
                 ("ac", "connect — yours: the ones drawn (enter undraws), then search to draw one", Both),
+                ("aS", "suggest — Claude Code proposes artists of yours to tie to this one", Both),
             ],
             // the entry level: the keys, then the two lines, then the
             // legend (Joel, 23/09/2026)

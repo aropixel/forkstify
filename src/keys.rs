@@ -119,6 +119,10 @@ pub enum Cmd {
     /// `Cd` diff, `Cp` propose, `Cu` update. The first namespace in a
     /// capital: the rare, heavy gesture, as `A` takes a whole album.
     Catalog(char),
+    /// A letter of a choice screen (`:suggest`): `c` card link, `a`
+    /// connection, `y` write, `r` ask again — the screen reads it, the
+    /// parser does not.
+    Letter(char),
 }
 
 /// A modal takes the keyboard and gives it **its** table — `keybindings.md`
@@ -171,6 +175,20 @@ pub fn set_setup(on: bool) {
     SETUP.store(on, Ordering::Relaxed);
 }
 
+/// The choice screens (`:suggest`, 2026-10-07) have a table of their own
+/// too: a list read with `j`/`k`, a value moved with `h`/`l` or a digit,
+/// and single letters for the choices — which the bare grammar keeps as
+/// namespaces (`c`, `a`) or leaves out (`y`).
+static CHOICE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_choice(on: bool) {
+    CHOICE.store(on, Ordering::Relaxed);
+}
+
+fn choice() -> bool {
+    CHOICE.load(Ordering::Relaxed)
+}
+
 fn setup() -> bool {
     SETUP.load(Ordering::Relaxed)
 }
@@ -189,7 +207,7 @@ pub enum Parse {
 // `t` and `T` stay parseable for the discography screen (`ad`), where the
 // tops are corrected; the listening session itself refuses them (0018)
 const TRACK_KEYS: [char; 10] = ['l', 's', 'b', 'm', 't', 'T', 'd', 'i', 'a', 'g'];
-const ARTIST_KEYS: [char; 7] = ['l', 's', 'b', 'e', 'c', 'd', 'g'];
+const ARTIST_KEYS: [char; 8] = ['l', 's', 'b', 'e', 'c', 'd', 'g', 'S'];
 /// `Cd` diff, `Cp` propose, `Cu` update.
 const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
 /// In the discography modal, `t` only serves what makes sense on a list
@@ -337,6 +355,26 @@ pub fn parse_modal(buf: &str) -> Parse {
         ['u'] => Parse::Done(Cmd::Undo),
         ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
 
+        _ => Parse::Unknown,
+    }
+}
+
+/// The table of a choice screen: `j`/`k` and the arrows move the list,
+/// `h`/`l` a value, a digit jumps to one, ⏎ takes, `x` declines, and any
+/// other letter is the screen's to read (`Letter`).
+pub fn parse_choice(buf: &str) -> Parse {
+    let c: Vec<char> = buf.chars().collect();
+    match c.as_slice() {
+        [] => Parse::Pending,
+        [d] if ('1'..='9').contains(d) => Parse::Done(Cmd::Digit(d.to_digit(10).unwrap() as usize)),
+        ['j'] => Parse::Done(Cmd::Down),
+        ['k'] => Parse::Done(Cmd::Up),
+        ['h'] => Parse::Done(Cmd::Prev),
+        ['l'] => Parse::Done(Cmd::Next),
+        ['x'] => Parse::Done(Cmd::Remove),
+        ['q'] => Parse::Done(Cmd::Quit),
+        ['\r'] | ['\n'] => Parse::Done(Cmd::Auto),
+        [k] if k.is_ascii_alphabetic() => Parse::Done(Cmd::Letter(*k)),
         _ => Parse::Unknown,
     }
 }
@@ -494,6 +532,7 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
         let mut pending = String::new();
         let mut was_modal = modal();
         let mut was_setup = setup();
+        let mut was_choice = choice();
         // the text-mode line: it lives here, the screen only sees its state
         let mut line = String::new();
         let mut was_text = text();
@@ -551,6 +590,10 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             }
             if setup() != was_setup {
                 was_setup = !was_setup;
+                clear_pending(&mut pending, &tx);
+            }
+            if choice() != was_choice {
+                was_choice = !was_choice;
                 clear_pending(&mut pending, &tx);
             }
 
@@ -626,7 +669,9 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
             }
 
             pending.push(key);
-            let outcome = if was_setup {
+            let outcome = if was_choice {
+                parse_choice(&pending)
+            } else if was_setup {
                 parse_setup(&pending)
             } else if was_modal {
                 parse_modal(&pending)
@@ -721,12 +766,32 @@ fn read_line(prefix: char, start: &str, tx: &UnboundedSender<Cmd>) -> Option<Str
 mod tests {
     use super::*;
 
+    /// The `:suggest` screen reads its letters itself: `c`, `a` and `y`
+    /// arrive as letters, not as the namespaces they are elsewhere.
+    #[test]
+    fn a_choice_screen_hands_its_letters_over() {
+        let done = |buf: &str| match parse_choice(buf) {
+            Parse::Done(cmd) => Some(cmd),
+            _ => None,
+        };
+        assert_eq!(done("c"), Some(Cmd::Letter('c')));
+        assert_eq!(done("a"), Some(Cmd::Letter('a')));
+        assert_eq!(done("y"), Some(Cmd::Letter('y')));
+        assert_eq!(done("j"), Some(Cmd::Down));
+        assert_eq!(done("h"), Some(Cmd::Prev));
+        assert_eq!(done("x"), Some(Cmd::Remove));
+        assert_eq!(done("4"), Some(Cmd::Digit(4)));
+        assert_eq!(done("\r"), Some(Cmd::Auto));
+        // and `aS` is a gesture of the artist
+        assert!(matches!(parse("aS"), Parse::Done(Cmd::Artist('S'))));
+    }
+
     /// The property the whole design rests on: no complete command may be
     /// the start of a longer one, or it could never fire without a timeout.
     #[test]
     fn grammar_is_prefix_free() {
         let alphabet: Vec<char> =
-            "0123456789fenatlsbcgGmTdLpruwhqQCo.?!\r".chars().collect();
+            "0123456789fenatlsbcgGmTdLSpruwhqQCo.?!\r".chars().collect();
         let mut complete: Vec<String> = Vec::new();
         // every sequence up to 3 keys
         let mut queue: Vec<String> = vec![String::new()];

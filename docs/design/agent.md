@@ -328,6 +328,11 @@ The listener asked for suggestions around one TARGET artist. Its links today do 
 followed by `TARGET` (its card, its links, who links to it) and
 `CANDIDATES`.
 
+**Wired on 2026-10-07**: `aS` and `:suggest [artist] [again]` (`src/suggest.rs`),
+the screen in the overlay block, the refusals in `learned/` (`declined`,
+merged as a union), the waiting list in `$XDG_STATE_HOME/forkstify/suggestions.json`.
+`:suggest run`, for the orphans, is not wired yet.
+
 ### What a call costs, and when not to make one (2026-10-07)
 
 Joel: "aren't these calls included in the subscription? Shouldn't we

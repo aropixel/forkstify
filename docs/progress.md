@@ -3483,3 +3483,25 @@ the agent is called again only when nothing is left, when a fingerprint
 of the prompt changed, or on an explicit `again` / `r`; what was declined
 or accepted leaves the candidates of the next call. In
 [`agent.md`](design/agent.md).
+
+## `aS` and `:suggest <artist>`, wired (2026-10-07)
+
+`src/suggest.rs` holds the logic: the prompt (the targeted one tried the
+same day), the call — `claude -p --safe-mode --tools "" --output-format
+json --json-schema … --no-session-persistence`, the prompt on stdin —,
+the filter (the target's own, an anchor sent, `similar`/`scene`/
+`influence`, 1–5, once each), the waiting list that is also the cache
+(`suggestions.json` in local state; fresh = something waits and the
+fingerprint of the target's line and the liked artists is the same), and
+the screen's steps. `listen.rs` wires `aS` (both screens, 0020's
+target), `:suggest`, `:suggest <artist> [again]`, a job in the
+background, and the screen in the overlay block with a key table of its
+own (`keys::parse_choice`: `j`/`k`, `h`/`l`, digits, ⏎, `x`, and the
+letters `c`, `a`, `y`, `r`). A card link is one line in `cards/`
+(`edit::add_link`), its commit body "Suggested by the agent (Claude
+Code), <date>."; a connection goes through `set_connection`, as `ac`;
+a refusal into `learned/` (`declined`, merged as a union, earliest day
+kept). The prompt built by the code on the real catalog matched the
+hand-tried one, and its answer read back (9 s for Expérience). Seven new
+tests; 125 green. Not tried by Joel in the TUI yet; `:suggest run` not
+wired.

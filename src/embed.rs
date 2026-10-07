@@ -197,8 +197,14 @@ fn index_path(dir: &Path) -> PathBuf {
 /// written into a versioned file must be. `DefaultHasher` is not: its
 /// output is explicitly allowed to change between Rust releases.
 fn digest(text: &str) -> String {
+    fnv(&format!("{MODEL}\0{text}"))
+}
+
+/// FNV-1a, 64 bits, as hex — what `digest` and `:suggest`'s fingerprint
+/// share.
+pub fn fnv(text: &str) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in MODEL.as_bytes().iter().chain(b"\0".iter()).chain(text.as_bytes().iter()) {
+    for byte in text.as_bytes() {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x100_0000_01b3);
     }

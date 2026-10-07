@@ -65,6 +65,12 @@ pub struct Artist {
     /// carries `cards/`, so a connection cannot leave by accident.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub connections: BTreeMap<String, u8>,
+    /// `:suggest` — the anchors the agent proposed for this artist and the
+    /// listener declined, slug to the day it was said (2026-10-07). Kept
+    /// here, beside the connections, so a refusal follows the listener
+    /// between machines and the same proposal never comes back.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub declined: BTreeMap<String, String>,
 }
 
 impl Default for Artist {
@@ -77,6 +83,7 @@ impl Default for Artist {
             unliked: false,
             tops: BTreeMap::new(),
             connections: BTreeMap::new(),
+            declined: BTreeMap::new(),
         }
     }
 }
@@ -494,6 +501,18 @@ impl Learned {
         }
     }
 
+    /// `:suggest` — never propose `anchor` for this artist again.
+    pub fn decline(&mut self, slug: &str, anchor: &str) {
+        let today = today_iso();
+        self.entry(slug).declined.insert(anchor.to_string(), today);
+        self.save(slug);
+    }
+
+    /// The anchors declined for this artist.
+    pub fn declined(&self, slug: &str) -> Vec<&String> {
+        self.artists.get(slug).map(|a| a.declined.keys().collect()).unwrap_or_default()
+    }
+
     /// Every connection drawn, whoever it starts from: the engine needs
     /// them all, since it walks links in both directions.
     pub fn all_connections(&self) -> Vec<(&String, &String, u8)> {
@@ -657,7 +676,21 @@ fn merge_artist_at(base: Option<&str>, ours: &str, theirs: &str, today: i64) -> 
         }
     }
 
-    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, unliked, tops, connections })
+    // a refusal is a decision, and nothing takes one back: both sides'
+    // add up, the earliest day kept
+    let mut declined = a.declined.clone();
+    for (anchor, day) in &b.declined {
+        declined
+            .entry(anchor.clone())
+            .and_modify(|kept| {
+                if day < kept {
+                    *kept = day.clone();
+                }
+            })
+            .or_insert_with(|| day.clone());
+    }
+
+    toml::to_string_pretty(&Artist { plays, last, weight, blacklisted, unliked, tops, connections, declined })
         .map_err(|e| e.to_string())
 }
 
@@ -829,6 +862,20 @@ mod merge_tests {
         let dropped = merge_artist(Some(&base), &card(""), &card("beirut = 4\n")).expect("merged");
         let artist: Artist = toml::from_str(&dropped).expect("reads back");
         assert!(artist.connections.is_empty(), "undrawn stays undrawn: {dropped}");
+    }
+
+    /// `:suggest` (2026-10-07): a refusal made on either machine holds
+    /// on both — nothing takes one back.
+    #[test]
+    fn refusals_add_up_across_machines() {
+        let card = |lines: &str| format!("plays = 1.0\nweight = 1.0\n\n[declined]\n{lines}");
+        let base = card("");
+        let ours = card("zebda = \"2026-10-07\"\n");
+        let theirs = card("mano-negra = \"2026-10-06\"\nzebda = \"2026-10-05\"\n");
+        let merged = merge_artist(Some(&base), &ours, &theirs).expect("merged");
+        let artist: Artist = toml::from_str(&merged).expect("reads back");
+        assert_eq!(artist.declined.len(), 2, "{merged}");
+        assert_eq!(artist.declined["zebda"], "2026-10-05", "the earliest day: {merged}");
     }
 
     #[test]

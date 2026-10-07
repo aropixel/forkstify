@@ -12,6 +12,17 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Added
+
+- **`aS` — the agent suggests artists to tie to this one.** On the
+  highlighted artist, or what plays, Claude Code (if it is installed and
+  logged in) picks up to five artists you like that nothing ties to it
+  yet, each with a reason in one sentence. You decide each one: how close,
+  then a link in the card (committed, it can go to the reference with
+  `Cp`) or a connection of your own; `x` declines it for good. The music
+  goes on while it thinks. `:suggest` shows everything waiting,
+  `:suggest <artist> again` asks anew.
+
 ### Changed
 
 - **What Deezer reports is no longer called "similar".** A generated
