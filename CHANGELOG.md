@@ -20,8 +20,11 @@ the version it cuts, so this file cannot fall behind.
   yet, each with a reason in one sentence. You decide each one: how close,
   then a link in the card (committed, it can go to the reference with
   `Cp`) or a connection of your own; `x` declines it for good. The music
-  goes on while it thinks. `:suggest` shows everything waiting,
-  `:suggest <artist> again` asks anew.
+  goes on while it thinks. `:suggest <artist> again` asks anew.
+- **`:suggest` — the same, for the artists nothing leads to.** Alone (or
+  `:suggest all`), it asks about the artists you like that no link ties
+  to the others you like, ten at a time, then shows everything waiting;
+  `:suggest waiting` shows the list without asking.
 
 ### Changed
 

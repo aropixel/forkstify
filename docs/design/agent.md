@@ -331,7 +331,16 @@ followed by `TARGET` (its card, its links, who links to it) and
 **Wired on 2026-10-07**: `aS` and `:suggest [artist] [again]` (`src/suggest.rs`),
 the screen in the overlay block, the refusals in `learned/` (`declined`,
 merged as a union), the waiting list in `$XDG_STATE_HOME/forkstify/suggestions.json`.
-`:suggest run`, for the orphans, is not wired yet.
+The general run followed the same day, on Joel's ask ("I want to be able
+to launch a general `:suggest`, with no argument or with `all`"):
+`:suggest` and `:suggest all` ask about the orphans — the most familiar
+first, ten per call, any orphan already answered from the same card and
+liked artists skipped, even when nothing was kept for it —, then show
+everything that waits; `:suggest waiting` is the list alone. A refusal
+travels in the orphan's line ("declined: …") and is filtered out of the
+answer again. On the real catalog: Calexico, Flotation Toy Warning,
+Nasser, Cheveu, Bad Bunny, La Ruda Salska, Kid Francescoli, Kevin Morby,
+Soko, Spook and the Guay — 21 proposals in 25 s.
 
 ### What a call costs, and when not to make one (2026-10-07)
 

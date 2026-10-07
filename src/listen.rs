@@ -590,7 +590,7 @@ enum Job {
     Updated(Result<crate::fork::Update, String>),
     PullRequest(Result<String, String>),
     /// What the agent answered about one artist (`:suggest`).
-    Suggested { ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String> },
+    Suggested { key: String, ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String> },
 }
 
 /// What was meant for the artist **once it has a card**. Generation takes
@@ -1562,7 +1562,7 @@ impl Live<'_> {
                 Ok(url) => self.tell(format!("✓ pull request opened — {url}")),
                 Err(why) => self.tell(format!("⏹ pull request: {why}")),
             },
-            Job::Suggested { ask, result } => self.suggested(ask, result),
+            Job::Suggested { key, ask, result } => self.suggested(key, ask, result),
             Job::Updated(result) => {
                 self.catalog_busy = false;
                 match result {
@@ -3972,45 +3972,73 @@ impl Live<'_> {
             Ok(ask) => ask,
             Err(why) => return say!(self, "⏹ {why}"),
         };
-        if !again && self.suggestions.fresh(&ask) {
+        if !again && self.suggestions.fresh(&ask.targets[0]) {
             return self.open_suggest(Some(slug));
         }
         if ask.candidates.is_empty() {
             return say!(self, "({name}: every artist you like is already tied to it, or declined)");
         }
-        if !self.suggesting.insert(slug.to_string()) {
-            return say!(self, "(already asking about {name})");
+        self.ask_agent(slug.to_string(), format!("about {name}"), ask);
+    }
+
+    /// `:suggest`, `:suggest all` — the general run (Joel, 2026-10-07):
+    /// the orphans not answered yet, ten at most, in one call; then
+    /// everything that waits. With no orphan left to ask about, the list
+    /// alone.
+    fn suggest_all(&mut self) {
+        match crate::suggest::ask_orphans(&self.catalog, &self.learned, &self.suggestions, 10) {
+            Some(ask) => {
+                let count = ask.targets.len();
+                self.ask_agent("*".to_string(), format!("about {count} artist(s) nothing ties to the ones you like"), ask);
+            }
+            None if self.suggestions.waiting(None).is_empty() => {
+                say!(self, "(no orphan left to ask about, nothing waiting — aS on an artist)")
+            }
+            None => self.open_suggest(None),
         }
-        self.tell(format!("… asking Claude Code about {name} — the music goes on"));
+    }
+
+    /// Call the agent in the background — once per `key` at a time.
+    fn ask_agent(&mut self, key: String, about: String, ask: crate::suggest::Ask) {
+        if !self.suggesting.insert(key.clone()) {
+            return say!(self, "(already asking Claude Code {about})");
+        }
+        self.tell(format!("… asking Claude Code {about} — the music goes on"));
         let tx = self.jobs_tx.clone();
         tokio::task::spawn_local(async move {
             let prompt = ask.prompt.clone();
             let result = tokio::task::spawn_blocking(move || crate::suggest::call(&prompt))
                 .await
                 .unwrap_or_else(|e| Err(format!("interrupted ({e})")));
-            let _ = tx.send(Job::Suggested { ask, result });
+            let _ = tx.send(Job::Suggested { key, ask, result });
         });
     }
 
     /// The agent answered: keep what holds, file it, and show it — unless
     /// something else holds the keyboard, then say where it waits.
-    fn suggested(&mut self, ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String>) {
-        self.suggesting.remove(&ask.target);
-        let name = self.catalog.cards.get(&ask.target).map(|c| c.name.clone()).unwrap_or_else(|| ask.target.clone());
+    fn suggested(&mut self, key: String, ask: crate::suggest::Ask, result: Result<Vec<crate::suggest::Proposal>, String>) {
+        self.suggesting.remove(&key);
+        let general = key == "*";
+        let about = if general {
+            "the orphans".to_string()
+        } else {
+            self.catalog.cards.get(&key).map(|c| c.name.clone()).unwrap_or_else(|| key.clone())
+        };
         let proposals = match result {
             Ok(proposals) => crate::suggest::keep(&ask, proposals),
-            Err(why) => return self.tell(format!("⏹ suggest {name}: {why}")),
+            Err(why) => return self.tell(format!("⏹ suggest — {about}: {why}")),
         };
         let count = proposals.len();
         self.suggestions.put(&ask, proposals);
-        if count == 0 {
-            return self.tell(format!("(nothing close enough to {name} among your artists, says Claude Code)"));
+        let only = (!general).then_some(key.as_str());
+        if self.suggestions.waiting(only).is_empty() {
+            return self.tell(format!("(nothing close enough for {about} among your artists, says Claude Code)"));
         }
         let busy = self.finder.is_some() || self.explore.is_some() || self.link_pending.is_some() || self.comfort_before.is_some();
         if busy || self.suggest.is_some() {
-            self.tell(format!("✓ {count} suggestion(s) for {name} — :suggest to see them"));
+            self.tell(format!("✓ {count} new suggestion(s) — :suggest waiting to see them"));
         } else {
-            self.open_suggest(Some(&ask.target));
+            self.open_suggest(only);
         }
     }
 
@@ -4018,7 +4046,7 @@ impl Live<'_> {
     fn open_suggest(&mut self, only: Option<&str>) {
         let rows = self.suggestions.waiting(only);
         if rows.is_empty() {
-            return say!(self, "(nothing waiting — aS on an artist, or :suggest <artist>)");
+            return say!(self, "(nothing waiting — :suggest asks about the orphans, aS about one artist)");
         }
         self.suggest = Some(crate::suggest::Screen::new(rows));
         self.help_open = false;
@@ -4867,7 +4895,8 @@ impl Live<'_> {
             (Some("connections"), _) => self.connections_overlay(),
             // what the agent proposes: the list, or one artist — `again`
             // asks anew rather than showing what waits (2026-10-07)
-            (Some("suggest"), None) => self.open_suggest(None),
+            (Some("suggest"), None) | (Some("suggest"), Some("all")) => self.suggest_all(),
+            (Some("suggest"), Some("waiting")) => self.open_suggest(None),
             (Some("suggest"), Some(_)) => {
                 let mut words: Vec<&str> = text.split_whitespace().skip(1).collect();
                 let again = words.last() == Some(&"again");
@@ -5196,7 +5225,9 @@ impl Live<'_> {
             (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
             (":discography", "the artist's discography by album — shortcut ad"),
             (":connections", "every connection drawn with ac, by artist"),
-            (":suggest [artist] [again]", "what the agent proposes — all that waits, or around one artist; shortcut aS"),
+            (":suggest [all]", "the agent proposes for the orphans — artists you like that nothing ties to the others — then shows all that waits"),
+            (":suggest <artist> [again]", "the agent proposes around one artist — shortcut aS"),
+            (":suggest waiting", "what the agent proposed and waits, with no call"),
             (":warm", "fetch the artist's discography now — the long tail"),
             (":wander [artist]", "propose far away, or that artist — shortcut fw"),
             (":size <n>", "branch size, 1 to 9"),

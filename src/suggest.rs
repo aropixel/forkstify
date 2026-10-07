@@ -38,22 +38,47 @@ pub struct Proposal {
     pub reason: String,
 }
 
-/// What one call sends, and what its answer is checked against.
+/// One artist a call asks about.
+#[derive(Clone)]
+pub struct Target {
+    pub slug: String,
+    /// What the answer depends on — the artist's line and the liked
+    /// artists — not the exclusions: declining one proposal must not make
+    /// the others look stale.
+    pub fingerprint: String,
+    /// Who it is already tied to, or was declined for: never an anchor,
+    /// even if the shared candidates hold them.
+    pub excluded: HashSet<String>,
+}
+
+/// What one call sends, and what its answer is checked against: one
+/// artist (`aS`), or the orphans (`:suggest`).
 #[derive(Clone)]
 pub struct Ask {
-    pub target: String,
+    pub targets: Vec<Target>,
     pub prompt: String,
-    /// What the call depends on — the target's card and the liked artists
-    /// — not the exclusions: declining one proposal must not make the
-    /// others look stale.
-    pub fingerprint: String,
     pub candidates: HashSet<String>,
 }
 
 /// The answer's shape, handed to `claude --json-schema`.
 pub const SCHEMA: &str = r#"{"type":"object","additionalProperties":false,"required":["suggestions"],"properties":{"suggestions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["artist","anchor","type","proximity","lean","reason"],"properties":{"artist":{"type":"string"},"anchor":{"type":"string"},"type":{"enum":["similar","scene","influence"]},"proximity":{"type":"integer","minimum":1,"maximum":5},"lean":{"enum":["card","connection"]},"reason":{"type":"string"}}}}}}"#;
 
-/// The instructions, tried on Joel's catalog on 2026-10-07 (`agent.md`).
+/// The orphans' instructions, tried on Joel's catalog on 2026-10-07
+/// (`agent.md`).
+const ORPHANS: &str = "You suggest connections between artists for forkstify, a music player that plays by branches: from an artist, it moves to the artists linked to it.
+
+Each ORPHAN below is an artist the listener likes, but no link leads from any other artist they like to it, so it hardly ever plays. For each orphan, choose one to three ANCHORS from the CANDIDATES list: artists the listener also likes and already reaches, whose music is genuinely close to the orphan's. A good anchor is one a listener who loves the anchor would be glad to hear the orphan right after.
+
+Rules:
+- Anchors must come from CANDIDATES, by their slug, exactly as written. Never name any other artist, and never one listed as declined for that orphan. In each suggestion, artist is the orphan's slug.
+- Judge by the music: sound, songwriting, era, scene, lineage. The tags are hints from MusicBrainz and are sometimes wrong or missing; trust your knowledge of the artists over them. Ignore shared country or language alone.
+- If no candidate is genuinely close, return no suggestion for that orphan. An empty answer is better than a weak one.
+- type: \"similar\" (they sound alike, they go together), \"scene\" (same scene, same moment, same circle), or \"influence\" (one descends from the other). Never claim a fact (members, collaborations, family): those come from other sources.
+- proximity, 1 to 5: 1 a distant echo, 2 an influence far back, 3 a family or a scene, 4 they go together, 5 almost the same universe.
+- lean: \"card\" when the kinship is knowledge anyone could check, \"connection\" when it is more a matter of taste.
+- reason: one short sentence in English, saying what the two share musically. No hedging, no filler, at most 15 words.";
+
+/// The instructions for one artist, tried on 2026-10-07 (`agent.md`).
 const INSTRUCTIONS: &str = "You suggest connections between artists for forkstify, a music player that plays by branches: from an artist, it moves to the artists linked to it.
 
 The listener asked for suggestions around one TARGET artist. Its links today do not reach far enough into what they listen to. Choose up to five ANCHORS from the CANDIDATES list: artists the listener likes, not yet tied to the target, whose music is genuinely close to the target's. A good anchor is one a listener who loves the anchor would be glad to hear the target right after, and the other way round.
@@ -149,13 +174,74 @@ pub fn ask(catalog: &Catalog, learned: &Learned, target: &str) -> Result<Ask, St
     for slug in &candidates {
         prompt.push_str(&format!("- {}\n", describe(slug, &catalog.cards[*slug])));
     }
-    let fingerprint = crate::embed::fnv(&format!("{head}\n{}", liked.join("\n")));
+    let mut excluded: HashSet<String> = tied_now;
+    excluded.extend(declined.into_iter().cloned());
     Ok(Ask {
-        target: target.to_string(),
+        targets: vec![Target { slug: target.to_string(), fingerprint: fingerprint(catalog, target, &liked), excluded }],
         prompt,
-        fingerprint,
         candidates: candidates.into_iter().cloned().collect(),
     })
+}
+
+/// What an artist's answer depends on: its card, its links both ways, and
+/// the liked artists — the same for `aS` and for the orphans, so one
+/// answers for the other.
+fn fingerprint(catalog: &Catalog, slug: &str, liked: &[String]) -> String {
+    let card = &catalog.cards[slug];
+    let links: Vec<String> = card.links.iter().map(|l| format!("{}:{}", l.to, l.kind)).collect();
+    let mut from: Vec<&String> =
+        catalog.cards.iter().filter(|(_, c)| c.links.iter().any(|l| l.to == slug)).map(|(s, _)| s).collect();
+    from.sort();
+    crate::embed::fnv(&format!("{}\n{}\n{:?}\n{}", describe(slug, card), links.join(","), from, liked.join("\n")))
+}
+
+/// `:suggest` — the orphans: the liked artists tied to no other liked
+/// one, the most familiar first, at most `limit` of them, skipping those
+/// already answered from the same card and the same liked artists. The
+/// candidates are the liked artists that are not orphans — an anchor must
+/// be reachable, or two orphans only make an island. `None` when no
+/// orphan is left to ask about.
+pub fn ask_orphans(catalog: &Catalog, learned: &Learned, store: &Store, limit: usize) -> Option<Ask> {
+    let liked = liked(catalog, learned);
+    let liked_set: HashSet<&String> = liked.iter().collect();
+    let orphans: HashSet<&String> = liked.iter().filter(|s| orphan(catalog, &liked_set, s)).collect();
+    let mut asked: Vec<&String> = orphans
+        .iter()
+        .copied()
+        .filter(|slug| !store.answered(slug, &fingerprint(catalog, slug, &liked)))
+        .collect();
+    let familiarity = |slug: &String| learned.familiarity01(slug, &catalog.cards[slug.as_str()].name);
+    asked.sort_by(|a, b| familiarity(b).total_cmp(&familiarity(a)).then(a.cmp(b)));
+    asked.truncate(limit);
+    if asked.is_empty() {
+        return None;
+    }
+    let candidates: Vec<&String> = liked.iter().filter(|s| !orphans.contains(s)).collect();
+    let mut prompt = format!("{ORPHANS}\n\nORPHANS\n");
+    let mut targets = Vec::new();
+    for slug in &asked {
+        let card = &catalog.cards[slug.as_str()];
+        let links: Vec<String> = card.links.iter().map(|l| format!("{} ({})", l.to, l.kind)).collect();
+        let declined: Vec<&String> = learned.declined(slug);
+        let mut line = format!(
+            "- {} · current links: {}",
+            describe(slug, card),
+            if links.is_empty() { "none".to_string() } else { links.join(", ") }
+        );
+        if !declined.is_empty() {
+            line.push_str(&format!(" · declined: {}", declined.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")));
+        }
+        prompt.push_str(&line);
+        prompt.push('\n');
+        let mut excluded = tied(catalog, slug);
+        excluded.extend(declined.into_iter().cloned());
+        targets.push(Target { slug: (*slug).clone(), fingerprint: fingerprint(catalog, slug, &liked), excluded });
+    }
+    prompt.push_str("\nCANDIDATES\n");
+    for slug in &candidates {
+        prompt.push_str(&format!("- {}\n", describe(slug, &catalog.cards[slug.as_str()])));
+    }
+    Some(Ask { targets, prompt, candidates: candidates.into_iter().cloned().collect() })
 }
 
 /// Call the agent. Blocking — from `spawn_blocking`, never on the loop.
@@ -212,11 +298,12 @@ pub fn keep(ask: &Ask, proposals: Vec<Proposal>) -> Vec<Proposal> {
     proposals
         .into_iter()
         .filter(|p| {
-            p.artist == ask.target
+            ask.targets.iter().any(|t| t.slug == p.artist && !t.excluded.contains(&p.anchor))
                 && ask.candidates.contains(&p.anchor)
+                && p.anchor != p.artist
                 && KINDS.contains(&p.kind.as_str())
                 && (1..=5).contains(&p.proximity)
-                && seen.insert(p.anchor.clone())
+                && seen.insert((p.artist.clone(), p.anchor.clone()))
         })
         .collect()
 }
@@ -259,23 +346,33 @@ impl Store {
     /// Whether to show what waits instead of calling (`agent.md`, the
     /// cache): something still waits, and it was asked from the same
     /// card and the same liked artists.
-    pub fn fresh(&self, ask: &Ask) -> bool {
-        self.artists.get(&ask.target).is_some_and(|e| !e.pending.is_empty() && e.fingerprint == ask.fingerprint)
+    pub fn fresh(&self, target: &Target) -> bool {
+        self.artists.get(&target.slug).is_some_and(|e| !e.pending.is_empty() && e.fingerprint == target.fingerprint)
+    }
+
+    /// Whether this artist was already answered — something waiting or
+    /// not — from the same card and the same liked artists: the general
+    /// run does not ask again about an orphan the agent found nothing for.
+    pub fn answered(&self, slug: &str, fingerprint: &str) -> bool {
+        self.artists.get(slug).is_some_and(|e| e.fingerprint == fingerprint)
     }
 
     /// File a call's answer. What still waited stays, after the new ones:
     /// asking again brings other ideas, it does not drop the ones not yet
     /// settled.
-    pub fn put(&mut self, ask: &Ask, mut pending: Vec<Proposal>) {
-        if let Some(old) = self.artists.get(&ask.target) {
-            for p in &old.pending {
-                if !pending.iter().any(|q| q.anchor == p.anchor) {
-                    pending.push(p.clone());
+    pub fn put(&mut self, ask: &Ask, proposals: Vec<Proposal>) {
+        for target in &ask.targets {
+            let mut pending: Vec<Proposal> = proposals.iter().filter(|p| p.artist == target.slug).cloned().collect();
+            if let Some(old) = self.artists.get(&target.slug) {
+                for p in &old.pending {
+                    if !pending.iter().any(|q| q.anchor == p.anchor) {
+                        pending.push(p.clone());
+                    }
                 }
             }
+            let entry = Entry { fingerprint: target.fingerprint.clone(), asked: crate::learned::today_iso(), pending };
+            self.artists.insert(target.slug.clone(), entry);
         }
-        let entry = Entry { fingerprint: ask.fingerprint.clone(), asked: crate::learned::today_iso(), pending };
-        self.artists.insert(ask.target.clone(), entry);
         self.save();
     }
 
@@ -465,9 +562,8 @@ mod tests {
     #[test]
     fn only_what_was_sent_is_kept() {
         let ask = Ask {
-            target: "experience".into(),
+            targets: vec![Target { slug: "experience".into(), fingerprint: String::new(), excluded: HashSet::new() }],
             prompt: String::new(),
-            fingerprint: String::new(),
             candidates: ["miossec".to_string(), "noir-desir".to_string()].into_iter().collect(),
         };
         let p = |anchor: &str, kind: &str, proximity: u8| Proposal {
@@ -525,13 +621,14 @@ mod tests {
         learned.decline("experience", "zebda");
         let after = ask(&catalog, &learned, "experience").expect("ask");
         assert!(!after.candidates.contains("zebda"));
-        assert_eq!(before.fingerprint, after.fingerprint, "a refusal is not a change of what was asked from");
+        assert_eq!(before.targets[0].fingerprint, after.targets[0].fingerprint, "a refusal is not a change of what was asked from");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// The prompt on a real catalog, written out to be read or sent by
     /// hand: `FORKSTIFY_CATALOG=<dir> SUGGEST_TARGET=<slug>
-    /// SUGGEST_OUT=<file> bin/test -- --ignored the_prompt_on_a_real_catalog`.
+    /// SUGGEST_OUT=<file> bin/test -- --ignored the_prompt_on_a_real_catalog`;
+    /// `SUGGEST_TARGET=all` for the orphans.
     #[test]
     #[ignore]
     fn the_prompt_on_a_real_catalog() {
@@ -540,9 +637,72 @@ mod tests {
         let mut catalog = Catalog::load(&dir).expect("catalog");
         let learned = Learned::load(&dir);
         learned.weave_into(&mut catalog);
-        let ask = ask(&catalog, &learned, &target).expect("ask");
-        println!("{} candidates, fingerprint {}", ask.candidates.len(), ask.fingerprint);
+        let ask = if target == "all" {
+            ask_orphans(&catalog, &learned, &Store::default(), 10).expect("orphans")
+        } else {
+            ask(&catalog, &learned, &target).expect("ask")
+        };
+        println!("asking about {:?}", ask.targets.iter().map(|t| t.slug.as_str()).collect::<Vec<_>>());
+        println!("{} candidates, fingerprint {}", ask.candidates.len(), ask.targets[0].fingerprint);
         std::fs::write(std::env::var("SUGGEST_OUT").expect("SUGGEST_OUT"), &ask.prompt).expect("written");
+    }
+
+    /// `:suggest` alone (2026-10-07): the orphans are asked about, the
+    /// most familiar first, each answered one skipped; the candidates are
+    /// the liked artists that are not orphans; an anchor already declined
+    /// for an orphan is dropped from its answer.
+    #[test]
+    fn the_general_run_asks_about_the_orphans() {
+        let cards = HashMap::from([
+            ("calexico".to_string(), card("Calexico", &["americana"], &[("giant-sand", "member")])),
+            ("giant-sand".to_string(), card("Giant Sand", &[], &[])),
+            ("cheveu".to_string(), card("Cheveu", &["fr"], &[("sleaford-mods", "audience")])),
+            ("sleaford-mods".to_string(), card("Sleaford Mods", &[], &[])),
+            ("tindersticks".to_string(), card("Tindersticks", &[], &[("mazzy-star", "similar")])),
+            ("mazzy-star".to_string(), card("Mazzy Star", &[], &[])),
+        ]);
+        let catalog = Catalog { cards, proximities: HashMap::new(), vectors: HashMap::new() };
+        let dir = std::env::temp_dir().join(format!("forkstify-orphans-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("learned")).expect("temp dir");
+        let mut learned = Learned::load(&dir);
+        for slug in ["calexico", "cheveu", "tindersticks", "mazzy-star"] {
+            learned.like_artist(slug);
+        }
+        learned.like_artist("calexico");
+        learned.decline("calexico", "mazzy-star");
+        let mut store = Store::default();
+
+        let ask = ask_orphans(&catalog, &learned, &store, 10).expect("orphans");
+        let asked: Vec<&str> = ask.targets.iter().map(|t| t.slug.as_str()).collect();
+        // Calexico and Cheveu tie to nobody liked; Tindersticks and Mazzy
+        // Star tie to each other
+        assert_eq!(asked, vec!["calexico", "cheveu"], "the most familiar first");
+        let mut sent: Vec<&String> = ask.candidates.iter().collect();
+        sent.sort();
+        assert_eq!(sent, vec!["mazzy-star", "tindersticks"]);
+        assert!(ask.prompt.contains("declined: mazzy-star"), "{}", ask.prompt);
+
+        let p = |artist: &str, anchor: &str| Proposal {
+            artist: artist.into(),
+            anchor: anchor.into(),
+            kind: "similar".into(),
+            proximity: 3,
+            lean: "connection".into(),
+            reason: String::new(),
+        };
+        let kept = keep(&ask, vec![p("calexico", "mazzy-star"), p("calexico", "tindersticks"), p("cheveu", "tindersticks")]);
+        assert_eq!(kept.len(), 2, "the declined one is dropped");
+
+        // answered — even with nothing kept — means not asked again
+        let only_calexico = Ask { targets: vec![ask.targets[0].clone()], ..ask.clone() };
+        store.artists.insert(
+            "calexico".into(),
+            Entry { fingerprint: only_calexico.targets[0].fingerprint.clone(), asked: String::new(), pending: Vec::new() },
+        );
+        let next = ask_orphans(&catalog, &learned, &store, 10).expect("Cheveu left");
+        assert_eq!(next.targets.iter().map(|t| t.slug.as_str()).collect::<Vec<_>>(), vec!["cheveu"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// The card link's closeness is written only when the grid would not

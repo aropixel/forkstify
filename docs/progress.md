@@ -3505,3 +3505,16 @@ kept). The prompt built by the code on the real catalog matched the
 hand-tried one, and its answer read back (9 s for Expérience). Seven new
 tests; 125 green. Not tried by Joel in the TUI yet; `:suggest run` not
 wired.
+
+## `:suggest` alone: the general run (2026-10-07)
+
+Joel, finding `:suggest` answered "nothing waiting": "I want to be able to
+launch a general `:suggest`, with no argument or with `all`". Both now ask
+about the orphans (`suggest::ask_orphans`): the most familiar first, ten
+per call, any orphan already answered from the same fingerprint skipped
+(`Store::answered`, an empty answer included), one call, then the whole
+list; with no orphan left, the list alone. `:suggest waiting` is the list
+without a call. `Ask` now carries several targets, each with its
+fingerprint and its exclusions (tied, declined), and `keep` checks each
+proposal against its own. On the real catalog: 10 orphans, 21 proposals
+in 25 s. 126 tests green.
