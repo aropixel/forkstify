@@ -3982,10 +3982,14 @@ impl Live<'_> {
     }
 
     /// `:suggest`, `:suggest all` — the general run (Joel, 2026-10-07):
-    /// the orphans not answered yet, ten at most, in one call; then
-    /// everything that waits. With no orphan left to ask about, the list
-    /// alone.
-    fn suggest_all(&mut self) {
+    /// what waits is shown with no call; only when nothing waits — or on
+    /// `:suggest more` — are the next orphans asked about, ten at most, in
+    /// one call. Joel found the first version called Claude Code at every
+    /// `:suggest`, ten orphans further each time.
+    fn suggest_all(&mut self, more: bool) {
+        if !more && !self.suggestions.waiting(None).is_empty() {
+            return self.open_suggest(None);
+        }
         match crate::suggest::ask_orphans(&self.catalog, &self.learned, &self.suggestions, 10) {
             Some(ask) => {
                 let count = ask.targets.len();
@@ -4036,7 +4040,7 @@ impl Live<'_> {
         }
         let busy = self.finder.is_some() || self.explore.is_some() || self.link_pending.is_some() || self.comfort_before.is_some();
         if busy || self.suggest.is_some() {
-            self.tell(format!("✓ {count} new suggestion(s) — :suggest waiting to see them"));
+            self.tell(format!("✓ {count} new suggestion(s) — :suggest to see them"));
         } else {
             self.open_suggest(only);
         }
@@ -4055,7 +4059,7 @@ impl Live<'_> {
             self.suggestions.settle(&p.artist, &p.anchor);
         }
         if rows.is_empty() {
-            return say!(self, "(nothing waiting — :suggest asks about the orphans, aS about one artist)");
+            return say!(self, "(nothing waiting — :suggest more asks about the orphans, aS about one artist)");
         }
         self.suggest = Some(crate::suggest::Screen::new(rows));
         self.help_open = false;
@@ -4904,8 +4908,8 @@ impl Live<'_> {
             (Some("connections"), _) => self.connections_overlay(),
             // what the agent proposes: the list, or one artist — `again`
             // asks anew rather than showing what waits (2026-10-07)
-            (Some("suggest"), None) | (Some("suggest"), Some("all")) => self.suggest_all(),
-            (Some("suggest"), Some("waiting")) => self.open_suggest(None),
+            (Some("suggest"), None) | (Some("suggest"), Some("all")) => self.suggest_all(false),
+            (Some("suggest"), Some("more")) => self.suggest_all(true),
             (Some("suggest"), Some(_)) => {
                 let mut words: Vec<&str> = text.split_whitespace().skip(1).collect();
                 let again = words.last() == Some(&"again");
@@ -5234,9 +5238,9 @@ impl Live<'_> {
             (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
             (":discography", "the artist's discography by album — shortcut ad"),
             (":connections", "every connection drawn with ac, by artist"),
-            (":suggest [all]", "the agent proposes for the orphans — artists you like that nothing ties to the others — then shows all that waits"),
+            (":suggest [all]", "what the agent proposed and waits — asks about the orphans only when nothing waits"),
+            (":suggest more", "ask about the next ten orphans — artists you like that nothing ties to the others"),
             (":suggest <artist> [again]", "the agent proposes around one artist — shortcut aS"),
-            (":suggest waiting", "what the agent proposed and waits, with no call"),
             (":warm", "fetch the artist's discography now — the long tail"),
             (":wander [artist]", "propose far away, or that artist — shortcut fw"),
             (":size <n>", "branch size, 1 to 9"),

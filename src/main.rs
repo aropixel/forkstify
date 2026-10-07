@@ -362,7 +362,32 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A panic inside the TUI goes nowhere a listener can read: the screen is
+/// torn down with it. Each one is appended to `crash.log` in the state
+/// directory, with where it happened and when — two crashes on 2026-10-07
+/// had to be guessed from timestamps.
+fn log_panics() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let path = config::state_dir().join("crash.log");
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let backtrace = std::backtrace::Backtrace::force_capture();
+        let line = format!(
+            "{} — forkstify {} — {info}\n{backtrace}\n\n",
+            learned::today_iso(),
+            env!("CARGO_PKG_VERSION")
+        );
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = file.write_all(line.as_bytes());
+        }
+        default(info);
+    }));
+}
+
 fn main() -> anyhow::Result<()> {
+    log_panics();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // with no argument, forkstify opens its home — the subcommands are
     // bound to disappear (Joel, 05/09/2026)

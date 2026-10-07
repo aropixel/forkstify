@@ -336,7 +336,10 @@ to launch a general `:suggest`, with no argument or with `all`"):
 `:suggest` and `:suggest all` ask about the orphans — the most familiar
 first, ten per call, any orphan already answered from the same card and
 liked artists skipped, even when nothing was kept for it —, then show
-everything that waits; `:suggest waiting` is the list alone. A refusal
+everything that waits. Revised hours later, Joel finding each `:suggest`
+called Claude Code again — ten orphans further every time: `:suggest`
+now shows what waits with no call, and asks only when nothing waits;
+`:suggest more` asks about the next ten anyway. `:suggest waiting` went. A refusal
 travels in the orphan's line ("declined: …") and is filtered out of the
 answer again. On the real catalog: Calexico, Flotation Toy Warning,
 Nasser, Cheveu, Bad Bunny, La Ruda Salska, Kid Francescoli, Kevin Morby,

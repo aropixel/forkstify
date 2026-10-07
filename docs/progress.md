@@ -3530,3 +3530,20 @@ not ask. Fixed where it belongs: `propose` with no context proposes
 nothing (test `nothing_playing_proposes_nothing`). And the screen now
 drops, on opening, a proposal already settled another way — Bad Bunny's
 was still waiting, the crash having come before the list was updated.
+
+## `:suggest` shows the cache first; a crash log (2026-10-07)
+
+Joel: "when I do `:suggest` again it uses Claude Code again — was it not
+meant to use the cache?". It did not ask twice about the same orphans,
+but each `:suggest` went ten orphans further (20 in the list after two).
+Now `:suggest` / `:suggest all` show what waits with no call and ask only
+when nothing waits; `:suggest more` asks about the next ten anyway;
+`:suggest waiting` went.
+
+A second crash, accepting Calexico → Mazzy Star as a connection at
+12:56: written to `learned/`, the list not updated — the same
+`recompute` on an empty context, and most likely a session launched
+before the fix was built (12:53). Not provable: the panic message dies
+with the screen. So `main` now installs a panic hook that appends the
+message, the place and a backtrace to `$XDG_STATE_HOME/forkstify/
+crash.log` before the default one runs.
