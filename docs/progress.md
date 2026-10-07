@@ -3462,3 +3462,14 @@ Daho). Two things learned: an orphan is better defined as "no link,
 gave 16 and missed Calexico), and the candidates must exclude the
 orphans, or two orphans get tied into an island. Still nothing in the
 binary.
+
+## `:suggest <artist>`, tried (2026-10-07)
+
+Joel found the orphans' run gave few proposals, by the choice of artists,
+and asked for a suggest on one artist, on demand. Recorded in
+[`agent.md`](design/agent.md): `:suggest <artist>`, and `aS` proposed as
+its key on 0020's target; the prompt takes one TARGET, up to five
+anchors, among the liked artists not yet tied to it. Tried on Expérience
+(Astéréotypie, Miossec, Dominique A, Noir Désir, La Dispute) and the
+Beatles (Elliott Smith, Tame Impala, Blur, Eric Clapton), 10–14 s and
+about US$0.11 each. Still nothing in the binary.

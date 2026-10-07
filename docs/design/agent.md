@@ -277,6 +277,57 @@ What is kept, and what is corrected against the code and the decisions:
     gesture. The mockup's `2` "play from here" goes: it plays nothing that
     the list is for.
 
+### On one artist, on demand (2026-10-07)
+
+Joel, after reading the full answers: "there are few proposals, because
+of the artists targeted at first. I would like to ask for a suggest on a
+targeted artist (on demand)". The orphans are only the cases the engine
+finds; Expérience (tied to Michel Cloup alone, audience aside) or the
+Beatles (fifteen links, the same few played) are not orphans, and are
+exactly where the listener feels the lack.
+
+- **`:suggest <artist>`** asks for one artist, any artist with a card,
+  orphan or not; **`aS`** is its key (proposed: `S` for *suggest*, free in
+  `a` since `aL` left), aimed by 0020's rule — the highlighted row,
+  otherwise what plays. `:suggest` alone stays the list, `:suggest run`
+  the orphans. The proposals of a targeted run join the same list, under
+  the artist.
+- **The prompt changes in three places** (text below): one TARGET instead
+  of ORPHANS, its links both ways shown; **up to five** anchors instead of
+  three; the candidates are the liked artists **not yet tied to it**
+  (card links both ways and connections, `audience` aside). An orphan
+  stays a candidate unless the target is an orphan too — tying an orphan
+  to a reachable artist is what rescues it.
+- **Tried on Expérience and the Beatles**, 10–14 s and about US$0.11
+  each:
+
+| Target | Anchor | Type, closeness | Lean | Reason |
+|---|---|---|---|---|
+| Expérience | Astéréotypie | similar, 4 | connection | Spoken French words over tense, swelling post-rock guitars. |
+| Expérience | Miossec | scene, 4 | card | Raw, half-spoken French indie rock with bleak, confessional lyrics, 90s–2000s. |
+| Expérience | Dominique A | scene, 3 | card | French indie scene that renewed chanson with minimal, noisy rock arrangements. |
+| Expérience | Noir Désir | scene, 3 | card | Southwest French alternative rock with angry, literary, politically charged lyrics. |
+| Expérience | La Dispute | similar, 3 | connection | Spoken-word vocals that build into loud, cathartic guitar climaxes. |
+| The Beatles | Elliott Smith | influence, 4 | card | Beatlesque melodies, layered harmonies and McCartney-style chord turns in intimate songwriting. |
+| The Beatles | Tame Impala | influence, 3 | card | Revolver-era psychedelic pop: phased vocals, swirling production, Lennon-like melodies. |
+| The Beatles | Blur | influence, 3 | card | Britpop built on Beatles-style British melodic songwriting and studio playfulness. |
+| The Beatles | Eric Clapton | scene, 3 | card | Same sixties British rock scene, blues-rooted guitar alongside British Invasion pop. |
+
+  Arthur Satàn is rightly absent from the Beatles' list: Joel's `ac`
+  already ties them.
+
+The targeted instructions differ from the orphans' in their second
+paragraph and their third rule:
+
+```
+The listener asked for suggestions around one TARGET artist. Its links today do not reach far enough into what they listen to. Choose up to five ANCHORS from the CANDIDATES list: artists the listener likes, not yet tied to the target, whose music is genuinely close to the target's. A good anchor is one a listener who loves the anchor would be glad to hear the target right after, and the other way round.
+...
+- Fewer is fine. If no candidate is genuinely close, return no suggestion. An empty answer is better than a weak one.
+```
+
+followed by `TARGET` (its card, its links, who links to it) and
+`CANDIDATES`.
+
 ### To settle
 
 1. **Thin cards** like the Beatles' (two links of their own): should the
