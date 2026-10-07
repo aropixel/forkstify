@@ -246,6 +246,11 @@ pub fn link_line(to: &str, kind: &str, proximity: Option<u8>, note: &str) -> Str
 /// line goes into the artist's card, and the commit says where it came
 /// from, so the history can always tell it apart. `summary` is what the
 /// screen previewed.
+///
+/// When the card already links there as `audience` — a service's word
+/// nothing confirmed (0026) —, the new line **replaces** it: that is the
+/// promotion 0026 foresaw, not a duplicate (Joel, 2026-10-07, Spook and
+/// the Guay → Massilia Sound System). Any other link there is refused.
 pub fn add_link(
     dir: &Path,
     slug: &str,
@@ -258,12 +263,27 @@ pub fn add_link(
 ) -> Result<Edit, String> {
     let path = card_path(dir, slug);
     let text = read(&path)?;
+    let line = format!("  {}", link_line(to, kind, proximity, note));
+    let head = format!("{{ to = {},", quoted(to));
+    let audience = format!("type = {}", quoted(crate::catalog::AUDIENCE));
+    let mut promoted = false;
     if let Some((from, end)) = array_span(&text, "links") {
-        if text[from..end].lines().any(|l| l.trim_start().starts_with(&format!("{{ to = {},", quoted(to)))) {
-            return Err(format!("the card already links to {to}"));
+        for existing in text[from..end].lines().filter(|l| l.trim_start().starts_with(&head)) {
+            if !existing.contains(&audience) {
+                return Err(format!("the card already links to {to}"));
+            }
+            promoted = true;
         }
     }
-    let updated = insert_into_array(&text, "links", &format!("  {}", link_line(to, kind, proximity, note)));
+    let updated = if promoted {
+        let lines: Vec<String> = text
+            .lines()
+            .map(|l| if l.trim_start().starts_with(&head) && l.contains(&audience) { line.clone() } else { l.to_string() })
+            .collect();
+        lines.join("\n") + "\n"
+    } else {
+        insert_into_array(&text, "links", &line)
+    };
     write(&path, &updated)?;
     Ok(Edit { summary, body: Some(body), path, also: Vec::new(), removed: Vec::new() })
 }
@@ -534,6 +554,14 @@ mod tests {
         );
         assert!(toml::from_str::<crate::catalog::Card>(&text).is_ok(), "{text}");
         assert!(add_link(&dir, "the-cure", "siouxsie", "scene", None, "", "s".into(), "b".into()).is_err());
+
+        // an `audience` line there is promoted in place, not duplicated
+        let with_audience = CARD.replace("{ to = \"joy-division\", type = \"scene\" }", "{ to = \"joy-division\", type = \"audience\" }");
+        std::fs::write(card_path(&dir, "the-cure"), &with_audience).expect("card");
+        add_link(&dir, "the-cure", "joy-division", "scene", Some(4), "Same Manchester gloom.", "s".into(), "b".into()).expect("promoted");
+        let text = std::fs::read_to_string(card_path(&dir, "the-cure")).expect("card");
+        assert_eq!(text.matches("joy-division").count(), 1, "{text}");
+        assert!(text.contains("  { to = \"joy-division\", type = \"scene\", proximity = 4, note = \"Same Manchester gloom.\" },"), "{text}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

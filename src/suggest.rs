@@ -436,7 +436,16 @@ impl Screen {
 
     /// The block's title and lines. `name` gives an artist's name from its
     /// slug, `grid` the catalog's closeness by kind, `today` the date.
-    pub fn view(&self, name: &dyn Fn(&str) -> String, grid: &std::collections::HashMap<String, u8>, today: &str) -> (String, Vec<String>) {
+    /// `audience(artist, anchor)` says whether the artist's card already
+    /// links there as `audience`: accepting as a card link then promotes
+    /// that line, and the screen says so before it is written.
+    pub fn view(
+        &self,
+        name: &dyn Fn(&str) -> String,
+        audience: &dyn Fn(&str, &str) -> bool,
+        grid: &std::collections::HashMap<String, u8>,
+        today: &str,
+    ) -> (String, Vec<String>) {
         let mut lines = Vec::new();
         let Some(p) = self.current() else {
             return ("suggest".to_string(), vec!["(nothing waiting)".to_string(), String::new(), "esc close".to_string()]);
@@ -454,7 +463,8 @@ impl Screen {
                         last = &row.artist;
                     }
                     let here = if i == self.cursor { "▸" } else { " " };
-                    lines.push(format!("{here} → {}  {}  {} — {}", name(&row.anchor), row.proximity, row.kind, row.reason));
+                    let today = if audience(&row.artist, &row.anchor) { " · audience today" } else { "" };
+                    lines.push(format!("{here} → {}  {}  {}{today} — {}", name(&row.anchor), row.proximity, row.kind, row.reason));
                 }
                 lines.push(String::new());
                 if !self.notice.is_empty() {
@@ -503,6 +513,9 @@ impl Screen {
                 lines.push(format!("{pair} {proximity} — type?  {}", shown.join("  ")));
                 lines.push(String::new());
                 lines.push(format!("cards/{}.toml", p.artist));
+                if audience(&p.artist, &p.anchor) {
+                    lines.push(format!("- {}", crate::edit::link_line(&p.anchor, AUDIENCE, None, "")));
+                }
                 lines.push(format!("+ {}", crate::edit::link_line(&p.anchor, KINDS[kind], written_proximity(grid, KINDS[kind], proximity), &p.reason)));
                 lines.push(String::new());
                 lines.push(link_summary(&name(&p.artist), &name(&p.anchor), KINDS[kind], proximity));

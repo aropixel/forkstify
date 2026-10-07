@@ -3559,3 +3559,16 @@ anything plays — `recompute` → `state` → `state_of`, *before*
 `state_of` returns an empty state instead of panicking (test
 `no_round_yet_is_an_empty_state`). `ac` at the home had the same fault,
 unseen until now.
+
+## A suggestion that confirms an `audience` link promotes it (2026-10-07)
+
+Spook and the Guay → Massilia Sound System, accepted as a card link,
+answered "the card already links to massilia-sound-system": the card had
+it as `audience`, and `audience` is deliberately left among the
+candidates — it is a service's word nothing confirmed. The agent
+confirming it is the promotion 0026 foresaw. `edit::add_link` now
+replaces an `audience` line to the same artist instead of refusing (any
+other link there is still refused), the session replaces it in memory,
+the commit body adds "It replaces the audience link (0026)", and the
+screen says it beforehand: "audience today" in the list, the `-` line
+above the `+` one in the diff.

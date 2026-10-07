@@ -3014,7 +3014,10 @@ impl Live<'_> {
         if let Some(screen) = &self.suggest {
             let cards = &self.catalog.cards;
             let name = |slug: &str| cards.get(slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(slug));
-            let (title, lines) = screen.view(&name, &self.catalog.proximities, &crate::learned::today_iso());
+            let audience = |artist: &str, anchor: &str| {
+                cards.get(artist).is_some_and(|c| c.links.iter().any(|l| l.to == anchor && l.kind == crate::catalog::AUDIENCE))
+            };
+            let (title, lines) = screen.view(&name, &audience, &self.catalog.proximities, &crate::learned::today_iso());
             // the highlighted row stays in sight on a long list
             let cursor_line = lines.iter().position(|l| l.starts_with('▸')).unwrap_or(0);
             let visible = self.tui_height().saturating_sub(6) as usize;
@@ -4162,11 +4165,19 @@ impl Live<'_> {
         let (from, to) = (name(&proposal.artist), name(&proposal.anchor));
         let written = crate::suggest::written_proximity(&self.catalog.proximities, kind, proximity);
         let summary = crate::suggest::link_summary(&from, &to, kind, proximity);
-        let body = format!("Suggested by the agent (Claude Code), {}.", crate::learned::today_iso());
+        let promotes = self.catalog.cards.get(&proposal.artist).is_some_and(|c| {
+            c.links.iter().any(|l| l.to == proposal.anchor && l.kind == crate::catalog::AUDIENCE)
+        });
+        let mut body = format!("Suggested by the agent (Claude Code), {}.", crate::learned::today_iso());
+        if promotes {
+            body.push_str(" It replaces the audience link (0026).");
+        }
         let edit = crate::edit::add_link(&self.catalog_dir, &proposal.artist, &proposal.anchor, kind, written, &proposal.reason, summary, body);
         let said = match edit.and_then(|edit| crate::edit::commit(&self.catalog_dir, &edit)) {
             Ok(()) => {
                 if let Some(card) = self.catalog.cards.get_mut(&proposal.artist) {
+                    // a promoted `audience` line is replaced, as on disk
+                    card.links.retain(|l| !(l.to == proposal.anchor && l.kind == crate::catalog::AUDIENCE));
                     card.links.push(crate::catalog::Link {
                         to: proposal.anchor.clone(),
                         kind: kind.to_string(),
