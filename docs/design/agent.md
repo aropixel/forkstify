@@ -178,27 +178,107 @@ spotting.
 
    The agent may say which one it leans to (a typed kinship of sound reads
    like a card link), but it never settles it.
-5. **On demand first**: a subcommand (`forkstify suggest`, name to be
-   settled) run from Claude Code — floor 1 above. In the background after a
-   like, perhaps later.
+5. **On demand first** — `:suggest run`, which calls Claude Code from
+   forkstify (2026-10-07, below; the first idea was a subcommand run from
+   Claude Code, floor 1). In the background after a like, perhaps later.
+
+### The mockup (Claude Design, 2026-10-06)
+
+Project board **`Propositions.dc.html`**, from a brief that only described
+the feature. Joel, 2026-10-07: "the mockup gives a graphic orientation;
+you stay master of the changes to what it proposed". It shows:
+
+- **1a** — the proposals as a section of the `ac` modal, between the
+  connections drawn and the search. Its own note says the limit: nothing
+  leads you to open `ac` on an orphan.
+- **1b** — **`:suggest`, marked recommended**: one list for every artist,
+  grouped by case (orphans, loops, audience links), with the date of the
+  agent's run and "2 pending · 0 declined"; `:suggest run` launches Claude
+  Code, and forkstify does not wait for it to stay playable.
+- **2a** — the closeness: the `ac` question as it is, the agent's sentence
+  above it, `▸` starting at the agent's closeness instead of 4.
+- **2b** — the destination: `c` a card link, `a` a connection, each line
+  saying what it entails; `▸` marks the agent's lean, nothing is chosen.
+- **2c** — for a card link: the type, then the diff shown before writing,
+  `y` writes and commits.
+- **2d** — what a connection and a refusal write, and the echo after.
+
+### Direction after the mockup (2026-10-07)
+
+What is kept, and what is corrected against the code and the decisions:
+
+1. **`:suggest` is the screen** (1b). The slice in the `ac` modal (1a) is a
+   second door to the same list; it waits until the first one is used.
+2. **`:suggest run` calls Claude Code directly** — floor 2 for this
+   feature, without floor 1: no control socket, no JSON subcommands. It is
+   simpler than floor 1, not heavier. forkstify:
+   - computes the orphans and, for each, the candidates (below), with no
+     AI;
+   - runs `claude -p` **in the background**, the music going on, with
+     `--tools ""` (no tool at all: no file, no command, no MCP),
+     `--output-format json`, `--json-schema` for the shape of the answer,
+     `--no-session-persistence`. Options checked on Claude Code 2.1.285;
+   - reads the answer, **keeps only the proposals whose two slugs were in
+     what it sent**, and files them.
+
+   Text in, JSON out: the agent can name no artist the catalog does not
+   hold, and it touches nothing. Claude Code uses its own login on the
+   machine: no key in forkstify, no connection screen. Nothing is
+   configured either: the command is `claude`; if it is not on the `PATH`,
+   `:suggest run` says so. Another agent is a second use, and an
+   abstraction then.
+3. **What the agent receives**: for each orphan, its card (name, tags,
+   origin, years, links); and the **liked artists that have a card**, each
+   with its name, slug and tags. **What it returns**, per proposal: the
+   orphan, the anchor, a closeness (1–5), **a type**, its lean (card link
+   or connection), and the reason in one sentence.
+4. **The agent proposes the type, and only a reading.** The mockup started
+   `▸` on the first type of the chosen closeness — `family` at 3, which
+   would commit "Arthur Satàn and the Kinks are family". `member`,
+   `collab` and `family` are **facts**, and facts never come from a
+   language model ([catalog.md](catalog.md)). The agent picks among
+   `scene`, `influence` and `similar`; 2c offers those three, `▸` on the
+   agent's.
+5. **A card link is one line**, as 0010 has it — not the mockup's
+   `[[links]]` block, and in `cards/`, not `artists/`:
+   `{ to = "the-kinks", type = "influence", proximity = 3, note = "sixties English pop, melodies, a Ray Davies irony" }`.
+   `proximity` is written only when it differs from the grid's.
+6. **The trace.** A card link is an edit: its commit is an ordinary one
+   (`Forkstify: edit`, 0017), and its body says "suggested by the agent,
+   <date>". A connection keeps the shape of 0014 — `the-beatles = 3` in
+   the artist's file —, so it carries no trace: once accepted, it is the
+   listener's like any other.
+7. **Where things live.** The **refusals** are remembered in `learned/`,
+   in the orphan's own file, beside its connections — they follow the
+   listener between machines and merge the same way. The **pending
+   proposals** are local state (`$XDG_STATE_HOME/forkstify/`): a run is
+   cheap, and a list waiting on one machine has no reason to travel.
+8. **The orphans, and nothing else for now.** An orphan is an artist the
+   listener likes (a liked track, or plays) that **no link leads to** —
+   no card, no connection: zero, so there is no threshold to tune. The
+   loops come off the screen: since the draw of 2026-10-06 takes every
+   link, the Beatles' loop may well be gone, and the agent receives no
+   loop anyway. The audience section waits for its own feature, as the
+   mockup has it.
+9. **A ceiling per run**: the ten most liked orphans. The prompt stays
+   short, the answer comes in under two minutes, and the next run takes the
+   next ones.
+10. **The keys**, from the mockup, local to the screen: `j`/`k` move, `⏎`
+    accepts (closeness, then destination, then for a card link the type and
+    the diff), `x` declines, `esc` goes back. In 2b, `c` card link, `a`
+    connection; in 2c, `h`/`l` the type, `y` writes and commits — the `Cp`
+    gesture. The mockup's `2` "play from here" goes: it plays nothing that
+    the list is for.
 
 ### To settle
 
-1. **The Beatles' loop**: should the agent also widen the cards that are too
-   thin (two links for the Beatles is very little)? That would be the
-   "review by an LLM" part below — links proposed into the card, through
-   `Cp`, rather than connections.
-2. **Where the pending proposals and the refusals live**: in `learned/`
-   (synced between machines, 0017) or in local state.
-3. **The detection's thresholds**: how few incoming links make an orphan,
-   how small a group makes a loop — numbers for `[tuning]` (0023).
-4. **Whether a proposal says it came from the agent** once accepted: the
-   trailer of the card commit can carry it (0017's `kind`); an `ac` has no
-   commit of its own, so it would become one like any other.
-5. **The keys for the destination**: in the closeness question, a toggle
-   between "card (kind)" and "mine" — `Tab`, proposed — with the link kind
-   editable on the card side; or two keys at acceptance. To settle against
-   `docs/keybindings.md`.
+1. **Thin cards** like the Beatles' (two links of their own): should the
+   agent also propose links for them? That is the "review by an LLM" part
+   below.
+2. **When the list is seen**: only through `:suggest`, or does the home or
+   the bar say "3 suggestions waiting"?
+3. **The prompt itself**, written and tried on the real catalog before it
+   is frozen in the code.
 
 ## What this reopens
 

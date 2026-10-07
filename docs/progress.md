@@ -3432,3 +3432,20 @@ Barback (0.87 → 0.78): its vector is now thin — `fr`, `90s`, Toulouse,
 Michel Cloup —, close to anything French and Toulousain. As 0026 says,
 the rule demotes; a genre tag on the card, or the agent's review, is
 what will place it.
+
+## `:suggest`: the mockup, and the direction it settles (2026-10-07)
+
+Joel brought a Claude Design board, `Propositions.dc.html`, from a brief
+that only described the feature, and left the corrections to the agent.
+Recorded in [`agent.md`](design/agent.md): `:suggest` is the screen;
+`:suggest run` calls `claude -p` in the background with **no tool at
+all**, a JSON schema for the answer, and keeps only proposals naming
+artists it sent — floor 2 straight away, simpler than floor 1 for this.
+Corrected from the board: the agent proposes the type too, among
+`scene`, `influence`, `similar` only (the board defaulted to `family` — a
+fact a model must never write); a card link is one line in `cards/`; a
+connection keeps 0014's shape, so no trace; refusals in the orphan's
+`learned/` file, pending proposals in local state; orphans only (zero
+incoming links), ten per run; the loops leave the screen. Three questions
+left (thin cards, where the waiting list shows, the prompt). Nothing
+coded.
