@@ -254,8 +254,15 @@ What is kept, and what is corrected against the code and the decisions:
    proposals** are local state (`$XDG_STATE_HOME/forkstify/`): a run is
    cheap, and a list waiting on one machine has no reason to travel.
 8. **The orphans, and nothing else for now.** An orphan is an artist the
-   listener likes (a liked track, or plays) that **no link leads to** —
-   no card, no connection: zero, so there is no threshold to tune. The
+   listener likes that **no link, `audience` aside, ties to another artist
+   they like** — card links and connections, both ways, since the engine
+   walks both. No count, so no threshold to tune. "No link at all" was
+   tried first and missed the point: on 2026-10-07 it gave 16 orphans and
+   left out Calexico, Joel's most liked artist, whose three links lead to
+   Giant Sand, Iron & Wine and Wilco — none of them liked, so Calexico
+   never comes up from where he listens. The definition above gives 52.
+   **The candidates are the liked artists that are not orphans**: an
+   anchor has to be reachable, or two orphans only make an island. The
    loops come off the screen: since the draw of 2026-10-06 takes every
    link, the Beatles' loop may well be gone, and the agent receives no
    loop anyway. The audience section waits for its own feature, as the
@@ -277,8 +284,63 @@ What is kept, and what is corrected against the code and the decisions:
    below.
 2. **When the list is seen**: only through `:suggest`, or does the home or
    the bar say "3 suggestions waiting"?
-3. **The prompt itself**, written and tried on the real catalog before it
-   is frozen in the code.
+3. **The lean** came out "connection" for nearly everything in the trial,
+   kinships of scene included: the instruction does not bite. Harmless —
+   the listener decides —, but to rework or drop.
+
+### The prompt, tried on 2026-10-07
+
+Run on Joel's catalog, ten orphans, the 181 non-orphan liked artists as
+candidates (about 24 kB of prompt):
+
+```
+claude -p --safe-mode --tools "" --output-format json \
+  --json-schema "$(cat schema.json)" --no-session-persistence < prompt.txt
+```
+
+`--safe-mode` keeps the user's own `CLAUDE.md`, skills, hooks and MCP
+servers out of the call while keeping the login — `--bare` would too, but
+it only takes an API key. The answer is in `structured_output`. **About 28
+seconds, US$0.14–0.17 as reported** (`total_cost_usd`, on the default
+model, Opus 5.5). Every anchor of the two runs was in the list sent; the
+second run, candidates without the orphans, gave 21 proposals and left
+Brutus empty, as the prompt allows. A sample:
+
+| Orphan | Anchor | Type, closeness | Reason |
+|---|---|---|---|
+| Calexico | Tindersticks | similar, 3 | Cinematic, brass-tinged slow songs with a dusky, widescreen melancholy. |
+| Cheveu | Arthur Satàn | scene, 4 | Both come from France's 2000s lo-fi garage-punk underground. |
+| Fishbach | Étienne Daho | influence, 3 | Dark, eighties-flavoured French synth-pop with dramatic chanson vocals. |
+| Traband | Les Négresses Vertes | similar, 3 | Punk-rooted acoustic folk with brass, accordion and Balkan swing. |
+| Godspeed You! Black Emperor | Arcade Fire | scene, 3 | Both came out of Montréal's indie scene with grand orchestral ambitions. |
+
+The first run, candidates including the other orphans, tied Traband to
+Vladimír Václavek — right, and useless: two orphans.
+
+The instructions, followed in the prompt by `ORPHANS` (each card: name,
+slug, tags, origin, years, current links) and `CANDIDATES` (name, slug,
+tags, origin, years):
+
+```
+You suggest connections between artists for forkstify, a music player that plays by branches: from an artist, it moves to the artists linked to it.
+
+Each ORPHAN below is an artist the listener likes, but no link leads from any other artist they like to it, so it hardly ever plays. For each orphan, choose one to three ANCHORS from the CANDIDATES list: artists the listener also likes and already reaches, whose music is genuinely close to the orphan's. A good anchor is one a listener who loves the anchor would be glad to hear the orphan right after.
+
+Rules:
+- Anchors must come from CANDIDATES, by their slug, exactly as written. Never name any other artist.
+- Judge by the music: sound, songwriting, era, scene, lineage. The tags are hints from MusicBrainz and are sometimes wrong or missing; trust your knowledge of the artists over them. Ignore shared country or language alone.
+- If no candidate is genuinely close, return no suggestion for that orphan. An empty answer is better than a weak one.
+- type: "similar" (they sound alike, they go together), "scene" (same scene, same moment, same circle), or "influence" (one descends from the other). Never claim a fact (members, collaborations, family): those come from other sources.
+- proximity, 1 to 5: 1 a distant echo, 2 an influence far back, 3 a family or a scene, 4 they go together, 5 almost the same universe.
+- lean: "card" when the kinship is knowledge anyone could check, "connection" when it is more a matter of taste.
+- reason: one short sentence in English, saying what the two share musically. No hedging, no filler, at most 15 words.
+```
+
+The schema:
+
+```json
+{"type":"object","additionalProperties":false,"required":["suggestions"],"properties":{"suggestions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["orphan","anchor","type","proximity","lean","reason"],"properties":{"orphan":{"type":"string"},"anchor":{"type":"string"},"type":{"enum":["similar","scene","influence"]},"proximity":{"type":"integer","minimum":1,"maximum":5},"lean":{"enum":["card","connection"]},"reason":{"type":"string"}}}}}}
+```
 
 ## What this reopens
 

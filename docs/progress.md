@@ -3449,3 +3449,16 @@ connection keeps 0014's shape, so no trace; refusals in the orphan's
 incoming links), ten per run; the loops leave the screen. Three questions
 left (thin cards, where the waiting list shows, the prompt). Nothing
 coded.
+
+## The `:suggest` prompt, tried (2026-10-07)
+
+The prompt and its JSON schema written and run through `claude -p
+--safe-mode --tools ""` on ten of Joel's orphans — text and results in
+[`agent.md`](design/agent.md). About 28 s and US$0.15 a run on Opus 5.5;
+every anchor in the list sent; 21 proposals, most of them right
+(Calexico → Tindersticks, Cheveu → Arthur Satàn, Fishbach → Étienne
+Daho). Two things learned: an orphan is better defined as "no link,
+`audience` aside, to an artist you like" (52 of them; "no link at all"
+gave 16 and missed Calexico), and the candidates must exclude the
+orphans, or two orphans get tied into an island. Still nothing in the
+binary.
