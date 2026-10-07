@@ -5,7 +5,7 @@
 # is published — see ../README.md.
 pkgname=forkstify-bin
 _pkgname=forkstify
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Music player that plays by branches, wired to Spotify, over a catalog you can fork'
 arch=('x86_64')
@@ -22,7 +22,7 @@ options=('!strip' '!debug')
 provides=("$_pkgname=$pkgver")
 conflicts=("$_pkgname")
 source=("$_pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$_pkgname-$pkgver-x86_64-linux.tar.gz")
-sha256sums=('e4a4f39e5e18e4018123a7c8e4d13006080d411b1ce6fe51cdb51e0375f08063')
+sha256sums=('ee9a4f359e62da321a11ab8c801e18afee70bb4e2f396bf2bcee1ccc75f681ea')
 
 package() {
   install -Dm755 "$srcdir/$_pkgname" "$pkgdir/usr/bin/$_pkgname"
