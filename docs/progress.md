@@ -3582,3 +3582,22 @@ and since when, `toast()` shows the oldest as a sticky loading toast
 counting its seconds ("… asking Claude Code about Expérience — 12 s, the
 music goes on"), and `toast_active` keeps the screen repainting while a
 call runs, music or not.
+
+## 0.2.0 released (2026-10-07)
+
+`bin/release 0.2.0`: version in `Cargo.toml`, `manifest.json` and
+`Cargo.lock`, the tidied `Unreleased` promoted, tag `v0.2.0` pushed; the
+workflow published `forkstify-0.2.0-x86_64-linux.tar.gz` and `SHA256SUMS`
+in 4 min 41 s (https://github.com/aropixel/forkstify/releases/tag/v0.2.0).
+Joel's `Cp` carrying the `audience` retyping was merged into the
+reference beforehand.
+
+The Arch package is at `0.2.0-1` in `packaging/aur/forkstify-bin`, its
+digest checked and the package built once — `makepkg -si` from a clone
+gets 0.2.0. **Not on the AUR**: the push failed on SSH (the host key of
+`aur.archlinux.org` unknown, no terminal to confirm it), and the package
+does not exist there (the RPC knows no `forkstify-bin`): it needs Joel's
+AUR account with his SSH key, registration having been closed on 09-21.
+`bin/release-aur` no longer bumps `pkgrel` when it is run again on an
+archive it already prepared — publishing after a dry run would have made
+it `0.2.0-2`.

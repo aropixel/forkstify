@@ -40,7 +40,13 @@ say "archive verified: $sum"
 
 # --- the PKGBUILD -----------------------------------------------------------
 had=$(sed -n 's/^pkgver=\(.*\)/\1/p' "$PKGDIR/PKGBUILD")
-if [ "$had" = "$version" ]; then
+had_sum=$(sed -n "s/^sha256sums=('\(.*\)')/\1/p" "$PKGDIR/PKGBUILD")
+if [ "$had" = "$version" ] && [ "$had_sum" = "$sum" ]; then
+  # already prepared for this very archive: publishing what was checked
+  # before must not bump pkgrel (2026-10-07, 0.2.0)
+  rel=$(sed -n 's/^pkgrel=\(.*\)/\1/p' "$PKGDIR/PKGBUILD")
+  say "already at $version-$rel for this archive"
+elif [ "$had" = "$version" ]; then
   rel=$(sed -n 's/^pkgrel=\(.*\)/\1/p' "$PKGDIR/PKGBUILD")
   rel=$((rel + 1))
   say "same version: pkgrel $((rel - 1)) → $rel"
