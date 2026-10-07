@@ -12,6 +12,11 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+Two weeks of daily listening. The agent can now propose the connections
+your catalog is missing, a service's word gets a link type of its own,
+the branches stop circling the same few artists, and Spotify losing the
+session no longer ends the evening.
+
 ### Added
 
 - **`aS` — the agent suggests artists to tie to this one.** On the
@@ -21,10 +26,62 @@ the version it cuts, so this file cannot fall behind.
   then a link in the card (committed, it can go to the reference with
   `Cp`) or a connection of your own; `x` declines it for good. The music
   goes on while it thinks. `:suggest <artist> again` asks anew.
+
 - **`:suggest` — the same, for the artists nothing leads to.** It shows
   what waits; when nothing does, it asks about the artists you like that
   no link ties to the others you like, ten at a time. `:suggest more`
   asks about the next ten anyway.
+
+- **`ac` — a connection of your own.** Some artists go together because of
+  one ear and one life, not because anything links them. `ac` draws that
+  connection, asks how close — `h`/`l` move it a notch, a digit jumps, 1
+  the farthest, 5 the closest, and the question stays until answered — and
+  writes it into `learned/`: it follows you between machines, and `Cp` can
+  never carry it upstream. The branches follow it immediately, both ways.
+  The modal lists what is drawn on either side; ← → on one move its
+  closeness right there, enter reopens its question, and `x` there undraws
+  it. And
+  **`:connections`** lists every connection drawn, by artist, in one
+  block.
+
+- **`ac` shows the whole closeness scale while it asks.** The question used
+  to name its two ends — "1 farthest … 5 closest" — and leave the middle to
+  guess. It now lists the five, one per line, each with what it means and
+  **the link kinds your catalog puts there** (`(collab, similar)` at 4,
+  `(member)` at 5…), read from your own grid, so a fork that moved one
+  shows it moved. `▸` marks the one on offer; `h`/`l` and the digits move
+  it as before.
+
+- **The playlist points out the artists you do not know yet**: a grey `◦`
+  after the name when the artist is *not* in the home's "liked" list — the
+  negative of the home's `v` filter, so the two screens cannot disagree.
+  The newcomer is the rare one, so it is the one that speaks up. The
+  **branch column** carries the same `◦`, on each track's own line beside
+  the artist it speaks of, so a proposal says who in it you do not know.
+  Not a heart: the heart is the track's, at the head of the row.
+
+- **A card can be regenerated.** `:generate <name> <mbid>` over an artist
+  who already has a card rewrites it from the sources, in one commit that
+  says who the card used to be. For a card born under the wrong artist of
+  the same name — and what was learned about that wrong artist goes with
+  it, in the same commit.
+
+- **A Spotify id in `:generate`.** `:generate <name> <mbid> <spotify-id>`
+  puts that id in the card, ahead of the one MusicBrainz carries.
+
+- **`tg`** — the track and its artist in the browser, as `ag` does for an
+  artist. At the home too, on what sounds underneath.
+
+- **`:catalog shell`** opens a terminal in the catalog fork, for what the
+  gestures do not cover — a `git log`, a card written by hand.
+
+- **No Docker needed.** Each release carries a Linux x86_64 binary;
+  `omarchy/install.sh` fetches it and checks it against the published
+  digest, falling back to a container build only if it cannot. Docker is
+  now only for building from source.
+
+- **An Arch package**, in `packaging/aur/forkstify-bin` — `makepkg -si` from
+  a clone installs it today; the AUR itself waits on registration reopening.
 
 ### Changed
 
@@ -36,6 +93,112 @@ the version it cuts, so this file cannot fall behind.
   it. Raise `audience` in your catalog's `catalog.toml` if you trust the
   service more.
 
+- **`fw` proposes instead of setting off.** The wander used to build its
+  branch and queue it on its own — the one key of the branch namespace that
+  chose for you. It now fills the branch column with three far directions
+  and **keeps them there** while the tracks go by, the column headed
+  `wander`; `f<n>` takes one like any branch, `enter` draws among them.
+  **`fr` comes back**: it puts the wander down and reads the playlist
+  again. `fw <artist>` proposes that artist the same way. While a wander
+  stands the grey gaps are hidden — it is leaving the universe, the local
+  links have nothing to say about where it goes.
+
+- **`A` in the discography puts the album on, instead of editing the
+  card.** It used to promote the album's four most played tracks into the
+  card's tops — a useful gesture, but nothing on screen said so. The album
+  keys are now about listening: **`a`** queues the whole album at the end
+  of what is playing, in the record's own order, without closing the
+  modal; **`A`** makes the album *the* playlist — what was still to come is
+  dropped and it starts, the branches forking from the artist afterwards.
+  Both work from anywhere inside the album, its header row or one of its
+  tracks, and leave banned tracks out. Promoting the album's tops moved to
+  **`T`**, and the modal's footer now says what each key does.
+
+- **The key helper opens on its own.** Type `t`, `a`, `f`, `e` or `C` and
+  the keys of that namespace appear at once — no space needed. Space still
+  opens the help of the beginning, with everything you can type. In every
+  level, the keys come first, then the `/` and `:` lines.
+
+- **The `:` commands have their own level in the helper.** Typing `:`
+  lists them, and the list narrows as you type. The entry help shows one
+  `:` row instead of a dozen.
+
+- **Every `:` command works at the home too.** `:size`, `:warm`,
+  `:discography`, `:wander`, `:catalog`, `:sync`, `:setup` and `:library`
+  used to answer only while listening. At the home, `:warm` and
+  `:discography` aim at the highlighted artist.
+
+- **One key helper for both screens.** The entry help is the same table
+  at the home and while listening, and each screen shows only the keys
+  that mean something on it. `f`, `e`, `J`/`K` stay with the listening
+  screen, which shows the branches and the queue; `s`, `v`, `r` stay with
+  the home.
+
+- **The track keys and `h`/`l` work at the home.** `tl`, `ts`, `ta`,
+  `ti`… act on what plays underneath, as `tg` already did; `h`/`l` and the
+  arrows move along the journey playing underneath.
+
+- **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
+  the track alone. While listening it takes the highlighted track out of the
+  queue — still proposable, it is not a ban. At the home it takes the
+  highlighted artist out of the liked, without the weight `as` also moves.
+
+- **`aL` is retired.** Writing a link into a card is rarer, and shared once
+  proposed: it goes through `ae`, which opens the card in `$EDITOR`.
+
+- **`u` and `.` leave the grammar.** Undo and repeat are not being built for
+  now, and a helper that lists them promises what the code does not do. `fu`
+  still steps back one branch, and `u` keeps undoing a pending edit inside
+  the discography.
+
+- **Searching no longer trips on accents.** `fw rosalia` found nothing
+  because the card is spelled ROSALÍA. Every search now folds both sides —
+  accents to ASCII, case and punctuation out — and looks at the **name of
+  the card's file** as well as the artist's name: `rosalia` finds ROSALÍA,
+  `motorhead` finds Motörhead, `the-cure` and `catpower` find their
+  artists. The same rule in the collection's `/`, the discography's,
+  `:search`, `ac` and the seed on the command line. An exact name now
+  comes first, so `boo` gives Boo! before The Boo Radleys.
+
+- **The search adds instead of taking over.** While listening, enter on a
+  row of `:search` queues it at the **end** and leaves the modal open, so
+  several can be picked in a row; `esc` closes and what you queued stays.
+  It used to clear everything still to come and start playing at once. An
+  artist stands for their best unplayed track, and a track by an artist
+  with no card is queued straight away with the card generated behind — no
+  need to create one first. At the home, enter still starts a journey.
+
+- **The evening drifts, and the branches follow.** "Stay within the
+  journey's universe" took the plain average of every artist played, so a
+  long evening was still represented by where it began. It now weighs what
+  was played lately more heavily — `universe_half_life` in
+  [`docs/tuning.md`](docs/tuning.md), in artists.
+
+- **The heart shows up where the like is made.** Liking a track changes its
+  glyph in the list, and `ta` opens on that glyph with its word. A door
+  keeps its arrow: that says where it leads, not how it was picked.
+
+- The collection's last-played column drops its leading minus: `2w`, `6d`,
+  next to `today` and `yday`.
+
+- **"Your regulars" no longer opens on the same two artists.** They were
+  the two most familiar, and the track under them the first liked one, so
+  the home showed the same three lines at every launch. They are now
+  drawn at each launch among your most familiar — weighted by
+  familiarity, so the closest still come up most often and they really
+  are regulars. How wide the draw reaches is `regulars_pool` in
+  `[tuning]`, 12 by default; `2` gives the old behaviour back.
+
+- **No more `generated = true` in the cards.** It was on 382 cards out of
+  383 and nothing ever cleared it. The review is the pull request: a card
+  in the reference is accepted, a card in your fork is yours, and `git log`
+  says who wrote it. The generator no longer writes the line, the screens
+  and the `Cp` proposal drop their "generated card / written card" labels,
+  and a card that still has the line loads as before.
+
+- Adding the plugin is **not** installing forkstify: the bar card's
+  "Install" is what puts the binary in place. The README says so now.
+
 ### Fixed
 
 - **A well-linked artist no longer leads to the same few.** The branches
@@ -45,13 +208,14 @@ the version it cuts, so this file cannot fall behind.
   never came up. Every link is now in the draw, the closest still the most
   likely.
 
-- **The search plays the version you chose.** Enter on a search row kept
-  its title and dropped the recording, so picking the studio "Coffee Cold"
-  could queue the live one again. The row's exact track now goes into the
-  list, from the listening as from the home. And where forkstify picks a
-  recording by title on its own, a live album now comes after the studio
-  one, even when its track is titled plainly. `ta` names the album of the
-  recording that plays, no longer the first one carrying the title.
+- **A lost Spotify session no longer ends the evening.** When librespot's
+  session went — the access point dropping, the account taken over
+  elsewhere — the screen said "q then relaunch" and that was that. It now
+  opens again by itself, in the background, and the walk picks up on the
+  very track it was holding: at once on the first loss, then every 5, 10,
+  20… seconds up to a minute for as long as it fails, without ever
+  blocking the keyboard. If it went while paused, it stays paused and `p`
+  starts it again.
 
 - **The desktop saying "play" no longer pauses forkstify.** MPRIS's
   `Play` and `Pause` were both wired to the play/pause **toggle**, so
@@ -70,155 +234,25 @@ the version it cuts, so this file cannot fall behind.
   of the list with the branch instead of appending it. It also lost the
   branch's name and reason in the list; both are back.
 
-- **A lost Spotify session no longer ends the evening.** When librespot's
-  session went — the access point dropping, the account taken over
-  elsewhere — the screen said "q then relaunch" and that was that. It now
-  opens again by itself, in the background, and the walk picks up on the
-  very track it was holding: at once on the first loss, then every 5, 10,
-  20… seconds up to a minute for as long as it fails, without ever
-  blocking the keyboard. If it went while paused, it stays paused and `p`
-  starts it again.
+- **The search plays the version you chose.** Enter on a search row kept
+  its title and dropped the recording, so picking the studio "Coffee Cold"
+  could queue the live one again. The row's exact track now goes into the
+  list, from the listening as from the home. And where forkstify picks a
+  recording by title on its own, a live album now comes after the studio
+  one, even when its track is titled plainly. `ta` names the album of the
+  recording that plays, no longer the first one carrying the title.
 
-- **A liked track now wears its heart, wherever it enters the list.** A
-  journey started on the home's track seed showed ♪, the top's glyph, on a
-  track that is liked and is not a top — and the home proposes a liked
-  track by construction, so it was wrong every time. The like outranks the
-  top everywhere now: the seed from the home, a whole album, `e` and `a`
-  in the discography, a track from `:search`, and one whose card has just
-  been generated.
-
-### Changed
-
-- **`A` in the discography puts the album on, instead of editing the
-  card.** It used to promote the album's four most played tracks into the
-  card's tops — a useful gesture, but nothing on screen said so. The album
-  keys are now about listening: **`a`** queues the whole album at the end
-  of what is playing, in the record's own order, without closing the
-  modal; **`A`** makes the album *the* playlist — what was still to come is
-  dropped and it starts, the branches forking from the artist afterwards.
-  Both work from anywhere inside the album, its header row or one of its
-  tracks, and leave banned tracks out. Promoting the album's tops moved to
-  **`T`**, and the modal's footer now says what each key does.
-
-- **`fw` proposes instead of setting off.** The wander used to build its
-  branch and queue it on its own — the one key of the branch namespace that
-  chose for you. It now fills the branch column with three far directions
-  and **keeps them there** while the tracks go by, the column headed
-  `wander`; `f<n>` takes one like any branch, `enter` draws among them.
-  **`fr` comes back**: it puts the wander down and reads the playlist
-  again. `fw <artist>` proposes that artist the same way. While a wander
-  stands the grey gaps are hidden — it is leaving the universe, the local
-  links have nothing to say about where it goes.
-
-- **No more `generated = true` in the cards.** It was on 382 cards out of
-  383 and nothing ever cleared it. The review is the pull request: a card
-  in the reference is accepted, a card in your fork is yours, and `git log`
-  says who wrote it. The generator no longer writes the line, the screens
-  and the `Cp` proposal drop their "generated card / written card" labels,
-  and a card that still has the line loads as before.
-
-### Changed
-
-- **"Your regulars" no longer opens on the same two artists.** They were
-  the two most familiar, and the track under them the first liked one, so
-  the home showed the same three lines at every launch. They are now
-  drawn at each launch among your most familiar — weighted by
-  familiarity, so the closest still come up most often and they really
-  are regulars. How wide the draw reaches is `regulars_pool` in
-  `[tuning]`, 12 by default; `2` gives the old behaviour back.
-
-### Added
-
-- **Searching no longer trips on accents.** `fw rosalia` found nothing
-  because the card is spelled ROSALÍA. Every search now folds both sides —
-  accents to ASCII, case and punctuation out — and looks at the **name of
-  the card's file** as well as the artist's name: `rosalia` finds ROSALÍA,
-  `motorhead` finds Motörhead, `the-cure` and `catpower` find their
-  artists. The same rule in the collection's `/`, the discography's,
-  `:search`, `ac` and the seed on the command line. An exact name now
-  comes first, so `boo` gives Boo! before The Boo Radleys.
-
-- **`ac` shows the whole closeness scale while it asks.** The question used
-  to name its two ends — "1 farthest … 5 closest" — and leave the middle to
-  guess. It now lists the five, one per line, each with what it means and
-  **the link kinds your catalog puts there** (`(collab, similar)` at 4,
-  `(member)` at 5…), read from your own grid, so a fork that moved one
-  shows it moved. `▸` marks the one on offer; `h`/`l` and the digits move
-  it as before.
-
-- **The playlist points out the artists you do not know yet**: a grey `◦`
-  after the name when the artist is *not* in the home's "liked" list — the
-  negative of the home's `v` filter, so the two screens cannot disagree.
-  The newcomer is the rare one, so it is the one that speaks up. The
-  **branch column** carries the same `◦`, on each track's own line beside
-  the artist it speaks of, so a proposal says who in it you do not know.
-  Not a heart: the heart is the track's, at the head of the row.
-
-- **The search adds instead of taking over.** While listening, enter on a
-  row of `:search` queues it at the **end** and leaves the modal open, so
-  several can be picked in a row; `esc` closes and what you queued stays.
-  It used to clear everything still to come and start playing at once. An
-  artist stands for their best unplayed track, and a track by an artist
-  with no card is queued straight away with the card generated behind — no
-  need to create one first. At the home, enter still starts a journey.
-
-
-- **A card can be regenerated.** `:generate <name> <mbid>` over an artist
-  who already has a card rewrites it from the sources, in one commit that
-  says who the card used to be. For a card born under the wrong artist of
-  the same name — and what was learned about that wrong artist goes with
-  it, in the same commit.
-- **A Spotify id in `:generate`.** `:generate <name> <mbid> <spotify-id>`
-  puts that id in the card, ahead of the one MusicBrainz carries.
-
-### Fixed
-
-- **A gesture no longer wanders to another artist.** `e`, `:warm` and `ad`
-  fell back on the journey's last artist when the row under the needle had
-  no card — so an encore on a track just inserted with `ti` added tracks by
-  someone else entirely. They now look the artist up by name, which finds a
-  card filed under another one (`Ye` under `kanye-west`), and say plainly
-  when there is none rather than aiming elsewhere.
-
-- **A track passed over in silence.** When librespot ended a track without
-  playing it, forkstify moved on and said nothing: a whole session could
-  march past with no explanation. It now says which track and why — Spotify
-  refusing to play it here, or nothing having come out at all.
-- **`✓ librespot` meant a file, not a session.** The indicator only checked
-  that a credentials file existed on disk, so it stayed green while nothing
-  could play. It now asks librespot whether the session still holds, and
-  `✓ api web` follows what the API last answered rather than a file.
-
-
-- **A wall of silent tracks stops the music instead of emptying the list.**
-  When the connection to Spotify goes — the session to the access point can
-  drop without librespot ever admitting it — every track was requested,
-  nothing came out, and the whole playlist marched past in silence. Now
-  three silent tracks in a row hold the queue and say so, the head kept for
-  `j`, and a load attempted with no session says that in one line. The
-  branch guard that already existed counted branches, so one branch could
-  still let twenty-eight tracks go by.
-
-
-- **`Cp` failed with "not a git repository: (null)".** The proposal
-  worktree of a catalog that has since moved still pointed at the old
-  clone. A worktree that is not this clone's is rebuilt.
-- **`Cd` said "nothing beyond the reference" on a fork that had cards to
-  show.** On a fresh clone the reference was never fetched, and the diff
-  quietly compared the fork to itself. `Cd` now fetches `upstream` first,
-  like `Cp` and `Cu`, and a fork never takes its own remote for the
-  reference: offline and never fetched, it says so instead.
 - **A track played by a namesake.** A card's tops were looked up on
   Spotify by title and artist name, and the first hit played whoever it was
   by. A top is now taken from the artist's own discography, fetched by the
   card's Spotify id, and the title search is only the last resort — where
   the card's id now decides among the hits.
+
 - **A card generated under a namesake.** Generating from a Spotify result
   or from your collection identified the artist by name alone, so "Boo"
   could land on another Boo. The artist's Spotify id now travels with the
   request: MusicBrainz is asked who it links, and a namesake linked to
   another id is passed over.
-
 
 - **Tracks that never played, one after another.** Spotify was asked
   without a market, so it answered with tracks that exist somewhere and
@@ -232,85 +266,54 @@ the version it cuts, so this file cannot fall behind.
   rm -rf ~/.cache/forkstify/discography
   ```
 
+- **A track passed over in silence.** When librespot ended a track without
+  playing it, forkstify moved on and said nothing: a whole session could
+  march past with no explanation. It now says which track and why — Spotify
+  refusing to play it here, or nothing having come out at all.
+
+- **A wall of silent tracks stops the music instead of emptying the list.**
+  When the connection to Spotify goes — the session to the access point can
+  drop without librespot ever admitting it — every track was requested,
+  nothing came out, and the whole playlist marched past in silence. Now
+  three silent tracks in a row hold the queue and say so, the head kept for
+  `j`, and a load attempted with no session says that in one line. The
+  branch guard that already existed counted branches, so one branch could
+  still let twenty-eight tracks go by.
+
+- **`✓ librespot` meant a file, not a session.** The indicator only checked
+  that a credentials file existed on disk, so it stayed green while nothing
+  could play. It now asks librespot whether the session still holds, and
+  `✓ api web` follows what the API last answered rather than a file.
+
 - **A paused player restarting on its own.** Losing the output — a
   bluetooth speaker walking away — makes librespot stop the stream, which
   read as "the track ended". A paused player no longer moves on.
 
-### Listening
+- **A gesture no longer wanders to another artist.** `e`, `:warm` and `ad`
+  fell back on the journey's last artist when the row under the needle had
+  no card — so an encore on a track just inserted with `ti` added tracks by
+  someone else entirely. They now look the artist up by name, which finds a
+  card filed under another one (`Ye` under `kanye-west`), and say plainly
+  when there is none rather than aiming elsewhere.
 
-- The collection's last-played column drops its leading minus: `2w`, `6d`,
-  next to `today` and `yday`.
+- **A liked track now wears its heart, wherever it enters the list.** A
+  journey started on the home's track seed showed ♪, the top's glyph, on a
+  track that is liked and is not a top — and the home proposes a liked
+  track by construction, so it was wrong every time. The like outranks the
+  top everywhere now: the seed from the home, a whole album, `e` and `a`
+  in the discography, a track from `:search`, and one whose card has just
+  been generated.
 
+- **`Cp` failed with "not a git repository: (null)".** The proposal
+  worktree of a catalog that has since moved still pointed at the old
+  clone. A worktree that is not this clone's is rebuilt.
 
-- **The evening drifts, and the branches follow.** "Stay within the
-  journey's universe" took the plain average of every artist played, so a
-  long evening was still represented by where it began. It now weighs what
-  was played lately more heavily — `universe_half_life` in
-  [`docs/tuning.md`](docs/tuning.md), in artists.
-- **The heart shows up where the like is made.** Liking a track changes its
-  glyph in the list, and `ta` opens on that glyph with its word. A door
-  keeps its arrow: that says where it leads, not how it was picked.
+- **`Cd` said "nothing beyond the reference" on a fork that had cards to
+  show.** On a fresh clone the reference was never fetched, and the diff
+  quietly compared the fork to itself. `Cd` now fetches `upstream` first,
+  like `Cp` and `Cu`, and a fork never takes its own remote for the
+  reference: offline and never fetched, it says so instead.
 
-### Keys
-
-- **The key helper opens on its own.** Type `t`, `a`, `f`, `e` or `C` and
-  the keys of that namespace appear at once — no space needed. Space still
-  opens the help of the beginning, with everything you can type. In every
-  level, the keys come first, then the `/` and `:` lines.
-- **The `:` commands have their own level in the helper.** Typing `:`
-  lists them, and the list narrows as you type. The entry help shows one
-  `:` row instead of a dozen.
-- **Every `:` command works at the home too.** `:size`, `:warm`,
-  `:discography`, `:wander`, `:catalog`, `:sync`, `:setup` and `:library`
-  used to answer only while listening. At the home, `:warm` and
-  `:discography` aim at the highlighted artist.
-- **One key helper for both screens.** The entry help is the same table
-  at the home and while listening, and each screen shows only the keys
-  that mean something on it. `f`, `e`, `J`/`K` stay with the listening
-  screen, which shows the branches and the queue; `s`, `v`, `r` stay with
-  the home.
-- **The track keys and `h`/`l` work at the home.** `tl`, `ts`, `ta`,
-  `ti`… act on what plays underneath, as `tg` already did; `h`/`l` and the
-  arrows move along the journey playing underneath.
-- **`x` removes, wherever you are.** It was `tx`; removing is not a verb of
-  the track alone. While listening it takes the highlighted track out of the
-  queue — still proposable, it is not a ban. At the home it takes the
-  highlighted artist out of the liked, without the weight `as` also moves.
-- **`ac` — a connection of your own.** Some artists go together because of
-  one ear and one life, not because anything links them. `ac` draws that
-  connection, asks how close — `h`/`l` move it a notch, a digit jumps, 1
-  the farthest, 5 the closest, and the question stays until answered — and
-  writes it into `learned/`: it follows you between machines, and `Cp` can
-  never carry it upstream. The branches follow it immediately, both ways.
-  The modal lists what is drawn on either side; ← → on one move its
-  closeness right there, enter reopens its question, and `x` there undraws
-  it. And
-  **`:connections`** lists every connection drawn, by artist, in one
-  block.
-- **`aL` is retired.** Writing a link into a card is rarer, and shared once
-  proposed: it goes through `ae`, which opens the card in `$EDITOR`.
-- **`tg`** — the track and its artist in the browser, as `ag` does for an
-  artist. At the home too, on what sounds underneath.
-- **`u` and `.` leave the grammar.** Undo and repeat are not being built for
-  now, and a helper that lists them promises what the code does not do. `fu`
-  still steps back one branch, and `u` keeps undoing a pending edit inside
-  the discography.
-
-### Installing
-
-- **No Docker needed.** Each release carries a Linux x86_64 binary;
-  `omarchy/install.sh` fetches it and checks it against the published
-  digest, falling back to a container build only if it cannot. Docker is
-  now only for building from source.
-- **An Arch package**, in `packaging/aur/forkstify-bin` — `makepkg -si` from
-  a clone installs it today; the AUR itself waits on registration reopening.
-- Adding the plugin is **not** installing forkstify: the bar card's
-  "Install" is what puts the binary in place. The README says so now.
-
-### For the catalog
-
-- **`:catalog shell`** opens a terminal in the catalog fork, for what the
-  gestures do not cover — a `git log`, a card written by hand.
 - **The index no longer churns.** Regenerating the vectors rewrote the whole
   file every time, because the embedding is not reproducible to the last
   digit. Each line now carries the fingerprint of the text it came from, and
