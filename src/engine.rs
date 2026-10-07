@@ -851,7 +851,11 @@ pub fn propose(
     size: usize,
     rng: &mut impl Rng,
 ) -> Vec<Branch> {
-    let current = context.last().unwrap().as_str();
+    // nothing playing yet — the home with no session: no direction to
+    // propose from. It was an unwrap, and an edit made at the home that
+    // recomputed the branches brought the whole player down (Joel,
+    // 2026-10-07, a card link accepted from `:suggest`)
+    let Some(current) = context.last().map(String::as_str) else { return Vec::new() };
     let card = &catalog.cards[current];
     let mut branches = Vec::new();
     if let Some(branch) = stay(catalog, universe, current, learned, tail, comfort, played, size, rng) {
@@ -1218,6 +1222,17 @@ mod tests {
         assert_eq!(missing[0].proximity, 4);
         assert!(missing[0].why.contains("around Jacques Brel"), "{}", missing[0].why);
         assert!(!missing[0].pending);
+    }
+
+    /// No context — nothing has played yet — proposes nothing, and says it
+    /// without panicking (2026-10-07).
+    #[test]
+    fn nothing_playing_proposes_nothing() {
+        let catalog = Catalog { cards: HashMap::new(), proximities: HashMap::new(), vectors: HashMap::new() };
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+        let branches = propose(&catalog, &[], &[], &Learned::blank(), &no_tail(), Comfort::new(3), &HashSet::new(), &HashSet::new(), 3, &mut rng);
+        assert!(branches.is_empty());
+        assert!(missing_neighbors(&catalog, &[], &HashSet::new()).is_empty());
     }
 
     /// A gap that got its card is walked like any branch: the head leads,

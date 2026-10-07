@@ -4044,7 +4044,16 @@ impl Live<'_> {
 
     /// Open the screen on what waits — for one artist, or for all.
     fn open_suggest(&mut self, only: Option<&str>) {
-        let rows = self.suggestions.waiting(only);
+        // what was settled another way — `ac`, `ae`, or a write that went
+        // through just before a crash — no longer waits
+        let (rows, settled): (Vec<_>, Vec<_>) = self
+            .suggestions
+            .waiting(only)
+            .into_iter()
+            .partition(|p| self.catalog.cards.contains_key(&p.artist) && !crate::suggest::tied(&self.catalog, &p.artist).contains(&p.anchor));
+        for p in &settled {
+            self.suggestions.settle(&p.artist, &p.anchor);
+        }
         if rows.is_empty() {
             return say!(self, "(nothing waiting — :suggest asks about the orphans, aS about one artist)");
         }

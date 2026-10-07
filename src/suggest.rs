@@ -111,7 +111,7 @@ fn describe(slug: &str, card: &Card) -> String {
 /// Who `slug` is tied to through the graph, both ways — card links and
 /// the listener's connections, which the session weaves into the cards —
 /// `audience` aside: a service's word ties nothing (0026).
-fn tied(catalog: &Catalog, slug: &str) -> HashSet<String> {
+pub fn tied(catalog: &Catalog, slug: &str) -> HashSet<String> {
     let mut out: HashSet<String> = catalog.cards[slug]
         .links
         .iter()

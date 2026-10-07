@@ -3518,3 +3518,15 @@ without a call. `Ask` now carries several targets, each with its
 fingerprint and its exclusions (tied, declined), and `keep` checks each
 proposal against its own. On the real catalog: 10 orphans, 21 proposals
 in 25 s. 126 tests green.
+
+## The first card link from `:suggest` brought the player down (2026-10-07)
+
+Joel accepted Bad Bunny → Rosalía as a card link from the home, with no
+session playing. The link was written and committed (`f64ea6c` in the
+fork), then `recompute` ran — as `ac`'s `set_connection` does — and
+`engine::propose` took `context.last().unwrap()` on an empty context:
+panic. The home only recomputes when a session is live; the new code did
+not ask. Fixed where it belongs: `propose` with no context proposes
+nothing (test `nothing_playing_proposes_nothing`). And the screen now
+drops, on opening, a proposal already settled another way — Bad Bunny's
+was still waiting, the crash having come before the list was updated.
