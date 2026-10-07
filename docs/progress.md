@@ -3473,3 +3473,13 @@ anchors, among the liked artists not yet tied to it. Tried on Expérience
 (Astéréotypie, Miossec, Dominique A, Noir Désir, La Dispute) and the
 Beatles (Elliott Smith, Tame Impala, Blur, Eric Clapton), 10–14 s and
 about US$0.11 each. Still nothing in the binary.
+
+## `:suggest`: its cost and its cache (2026-10-07)
+
+The calls are in Joel's subscription (Claude Code logged in through
+claude.ai; `total_cost_usd` is an estimate at API prices). The waiting
+list doubles as the cache: `aS` shows what is waiting without a call;
+the agent is called again only when nothing is left, when a fingerprint
+of the prompt changed, or on an explicit `again` / `r`; what was declined
+or accepted leaves the candidates of the next call. In
+[`agent.md`](design/agent.md).

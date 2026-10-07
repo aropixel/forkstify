@@ -328,6 +328,37 @@ The listener asked for suggestions around one TARGET artist. Its links today do 
 followed by `TARGET` (its card, its links, who links to it) and
 `CANDIDATES`.
 
+### What a call costs, and when not to make one (2026-10-07)
+
+Joel: "aren't these calls included in the subscription? Shouldn't we
+cache them, so as not to make them again every time?"
+
+- **They are in the subscription.** Claude Code is logged in through
+  claude.ai on Joel's machine (`claude auth status`: `"authMethod":
+  "claude.ai"`, no `ANTHROPIC_API_KEY`): a `claude -p` call counts against
+  the plan's usage limits like any session. The `total_cost_usd` it
+  reports is an estimate at API prices, not a charge — only extra usage,
+  if it is enabled on the account and the limits are passed, is paid on
+  top. Not checked against the account page. A call still spends a share
+  of the limits, which is the reason not to make it twice.
+- **The waiting list is the cache.** Proposals received are kept; one
+  accepted or declined never comes back. What is added is the rule for
+  not calling again:
+  1. **`aS` on an artist that still has proposals waiting shows them**,
+     with no call.
+  2. **The agent is called again only when** nothing is left waiting for
+     that artist, or **what would be sent has changed** — the target's
+     card or the list of liked artists. A fingerprint of the prompt says
+     so, as the vector index already does for a card's text.
+  3. **An explicit ask forces a new call** when the listener wants other
+     ideas: `:suggest <artist> again`, or `r` on the screen.
+  4. **What was declined or accepted leaves the candidates** of the next
+     call. The answers vary from one run to the next (two runs on the same
+     orphans shared about half their anchors), so a new call then brings
+     what is new rather than what was already settled.
+- The cache lives with the waiting list, in local state, and does not
+  travel: on another machine it costs one call at most.
+
 ### To settle
 
 1. **Thin cards** like the Beatles' (two links of their own): should the
