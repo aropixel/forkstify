@@ -36,6 +36,81 @@ proposed, uncontradicted, not yet recorded; **to settle** = open question.
   registers as a Connect device ("*registering a spotify-player device
   accessible via Spotify Connect*"). Forkstify can do the same.
 
+## Deezer as a source: no audio path (re-verified 2026-10-10)
+
+The question keeps coming back — Joel would rather wire forkstify to Deezer
+— so here is the state of the sources, checked again on 2026-10-10. The
+answer is **no, not even with a paid account**, and it is not a quota
+problem like Spotify's: there is simply **no audio** at the end of the pipe.
+
+Three walls, each enough on its own:
+
+1. **No new application since early 2024.** The developer portal answers
+   "*We're not accepting new application creation at this time. Please check
+   again later.*" ([multi-scrobbler
+   #175](https://github.com/FoxxMD/multi-scrobbler/issues/175), opened
+   2024-08-09, the block already six months old). Still closed in June 2026
+   — "*There's no information on when they'll reopen registration for that,
+   or if they'll reopen it at all*" ([community
+   thread](https://en.deezercommunity.com/other-devices-49/create-developer-app-82800))
+   — and in September 2026 ([Macamp
+   #18](https://github.com/holgerkrupp/Macamp/issues/18): "*Deezer has
+   disabled creation of new API access for private individuals*"). Only
+   old token holders are grandfathered. `developers.deezer.com/myapps`
+   redirects to a login; there is nothing public to read any more.
+2. **Even with a token, the API never serves audio.** Deezer staff, on
+   their own forum (2023-02-21): "*No, the API can't be used for playback,
+   only for metadata retrieval. We don't provide a public way to play
+   tracks anymore for individuals.*" The [developer
+   FAQ](https://support.deezer.com/hc/en-gb/articles/360011538897-Deezer-FAQs-For-Developers)
+   (last updated 2025-05-14) says the same: "*Because of legal reasons, we
+   can't provide you with the audio file directly from our API. You will
+   have to use our SDKs in this case.*"
+3. **And the SDKs are dead.** The FAQ: "*Our Native SDK has been deprecated
+   and Deezer no longer supports it*", pointing at the JavaScript SDK —
+   which Deezer itself declared gone in 2023: "*the web SDK is not
+   supported anymore and is not available anymore*" (2023-02-20), "*the JS
+   SDK is deprecated and is no longer maintained nor supported*"
+   (2023-09-26). `developers.deezer.com/sdk` is a 404 today.
+
+**Premium changes nothing.** Spotify asks for Premium *and* has librespot,
+a reimplemented client of an undocumented but reverse-engineered protocol;
+Deezer has no equivalent, no open client protocol, no Connect, nothing to
+embed. Paying buys the right to listen in Deezer's own clients.
+
+**What the metadata pipeline uses is untouched.** The public Simple API,
+with no key, still answers (tested 2026-10-10: `/search/artist`,
+`/artist/{id}/related`, `/artist/{id}/top` → 200). That is the one we use
+for the tops and the `similar` / `audience` links
+([0026](../decisions/0026-audience-what-the-services-report.md)) — read
+only, metadata only, which is exactly what Deezer still allows.
+
+**The three remaining routes, and why none is taken:**
+
+- **Partner access.** The FAQ points at a contact form "*if you'd like to
+  partner with Deezer*", for hardware and vehicles. A company door, like
+  Spotify's extended mode. Closed to a personal project.
+- **Driving an unofficial client.** [aunetx/deezer-linux](https://github.com/aunetx/deezer-linux)
+  packages the official Windows app and is alive (MPRIS fixes in August
+  2026). Forkstify would become a **remote control for a window**:
+  play/pause/next, no queue of ours, no "play this track" we can rely on
+  (whether its MPRIS exposes `OpenUri` is unverified), and no sound of our
+  own. It contradicts the architecture already validated — forkstify plays
+  by itself and *publishes* MPRIS
+  ([0021](../decisions/0021-the-repository-is-the-omarchy-plugin.md)).
+- **The ARL route** (the internal `gw-light` API and track decryption, as
+  the download tools do). Out of bounds: it circumvents the protection and
+  breaks the terms of use, and it downloads rather than plays. Not an
+  option for a published project.
+
+**Conclusion: Spotify stays the source** ([0002](../decisions/0002-shared-forkable-catalog.md)
+and the decisions that follow), Deezer stays a metadata source. The cost of
+being wrong stays low: identity is the MBID
+([0009](../decisions/0009-mbid-identity.md)), so a service is a module. If
+Deezer reopens application creation *and* ships a playback path, the
+question is worth asking again — that is the exact pair of conditions to
+watch.
+
 ## How Omarchy-Spotify does it (read in the code, 2026-08-30)
 
 [stappmus/Omarchy-Spotify](https://github.com/stappmus/Omarchy-Spotify),

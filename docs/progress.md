@@ -171,6 +171,22 @@ back up: what is done, what is waiting on Joel, what comes next.
   for Expérience.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
+
+## Deezer re-checked, and still closed (2026-10-10)
+
+Joel asked again whether forkstify could be wired to Deezer, paid account
+included. Checked at the source: application creation has been closed since
+early 2024 and was still closed in September 2026, the API serves metadata
+only ("*the API can't be used for playback*", Deezer staff), and both SDKs
+are dead — so there is **no audio** for an individual, and Premium changes
+nothing, because Deezer has no librespot. The public Simple API, the one the
+generator uses for the tops and the `similar` / `audience` links, still
+answers with no key (tested the same day). Sources, quotes and the three
+routes considered — partner access, driving an unofficial client, the ARL
+route — are in [design/spotify.md](design/spotify.md#deezer-as-a-source-no-audio-path-re-verified-2026-10-10).
+The pair of conditions to watch, should it ever change: creation reopened
+**and** a documented playback path.
+
 ## The review is the pull request (2026-09-24)
 
 Jarvis Cocker's similar links looked odd: they were Deezer's neighbourhood
