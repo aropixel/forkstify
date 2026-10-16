@@ -172,6 +172,18 @@ back up: what is done, what is waiting on Joel, what comes next.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
 
+## New releases: the sources tested (2026-10-16)
+
+Joel wants to see and be told about new albums — the highest-scored liked
+artists first — to play one that just came out, and to be proposed new
+artists. Tested the same day on his three examples (Fontaines D.C., Eels,
+Drake): Deezer's `/artist/{id}/albums` (no key) and MusicBrainz find all
+three, MusicBrainz also has the singles that announce an album; Deezer's
+editorial releases are empty and Spotify's `/browse/new-releases` is gone
+for development-mode apps. So the feed is built per artist, ranked by
+score. Directions and open questions in
+[design/new-releases.md](design/new-releases.md); nothing decided.
+
 ## Deezer re-checked, and still closed (2026-10-10)
 
 Joel asked again whether forkstify could be wired to Deezer, paid account
