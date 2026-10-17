@@ -18,7 +18,8 @@ The five open questions of the first version, settled one by one:
 2. **"Seen" is deduced, plus a dismiss.** A release leaves the list when one
    of its tracks has been played (the counters of `learned/` already know)
    or when it is older than a new release's age (below). A key also
-   dismisses it ("not interested"): the dismissed releases are written in
+   dismisses it ("not interested") — **`x`**, the verb that already means
+   "take this out of the list it is in" (Joel, 2026-10-17): the dismissed releases are written in
    `learned/<artist>` and merged **by union**, which means extending the
    git merge driver ([0017](../decisions/0017-syncing-the-learned.md)).
 3. **Spotify watches, MusicBrainz announces.** The watch goes through
@@ -26,8 +27,7 @@ The five open questions of the first version, settled one by one:
    214 cards carry a verified Spotify id and none a Deezer one, and a
    release found there is playable as is. MusicBrainz is asked for the
    announcements (singles, future dates), for the top of the ranking only.
-   **To verify before coding**: that the endpoint returns Joel's three
-   examples, and what its rate limit allows in development mode.
+   Tested on 2026-10-17 — see below.
 4. **A card only if you go there.** The watch only looks at artists that
    have a card — the card carries the Spotify id. A neighbour with no card
    is not watched; its card is generated when you play or open it, as
@@ -61,16 +61,41 @@ MusicBrainz, an album for Deezer, and a re-issue of *HABIBTI* (2026-05-15);
 Fontaines D.C. have a *Romance (Deluxe Edition)*. Editions have to be
 recognised and ranked below a real new album.
 
+## Spotify's per-artist albums — tested on 2026-10-17
+
+`GET /artists/{id}/albums?include_groups=album,single&limit=50&market=from_token`,
+the call of `discography()`, with forkstify's client id (ncspot's, extended
+mode — not a development-mode app, contrary to what the first version of
+this note assumed):
+
+- **All three examples are there**, dated, typed, with the singles that
+  announce them: Fontaines D.C. *Dopamine Chamber* (2026-10-16) after
+  *Marianne*, *Tongue*, *Where Is Gone?*; Eels *Cookie Happened*
+  (2026-10-16) after three singles from June to September; Drake *HABIBTI
+  (FOMO)* (2026-10-02), an `album` for Spotify. So Spotify also gives the
+  announcing singles — only future dates are left to MusicBrainz.
+- **Order**: albums first, newest first, then singles, newest first.
+  `limit=50` still works. Drake has 85 releases and a next page: an artist
+  with more than 50 albums would push his singles off the first page, so the
+  watch asks for `album` and `single` separately, `limit` small.
+- **The rate limit is the problem.** The very first call was refused (429,
+  `Retry-After` 7 s). Ten artists in a row, honouring `Retry-After`, took
+  **225 s with eight 429s: about one call every 20 s**, by bursts of two or
+  three per 30-second window. The client id is shared with every ncspot
+  user, so the budget is not ours and could not be measured as such. At
+  that pace the top 90 is half an hour, the whole library hours — and every
+  watch call is taken from the player's own (search, `discography()`).
+
 ## Direction — a watch, per artist, ranked by score
 
 - **Who is watched**: the ranked artists (`learned`), by score band. The
   top (say score ≥ 5, ~90 artists) checked every day, the rest every week,
-  the tail never unless a card links to it. One Deezer call per artist:
-  Deezer allows 50 requests / 5 s, so the whole library is about a minute,
-  in the background, at start.
+  the tail never unless a card links to it. One or two calls per artist;
+  the pace depends on the source, still open (see *To settle*).
 - **What is kept**: album / EP / single, date, title, the service ids.
   A cache outside the repository, like the discography — a fact that can
-  be re-harvested is not catalog material. Only "seen" is user state.
+  be re-harvested is not catalog material. Only the dismissed releases are
+  user state.
 - **Order of the list**: score first, then the type (album > EP > single >
   edition), then the date. Every row carries its reason: "*Eels — new album
   · you like 14 of their tracks*".
@@ -119,6 +144,9 @@ also play…*", never "*similar to…*".
 
 ## To settle
 
-- The dismiss key: which one, in the grammar of
-  [0015](../decisions/0015-keyboard-grammar-namespaces.md)?
+- **The rate limit.** Keep Spotify with a slow watch — one call every 30 s
+  in the background, paused whenever the player needs the API, the top
+  first, the rest spread over the week — or go back to Deezer (50 requests
+  / 5 s) for the watch, at the price of resolving a Deezer id per artist
+  and finding the release again on Spotify to play it?
 - The shape of the boost's decay (linear, exponential) and its height.

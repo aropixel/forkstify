@@ -172,6 +172,14 @@ back up: what is done, what is waiting on Joel, what comes next.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
 
+## New releases: Spotify's albums endpoint tested (2026-10-17)
+
+`x` dismisses a release. Spotify's `/artists/{id}/albums` returns the three
+examples with their announcing singles, but the shared client id is
+rate-limited hard: about one call every 20 s, 429 from the first call. Open
+again: a slow Spotify watch, or Deezer for the watch. Detail in
+[design/new-releases.md](design/new-releases.md).
+
 ## New releases: the open questions settled (2026-10-17)
 
 Joel settled the note's five questions: banned artists are not watched,
