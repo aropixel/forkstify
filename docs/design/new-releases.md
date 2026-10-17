@@ -5,8 +5,39 @@ be told about them — the liked artists with the highest score first, but
 the others too — play an album that just came out, and, if possible, be
 proposed relevant new artists.
 
-Nothing is coded, nothing is decided. **Decided** = nothing yet;
-**direction** = proposed, uncontradicted; **to settle** = open question.
+Nothing is coded. **Decided** = Joel's call; **direction** = proposed,
+uncontradicted; **to settle** = open question.
+
+## Decided on 2026-10-17 (Joel)
+
+The five open questions of the first version, settled one by one:
+
+1. **Banned no, lowered yes.** An artist banned with `ab` ("never again") is
+   not watched at all. An artist lowered with `as` is still watched, and
+   simply ranks lower, since the list is ordered by score already.
+2. **"Seen" is deduced, plus a dismiss.** A release leaves the list when one
+   of its tracks has been played (the counters of `learned/` already know)
+   or when it is older than a new release's age (below). A key also
+   dismisses it ("not interested"): the dismissed releases are written in
+   `learned/<artist>` and merged **by union**, which means extending the
+   git merge driver ([0017](../decisions/0017-syncing-the-learned.md)).
+3. **Spotify watches, MusicBrainz announces.** The watch goes through
+   `/artists/{id}/albums`, the call `discography()` already makes: 212 of the
+   214 cards carry a verified Spotify id and none a Deezer one, and a
+   release found there is playable as is. MusicBrainz is asked for the
+   announcements (singles, future dates), for the top of the ranking only.
+   **To verify before coding**: that the endpoint returns Joel's three
+   examples, and what its rate limit allows in development mode.
+4. **A card only if you go there.** The watch only looks at artists that
+   have a card — the card carries the Spotify id. A neighbour with no card
+   is not watched; its card is generated when you play or open it, as
+   [0016](../decisions/0016-broad-base-and-on-the-fly-generation.md) says.
+   No commits for candidates you did not choose.
+5. **One age, albums and EPs only.** A single `[tuning]` number, the age of
+   a new release (6 weeks by default), is both the list's window and the
+   length of the freshness boost, which decays to zero at its end. Singles
+   show in the list but get no boost in the branches — a lone track is not
+   repeated for six weeks.
 
 ## The sources — tested on 2026-10-16
 
@@ -88,11 +119,6 @@ also play…*", never "*similar to…*".
 
 ## To settle
 
-- Is a new release of a *banned* or *less often* (`ts`) artist shown?
-- What does "seen" mean: listed, or played? And where does it live?
-- Deezer as the watch source, MusicBrainz for announcements — or MusicBrainz
-  alone (MBID identity, [0009](../decisions/0009-mbid-identity.md)) at
-  1 req/s?
-- Does an artist without a card who releases near your top get a card
-  generated on the spot ([0016](../decisions/0016-broad-base-and-on-the-fly-generation.md))?
-- How long does the freshness boost last, and does it apply to singles?
+- The dismiss key: which one, in the grammar of
+  [0015](../decisions/0015-keyboard-grammar-namespaces.md)?
+- The shape of the boost's decay (linear, exponential) and its height.

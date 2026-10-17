@@ -172,6 +172,18 @@ back up: what is done, what is waiting on Joel, what comes next.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
 
+## New releases: the open questions settled (2026-10-17)
+
+Joel settled the note's five questions: banned artists are not watched,
+lowered ones are; "seen" is deduced from plays and age, plus a dismiss kept
+in `learned/` and merged by union; the watch goes through Spotify's
+`/artists/{id}/albums` (the cards carry the Spotify id), MusicBrainz for the
+announcements; no card generated for an artist you did not go to; one
+`[tuning]` age (6 weeks) for both the list and the freshness boost, albums
+and EPs only. Next: verify the Spotify endpoint on the three examples and
+its rate limit, then the PoC. Detail in
+[design/new-releases.md](design/new-releases.md).
+
 ## New releases: the sources tested (2026-10-16)
 
 Joel wants to see and be told about new albums — the highest-scored liked
