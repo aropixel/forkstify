@@ -146,8 +146,11 @@ nobody knows how to do that, and it must not be asked for:
   `vectors/vectors.jsonl` + `meta.toml`. The composed text names the
   neighbors of **outgoing and incoming** links (a relation holds both ways,
   only `influence` flips into "influenced").
+- **`discography/<slug>.toml`**: what an artist released, from MusicBrainz
+  only — release groups and their tracks
+  ([0027](../decisions/0027-the-discography-is-catalog-material.md)).
 - **Outside the repository**: Spotify API caches (title → identifier
-  resolution, cover art), tokens.
+  resolution, the discography's Spotify match, cover art), tokens.
 
 ### What the catalog learns
 

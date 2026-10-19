@@ -97,6 +97,12 @@ The detail is in `docs/decisions/`. In summary:
   tracks outrank the tops (×10 at the cocoon, ×2 wide open), the tops are
   only the entry doors of a fresh fork, no more `tt` while listening
   ([0018](docs/decisions/0018-one-gesture-for-taste.md)).
+- **The discography is catalog material**: `discography/<slug>.toml`
+  beside the cards, MusicBrainz data only (album, EP, single, their
+  tracks); the match with Spotify is made and cached on each machine, since
+  Spotify's terms forbid a shared database of its content; new releases are
+  found through MusicBrainz and appended
+  ([0027](docs/decisions/0027-the-discography-is-catalog-material.md)).
 - **The engine's numbers are tunable in the configuration**: a `[tuning]`
   section in `config.toml`, one name per number, defaults = the previous
   code, read at launch

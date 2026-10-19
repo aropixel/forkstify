@@ -172,6 +172,22 @@ back up: what is done, what is waiting on Joel, what comes next.
 - Deezer/Spotify identifiers of **consenting friends** to widen the base
   (`tools/amis-*.py`).
 
+## The discography goes into the catalog (2026-10-19)
+
+Joel: Spotify's discographies are slow and often incomplete (the harvest
+reads only the first page of 50 releases and stops at the first failed
+batch), and Deezer is out — a Spotify Premium project does not lean on a
+free API of a platform no one subscribes to. Decided
+([0027](decisions/0027-the-discography-is-catalog-material.md)):
+`discography/<slug>.toml` in the catalog, MusicBrainz data only — release
+groups (album, EP, single, no secondary type) and their tracks. Spotify's
+Developer Terms forbid a shared database of Spotify Content (IV.3.1.1,
+IV.2.5), so the match with Spotify uris is made and cached on each machine,
+lazily, every page read. New releases found by one MusicBrainz query per
+artist. Next: the harvest of the reference, then the long tail read from
+the files. MusicBrainz links few release groups to Spotify (2/33 for Eels,
+1/49 for the Velvet), so the local title matching carries the load.
+
 ## New releases: Spotify's albums endpoint tested (2026-10-17)
 
 `x` dismisses a release. Spotify's `/artists/{id}/albums` returns the three

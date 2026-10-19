@@ -16,7 +16,12 @@ Joel's.
   on the tops; low comfort, the tail weighs more (0012 §4). There is **no
   second setting**: [0001](../decisions/0001-comfort-is-familiarity.md)
   already holds that dial.
-- **It lives outside the catalog.** 0012 calls it "outside the catalog", and
+- **Superseded on 2026-10-19 by
+  [0027](../decisions/0027-the-discography-is-catalog-material.md)**: what
+  an artist released is in the catalog, `discography/<slug>.toml`, from
+  MusicBrainz; only its match with Spotify stays local — the terms-of-use
+  question below is why. The original point, for the record:
+  **It lives outside the catalog.** 0012 calls it "outside the catalog", and
   [catalog.md](catalog.md) explicitly puts the API caches ("title →
   identifier resolution, cover art") **outside the repository**. The vectors
   set no precedent: they ship because everyone has to have *the same* ones

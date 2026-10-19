@@ -22,14 +22,17 @@ The five open questions of the first version, settled one by one:
    "take this out of the list it is in" (Joel, 2026-10-17): the dismissed releases are written in
    `learned/<artist>` and merged **by union**, which means extending the
    git merge driver ([0017](../decisions/0017-syncing-the-learned.md)).
-3. **Spotify watches, MusicBrainz announces.** The watch goes through
-   `/artists/{id}/albums`, the call `discography()` already makes: 212 of the
-   214 cards carry a verified Spotify id and none a Deezer one, and a
-   release found there is playable as is. MusicBrainz is asked for the
-   announcements (singles, future dates), for the top of the ranking only.
-   Tested on 2026-10-17 — see below.
+3. **MusicBrainz watches; Spotify only plays** (revised on 2026-10-19 —
+   the first answer, Spotify for the watch, fell to the rate limit measured
+   below). Deezer is set aside: a Spotify Premium project does not lean on
+   the free API of a platform no one here subscribes to. And the
+   discography becomes catalog material, `discography/<slug>.toml`
+   ([0027](../decisions/0027-the-discography-is-catalog-material.md)),
+   MusicBrainz data only — Spotify's terms forbid sharing its own; the
+   watch is one MusicBrainz query per artist for what came out after the
+   last date of its file, and a new release is a few lines appended to it.
 4. **A card only if you go there.** The watch only looks at artists that
-   have a card — the card carries the Spotify id. A neighbour with no card
+   have a card — the card carries the MBID and the discography file. A neighbour with no card
    is not watched; its card is generated when you play or open it, as
    [0016](../decisions/0016-broad-base-and-on-the-fly-generation.md) says.
    No commits for candidates you did not choose.
@@ -90,12 +93,14 @@ this note assumed):
 
 - **Who is watched**: the ranked artists (`learned`), by score band. The
   top (say score ≥ 5, ~90 artists) checked every day, the rest every week,
-  the tail never unless a card links to it. One or two calls per artist;
-  the pace depends on the source, still open (see *To settle*).
-- **What is kept**: album / EP / single, date, title, the service ids.
-  A cache outside the repository, like the discography — a fact that can
-  be re-harvested is not catalog material. Only the dismissed releases are
-  user state.
+  the tail never unless a card links to it. One MusicBrainz query per
+  artist, at 1 request per second: the top in a minute and a half, a
+  library of 900 in a quarter of an hour, in the background.
+- **What is kept**: the new release goes into the artist's
+  `discography/` file, committed in the fork
+  ([0027](../decisions/0027-the-discography-is-catalog-material.md)). The
+  list is what those files gained within a new release's age. Only the
+  dismissed releases are user state.
 - **Order of the list**: score first, then the type (album > EP > single >
   edition), then the date. Every row carries its reason: "*Eels — new album
   · you like 14 of their tracks*".
@@ -144,9 +149,7 @@ also play…*", never "*similar to…*".
 
 ## To settle
 
-- **The rate limit.** Keep Spotify with a slow watch — one call every 30 s
-  in the background, paused whenever the player needs the API, the top
-  first, the rest spread over the week — or go back to Deezer (50 requests
-  / 5 s) for the watch, at the price of resolving a Deezer id per artist
-  and finding the release again on Spotify to play it?
+- What the list shows between the MusicBrainz release and the Spotify
+  match: a release MusicBrainz knows, not yet on Spotify (or not matched),
+  listed as "out, not playable yet"?
 - The shape of the boost's decay (linear, exponential) and its height.
