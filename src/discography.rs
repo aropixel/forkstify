@@ -52,16 +52,7 @@ fn first_disc() -> u32 {
 struct Matched {
     complete: bool,
     tracks: Vec<TailTrack>,
-    /// The version of the rules it was matched by: a match made by older
-    /// rules is due again, and plays on meanwhile.
-    #[serde(default)]
-    rules: u32,
 }
-
-/// The rules of `match_albums`, numbered: raised whenever they change, so
-/// what they matched before is matched again (2 — the kind before the year,
-/// 2026-10-20).
-const MATCH_RULES: u32 = 2;
 
 impl TailTrack {
     /// The year, when the date says one.
@@ -78,9 +69,6 @@ pub struct Tail {
     /// The artists whose match is due again: incomplete, or older than
     /// `spotify_match_days`. Their tracks still play meanwhile.
     stale: std::collections::HashSet<String>,
-    /// The harvests from before 0027 — Spotify's own albums, a bare list:
-    /// converted on first need against `discography/`, with no call.
-    legacy: HashMap<String, Vec<TailTrack>>,
 }
 
 impl Tail {
@@ -88,7 +76,6 @@ impl Tail {
         let root = cache_dir();
         let mut artists = HashMap::new();
         let mut stale = std::collections::HashSet::new();
-        let mut legacy = HashMap::new();
         let days = crate::config::tuning().spotify_match_days as u64;
         if let Ok(entries) = std::fs::read_dir(&root) {
             for entry in entries.flatten() {
@@ -99,13 +86,8 @@ impl Tail {
                 let Some(slug) = path.file_stem().and_then(|s| s.to_str()) else {
                     continue;
                 };
-                let Ok(text) = std::fs::read_to_string(&path) else { continue };
-                let Ok(matched) = serde_json::from_str::<Matched>(&text) else {
-                    // a harvest from before 0027: kept aside, converted
-                    // when the artist is first needed
-                    if let Ok(tracks) = serde_json::from_str::<Vec<TailTrack>>(&text) {
-                        legacy.insert(slug.to_string(), tracks);
-                    }
+                let Some(matched) = std::fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str::<Matched>(&t).ok())
+                else {
                     continue;
                 };
                 let age = entry
@@ -114,19 +96,19 @@ impl Tail {
                     .ok()
                     .and_then(|t| t.elapsed().ok())
                     .map_or(u64::MAX, |d| d.as_secs() / 86_400);
-                if !matched.complete || matched.rules != MATCH_RULES || age >= days {
+                if !matched.complete || age >= days {
                     stale.insert(slug.to_string());
                 }
                 artists.insert(slug.to_string(), matched.tracks);
             }
         }
-        Tail { root, artists, stale, legacy }
+        Tail { root, artists, stale }
     }
 
     /// An empty tail, for tests and for the dry journey on a cold machine.
     #[cfg(test)]
     pub fn blank() -> Tail {
-        Tail { root: std::env::temp_dir().join("forkstify-tests-tail"), artists: HashMap::new(), stale: Default::default(), legacy: HashMap::new() }
+        Tail { root: std::env::temp_dir().join("forkstify-tests-tail"), artists: HashMap::new(), stale: Default::default() }
     }
 
     pub fn known(&self) -> usize {
@@ -135,18 +117,6 @@ impl Tail {
 
     pub fn has(&self, slug: &str) -> bool {
         self.artists.contains_key(slug)
-    }
-
-    /// A harvest from before 0027, turned into a tail by the releases of
-    /// `discography/` without a call to Spotify (Joel, 2026-10-20: the
-    /// first launch matched every artist again, two minutes each, and `ad`
-    /// waited). Kept incomplete: the real match follows, behind. False when
-    /// there was nothing to convert.
-    pub fn convert(&mut self, slug: &str, releases: &[crate::releases::Release]) -> bool {
-        let Some(old) = self.legacy.remove(slug) else { return false };
-        let tracks = from_legacy(releases, &old);
-        self.keep(slug, tracks, false);
-        true
     }
 
     /// Known, complete, and matched within the month.
@@ -176,7 +146,7 @@ impl Tail {
     /// Keep a match, on disk and in memory. An incomplete one stays due:
     /// the next need resumes it.
     pub fn keep(&mut self, slug: &str, tracks: Vec<TailTrack>, complete: bool) {
-        let matched = Matched { complete, tracks, rules: MATCH_RULES };
+        let matched = Matched { complete, tracks };
         if let Err(e) = std::fs::create_dir_all(&self.root) {
             eprintln!("tail not saved ({e})");
         } else if let Ok(text) = serde_json::to_string(&matched) {
@@ -288,44 +258,6 @@ pub fn match_albums(releases: &[crate::releases::Release], albums: &[SpotifyAlbu
         }
     }
     matched
-}
-
-/// An old harvest's albums matched to the releases by the same rules —
-/// its tracks already carry their uris, so nothing is asked of Spotify.
-/// MusicBrainz's own links are left aside: an old harvest has no album
-/// ids to meet them with. An old harvest often holds only a deluxe — the
-/// Velvet's first album with its mono and its alternate takes, four copies
-/// of each song (Joel, 2026-10-20) —: until the real match chooses the
-/// edition, one copy of each song, the plainly titled first.
-fn from_legacy(releases: &[crate::releases::Release], old: &[TailTrack]) -> Vec<TailTrack> {
-    let mut albums: Vec<SpotifyAlbum> = Vec::new();
-    for track in old {
-        if !albums.iter().any(|a| a.name == track.album) {
-            albums.push(SpotifyAlbum { id: track.album.clone(), name: track.album.clone(), date: track.released.clone(), single: track.single });
-        }
-    }
-    let unlinked: Vec<crate::releases::Release> =
-        releases.iter().cloned().map(|r| crate::releases::Release { spotify: None, ..r }).collect();
-    let mut tracks = Vec::new();
-    for (index, album) in match_albums(&unlinked, &albums) {
-        let release = &releases[index];
-        let mut copies: Vec<&TailTrack> = old.iter().filter(|t| t.album == album).collect();
-        copies.sort_by_key(|t| (clean_title(&t.title) != t.title, t.number));
-        let mut seen = std::collections::HashSet::new();
-        let mut kept: Vec<TailTrack> = copies
-            .into_iter()
-            .filter(|t| seen.insert(normalize(&t.title)))
-            .map(|t| TailTrack {
-                album: release.title.clone(),
-                released: release.date.clone(),
-                single: release.kind != "album",
-                ..t.clone()
-            })
-            .collect();
-        kept.sort_by_key(|t| t.number);
-        tracks.extend(kept);
-    }
-    tracks
 }
 
 /// What `ad` shows while the match runs: the matched tail, and every
@@ -559,26 +491,6 @@ mod tests {
         assert_eq!(tail.len(), 2);
         assert!(tail.iter().all(|t| t.album == "Loaded" && t.released == "1970-11" && !t.single));
         assert_eq!((tail[1].disc, tail[1].number), (2, 1));
-    }
-
-    /// An old harvest becomes a tail by the releases, with no call: what
-    /// MusicBrainz does not list — a compilation — stays out.
-    #[test]
-    fn an_old_harvest_is_converted_without_spotify() {
-        let old = vec![
-            TailTrack { album: "Loaded (Fully Loaded Edition)".into(), released: "2015".into(), ..track("Sweet Jane", "spotify:track:a", "2015", false) },
-            TailTrack { album: "The Best of".into(), released: "2003".into(), ..track("Heroin", "spotify:track:b", "2003", false) },
-        ];
-        let mut loaded = release("Loaded", "album", "1970-11");
-        loaded.spotify = Some("an-id-the-old-harvest-cannot-meet".into());
-        let tail = from_legacy(&[loaded], &old);
-        assert_eq!(tail.len(), 1);
-        // a deluxe in an old harvest: one copy of each song until the match
-        let deluxe = |title: &str, n: u32| TailTrack { album: "Loaded (Deluxe)".into(), number: n, ..track(title, title, "2015", false) };
-        let old = vec![deluxe("Sweet Jane", 1), deluxe("Sweet Jane - Mono", 12), deluxe("Sweet Jane (Demo)", 20), deluxe("Rock & Roll", 2)];
-        let titles: Vec<String> = from_legacy(&[release("Loaded", "album", "1970-11")], &old).into_iter().map(|t| t.title).collect();
-        assert_eq!(titles, ["Sweet Jane", "Rock & Roll"]);
-        assert_eq!((tail[0].uri.as_str(), tail[0].album.as_str(), tail[0].released.as_str()), ("spotify:track:a", "Loaded", "1970-11"));
     }
 
     /// `ad` before the match: every release, the unmatched ones with no

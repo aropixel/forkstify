@@ -4435,12 +4435,6 @@ impl Live<'_> {
             return Ok(true);
         }
         let releases = crate::releases::read(&self.catalog_dir, slug);
-        // a harvest from before 0027 serves at once, converted with no call
-        if let Some(releases) = &releases {
-            if !self.tail.has(slug) {
-                self.tail.convert(slug, releases);
-            }
-        }
         let usable = self.tail.has(slug);
         if self.harvesting.contains_key(slug) {
             return Ok(usable);

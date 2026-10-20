@@ -160,9 +160,11 @@ each song, the plainly titled first. (2) Read in its cache: the 1967
 single *White Light/White Heat* had taken the album's tracks and the 1968
 album had none — between two releases of one title, `match_albums` ruled
 by the year before the kind, and Spotify dates an album by its reissue.
-The kind decides first now; the cache records the version of the rules
-(`MATCH_RULES`, 2), and a match made by older ones is matched again,
-behind, playing on meanwhile.
+The kind decides first now. **Then the legacy went** (Joel: "I am the
+only user for now — if it suits us, we drop the legacy"): no conversion of
+the pre-0027 caches (`from_legacy`, `Tail::convert`), no version of the
+rules in the cache; an old-format file is simply not read, and Joel's
+cache is cleared by hand once.
 
 ## Done
 
