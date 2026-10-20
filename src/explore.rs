@@ -225,25 +225,14 @@ impl Explore {
     /// Rebuild the albums from the raw material. Called on opening, after a
     /// measure, and after a write.
     fn build(&mut self) {
-        // one track per normalized title: Spotify delivers the same song
-        // five times (album, single, reissue). We keep the oldest album
-        // occurrence — the one we remember.
-        let mut kept: Vec<&TailTrack> = Vec::new();
-        for track in &self.raw {
-            let key = normalize(&track.title);
-            match kept.iter().position(|k| normalize(&k.title) == key) {
-                None => kept.push(track),
-                Some(index) => {
-                    // an album rather than a single, and the oldest release:
-                    // the version we remember
-                    // and a matched copy ahead of one still waiting
-                    let rank = |t: &TailTrack| (t.uri.is_empty(), t.single, t.year().unwrap_or(u16::MAX));
-                    if rank(track) < rank(kept[index]) {
-                        kept[index] = track;
-                    }
-                }
-            }
-        }
+        // every record whole, singles included: a song on three records
+        // shows three times (Joel, 2026-10-20 — Beatles VI showed 5 of its
+        // 11 songs, the others filed under Beatles for Sale, and `a` would
+        // have played five). It was one line per song while the tail was
+        // Spotify's own albums, five copies of each; the releases come from
+        // MusicBrainz now, one per record. The plays and the ♥ are the
+        // song's, shared by its copies; the header counts songs.
+        let kept: Vec<&TailTrack> = self.raw.iter().collect();
 
         let stat = |title: &str, stats: &[(String, f64, Option<i64>, bool, bool)]| {
             let key = normalize(title);
@@ -689,7 +678,14 @@ impl Explore {
     // --- the header ---------------------------------------------------------
 
     pub fn summary(&self) -> Summary {
-        let tracks: Vec<&Track> = self.albums.iter().flat_map(|a| a.tracks.iter()).collect();
+        // songs, not copies: a title on three records counts once
+        let mut seen = std::collections::HashSet::new();
+        let tracks: Vec<&Track> = self
+            .albums
+            .iter()
+            .flat_map(|a| a.tracks.iter())
+            .filter(|t| seen.insert(normalize(&t.title)))
+            .collect();
         let plays: f64 = tracks.iter().map(|t| t.plays).sum();
         let tops = tracks.iter().filter(|t| t.is_top()).count();
         let liked = tracks.iter().filter(|t| t.liked && !t.is_top()).count();
@@ -782,13 +778,14 @@ mod tests {
     }
 
     #[test]
-    fn a_song_appears_only_once() {
+    fn every_record_shows_all_its_songs() {
         let screen = screen();
         let titles: Vec<&str> =
             screen.albums.iter().flat_map(|a| a.tracks.iter()).map(|t| t.title.as_str()).collect();
-        assert_eq!(titles.iter().filter(|t| t.starts_with("Metal Heart")).count(), 1);
-        // and the album version is kept, not the single
-        assert!(titles.contains(&"Metal Heart"));
+        // on the album and on the single: both records are whole
+        assert_eq!(titles.iter().filter(|t| t.starts_with("Metal Heart")).count(), 2);
+        // and the header counts the song once: four songs and the orphan top
+        assert_eq!(screen.summary().titles, 5);
     }
 
     /// `a` / `A` take the album the cursor is **in**, in the record's own
@@ -888,7 +885,8 @@ mod tests {
     fn the_screen_says_where_the_plays_go() {
         let screen = screen();
         let summary = screen.summary();
-        assert_eq!(summary.albums, 2);
+        // the single is a record of its own now, its song shown on it too
+        assert_eq!(summary.albums, 3);
         assert_eq!(summary.tops, 2, "an album top and an orphan");
         assert_eq!(summary.titles, 5, "four tracks and the orphan top");
     }

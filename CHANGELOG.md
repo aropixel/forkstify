@@ -50,6 +50,10 @@ the version it cuts, so this file cannot fall behind.
 
 ### Changed
 
+- **`ad` shows every record whole**, singles included: a song on several
+  records shows on each of them, and "the whole album" plays all of it.
+  Until now a song showed once, under its first album — Beatles VI kept
+  5 of its 11 songs. The header still counts songs, not copies.
 - The commits of generated cards carry `Forkstify: generate` instead of
   `Forkstify: edit`.
 - **The long tail comes from the catalog's discographies.** What an

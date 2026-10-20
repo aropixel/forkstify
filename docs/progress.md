@@ -144,6 +144,14 @@ round (`sync::resync`) and updates the status line, which says the reason
 gained `J`/`K` and page down/up, album to album (the escape reader now
 reads a sequence with parameters to its end).
 
+**`ad` shows every record whole** (Joel's call, 2026-10-20, over "albums
+whole, singles trimmed" and "keep the rule"): Beatles VI showed 5 of its
+11 songs — the screen kept one line per song, under its first album, a
+rule from the Spotify-only tail, which served each song five times; the
+other six were filed under Beatles for Sale, and `a`/`A` would have played
+five. `Explore::build` no longer dedups; `summary` counts songs (by
+normalized title), not copies.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,
