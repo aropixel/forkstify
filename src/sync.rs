@@ -45,9 +45,21 @@ pub fn dirty(dir: &Path) -> bool {
     git(dir, &["status", "--porcelain", "--", "learned"]).map(|s| !s.is_empty()).unwrap_or(false)
 }
 
+/// A merge or a rebase stopped half-way: nothing may be committed on top —
+/// a commit of the learned would take in whatever the stopped operation
+/// left on disk (Joel, 2026-10-20: a rebase that stopped had removed six
+/// learned files, and the ten-minute commit recorded their removal).
+pub fn in_progress(dir: &Path) -> bool {
+    let git_dir = dir.join(".git");
+    git_dir.join("MERGE_HEAD").exists() || git_dir.join("rebase-merge").exists() || git_dir.join("rebase-apply").exists()
+}
+
 /// Commit what listening wrote. `Ok(None)` when there was nothing to
 /// commit; `Ok(Some(subject))` otherwise.
 pub fn commit_learned(dir: &Path) -> Result<Option<String>, String> {
+    if in_progress(dir) {
+        return Err("a merge or a rebase is stopped in the catalog — :catalog, or git, first".to_string());
+    }
     git(dir, &["add", "-A", "--", "learned"])?;
     let staged = git(dir, &["diff", "--cached", "--name-only"])?;
     if staged.is_empty() {
@@ -115,7 +127,22 @@ pub fn pull(dir: &Path) -> Result<String, String> {
         return Ok(if committed { "learned committed, local".to_string() } else { "local".to_string() });
     }
     let before = git(dir, &["rev-parse", "HEAD"])?;
-    git(dir, &["pull", "--rebase", "--quiet"])?;
+    // the learned commits are rebased, so the history stays a line; but
+    // an update from the reference not pushed yet is a merge, and a rebase
+    // would replay the reference's whole history flat, from its first
+    // commit (Joel, 2026-10-20) — then it is merged instead
+    let unpushed_merge = git(dir, &["rev-list", "--merges", "@{upstream}..HEAD"]).is_ok_and(|merges| !merges.is_empty());
+    let mode = if unpushed_merge { "--no-rebase" } else { "--rebase" };
+    if let Err(why) = git(dir, &["pull", mode, "--no-edit", "--quiet"]) {
+        // never left half-way: the catalog stays as it was before the pull
+        if dir.join(".git/rebase-merge").exists() || dir.join(".git/rebase-apply").exists() {
+            let _ = git(dir, &["rebase", "--abort"]);
+        }
+        if dir.join(".git/MERGE_HEAD").exists() {
+            let _ = git(dir, &["merge", "--abort"]);
+        }
+        return Err(why);
+    }
     let after = git(dir, &["rev-parse", "HEAD"])?;
     Ok(match (committed, before == after) {
         (true, true) => "learned committed, up to date".to_string(),
@@ -125,7 +152,7 @@ pub fn pull(dir: &Path) -> Result<String, String> {
     })
 }
 
-/// Commit and push now — `:sync`, and the way out of a session.
+/// Commit and push now — the way out of a session.
 pub fn sync(dir: &Path) -> Result<String, String> {
     let committed = commit_learned(dir)?;
     push(dir)?;
@@ -136,6 +163,22 @@ pub fn sync(dir: &Path) -> Result<String, String> {
         (None, false) => "nothing new, all pushed".to_string(),
         (None, true) => "nothing new, local".to_string(),
     })
+}
+
+/// `:sync` — the whole round, what the start does and could not: the
+/// learned committed, the other machines' brought in, ours pushed. The
+/// way back from "not synced" without relaunching (Joel, 2026-10-20).
+pub fn resync(dir: &Path) -> Result<String, String> {
+    let word = pull(dir)?;
+    push(dir)?;
+    Ok(if is_local(dir) { word } else { format!("{word}, pushed") })
+}
+
+/// What the status line says of a sync that failed: the reason, short —
+/// "offline" was said for anything, a stopped rebase included.
+pub fn failed(why: &str) -> String {
+    let short: String = why.chars().take(60).collect();
+    format!("⇅ not synced — {short} · :sync to retry")
 }
 
 /// Teach this clone to merge learned files through us. The driver lives in
@@ -176,4 +219,79 @@ pub fn merge_learned(base: &Path, ours: &Path, theirs: &Path) -> Result<(), Stri
         &read(theirs)?,
     )?;
     std::fs::write(ours, merged).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Joel's 2026-10-20: an update from the reference merged and not
+    /// pushed yet, the other machine's learned pushed meanwhile. The start
+    /// must merge — a rebase replayed the reference's history flat, its
+    /// removal of `learned/` with it, and stopped half-way.
+    #[test]
+    fn an_unpushed_update_is_merged_not_replayed() {
+        if std::process::Command::new("git").arg("--version").output().is_err() {
+            eprintln!("git absent — test skipped");
+            return;
+        }
+        let root = std::env::temp_dir().join(format!("forkstify-sync-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let sh = |dir: &Path, args: &[&str]| git(dir, args).unwrap_or_else(|why| panic!("git {args:?}: {why}"));
+        let at = |name: &str| root.join(name).to_str().unwrap().to_string();
+        let identity = |dir: &Path| {
+            sh(dir, &["config", "user.name", "Test"]);
+            sh(dir, &["config", "user.email", "test@example.net"]);
+        };
+
+        // the reference, which carried a learned/ once and then dropped it
+        sh(&root, &["init", "-q", "--bare", "-b", "main", &at("reference.git")]);
+        let seed = root.join("seed");
+        sh(&root, &["clone", "-q", &at("reference.git"), &at("seed")]);
+        identity(&seed);
+        std::fs::create_dir_all(seed.join("learned")).unwrap();
+        std::fs::create_dir_all(seed.join("cards")).unwrap();
+        std::fs::write(seed.join("learned/mbid.json"), "{}\n").unwrap();
+        std::fs::write(seed.join("cards/a.toml"), "format = 1\n").unwrap();
+        sh(&seed, &["add", "-A"]);
+        sh(&seed, &["commit", "-q", "-m", "seed"]);
+        sh(&seed, &["push", "-q", "-u", "origin", "main"]);
+        // the fork, taken then
+        sh(&root, &["clone", "-q", "--bare", &at("reference.git"), &at("fork.git")]);
+        sh(&seed, &["rm", "-q", "-r", "learned"]);
+        std::fs::write(seed.join("cards/b.toml"), "format = 1\n").unwrap();
+        sh(&seed, &["add", "-A"]);
+        sh(&seed, &["commit", "-q", "-m", "the reference drops its learned"]);
+        sh(&seed, &["push", "-q"]);
+
+        // this machine: the update merged, the learned kept, not pushed
+        let here = root.join("here");
+        sh(&root, &["clone", "-q", &at("fork.git"), &at("here")]);
+        identity(&here);
+        sh(&here, &["remote", "add", "upstream", &at("reference.git")]);
+        sh(&here, &["fetch", "-q", "upstream"]);
+        sh(&here, &["merge", "--no-ff", "--no-commit", "-q", "upstream/main"]);
+        sh(&here, &["restore", "--source=HEAD", "--staged", "--worktree", "--", "learned"]);
+        sh(&here, &["commit", "-q", "-m", "Update from the reference"]);
+        // the other machine learned and pushed
+        let there = root.join("there");
+        sh(&root, &["clone", "-q", &at("fork.git"), &at("there")]);
+        identity(&there);
+        std::fs::create_dir_all(there.join("learned/artists")).unwrap();
+        std::fs::write(there.join("learned/artists/a.toml"), "plays = 1.0\n").unwrap();
+        sh(&there, &["add", "-A"]);
+        sh(&there, &["commit", "-q", "-m", "learned: 1 artist"]);
+        sh(&there, &["push", "-q"]);
+
+        let word = pull(&here).expect("pull");
+        assert!(!in_progress(&here), "nothing left half-way");
+        assert!(here.join("learned/mbid.json").exists(), "the learned stays: {word}");
+        assert!(here.join("learned/artists/a.toml").exists(), "the other machine's learned came in");
+        assert!(here.join("cards/b.toml").exists(), "the update stays");
+        // and nothing is committed while a merge is stopped
+        std::fs::write(here.join(".git/MERGE_HEAD"), sh(&here, &["rev-parse", "HEAD"])).unwrap();
+        assert!(commit_learned(&here).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

@@ -309,7 +309,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
                     (
                         match &synced {
                             Ok(word) => format!("⇅ {word}"),
-                            Err(_) => "⇅ offline".to_string(),
+                            Err(why) => sync::failed(why),
                         },
                         synced.is_ok(),
                     ),
@@ -349,7 +349,7 @@ fn accueil(path: Option<&String>) -> anyhow::Result<()> {
             (
                 match &synced {
                     Ok(word) => format!("⇅ {word}"),
-                    Err(_) => "⇅ offline".to_string(),
+                    Err(why) => sync::failed(why),
                 },
                 synced.is_ok(),
             ),

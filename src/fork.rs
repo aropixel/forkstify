@@ -776,6 +776,9 @@ fn finish(dir: &Path, before: &str, regenerate: bool) -> Result<Update, String> 
     }
     let _ = std::fs::write(updated_file(), crate::learned::today_iso());
     let _ = std::fs::remove_file(pending_file());
+    // pushed at once: an update left unpushed is a merge the next start
+    // would have to bring in again — best effort, the sync retries
+    let _ = crate::sync::push(dir);
     let word = match (cards, regenerated) {
         (0, _) => "up to date with the reference".to_string(),
         (n, true) => format!("{n} card(s) from the reference · index regenerated"),

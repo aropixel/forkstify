@@ -128,7 +128,7 @@ pub struct Pending {
 
 /// Where we are. An **identity**, not a line number: folding an album
 /// changes the number of lines above, and an index would not survive it.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Cursor {
     pub album: usize,
     pub track: Option<usize>,
@@ -486,6 +486,18 @@ impl Explore {
         self.clamp();
     }
 
+    /// `J` / `K`, page down / up: the next or the previous album, its
+    /// header line — open, unless everything is folded.
+    pub fn album_by(&mut self, step: isize) {
+        let order = self.order();
+        if order.is_empty() {
+            return;
+        }
+        let here = order.iter().position(|a| *a == self.cursor.album).unwrap_or(0) as isize;
+        let next = (here + step).clamp(0, order.len() as isize - 1) as usize;
+        self.cursor = Cursor { album: order[next], track: None };
+    }
+
     pub fn go_top(&mut self) {
         if let Some(first) = self.rows().first() {
             self.adopt(*first);
@@ -751,6 +763,22 @@ mod tests {
 
     fn screen() -> Explore {
         Explore::open("cat-power", &card(), &tail(), &Learned::blank(), Some("Metal Heart"))
+    }
+
+    /// `J` / `K`: from inside an album, straight to the next one's line —
+    /// and no further than the ends.
+    #[test]
+    fn j_and_k_capital_jump_from_album_to_album() {
+        let mut screen = screen();
+        let order = screen.order();
+        screen.move_by(1);
+        assert!(screen.cursor.track.is_some(), "inside the first album");
+        screen.album_by(1);
+        assert_eq!(screen.cursor, Cursor { album: order[1], track: None });
+        screen.album_by(10);
+        assert_eq!(screen.cursor.album, *order.last().unwrap());
+        screen.album_by(-10);
+        assert_eq!(screen.cursor, Cursor { album: order[0], track: None });
     }
 
     #[test]

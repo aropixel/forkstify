@@ -67,6 +67,11 @@ pub enum Cmd {
     /// away (Joel, 08/09/2026). The opposite key undoes.
     MoveDown,
     MoveUp,
+    /// Page down / page up — and `J` / `K` in the discography: the next or
+    /// the previous album, not the next line (Joel, 2026-10-20: The
+    /// Beatles' last records were two hundred `j` away).
+    PageDown,
+    PageUp,
     PlayPause,
     /// Space, the leader: open the key helper. Carries the namespace that
     /// was half-typed, so `f` then space lists only the branch keys — and
@@ -342,6 +347,8 @@ pub fn parse_modal(buf: &str) -> Parse {
         ['g'] => Parse::Pending,
         ['g', 'g'] => Parse::Done(Cmd::Top),
         ['G'] => Parse::Done(Cmd::Bottom),
+        ['J'] => Parse::Done(Cmd::PageDown),
+        ['K'] => Parse::Done(Cmd::PageUp),
 
         ['t'] => Parse::Pending,
         ['t', k] if MODAL_TRACK_KEYS.contains(k) => Parse::Done(Cmd::Track(*k)),
@@ -522,7 +529,21 @@ fn escape_sequence() -> Option<[u8; 2]> {
         return None;
     }
     let second = raw_byte()?;
-    Some([first, second])
+    if !second.is_ascii_digit() {
+        return Some([first, second]);
+    }
+    // a sequence with parameters — "[6~" for page down, "[1;2B" for
+    // shift+↓ — is read to its final byte, or its tail would fall into
+    // the grammar as keys; a `~` keeps the first digit, a letter is the
+    // arrow it modifies
+    let mut last = second;
+    while (0x30..0x40).contains(&last) || last == b';' {
+        if !input_pending(20) {
+            return None;
+        }
+        last = raw_byte()?;
+    }
+    Some([first, if last == b'~' { second } else { last }])
 }
 
 /// Read keys on a blocking thread and send commands. Owns the pending
@@ -605,6 +626,8 @@ pub fn spawn_reader(tx: UnboundedSender<Cmd>) {
                         [_, b'D'] => Some(Cmd::Prev),
                         [_, b'A'] => Some(Cmd::Up),
                         [_, b'B'] => Some(Cmd::Down),
+                        [b'[', b'5'] => Some(Cmd::PageUp),
+                        [b'[', b'6'] => Some(Cmd::PageDown),
                         _ => None,
                     };
                     if let Some(cmd) = cmd {

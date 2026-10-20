@@ -2730,6 +2730,9 @@ impl Live<'_> {
             Cmd::Remove => self.drop_selected(),
             Cmd::MoveDown => self.move_selected(1),
             Cmd::MoveUp => self.move_selected(-1),
+            // the page keys only mean something in a long list: the
+            // discography's albums
+            Cmd::PageDown | Cmd::PageUp => {}
             Cmd::ComfortMode => {
                 self.comfort_before = Some(self.comfort);
                 say!(self, "comfort zone — ↑↓ to adjust, enter confirms, esc cancels");
@@ -4616,6 +4619,8 @@ impl Live<'_> {
                     Cmd::Down => screen.move_by(1),
                     Cmd::Top => screen.go_top(),
                     Cmd::Bottom => screen.go_bottom(),
+                    Cmd::PageDown => screen.album_by(1),
+                    Cmd::PageUp => screen.album_by(-1),
                     Cmd::Prev => screen.fold(),
                     Cmd::Next => screen.unfold(),
                     Cmd::Sort => screen.toggle_sort(),
@@ -5082,10 +5087,22 @@ impl Live<'_> {
             // back after (workstream A, `docs/design/before-release.md`)
             (Some("setup"), _) => self.leave = Some(crate::setup::Replay::All),
             (Some("library"), _) => self.leave = Some(crate::setup::Replay::Library),
-            (Some("sync"), _) | (Some("push"), _) => match crate::sync::sync(&self.catalog_dir) {
-                Ok(word) => say!(self, "✓ {word}"),
-                Err(why) => say!(self, "⏹ {why}"),
-            },
+            (Some("sync"), _) | (Some("push"), _) => {
+                let (line, ok) = match crate::sync::resync(&self.catalog_dir) {
+                    Ok(word) => {
+                        say!(self, "✓ {word}");
+                        (format!("⇅ {word}"), true)
+                    }
+                    Err(why) => {
+                        say!(self, "⏹ {why}");
+                        (crate::sync::failed(&why), false)
+                    }
+                };
+                // the status line follows: "not synced" was there for good
+                if let Some(status) = self.status.get_mut(2) {
+                    *status = (line, ok);
+                }
+            }
             // the catalog, as commands (workstream B): the state in one line,
             // the three gestures, and the way out of the local mode
             (Some("catalog"), None) => self.catalog_status(),
