@@ -41,16 +41,22 @@ an hour**. Not run on a real catalog yet.
 
 **Next, in this order**:
 
-1. **Harvest the reference** — the way is open since 2026-10-20:
-   `forkstify validate` checks `discography/` (each file belongs to a
-   card, `artists` starts with its mbid, every release and track carries
-   its fields); the proposal (`Cp`) carries the discographies, listed by
-   slug in a section "nothing to read" (`fork::diff`); the reference's
-   `catalog.yml` lets a PR touch `discography/`, and `automerge.yml`
-   merges a PR that only **adds** cards or discographies (an extension of
-   Joel's 2026-09-20 rule, flagged to him). The build image had lost
-   `git` again: `fork.rs`'s test on real repositories was being skipped;
-   rebuilt, it passes.
+1. ~~Harvest the reference~~ — **done on 2026-10-20**: 401 discographies
+   pushed to `aropixel/forkstify-catalog` (18 commits, `validate` clean,
+   10 MB) — 16,017 releases, 85,916 tracks, **6,134 releases with a
+   Spotify link** (38 %), 16 artists with their projects gathered
+   (Patti Smith Group, Neil Young & His Electric Band, five Count Basie
+   formations…), 2 cards with nothing kept (Caballeros del Plan G,
+   Guilhem Valaye), 6 with singles only. Georges Bizet's file was removed
+   by hand before the push (Joel's call — the composer question is open in
+   [design/new-releases.md](design/new-releases.md)). About 14 s an
+   artist, two hours for the whole. The largest: The Rolling Stones 473,
+   Snoop Dogg 439, Ella Fitzgerald 184 — MusicBrainz's word, kept. Joel's
+   fork gets them with `Cu`. Along the way: the build image had lost
+   `git`, and `fork.rs`'s test on real repositories was skipped silently;
+   rebuilt. `validate`, `Cp` and the reference's two workflows take
+   `discography/` (an added discography merges on its own, like an added
+   card — flagged to Joel).
 2. **A card generated on the fly is born with its discography**, in its
    `Forkstify: generate` commit; **`ad` on a card with no file** harvests
    it (0029 §4).
