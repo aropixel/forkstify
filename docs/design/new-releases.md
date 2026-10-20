@@ -42,6 +42,24 @@ The five open questions of the first version, settled one by one:
    show in the list but get no boost in the branches — a lone track is not
    repeated for six weeks.
 
+## Decided on 2026-10-20 (Joel)
+
+The last open questions, with those of the discography file
+([0028](../decisions/0028-the-discography-file-and-its-match.md)):
+
+6. **Only what Spotify plays is listed.** A release MusicBrainz knows but
+   Spotify does not have yet, or that the match does not find, is not
+   shown; it comes into the list when the match succeeds. The "album
+   announced" row of the first direction goes with it: an announced album
+   is not on Spotify.
+7. **The freshness boost is linear**: ×3 the day of the release, down to
+   ×1 at the end of a new release's age (6 weeks) — "×3 the day it came
+   out, ×2 at three weeks, nothing at six". The height is a `[tuning]`
+   number beside the age.
+8. **Three routes to discovering artists are confirmed**: a member's
+   project, a release in the neighbourhood, and the agent's `:suggest`
+   (below). The near unknowns stay a direction.
+
 ## The sources — tested on 2026-10-16
 
 Joel's three examples, found that day by searching by hand: Fontaines D.C.
@@ -104,8 +122,6 @@ this note assumed):
 - **Order of the list**: score first, then the type (album > EP > single >
   edition), then the date. Every row carries its reason: "*Eels — new album
   · you like 14 of their tracks*".
-- **Announced, not yet out**: MusicBrainz singles a few weeks before an
-  album, and sometimes a future date. "Album announced" is a row of its own.
 - **Where it shows**: a block on the home screen
   ([home-screen.md](home-screen.md) — "every block is a reason"), a
   `:releases` command, and a count in the Omarchy bar or a notification at
@@ -121,14 +137,17 @@ Two gestures:
   them with album, number and `uri`; the `ad` modal already groups them
   by album.
 - **Let it in through the engine**: the album's tracks join the artist's
-  tail with a **freshness** boost that decays over a few weeks — a
-  `[tuning]` number ([0023](../decisions/0023-engine-numbers-are-tunable.md)).
+  tail with a **freshness** boost, linear from ×3 to nothing over a new
+  release's age (decided, 7 above) — `[tuning]` numbers
+  ([0023](../decisions/0023-engine-numbers-are-tunable.md)).
   Then a branch that crosses Eels this month plays *Cookie Happened* more
   than *Electro-Shock Blues*, and it is said in the reason.
 
-## Direction — discovering artists
+## Discovering artists — 1, 2 and 4 decided, 3 a direction
 
-What the data already allows, from the closest to the furthest:
+What the data already allows, from the closest to the furthest. Routes 1,
+2 and 4 were confirmed on 2026-10-20 (8 above); route 2 only watches
+neighbours that have a card (4 above).
 
 1. **A member's new project.** MusicBrainz's member-of relations are already
    in the cards: a band or solo record by a member of a band you love is the
@@ -149,7 +168,5 @@ also play…*", never "*similar to…*".
 
 ## To settle
 
-- What the list shows between the MusicBrainz release and the Spotify
-  match: a release MusicBrainz knows, not yet on Spotify (or not matched),
-  listed as "out, not playable yet"?
-- The shape of the boost's decay (linear, exponential) and its height.
+Nothing left on 2026-10-20. Route 2's proximity threshold, and how much
+wider it makes the watch, will be measured when the watch is wired.

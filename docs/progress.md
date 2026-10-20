@@ -1,59 +1,34 @@
 # Progress
 
-Updated on **2026-10-19**. This file is the entry point for picking the work
+Updated on **2026-10-20**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
 
-## Pick up here — waiting on Joel (2026-10-19)
+## Pick up here — the discography, ready to code (2026-10-20)
 
-The discography and new releases. Read first
-[0027](decisions/0027-the-discography-is-catalog-material.md) and
-[design/new-releases.md](design/new-releases.md); nothing is coded, and
-nothing below can be until it is settled.
+The nine questions on the discography and new releases were settled by
+Joel on 2026-10-20: the file, its harvest and its Spotify match in
+[0028](decisions/0028-the-discography-file-and-its-match.md) (completing
+[0027](decisions/0027-the-discography-is-catalog-material.md)), the list
+and the boost in [design/new-releases.md](design/new-releases.md)
+("Decided on 2026-10-20"). Nothing is coded yet, and nothing waits on Joel.
 
-**The discography file** (0027, "Left to settle"):
+**Next, in this order**:
 
-1. **The file's format.** The fields of a `[[release]]` and of a track —
-   the sketch is `mbid`, `title`, `type`, `date`, `spotify` (only when
-   MusicBrainz has the link), `tracks = [{ n, title, mbid }]`. Multi-disc
-   releases: a disc number, or one flat list?
-2. **The harvest command** for the reference, and for a fork's existing
-   cards: its name (beside `forkstify vectors`), resumable, one commit or
-   one per batch.
-3. **The trailer of the commits** that add a discography or a new release
-   — a new `<kind>` of `Forkstify: <kind> <version>`
-   ([0017](decisions/0017-syncing-the-learned.md)).
-4. **An artist MusicBrainz knows nothing about** (or with no release
-   group left after the filter): no file, an empty file, or the old
-   Spotify harvest as a fallback, local only?
-5. **The title matching rules** MusicBrainz ↔ Spotify, done on each
-   machine: normalization, the "Remastered", "Deluxe Edition" suffixes,
-   tolerance on the date, what to do when Spotify only has a deluxe whose
-   tracks differ from the group's earliest release. MusicBrainz links few
-   groups to Spotify (2/33 Eels, 1/49 the Velvet): this carries the load.
-6. **How long the local Spotify match is kept** before it is checked again
-   — the Terms say "do not store Spotify Content indefinitely".
-
-**New releases** ([design/new-releases.md](design/new-releases.md), "To
-settle"):
-
-7. **A release MusicBrainz knows but Spotify does not play yet** (or not
-   matched): listed as "out, not playable yet", or held back?
-8. **The freshness boost**: the shape of its decay (linear, exponential)
-   and its height. Its length is settled: the age of a new release, one
-   `[tuning]` number, 6 weeks; albums and EPs only.
-9. **The four routes to discovering artists** are still a direction no one
-   has confirmed (member's project, a release in the neighbourhood, the
-   near unknowns, `:suggest`).
-
-Already settled on 2026-10-17/19, not to reopen: banned artists are not
-watched, lowered ones are; "seen" = played or older than the age, plus `x`
-to dismiss (kept in `learned/`, merged by union); a neighbour with no card
-is not watched; Deezer is out; MusicBrainz watches.
-
-**Then, in this order**: harvest the reference's discographies, read the
-long tail from `discography/` (with the paginated, resumable local Spotify
-match — today's `discography()` reads one page and stops at the first
-failure), then the watch and the list.
+1. **`forkstify discography [catalog]`** — the MusicBrainz harvest
+   (release groups album/EP/single with no secondary type, the tracks of
+   the earliest official release, 1 request per second), the file written
+   deterministically (0027 §5, 0028 §1), resumable, a commit per batch of
+   25 with `Forkstify: discography`. Then run it on the reference.
+2. **A card generated on the fly is born with its discography**, in its
+   `Forkstify: generate` commit.
+3. **The tail read from `discography/`**, with the local Spotify match
+   (every page read, resumable, 0028 §5 rules, kept 30 days in `[tuning]`)
+   — replacing today's `discography()`, which reads one page and stops at
+   the first failure.
+4. **The watch and the list**: MusicBrainz per artist by score band,
+   `Forkstify: release`, only what Spotify plays, the freshness boost
+   (linear, ×3 → ×1 over 6 weeks), `x` to dismiss; then discovery routes
+   1, 2 and 4.
 
 ## Done
 

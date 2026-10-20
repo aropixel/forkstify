@@ -102,7 +102,12 @@ The detail is in `docs/decisions/`. In summary:
   tracks); the match with Spotify is made and cached on each machine, since
   Spotify's terms forbid a shared database of its content; new releases are
   found through MusicBrainz and appended
-  ([0027](docs/decisions/0027-the-discography-is-catalog-material.md)).
+  ([0027](docs/decisions/0027-the-discography-is-catalog-material.md));
+  harvested by `forkstify discography` in batches of 25, trailers
+  `discography` and `release`, no file when nothing is kept, the match by
+  normalized title (the date only breaks ties, the original edition first,
+  then the whole Spotify edition plays), kept 30 days
+  ([0028](docs/decisions/0028-the-discography-file-and-its-match.md)).
 - **The engine's numbers are tunable in the configuration**: a `[tuning]`
   section in `config.toml`, one name per number, defaults = the previous
   code, read at launch
