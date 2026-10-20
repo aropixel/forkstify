@@ -81,8 +81,17 @@ an hour**. Not run on a real catalog yet.
    the matched albums by twenty — the whole Spotify edition, dated and
    titled by the release, with `disc`. A call that fails keeps what came
    (`complete = false`) instead of ending the harvest. The cache changes
-   format (`{complete, tracks}`); **the old Spotify-only caches are not
-   read** and get matched again from the catalog, lazily. Its age is the
+   format (`{complete, tracks}`). **Fixed the same day on Joel's first
+   try** (`ad` on Radiohead stayed on "loading" for minutes): the old
+   caches were dropped, so every artist of every branch was matched again,
+   each match ~2 min on the shared client id (one call per ~20 s), all
+   through the one `WebApi` lock — `ad` and the tracks to play queued
+   behind them. Now the old caches are **converted** with no call
+   (`Tail::convert`, `from_legacy`: their albums matched to the releases by
+   the same rules, kept incomplete so the real match follows), the lock is
+   held for the token only (`WebApi::discography` takes the `Arc`), and
+   **one background match at a time** — a quiet one is not launched while
+   another runs; what the listener asks for always goes. Its age is the
    file's, against `spotify_match_days` (30, `[tuning]`, in
    `docs/tuning.md`): past it, or incomplete, the old tail plays on and the
    match runs again behind. A card with no file asks MusicBrainz first

@@ -4412,18 +4412,31 @@ impl Live<'_> {
     /// no Spotify id, or no `discography/` file yet — then MusicBrainz is
     /// asked for it (0029 §4), and the match follows when it is committed.
     fn harvest(&mut self, slug: &str, quiet: bool) -> Result<bool, String> {
-        let usable = self.tail.has(slug);
         if self.tail.fresh(slug) {
             return Ok(true);
         }
+        let releases = crate::releases::read(&self.catalog_dir, slug);
+        // a harvest from before 0027 serves at once, converted with no call
+        if let Some(releases) = &releases {
+            if !self.tail.has(slug) {
+                self.tail.convert(slug, releases);
+            }
+        }
+        let usable = self.tail.has(slug);
         if self.harvesting.contains_key(slug) {
             return Ok(usable);
+        }
+        // one match behind at a time: each is minutes on the shared client
+        // id, and a branch on show does not need it now — the next need
+        // asks again. What the listener asks for always goes.
+        if quiet && !self.harvesting.is_empty() {
+            return if usable { Ok(true) } else { Err("another discography is being matched".to_string()) };
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
             return Err(format!("{} has no Spotify id in its card", card.name));
         };
-        let Some(releases) = crate::releases::read(&self.catalog_dir, slug) else {
+        let Some(releases) = releases else {
             let name = card.name.clone();
             self.release(slug);
             return if usable { Ok(true) } else { Err(format!("no discography of {name} yet — asking MusicBrainz")) };
@@ -4435,10 +4448,7 @@ impl Live<'_> {
         let tx = self.jobs_tx.clone();
         let slug = slug.to_string();
         tokio::task::spawn_local(async move {
-            let result = web
-                .lock()
-                .await
-                .discography(&spotify_id, &releases)
+            let result = crate::spotify::WebApi::discography(&web, &spotify_id, &releases)
                 .await
                 .map_err(|why| format!("unreachable ({why})"));
             let _ = tx.send(Job::Harvested { slug, result, quiet });

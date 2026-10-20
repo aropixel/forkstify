@@ -46,7 +46,8 @@ the version it cuts, so this file cannot fall behind.
   not the first fifty — and kept 30 days (`spotify_match_days` in
   `[tuning]`). Big discographies are no longer cut short, and a call that
   fails no longer ends the harvest. The tails cached before this version
-  are matched again, artist by artist, as they are needed; run `Cu` first
+  are converted against the discographies with no call to Spotify, then
+  matched again in the background, one artist at a time; run `Cu` first
   so your fork has the reference's discographies.
 
 ## 0.2.0 — 2026-10-07

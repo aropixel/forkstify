@@ -344,14 +344,23 @@ impl WebApi {
     /// An album of more than fifty tracks gives its first fifty: the
     /// albums endpoint pages them, and no release of the reference needs
     /// more.
+    ///
+    /// The lock is held for the token only, never across the calls: a
+    /// match is several calls of ~20 s each on the shared client id, and
+    /// the tracks to play must not queue behind it (Joel, 2026-10-20 — `ad`
+    /// on Radiohead waited minutes).
     pub async fn discography(
-        &mut self,
+        web: &std::sync::Arc<tokio::sync::Mutex<WebApi>>,
         spotify_id: &str,
         releases: &[crate::releases::Release],
     ) -> Result<(Vec<crate::discography::TailTrack>, bool), String> {
-        if let Err(e) = self.refresh_if_needed().await {
-            return Err(format!("Spotify token expired ({e})"));
-        }
+        let token = || async {
+            let mut api = web.lock().await;
+            match api.refresh_if_needed().await {
+                Ok(()) => Ok(api.token.clone()),
+                Err(e) => Err(format!("Spotify token expired ({e})")),
+            }
+        };
         let mut albums = Vec::new();
         let mut complete = true;
         let mut next = Some(format!(
@@ -359,7 +368,7 @@ impl WebApi {
              ?include_groups=album,single&limit=50&market=from_token"
         ));
         while let Some(url) = next.take() {
-            let Some(body) = self.get_with_backoff(&url).await else {
+            let Some(body) = get_with_token(token().await?, &url).await else {
                 if albums.is_empty() {
                     return Err("the Spotify API did not answer".to_string());
                 }
@@ -383,7 +392,7 @@ impl WebApi {
         for chunk in matched.chunks(20) {
             let ids: Vec<&str> = chunk.iter().map(|(_, id)| id.as_str()).collect();
             let url = format!("https://api.spotify.com/v1/albums?ids={}&market=from_token", ids.join(","));
-            let Some(body) = self.get_with_backoff(&url).await else {
+            let Some(body) = get_with_token(token().await?, &url).await else {
                 complete = false;
                 break;
             };
@@ -401,33 +410,38 @@ impl WebApi {
 
     /// GET honoring Retry-After on 429 (spotify.md: throttle is account/IP).
     async fn get_with_backoff(&self, url: &str) -> Option<serde_json::Value> {
-        let token = self.token.clone();
-        let url = url.to_string();
-        // ureq is blocking; keep it off the async reactor
-        tokio::task::spawn_blocking(move || {
-            for attempt in 1..=4 {
-                match ureq::get(&url)
-                    .set("Authorization", &format!("Bearer {token}"))
-                    .call()
-                {
-                    Ok(response) => return response.into_json::<serde_json::Value>().ok(),
-                    Err(ureq::Error::Status(429, response)) if attempt < 4 => {
-                        let wait: u64 = response
-                            .header("retry-after")
-                            .and_then(|h| h.parse().ok())
-                            .unwrap_or(5)
-                            .min(60);
-                        std::thread::sleep(std::time::Duration::from_secs(wait + 1));
-                    }
-                    Err(_) => return None,
-                }
-            }
-            None
-        })
-        .await
-        .ok()
-        .flatten()
+        get_with_token(self.token.clone(), url).await
     }
+}
+
+/// The GET itself, with a token in hand — what a long match runs without
+/// holding the lock.
+async fn get_with_token(token: String, url: &str) -> Option<serde_json::Value> {
+    let url = url.to_string();
+    // ureq is blocking; keep it off the async reactor
+    tokio::task::spawn_blocking(move || {
+        for attempt in 1..=4 {
+            match ureq::get(&url)
+                .set("Authorization", &format!("Bearer {token}"))
+                .call()
+            {
+                Ok(response) => return response.into_json::<serde_json::Value>().ok(),
+                Err(ureq::Error::Status(429, response)) if attempt < 4 => {
+                    let wait: u64 = response
+                        .header("retry-after")
+                        .and_then(|h| h.parse().ok())
+                        .unwrap_or(5)
+                        .min(60);
+                    std::thread::sleep(std::time::Duration::from_secs(wait + 1));
+                }
+                Err(_) => return None,
+            }
+        }
+        None
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Percent-encode a query string component.
