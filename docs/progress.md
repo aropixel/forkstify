@@ -36,13 +36,16 @@ an hour**. Not run on a real catalog yet.
 
 **Next, in this order**:
 
-1. **Before harvesting the reference**: `forkstify validate` reads
-   `discography/` too (format, the card exists, `artists` starts with the
-   card's MBID); the reference's `catalog.yml` lets a PR touch
-   `discography/` (today: "only cards may change"); the proposal (`Cp`,
-   `fork::diff`) carries the discographies a fork harvested (today it
-   only reads `cards/`). Then run the harvest on a clone of the
-   reference.
+1. **Harvest the reference** — the way is open since 2026-10-20:
+   `forkstify validate` checks `discography/` (each file belongs to a
+   card, `artists` starts with its mbid, every release and track carries
+   its fields); the proposal (`Cp`) carries the discographies, listed by
+   slug in a section "nothing to read" (`fork::diff`); the reference's
+   `catalog.yml` lets a PR touch `discography/`, and `automerge.yml`
+   merges a PR that only **adds** cards or discographies (an extension of
+   Joel's 2026-09-20 rule, flagged to him). The build image had lost
+   `git` again: `fork.rs`'s test on real repositories was being skipped;
+   rebuilt, it passes.
 2. **A card generated on the fly is born with its discography**, in its
    `Forkstify: generate` commit; **`ad` on a card with no file** harvests
    it (0029 §4).

@@ -6,6 +6,10 @@
 //! links whose targets are slugs and whose types are the closed list of
 //! [0010](../docs/decisions/0010-revised-format-links-without-doors.md).
 //!
+//! The discographies (0027–0029) are checked too: each file belongs to a
+//! card, starts its `artists` with that card's mbid, and every release
+//! and track carries what the format says.
+//!
 //! A link to a card that does not exist is **not** an error: it is a
 //! proposal ([0016](../docs/decisions/0016-broad-base-and-on-the-fly-generation.md)).
 //! A card whose name no longer matches its file ("Ye" at `kanye-west`) is
@@ -20,6 +24,7 @@ const LINK_TYPES: [&str; 7] = ["member", "collab", "similar", "family", "scene",
 #[derive(Default, Debug)]
 pub struct Report {
     pub cards: usize,
+    pub discographies: usize,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
 }
@@ -106,6 +111,7 @@ pub fn validate(dir: &Path) -> Report {
     };
     files.sort();
     let mut seen: HashMap<String, String> = HashMap::new();
+    let mut mbids: HashMap<String, String> = HashMap::new();
     for path in files {
         let slug = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
         let text = match std::fs::read_to_string(&path) {
@@ -120,9 +126,83 @@ pub fn validate(dir: &Path) -> Report {
             if let Some(other) = seen.insert(mbid.clone(), slug.clone()) {
                 report.errors.push(format!("{slug} and {other}: the same mbid {mbid} — one artist, two cards"));
             }
+            mbids.insert(slug, mbid);
+        }
+    }
+    let mut discographies: Vec<_> = std::fs::read_dir(dir.join("discography"))
+        .map(|entries| entries.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "toml")).collect())
+        .unwrap_or_default();
+    discographies.sort();
+    for path in discographies {
+        let slug = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+        report.discographies += 1;
+        match std::fs::read_to_string(&path) {
+            Ok(text) => check_discography(&slug, &text, mbids.get(&slug).map(String::as_str), &mut report),
+            Err(e) => report.errors.push(format!("discography/{slug}: {e}")),
         }
     }
     report
+}
+
+/// One discography file against 0027–0029. `mbid` is its card's, `None`
+/// when no card goes by that slug.
+pub fn check_discography(slug: &str, text: &str, mbid: Option<&str>, report: &mut Report) {
+    let at = format!("discography/{slug}");
+    let table: toml::Table = match toml::from_str(text) {
+        Ok(table) => table,
+        Err(e) => {
+            report.errors.push(format!("{at}: unreadable TOML — {}", e.message()));
+            return;
+        }
+    };
+    let Some(mbid) = mbid else {
+        report.errors.push(format!("{at}: no card cards/{slug}.toml — a discography belongs to a card"));
+        return;
+    };
+    match table.get("format").and_then(|v| v.as_integer()) {
+        Some(1) => {}
+        Some(other) => report.errors.push(format!("{at}: format = {other}, expected 1")),
+        None => report.errors.push(format!("{at}: no format")),
+    }
+    if let Some(artists) = table.get("artists") {
+        let ids: Vec<&str> = artists.as_array().map(|a| a.iter().filter_map(|v| v.as_str()).collect()).unwrap_or_default();
+        if ids.first() != Some(&mbid) {
+            report.errors.push(format!("{at}: artists must start with the card's mbid {mbid}"));
+        }
+        if let Some(bad) = ids.iter().find(|id| !crate::generate::is_mbid(id)) {
+            report.errors.push(format!("{at}: artist \"{bad}\" is not a MusicBrainz id"));
+        }
+    }
+    let releases = table.get("release").and_then(|v| v.as_array()).map(Vec::as_slice).unwrap_or(&[]);
+    let mut seen = std::collections::HashSet::new();
+    for (i, release) in releases.iter().enumerate() {
+        let field = |name: &str| release.get(name).and_then(|v| v.as_str()).unwrap_or("");
+        let what = match field("title") {
+            "" => format!("{at}: release {}", i + 1),
+            title => format!("{at}: \"{title}\""),
+        };
+        if field("title").is_empty() {
+            report.errors.push(format!("{what}: no title"));
+        }
+        if !crate::generate::is_mbid(field("mbid")) {
+            report.errors.push(format!("{what}: mbid \"{}\" is not a MusicBrainz id", field("mbid")));
+        } else if !seen.insert(field("mbid").to_string()) {
+            report.errors.push(format!("{what}: release group {} twice", field("mbid")));
+        }
+        if !matches!(field("type"), "album" | "ep" | "single") {
+            report.errors.push(format!("{what}: type \"{}\" — not one of album, ep, single", field("type")));
+        }
+        let tracks = release.get("tracks").and_then(|v| v.as_array()).map(Vec::as_slice).unwrap_or(&[]);
+        for track in tracks {
+            let n = track.get("n").and_then(|v| v.as_integer());
+            let title = track.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            let recording = track.get("mbid").and_then(|v| v.as_str()).unwrap_or("");
+            if n.is_none() || title.is_empty() || !crate::generate::is_mbid(recording) {
+                report.errors.push(format!("{what}: a track needs n, a title and a recording mbid"));
+                break;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -183,5 +263,40 @@ mod tests {
         // a type declared in catalog.toml is accepted; the renamed card warns
         assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    const CURE: &str = "69ee3720-a7cb-4402-b48d-a02c366f2bcf";
+
+    #[test]
+    fn a_harvested_discography_passes() {
+        let discography = crate::releases::Discography {
+            artists: vec![(CURE.into(), "The Cure".into()), ("164f0d73-1234-4e2c-8743-d77bf2191051".into(), "The Cure Duo".into())],
+            releases: vec![crate::releases::Release {
+                mbid: "a1b2c3d4-0000-4000-8000-000000000001".into(),
+                title: "Seventeen Seconds".into(),
+                kind: "album".into(),
+                date: "1980-04-22".into(),
+                spotify: None,
+                tracks: vec![crate::releases::Track { disc: None, n: 1, title: "A Reflection".into(), mbid: "a1b2c3d4-0000-4000-8000-000000000002".into() }],
+            }],
+        };
+        let mut report = Report::default();
+        check_discography("the-cure", &crate::releases::to_toml(&discography), Some(CURE), &mut report);
+        assert!(report.ok(), "{:?}", report.errors);
+    }
+
+    #[test]
+    fn a_discography_has_its_rules() {
+        let text = "format = 1\nartists = [\"164f0d73-1234-4e2c-8743-d77bf2191051\"]\n\n[[release]]\nmbid = \"x\"\ntitle = \"Live\"\ntype = \"live\"\ntracks = [ { n = 1, title = \"\" } ]\n";
+        let mut report = Report::default();
+        check_discography("the-cure", text, Some(CURE), &mut report);
+        let errors = report.errors.join("\n");
+        assert!(errors.contains("artists must start with the card's mbid"), "{errors}");
+        assert!(errors.contains("\"x\" is not a MusicBrainz id"), "{errors}");
+        assert!(errors.contains("type \"live\""), "{errors}");
+        assert!(errors.contains("a track needs"), "{errors}");
+        let mut report = Report::default();
+        check_discography("nobody", "format = 1\n", None, &mut report);
+        assert!(report.errors[0].contains("no card"), "{:?}", report.errors);
     }
 }

@@ -419,9 +419,10 @@ fn main() -> anyhow::Result<()> {
                 println!("  ⏹ {error}");
             }
             println!(
-                "{} {} card(s) — {} error(s), {} warning(s)",
+                "{} {} card(s), {} discography(ies) — {} error(s), {} warning(s)",
                 if report.ok() { "✓" } else { "⏹" },
                 report.cards,
+                report.discographies,
                 report.errors.len(),
                 report.warnings.len()
             );

@@ -250,6 +250,9 @@ pub struct Diff {
     pub new: Vec<Change>,
     pub edited: Vec<Change>,
     pub removed: usize,
+    /// The discographies added or changed (0027): MusicBrainz data, carried
+    /// by the proposal, listed but not read.
+    pub discographies: Vec<String>,
     pub updated: Option<String>,
 }
 
@@ -376,13 +379,19 @@ pub fn diff(dir: &Path) -> Result<Diff, String> {
     }
     new.sort_by(|a, b| a.name.cmp(&b.name));
     edited.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut discographies: Vec<String> = git(dir, &["diff", "--name-only", &base, "--", "discography/"])?
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(slug_of)
+        .collect();
+    discographies.sort();
     let updated = std::fs::read_to_string(updated_file()).ok().map(|d| d.trim().to_string()).filter(|d| !d.is_empty());
-    Ok(Diff { base, new, edited, removed, updated })
+    Ok(Diff { base, new, edited, removed, discographies, updated })
 }
 
 impl Diff {
     pub fn is_empty(&self) -> bool {
-        self.new.is_empty() && self.edited.is_empty() && self.removed == 0
+        self.new.is_empty() && self.edited.is_empty() && self.removed == 0 && self.discographies.is_empty()
     }
 
     /// The overlay of `Cd`: the count and the date, the new cards, the
@@ -402,6 +411,9 @@ impl Diff {
             }
         ));
         lines.push(format!("+ {} new · ~ {} edited · {} removed", self.new.len(), self.edited.len(), self.removed));
+        if !self.discographies.is_empty() {
+            lines.push(format!("+ {} discography(ies) — MusicBrainz data", self.discographies.len()));
+        }
         if !self.new.is_empty() {
             lines.push(String::new());
             lines.push("new".to_string());
@@ -437,7 +449,17 @@ impl Diff {
         if !self.edited.is_empty() {
             parts.push(format!("{} edited", self.edited.len()));
         }
-        format!("Propose {} cards ({})", self.new.len() + self.edited.len(), parts.join(", "))
+        let cards = self.new.len() + self.edited.len();
+        let discographies = match self.discographies.len() {
+            0 => String::new(),
+            1 => "1 discography".to_string(),
+            n => format!("{n} discographies"),
+        };
+        match (cards, discographies.is_empty()) {
+            (0, false) => format!("Propose {discographies}"),
+            (_, true) => format!("Propose {cards} cards ({})", parts.join(", ")),
+            (_, false) => format!("Propose {cards} cards ({}) and {discographies}", parts.join(", ")),
+        }
     }
 
     pub fn body(&self) -> String {
@@ -461,6 +483,13 @@ impl Diff {
         }
         if self.removed > 0 {
             body.push_str(&format!("{} card(s) removed.\n\n", self.removed));
+        }
+        if !self.discographies.is_empty() {
+            body.push_str(&format!(
+                "## Discographies ({}) — MusicBrainz data, nothing to read\n\n{}\n\n",
+                self.discographies.len(),
+                self.discographies.join(", ")
+            ));
         }
         body.push_str(&crate::sync::trailer("proposal"));
         body.push('\n');
@@ -531,10 +560,15 @@ pub fn propose(dir: &Path) -> Result<Proposal, String> {
         let _ = git(dir, &["worktree", "prune"]);
         git(dir, &["worktree", "add", "-q", "-B", PROPOSAL_BRANCH, &wt.display().to_string(), "upstream/main"])?;
     }
-    // the state of the cards, exactly: theirs removed, ours put in place
+    // the state of the cards and the discographies, exactly: theirs
+    // removed, ours put in place
     let _ = std::fs::remove_dir_all(wt.join("cards"));
+    let _ = std::fs::remove_dir_all(wt.join("discography"));
     git(&wt, &["checkout", "main", "--", "cards"])?;
-    git(&wt, &["add", "-A", "--", "cards"])?;
+    if !git(&wt, &["ls-tree", "--name-only", "main", "discography"])?.is_empty() {
+        git(&wt, &["checkout", "main", "--", "discography"])?;
+    }
+    git(&wt, &["add", "-A", "--", "cards", "discography"])?;
     if git(&wt, &["diff", "--cached", "--quiet"]).is_ok() {
         return Err("nothing to propose once the cards are compared".to_string());
     }
@@ -814,6 +848,7 @@ mod tests {
             new: vec![Change { slug: "codeine".into(), name: "Codeine".into(), summary: "slowcore · 4 similar".into(), added: 0, removed: 0, sections: String::new(), note: String::new() }],
             edited: vec![Change { slug: "the-cure".into(), name: "The Cure".into(), summary: String::new(), added: 3, removed: 1, sections: "member, tops".into(), note: "listening, 09/2026".into() }],
             removed: 0,
+            discographies: Vec::new(),
             updated: None,
         };
         assert_eq!(diff.title(), "Propose 2 cards (1 new, 1 edited)");
@@ -824,6 +859,13 @@ mod tests {
         let lines = diff.lines(10);
         assert!(lines[1].contains("+ 1 new · ~ 1 edited · 0 removed"), "{:?}", lines);
         assert!(lines.iter().any(|l| l.contains("~ The Cure") && l.contains("+3 −1") && l.contains("member, tops")), "{:?}", lines);
+        // discographies ride along, listed but not read
+        let with = Diff { discographies: vec!["codeine".into(), "the-cure".into()], ..diff };
+        assert_eq!(with.title(), "Propose 2 cards (1 new, 1 edited) and 2 discographies");
+        assert!(with.body().contains("## Discographies (2) — MusicBrainz data, nothing to read\n\ncodeine, the-cure\n"), "{}", with.body());
+        let only = Diff { new: Vec::new(), edited: Vec::new(), ..with };
+        assert_eq!(only.title(), "Propose 2 discographies");
+        assert!(!only.is_empty());
     }
 
     /// Three repositories in a temp dir — the reference (bare), the fork
@@ -883,6 +925,8 @@ mod tests {
         std::fs::write(clone.join("cards/the-cure.toml"), card("The Cure", &["A Forest", "Lullaby"])).unwrap();
         std::fs::create_dir_all(clone.join("learned/artists")).unwrap();
         std::fs::write(clone.join("learned/artists/the-cure.toml"), "plays = 3.0\n").unwrap();
+        std::fs::create_dir_all(clone.join("discography")).unwrap();
+        std::fs::write(clone.join("discography/codeine.toml"), "format = 1\n").unwrap();
         sh(&clone, &["add", "-A"]);
         sh(&clone, &["commit", "-q", "-m", "mine"]);
 
@@ -895,7 +939,8 @@ mod tests {
         assert_eq!(diff.edited[0].slug, "the-cure");
         assert_eq!((diff.edited[0].added, diff.edited[0].removed), (1, 0));
         assert_eq!(diff.edited[0].sections, "tops");
-        assert_eq!(diff.title(), "Propose 2 cards (1 new, 1 edited)");
+        assert_eq!(diff.discographies, ["codeine"]);
+        assert_eq!(diff.title(), "Propose 2 cards (1 new, 1 edited) and 1 discography");
 
         // the proposal: a branch on the fork, from the reference, the
         // cards only — no learned, one commit
@@ -904,11 +949,12 @@ mod tests {
         assert!(!proposal.through_gh || proposal.existing.is_none());
         let files = sh(&fork_bare, &["ls-tree", "-r", "--name-only", PROPOSAL_BRANCH]);
         assert!(files.contains("cards/codeine.toml"), "{files}");
+        assert!(files.contains("discography/codeine.toml"), "{files}");
         assert!(!files.contains("learned/"), "{files}");
         let history = sh(&fork_bare, &["rev-list", "--count", &format!("upstream_main..{PROPOSAL_BRANCH}").replace("upstream_main", &sh(&clone, &["rev-parse", "upstream/main"]))]);
         assert_eq!(history.trim(), "1");
         let subject = sh(&fork_bare, &["log", "-1", "--format=%s", PROPOSAL_BRANCH]);
-        assert_eq!(subject, "Propose 2 cards (1 new, 1 edited)");
+        assert_eq!(subject, "Propose 2 cards (1 new, 1 edited) and 1 discography");
         // a second proposal rewrites the same branch
         let again = propose(&clone).expect("propose again");
         assert_eq!(again.count, 2);
