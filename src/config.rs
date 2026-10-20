@@ -94,6 +94,11 @@ pub struct Tuning {
     pub leap_trust_cocoon: f32,
     /// …and at comfort 0.
     pub leap_trust_open: f32,
+
+    // --- the Spotify match of the discographies (0028 §6) ---
+    /// In days: how long an artist's match with Spotify is kept before it
+    /// is made again — Spotify's terms forbid keeping its content for good.
+    pub spotify_match_days: f32,
 }
 
 impl Default for Tuning {
@@ -121,6 +126,7 @@ impl Default for Tuning {
             leap_floor_open: 0.60,
             leap_trust_cocoon: 0.86,
             leap_trust_open: 0.70,
+            spotify_match_days: 30.0,
         }
     }
 }
@@ -177,6 +183,7 @@ impl Tuning {
         check!(leap_floor_open, cosine, "-1 to 1");
         check!(leap_trust_cocoon, cosine, "-1 to 1");
         check!(leap_trust_open, cosine, "-1 to 1");
+        check!(spotify_match_days, |v: f32| v.is_finite() && v >= 1.0, "days, 1 and above");
         if self.weight_floor > self.weight_ceiling {
             eprintln!("config: tuning.weight_floor is above weight_ceiling, using the defaults for both");
             self.weight_floor = default.weight_floor;
@@ -327,6 +334,11 @@ leap_floor_cocoon = 0.80
 leap_floor_open = 0.60
 leap_trust_cocoon = 0.86
 leap_trust_open = 0.70
+
+# What plays an artist's discography is matched with Spotify on this
+# machine, then kept spotify_match_days days and matched again the next
+# time the artist is needed — Spotify's terms forbid keeping it for good.
+spotify_match_days = 30.0
 ";
 
 fn path() -> PathBuf {

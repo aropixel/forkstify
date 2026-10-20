@@ -334,72 +334,69 @@ impl WebApi {
         Ok(hits)
     }
 
-    /// Harvest an artist's discography — the long tail, 0012 §1's fourth
-    /// source. Albums and singles, then their tracks in batches of twenty,
-    /// which keeps a whole artist to a handful of calls. Returns the tracks
-    /// with their uris, so nothing here will ever need resolving.
+    /// What plays an artist's discography (0027 §4, 0028 §5): **every**
+    /// page of the artist's albums and singles, matched to the releases
+    /// `discography/` lists, then the tracks of the matched albums in
+    /// batches of twenty. Returns the tail and whether it is complete: a
+    /// call that fails on the way keeps what came, and the next need
+    /// matches again — the first page failing is the only error.
+    ///
+    /// An album of more than fifty tracks gives its first fifty: the
+    /// albums endpoint pages them, and no release of the reference needs
+    /// more.
     pub async fn discography(
         &mut self,
         spotify_id: &str,
-    ) -> Result<Vec<crate::discography::TailTrack>, String> {
+        releases: &[crate::releases::Release],
+    ) -> Result<(Vec<crate::discography::TailTrack>, bool), String> {
         if let Err(e) = self.refresh_if_needed().await {
             return Err(format!("Spotify token expired ({e})"));
         }
-        let url = format!(
+        let mut albums = Vec::new();
+        let mut complete = true;
+        let mut next = Some(format!(
             "https://api.spotify.com/v1/artists/{spotify_id}/albums\
              ?include_groups=album,single&limit=50&market=from_token"
-        );
-        let Some(body) = self.get_with_backoff(&url).await else {
-            return Err("the Spotify API did not answer".to_string());
-        };
-        let album_ids: Vec<String> = body["items"]
-            .as_array()
-            .map(|items| {
-                items.iter().filter_map(|a| a["id"].as_str().map(String::from)).collect()
-            })
-            .unwrap_or_default();
-
-        let mut tracks = Vec::new();
-        for chunk in album_ids.chunks(20) {
-            let url =
-                format!("https://api.spotify.com/v1/albums?ids={}&market=from_token", chunk.join(","));
+        ));
+        while let Some(url) = next.take() {
             let Some(body) = self.get_with_backoff(&url).await else {
-                // a partial harvest is still worth keeping: the tail is a
-                // reservoir, not an inventory
+                if albums.is_empty() {
+                    return Err("the Spotify API did not answer".to_string());
+                }
+                complete = false;
                 break;
             };
-            let Some(albums) = body["albums"].as_array() else { break };
-            for album in albums {
-                let album_name = album["name"].as_str().unwrap_or("").to_string();
-                // date and rank give the discography its order; the type
-                // separates albums from singles
-                let released = album["release_date"].as_str().unwrap_or("").to_string();
-                let single = album["album_type"].as_str() != Some("album");
-                let Some(items) = album["tracks"]["items"].as_array() else { continue };
-                for track in items {
-                    // the tail goes to the queue without being resolved, so
-                    // an unplayable track here is a silence later
-                    if track["is_playable"].as_bool() == Some(false) {
-                        continue;
-                    }
-                    let (Some(title), Some(uri)) =
-                        (track["name"].as_str(), track["uri"].as_str())
-                    else {
-                        continue;
-                    };
-                    tracks.push(crate::discography::TailTrack {
-                        title: title.to_string(),
-                        uri: uri.to_string(),
-                        album: album_name.clone(),
-                        released: released.clone(),
-                        number: track["track_number"].as_u64().unwrap_or(0) as u32,
-                        duration_ms: track["duration_ms"].as_u64().unwrap_or(0) as u32,
-                        single,
-                    });
+            for item in body["items"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+                let (Some(id), Some(name)) = (item["id"].as_str(), item["name"].as_str()) else { continue };
+                albums.push(crate::discography::SpotifyAlbum {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    date: item["release_date"].as_str().unwrap_or("").to_string(),
+                    single: item["album_type"].as_str() != Some("album"),
+                });
+            }
+            next = body["next"].as_str().map(String::from);
+        }
+
+        let matched = crate::discography::match_albums(releases, &albums);
+        let mut tracks = Vec::new();
+        for chunk in matched.chunks(20) {
+            let ids: Vec<&str> = chunk.iter().map(|(_, id)| id.as_str()).collect();
+            let url = format!("https://api.spotify.com/v1/albums?ids={}&market=from_token", ids.join(","));
+            let Some(body) = self.get_with_backoff(&url).await else {
+                complete = false;
+                break;
+            };
+            // an id MusicBrainz links but Spotify no longer knows comes
+            // back null: that release does not play
+            for album in body["albums"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+                let Some(id) = album["id"].as_str() else { continue };
+                if let Some((index, _)) = chunk.iter().find(|(_, wanted)| wanted == id) {
+                    tracks.extend(crate::discography::tail_of(&releases[*index], album));
                 }
             }
         }
-        Ok(tracks)
+        Ok((tracks, complete))
     }
 
     /// GET honoring Retry-After on 429 (spotify.md: throttle is account/IP).

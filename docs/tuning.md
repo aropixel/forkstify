@@ -133,6 +133,17 @@ Between floor and trust, a leap requires **a shared genre tag** (country and
 decade do not count). A floor higher than the trust threshold makes no
 sense: the trust threshold would never be used.
 
+## The Spotify match of the discographies (0028 §6)
+
+What an artist released is in the catalog (`discography/`, MusicBrainz);
+what plays it is matched with Spotify on each machine and kept in
+`~/.cache/forkstify/discography/`. Spotify's terms forbid keeping its
+content for good, so the match has an age.
+
+| Setting | Default | What it does | Raise / lower |
+|---|---|---|---|
+| `spotify_match_days` | `30.0` | In days: how long an artist's match is kept. Past it, the tracks still play, and the match is made again, behind, the next time the artist is needed — never all at once. | Lower = a track Spotify withdrew is noticed sooner, at the price of a few calls per played artist on a client id shared with every ncspot user. Higher = fewer calls, closer to the lasting storage the terms rule out. |
+
 ## What is not a setting, and why
 
 - **Interface delays** (how long a toast lasts, the threshold for restarting

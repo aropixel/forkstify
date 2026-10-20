@@ -16,6 +16,7 @@
 //!
 //! Everything here blocks, at MusicBrainz's one request per second.
 
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -31,27 +32,47 @@ const ALLOWED_SECONDARY: &str = "Soundtrack";
 /// is not part of the album.
 const VIDEO_FORMATS: [&str; 4] = ["DVD", "Blu-ray", "VHS", "Video"];
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Track {
     /// Only on a release with more than one disc (0028 §1).
+    #[serde(default)]
     pub disc: Option<u32>,
     pub n: u32,
     pub title: String,
     pub mbid: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Release {
     /// The release group's.
     pub mbid: String,
     pub title: String,
     /// `album`, `ep` or `single`.
+    #[serde(rename = "type")]
     pub kind: String,
     /// The group's first release date, as precise as MusicBrainz has it.
+    #[serde(default)]
     pub date: String,
     /// A Spotify album id, only when MusicBrainz itself links one (0027 §3).
+    #[serde(default)]
     pub spotify: Option<String>,
+    #[serde(default)]
     pub tracks: Vec<Track>,
+}
+
+/// What a file says, as the player reads it: the releases. `artists` is
+/// the harvest's business.
+#[derive(Deserialize)]
+struct File {
+    #[serde(default)]
+    release: Vec<Release>,
+}
+
+/// An artist's releases from the catalog — `None` when the card has no
+/// file yet, or one that does not read.
+pub fn read(catalog: &Path, slug: &str) -> Option<Vec<Release>> {
+    let text = std::fs::read_to_string(path_of(catalog, slug)).ok()?;
+    toml::from_str::<File>(&text).ok().map(|f| f.release)
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -619,6 +640,23 @@ mod tests {
         assert!(message.contains(&crate::sync::trailer("discography")), "{message}");
         assert_eq!(git(&dir, &["show", "--name-only", "--format=", "HEAD"]), "discography/eels.toml");
         assert_eq!(git(&dir, &["status", "--porcelain"]), "M cards/eels.toml");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_written_file_reads_back() {
+        let dir = std::env::temp_dir().join(format!("forkstify-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut freak = release("a", "Beautiful Freak", "1996");
+        freak.spotify = Some("4LH4d3cOWNNsVw41Gqt2kv".into());
+        let discography = Discography { artists: vec![("m1".into(), "Eels".into())], releases: vec![freak.clone()] };
+        write_file(&dir, "eels", &discography).expect("written");
+        let mut read_back = read(&dir, "eels").expect("read");
+        sort(&mut read_back);
+        let mut expected = vec![freak];
+        sort(&mut expected);
+        assert_eq!(read_back, expected);
+        assert!(read(&dir, "nobody").is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

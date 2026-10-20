@@ -577,7 +577,7 @@ enum Job {
     Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
     /// `quiet`: fetched behind for a proposed branch, nobody asked —
     /// nothing to say, whatever comes back.
-    Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String>, quiet: bool },
+    Harvested { slug: String, result: Result<(Vec<crate::discography::TailTrack>, bool), String>, quiet: bool },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
     /// `ad` on a card with no `discography/` file: what MusicBrainz says
     /// the artist released (0029 §4), to write and commit.
@@ -1399,12 +1399,13 @@ impl Live<'_> {
             Job::Harvested { slug, result, quiet } => {
                 self.harvesting.remove(&slug);
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
-                if let Ok(tracks) = &result {
+                let result = result.map(|(tracks, complete)| {
                     // the branches on the table keep their tracks: a list
                     // that changes under the eyes is not wanted (Joel,
                     // 11/09/2026) — the tail serves the next draws
-                    self.tail.keep(&slug, tracks.clone());
-                }
+                    self.tail.keep(&slug, tracks.clone(), complete);
+                    tracks
+                });
                 // a track shown and waiting on this very harvest: from the
                 // tail now, or the title search as a last resort
                 if self.loading && self.current.as_ref().is_some_and(|s| s.slug == slug) {
@@ -1429,8 +1430,8 @@ impl Live<'_> {
                             // 0 tracks is not a success: Spotify answered but
                             // gave nothing — usually the card's spotify id is
                             // off (Joel, 14/09/2026)
-                            None if count == 0 => say!(self, "⚑ discography of {name} — 0 tracks: its Spotify id may be wrong in the card"),
-                            None => say!(self, "✓ discography of {name} — {count} tracks cached"),
+                            None if count == 0 => say!(self, "⚑ discography of {name} — nothing matched on Spotify: its Spotify id may be wrong in the card"),
+                            None => say!(self, "✓ discography of {name} — {count} tracks matched on Spotify"),
                         }
                     }
                     Err(why) => match self.explore.as_mut().filter(|s| s.slug == slug) {
@@ -1615,10 +1616,27 @@ impl Live<'_> {
             Job::Released { slug, result } => {
                 self.releasing.remove(&slug);
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(&slug));
+                let watching = self.explore.as_ref().is_some_and(|s| s.slug == slug);
                 match result.and_then(|d| crate::releases::commit_one(&self.catalog_dir, &slug, &d)) {
-                    Ok(Some(n)) => say!(self, "✓ discography of {name} — {n} release(s) from MusicBrainz, committed"),
-                    Ok(None) => say!(self, "(discography of {name} — MusicBrainz keeps no release: tops only)"),
-                    Err(why) => say!(self, "⏹ discography of {name} (MusicBrainz) — {why}"),
+                    Ok(Some(n)) => {
+                        say!(self, "✓ discography of {name} — {n} release(s) from MusicBrainz, committed");
+                        // what plays it comes next: the Spotify match
+                        if let Err(why) = self.harvest(&slug, !watching) {
+                            say!(self, "⏹ {why}");
+                        }
+                    }
+                    Ok(None) => {
+                        say!(self, "(discography of {name} — MusicBrainz keeps no release: tops only)");
+                        if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
+                            screen.loading = false;
+                        }
+                    }
+                    Err(why) => {
+                        say!(self, "⏹ discography of {name} (MusicBrainz) — {why}");
+                        if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
+                            screen.loading = false;
+                        }
+                    }
                 }
             }
             Job::Existing { slug, after } => {
@@ -4384,25 +4402,34 @@ impl Live<'_> {
         }
     }
 
-    /// Go and get an artist's discography, once. A partial harvest is kept:
-    /// the tail is a reservoir, not an inventory.
-    /// Harvest the long tail of one artist, unless it is already known.
-    /// Says nothing: the caller decides what the listener needs to hear.
-    /// `Ok` carries how many tracks the tail holds.
-    /// `Ok(true)` when the tail is already there, `Ok(false)` when the
-    /// harvest was launched behind (it reports as `Job::Harvested`),
-    /// `Err` when it cannot be launched at all.
+    /// The long tail of one artist: what `discography/` lists, matched with
+    /// Spotify on this machine (0027 §4, 0028 §5). Says nothing: the caller
+    /// decides what the listener needs to hear.
+    ///
+    /// `Ok(true)` when a tail is there to use — matched again behind if it
+    /// is past its month or incomplete —, `Ok(false)` when the match was
+    /// launched (it reports as `Job::Harvested`), `Err` when it cannot be:
+    /// no Spotify id, or no `discography/` file yet — then MusicBrainz is
+    /// asked for it (0029 §4), and the match follows when it is committed.
     fn harvest(&mut self, slug: &str, quiet: bool) -> Result<bool, String> {
-        if self.tail.has(slug) {
+        let usable = self.tail.has(slug);
+        if self.tail.fresh(slug) {
             return Ok(true);
         }
         if self.harvesting.contains_key(slug) {
-            return Ok(false);
+            return Ok(usable);
         }
         let card = &self.catalog.cards[slug];
         let Some(spotify_id) = card.spotify.clone() else {
             return Err(format!("{} has no Spotify id in its card", card.name));
         };
+        let Some(releases) = crate::releases::read(&self.catalog_dir, slug) else {
+            let name = card.name.clone();
+            self.release(slug);
+            return if usable { Ok(true) } else { Err(format!("no discography of {name} yet — asking MusicBrainz")) };
+        };
+        // an old tail plays on while the new match runs: nobody waits on it
+        let quiet = quiet || usable;
         self.harvesting.insert(slug.to_string(), quiet);
         let web = self.web.clone();
         let tx = self.jobs_tx.clone();
@@ -4411,12 +4438,12 @@ impl Live<'_> {
             let result = web
                 .lock()
                 .await
-                .discography(&spotify_id)
+                .discography(&spotify_id, &releases)
                 .await
                 .map_err(|why| format!("unreachable ({why})"));
             let _ = tx.send(Job::Harvested { slug, result, quiet });
         });
-        Ok(false)
+        Ok(usable)
     }
 
     /// A card with no `discography/` file: harvest it from MusicBrainz
@@ -4491,11 +4518,12 @@ impl Live<'_> {
         if self.tail.has(&stop.slug) && !self.tail.dated(&stop.slug) {
             self.tail.forget(&stop.slug);
         }
-        self.release(&stop.slug);
         // the screen opens on what we have — the tops, the learned — and
         // the discography comes behind, saying so (Joel, 08/09/2026)
         let loading = match self.harvest(&stop.slug, false) {
             Ok(known) => !known,
+            // no file yet: MusicBrainz first, then the match (0029 §4)
+            Err(_) if self.releasing.contains(&stop.slug) => true,
             Err(why) => {
                 say!(self, "⏹ {why}");
                 false

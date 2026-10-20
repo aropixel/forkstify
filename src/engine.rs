@@ -1533,6 +1533,7 @@ mod tests {
                     ..Default::default()
                 },
             ],
+            true,
         );
 
         // 5 = cocoon since 06/09/2026
@@ -1573,6 +1574,7 @@ mod tests {
                 title: "Killing an Arab".into(),
                 ..Default::default()
             }],
+            true,
         );
         let stop = |title: &str, source: Source| Stop {
             slug: "the-cure".into(),

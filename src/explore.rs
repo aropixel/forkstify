@@ -69,6 +69,9 @@ pub struct Track {
     /// is not always Spotify's, and it is the one a removal must target —
     /// otherwise `remove_top` finds nothing while the ♪ shows.
     pub card_top: Option<String>,
+    /// The disc, on a release of several: the record's order is (disc,
+    /// number), the number restarting on each disc.
+    pub disc: u32,
     pub number: u32,
     pub duration_ms: u32,
     pub liked: bool,
@@ -263,6 +266,7 @@ impl Explore {
             let row = Track {
                 title: track.title.clone(),
                 card_top,
+                disc: track.disc,
                 number: track.number,
                 duration_ms: track.duration_ms,
                 liked,
@@ -294,6 +298,7 @@ impl Explore {
                     Track {
                         title: top.clone(),
                         card_top: Some(top.clone()),
+                        disc: 1,
                         number: 0,
                         duration_ms: 0,
                         liked,
@@ -377,12 +382,12 @@ impl Explore {
             })
             .collect();
         match self.sort {
-            Sort::Chrono => rows.sort_by_key(|i| (album.tracks[*i].number, i.to_owned())),
+            Sort::Chrono => rows.sort_by_key(|i| (album.tracks[*i].disc, album.tracks[*i].number, i.to_owned())),
             Sort::Plays => rows.sort_by(|a, b| {
                 album.tracks[*b]
                     .plays
                     .total_cmp(&album.tracks[*a].plays)
-                    .then(album.tracks[*a].number.cmp(&album.tracks[*b].number))
+                    .then((album.tracks[*a].disc, album.tracks[*a].number).cmp(&(album.tracks[*b].disc, album.tracks[*b].number)))
             }),
         }
         rows
@@ -581,7 +586,7 @@ impl Explore {
         let mut playable: Vec<&Track> = album.tracks.iter().filter(|track| !track.banned).collect();
         // the record's order, not the screen's: `s` sorts what you read,
         // it does not re-cut the album
-        playable.sort_by_key(|track| track.number);
+        playable.sort_by_key(|track| (track.disc, track.number));
         (!playable.is_empty()).then(|| (album.title.clone(), playable))
     }
 
@@ -714,6 +719,7 @@ mod tests {
             number,
             duration_ms: 200_000,
             single,
+            disc: 1,
         };
         vec![
             track("Cross Bones Style", "Moon Pix", "1998-09-22", 1, false),

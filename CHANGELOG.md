@@ -28,6 +28,14 @@ the version it cuts, so this file cannot fall behind.
 
 - The commits of generated cards carry `Forkstify: generate` instead of
   `Forkstify: edit`.
+- **The long tail comes from the catalog's discographies.** What an
+  artist released is read from `discography/`; what plays it is matched
+  with Spotify on your machine — every page of the artist's albums now,
+  not the first fifty — and kept 30 days (`spotify_match_days` in
+  `[tuning]`). Big discographies are no longer cut short, and a call that
+  fails no longer ends the harvest. The tails cached before this version
+  are matched again, artist by artist, as they are needed; run `Cu` first
+  so your fork has the reference's discographies.
 
 ## 0.2.0 — 2026-10-07
 

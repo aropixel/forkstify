@@ -1988,6 +1988,7 @@ mod tests {
                 number,
                 duration_ms: 218_000,
                 single: false,
+                disc: 1,
             }
         };
         let tail = vec![

@@ -70,10 +70,24 @@ an hour**. Not run on a real catalog yet.
    card the pipeline writes is now committed with **`Forkstify:
    generate`** (0025) — it carried `edit` since the beginning (88 commits
    in Joel's fork); `Edit.kind` says which.
-3. **The tail read from `discography/`**, with the local Spotify match
-   (every page read, resumable, 0028 §5 rules, kept 30 days in `[tuning]`)
-   — replacing today's `discography()`, which reads one page and stops at
-   the first failure.
+3. ~~The tail read from `discography/`~~ — **coded on 2026-10-20, to be
+   tried by Joel** (not tried live: forkstify was running, and a test of
+   ours would have rotated its refresh token). `spotify::discography` now
+   takes the releases of the file: **every** page of the artist's albums
+   and singles (`next`), the match of 0028 §5 (`discography::match_albums`
+   — MusicBrainz's own link first, then the title with its editions
+   dropped, the date only between two releases of one title, the original
+   ahead of a deluxe, the same kind, the nearest year), then the tracks of
+   the matched albums by twenty — the whole Spotify edition, dated and
+   titled by the release, with `disc`. A call that fails keeps what came
+   (`complete = false`) instead of ending the harvest. The cache changes
+   format (`{complete, tracks}`); **the old Spotify-only caches are not
+   read** and get matched again from the catalog, lazily. Its age is the
+   file's, against `spotify_match_days` (30, `[tuning]`, in
+   `docs/tuning.md`): past it, or incomplete, the old tail plays on and the
+   match runs again behind. A card with no file asks MusicBrainz first
+   (`release`), and the match follows its commit. `ad` orders a record by
+   (disc, number).
 4. **The watch and the list**: MusicBrainz per artist by score band,
    `Forkstify: release`, only what Spotify plays, the freshness boost
    (linear, ×3 → ×1 over 6 weeks), `x` to dismiss; then discovery routes
