@@ -168,5 +168,19 @@ also play…*", never "*similar to…*".
 
 ## To settle
 
-Nothing left on 2026-10-20. Route 2's proximity threshold, and how much
-wider it makes the watch, will be measured when the watch is wired.
+Route 2's proximity threshold, and how much wider it makes the watch, will
+be measured when the watch is wired.
+
+- **A classical composer's discography** (opened 2026-10-20). The first
+  harvest of the reference gave Georges Bizet 262 release groups: every
+  recording of *Carmen* by another orchestra is an album "by Bizet" for
+  MusicBrainz. As a tail it means nothing, and as a watch it would announce
+  each new recording as a new release. Bizet is the only composer of the
+  catalog today (he came in through a Spotify follow, never played). The
+  options: (a) keep what MusicBrainz says; (b) no discography for a card
+  tagged `classical` — the tops stay; (c) only the release groups whose
+  credit is the composer **alone** (no performer beside him), which keeps
+  a composer's own records and drops the orchestras'. Not measured yet.
+  **In the meantime** (Joel, 2026-10-20): Bizet's file is left out of the
+  reference's harvest, by hand — nothing in the code, so the next harvest
+  tries him again until this is settled.
