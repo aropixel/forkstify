@@ -152,6 +152,18 @@ other six were filed under Beatles for Sale, and `a`/`A` would have played
 five. `Explore::build` no longer dedups; `summary` counts songs (by
 normalized title), not copies.
 
+**Two more from the Velvet (2026-10-20).** (1) Its first album showed
+each song four times when `ad` opened, then not: the converted old cache
+held only the 45th-anniversary deluxe (stereo, mono, alternates), until
+the real match chose the original. `from_legacy` now keeps one copy of
+each song, the plainly titled first. (2) Read in its cache: the 1967
+single *White Light/White Heat* had taken the album's tracks and the 1968
+album had none — between two releases of one title, `match_albums` ruled
+by the year before the kind, and Spotify dates an album by its reissue.
+The kind decides first now; the cache records the version of the rules
+(`MATCH_RULES`, 2), and a match made by older ones is matched again,
+behind, playing on meanwhile.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,

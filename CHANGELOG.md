@@ -14,6 +14,10 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **A single no longer takes the tracks of the album of the same title**
+  (The Velvet Underground's *White Light/White Heat*): the kind of record
+  now decides before the year, which Spotify gives as the reissue's. The
+  matches made before are redone in the background.
 - **The sync at start no longer leaves the catalog stuck half-way.** After
   an update from the reference not pushed yet, the start rebased it flat,
   replaying the reference's history, and stopped mid-way; the session then
