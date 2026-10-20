@@ -93,6 +93,9 @@ pub struct Album {
     /// A top of the card the discography does not contain: typo, live
     /// version, compilation title. This is the "audit" half of the screen.
     pub orphan: bool,
+    /// Listed by `discography/` and not matched with Spotify yet: shown at
+    /// once, its tracks found by title if played (Joel, 2026-10-20).
+    pub pending: bool,
     pub tracks: Vec<Track>,
 }
 
@@ -233,7 +236,8 @@ impl Explore {
                 Some(index) => {
                     // an album rather than a single, and the oldest release:
                     // the version we remember
-                    let rank = |t: &TailTrack| (t.single, t.year().unwrap_or(u16::MAX));
+                    // and a matched copy ahead of one still waiting
+                    let rank = |t: &TailTrack| (t.uri.is_empty(), t.single, t.year().unwrap_or(u16::MAX));
                     if rank(track) < rank(kept[index]) {
                         kept[index] = track;
                     }
@@ -275,12 +279,16 @@ impl Explore {
                 days,
             };
             match albums.iter_mut().find(|a| a.title == track.album) {
-                Some(album) => album.tracks.push(row),
+                Some(album) => {
+                    album.pending &= track.uri.is_empty();
+                    album.tracks.push(row);
+                }
                 None => albums.push(Album {
                     title: track.album.clone(),
                     year: track.year(),
                     single: track.single,
                     orphan: false,
+                    pending: track.uri.is_empty(),
                     tracks: vec![row],
                 }),
             }
@@ -313,6 +321,7 @@ impl Explore {
                 year: None,
                 single: false,
                 orphan: true,
+                pending: false,
                 tracks,
             });
         }

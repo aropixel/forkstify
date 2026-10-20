@@ -49,6 +49,9 @@ the version it cuts, so this file cannot fall behind.
   are converted against the discographies with no call to Spotify, then
   matched again in the background, one artist at a time; run `Cu` first
   so your fork has the reference's discographies.
+- **`ad` shows the whole discography at once**, from the catalog: the
+  releases not matched with Spotify yet are marked "… matching" and fill
+  in as the match lands.
 
 ## 0.2.0 — 2026-10-07
 

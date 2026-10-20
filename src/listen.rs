@@ -1425,7 +1425,14 @@ impl Live<'_> {
                     Ok(tracks) => {
                         let count = tracks.len();
                         match self.explore.as_mut().filter(|s| s.slug == slug) {
-                            Some(screen) => screen.reload(self.tail.of(&slug), &self.learned),
+                            Some(_) => {
+                                let shown = self.discography_view(&slug);
+                                if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
+                                    screen.reload(&shown, &self.learned);
+                                    // an incomplete match: the rest is still coming
+                                    screen.loading = !self.tail.fresh(&slug);
+                                }
+                            }
                             None if quiet => {}
                             // 0 tracks is not a success: Spotify answered but
                             // gave nothing — usually the card's spotify id is
@@ -1620,6 +1627,15 @@ impl Live<'_> {
                 match result.and_then(|d| crate::releases::commit_one(&self.catalog_dir, &slug, &d)) {
                     Ok(Some(n)) => {
                         say!(self, "✓ discography of {name} — {n} release(s) from MusicBrainz, committed");
+                        // the releases show at once, the match fills them in
+                        if watching {
+                            let shown = self.discography_view(&slug);
+                            if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
+                                screen.reload(&shown, &self.learned);
+                                screen.loading = true;
+                                screen.notice = "… matching on Spotify — the releases first".to_string();
+                            }
+                        }
                         // what plays it comes next: the Spotify match
                         if let Err(why) = self.harvest(&slug, !watching) {
                             say!(self, "⏹ {why}");
@@ -4456,6 +4472,13 @@ impl Live<'_> {
         Ok(usable)
     }
 
+    /// What `ad` shows of an artist: the matched tail, and while the match
+    /// is not complete, the releases of `discography/` it does not cover.
+    fn discography_view(&self, slug: &str) -> Vec<crate::discography::TailTrack> {
+        let releases = crate::releases::read(&self.catalog_dir, slug);
+        crate::discography::view(self.tail.of(slug), releases.as_deref(), self.tail.fresh(slug))
+    }
+
     /// A card with no `discography/` file: harvest it from MusicBrainz
     /// behind, once (0029 §4). It reports as `Job::Released`.
     fn release(&mut self, slug: &str) {
@@ -4540,10 +4563,11 @@ impl Live<'_> {
             }
         };
         let playing = self.current.as_ref().map(|s| s.title.clone());
+        let shown = self.discography_view(&stop.slug);
         let mut screen = crate::explore::Explore::open(
             &stop.slug,
             &self.catalog.cards[&stop.slug],
-            self.tail.of(&stop.slug),
+            &shown,
             &self.learned,
             playing.as_deref(),
         );
@@ -4551,9 +4575,13 @@ impl Live<'_> {
             say!(self, "(nothing to show from {} — neither discography nor tops)", stop.artist);
             return;
         }
-        if loading {
+        if loading || !self.tail.fresh(&stop.slug) {
             screen.loading = true;
-            screen.notice = "… discography loading — tops first".to_string();
+            screen.notice = if crate::releases::path_of(&self.catalog_dir, &stop.slug).exists() {
+                "… matching on Spotify — the releases first".to_string()
+            } else {
+                "… discography loading — tops first".to_string()
+            };
         }
         crate::keys::set_modal(true);
         self.explore = Some(screen);

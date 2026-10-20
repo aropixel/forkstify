@@ -91,7 +91,13 @@ an hour**. Not run on a real catalog yet.
    the same rules, kept incomplete so the real match follows), the lock is
    held for the token only (`WebApi::discography` takes the `Arc`), and
    **one background match at a time** — a quiet one is not launched while
-   another runs; what the listener asks for always goes. Its age is the
+   another runs; what the listener asks for always goes. And `ad` **shows the
+   releases of `discography/` at once** (Joel's ask, same day):
+   `discography::view` lays the releases the tail does not cover yet
+   beside it, with no uri — dimmed, "… matching" on the album line,
+   playable by the title search —; the match fills them in when it lands,
+   and once it is complete a release Spotify does not have is not shown,
+   as for the new releases (Joel's 2026-10-20 call). Its age is the
    file's, against `spotify_match_days` (30, `[tuning]`, in
    `docs/tuning.md`): past it, or incomplete, the old tail plays on and the
    match runs again behind. A card with no file asks MusicBrainz first
