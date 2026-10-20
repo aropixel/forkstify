@@ -28,7 +28,12 @@ the Velvet's 28 groups, 8 of Eels' 63). Video media of a deluxe are not
 discs. The file is written whole (a `.partial` renamed), commits go by 25
 through `sync::commit_folder` with `Forkstify: discography`, and what an
 interrupted run wrote goes into a commit of its own at the next start.
-`Card` now reads `mbid`. Tried on a copy of Joel's fork: Boo 2, Eels 55,
+The Spotify links come from the **releases**: MusicBrainz puts them there,
+rarely on the group — a first full harvest of the reference (2026-10-20)
+wrote 16,017 releases and not one link; read from the releases
+(`inc=url-rels` on the same browse, no extra call), Eels went from 0 to 28
+of 55, Fontaines D.C. 19 of 33, the Velvet 6 of 13. `Card` now reads
+`mbid`. Tried on a copy of Joel's fork: Boo 2, Eels 55,
 Hope Sandoval 12 (with the Warm Inventions), Lionel Limiñana 5
 (soundtracks), Michel Cloup 12 (with the Duo), the Velvet 13, Traband 8 —
 about 10 s an artist, so **the whole reference (408 cards) is a little over

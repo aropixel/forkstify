@@ -112,13 +112,7 @@ fn kept_groups(page: &Value) -> Vec<Release> {
             if secondary.iter().any(|t| t.as_str() != Some(ALLOWED_SECONDARY)) {
                 return None;
             }
-            let spotify = group["relations"]
-                .as_array()
-                .map(Vec::as_slice)
-                .unwrap_or(&[])
-                .iter()
-                .filter_map(|r| r["url"]["resource"].as_str())
-                .find_map(spotify_album);
+            let spotify = spotify_link(group);
             Some(Release {
                 mbid: group["id"].as_str()?.to_string(),
                 title: group["title"].as_str()?.to_string(),
@@ -129,6 +123,37 @@ fn kept_groups(page: &Value) -> Vec<Release> {
             })
         })
         .collect()
+}
+
+/// The Spotify album an entity's url relations point at, if any.
+fn spotify_link(entity: &Value) -> Option<String> {
+    entity["relations"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|r| r["url"]["resource"].as_str())
+        .find_map(spotify_album)
+}
+
+/// MusicBrainz links Spotify to **releases**, rarely to their group
+/// (Fontaines D.C., 2026-10-20: 27 of 70 releases, none of the groups):
+/// a group takes the link of its earliest release that has one.
+fn spotify_of_groups(pages: &[Value], kept: &HashMap<String, usize>) -> HashMap<String, String> {
+    let mut found: HashMap<String, (String, String)> = HashMap::new();
+    for release in pages.iter().flat_map(|p| p["releases"].as_array().map(Vec::as_slice).unwrap_or(&[])) {
+        let (Some(group), Some(link)) = (release["release-group"]["id"].as_str(), spotify_link(release)) else {
+            continue;
+        };
+        if !kept.contains_key(group) {
+            continue;
+        }
+        let date = release["date"].as_str().unwrap_or("").to_string();
+        if found.get(group).map_or(true, |(best, _)| date_key(&date) < date_key(best)) {
+            found.insert(group.to_string(), (date, link));
+        }
+    }
+    found.into_iter().map(|(group, (_, link))| (group, link)).collect()
 }
 
 /// `https://open.spotify.com/album/<id>?si=…` → `<id>`.
@@ -239,7 +264,7 @@ pub fn harvest(mbid: &str) -> Result<Discography, String> {
         }
         let index: HashMap<String, usize> = kept.iter().enumerate().map(|(i, g)| (g.mbid.clone(), i)).collect();
         let pages = browse(
-            &format!("release?artist={id}&status=official&type=album|ep|single&inc=recordings+release-groups"),
+            &format!("release?artist={id}&status=official&type=album|ep|single&inc=recordings+release-groups+url-rels"),
             "releases",
             "release-count",
         )?;
@@ -249,6 +274,9 @@ pub fn harvest(mbid: &str) -> Result<Discography, String> {
         }
         for (group, (_, release)) in &chosen {
             kept[index[group]].tracks = tracks_of(release);
+        }
+        for (group, link) in spotify_of_groups(&pages, &index) {
+            kept[index[&group]].spotify.get_or_insert(link);
         }
         // a group with no official release — promos, bootlegs — was
         // never on sale: no track list to take, nothing Spotify plays
@@ -457,6 +485,21 @@ mod tests {
         choose_earliest(&page, &kept, &mut chosen);
         assert_eq!(chosen.len(), 1);
         assert_eq!(chosen["g"].0, "2005-04");
+    }
+
+    #[test]
+    fn a_group_takes_the_spotify_link_of_its_earliest_release_that_has_one() {
+        let kept: HashMap<String, usize> = [("g".to_string(), 0)].into();
+        let link = |id: &str| json!([{ "url": { "resource": format!("https://open.spotify.com/album/{id}") } }]);
+        let pages = [json!({ "releases": [
+            { "date": "2019-04-12", "release-group": { "id": "g" }, "relations": [] },
+            { "date": "2021-01-01", "release-group": { "id": "g" }, "relations": link("2222222222222222222222") },
+            { "date": "2019-04-12", "release-group": { "id": "g" }, "relations": link("1111111111111111111111") },
+            { "date": "2019", "release-group": { "id": "other" }, "relations": link("3333333333333333333333") },
+        ]})];
+        let found = spotify_of_groups(&pages, &kept);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found["g"], "1111111111111111111111");
     }
 
     #[test]
