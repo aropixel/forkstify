@@ -82,6 +82,9 @@ pub struct Edit {
     /// regeneration replaced (Joel, 23/09/2026). Already gone from disk;
     /// the commit records the removal.
     pub removed: Vec<PathBuf>,
+    /// The trailer's kind (0017): `edit` for a gesture, `generate` for a
+    /// card the pipeline wrote (0025).
+    pub kind: &'static str,
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -119,13 +122,14 @@ pub fn add_door(
         path,
         also: Vec::new(),
         removed: Vec::new(),
+        kind: "edit",
     })
 }
 
 /// `ae`: the card was edited by hand, in `$EDITOR`; what changed is the
 /// diff, the commit only says who and how.
 pub fn edited_by_hand(dir: &Path, slug: &str, name: &str) -> Edit {
-    Edit { summary: format!("{name} — edited by hand"), body: None, path: card_path(dir, slug), also: Vec::new(), removed: Vec::new() }
+    Edit { summary: format!("{name} — edited by hand"), body: None, path: card_path(dir, slug), also: Vec::new(), removed: Vec::new(), kind: "edit" }
 }
 
 /// The **batch** of the discography screen (mockup 1a, 07/09/2026): five
@@ -192,6 +196,7 @@ pub fn set_tops(
         path,
         also: Vec::new(),
         removed: Vec::new(),
+        kind: "edit",
     })
 }
 
@@ -226,6 +231,7 @@ pub fn create_card(
         path,
         also: Vec::new(),
         removed: Vec::new(),
+        kind: "generate",
     })
 }
 
@@ -285,7 +291,7 @@ pub fn add_link(
         insert_into_array(&text, "links", &line)
     };
     write(&path, &updated)?;
-    Ok(Edit { summary, body: Some(body), path, also: Vec::new(), removed: Vec::new() })
+    Ok(Edit { summary, body: Some(body), path, also: Vec::new(), removed: Vec::new(), kind: "edit" })
 }
 
 /// **0026, at a card's birth**: the `audience` links pointing at it had no
@@ -378,6 +384,7 @@ pub fn regenerate_card(
         path,
         also: Vec::new(),
         removed: Vec::new(),
+        kind: "generate",
     };
     Ok((edit, identity_changed))
 }
@@ -420,7 +427,7 @@ pub fn commit(dir: &Path, edit: &Edit) -> Result<(), String> {
         args.push(body.clone());
     }
     args.push("-m".to_string());
-    args.push(crate::sync::trailer("edit"));
+    args.push(crate::sync::trailer(edit.kind));
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     run(&args)
 }
@@ -532,6 +539,8 @@ mod tests {
         assert!(cards["codeine"].links.iter().any(|l| l.to == "duster" && l.kind == "similar"));
         assert!(cards["zebda"].links.iter().all(|l| l.kind == "audience"));
         assert_eq!(edit.also, vec![card_path(&dir, "codeine")]);
+        // a card the pipeline wrote is committed as such (0025)
+        assert_eq!(edit.kind, "generate");
         assert!(edit.body.as_deref().unwrap_or("").contains("audience → similar, a genre in common: Codeine"), "{:?}", edit.body);
         let _ = std::fs::remove_dir_all(&dir);
     }

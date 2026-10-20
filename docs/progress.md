@@ -57,9 +57,19 @@ an hour**. Not run on a real catalog yet.
    rebuilt. `validate`, `Cp` and the reference's two workflows take
    `discography/` (an added discography merges on its own, like an added
    card — flagged to Joel).
-2. **A card generated on the fly is born with its discography**, in its
-   `Forkstify: generate` commit; **`ad` on a card with no file** harvests
-   it (0029 §4).
+2. ~~A card born with its discography, `ad` harvests a card with no
+   file~~ — **coded on 2026-10-20, to be tried by Joel**. The generation's
+   background job harvests the discography right after the draft
+   (`Draft.mbid`, `Draft.discography`), `adopt` writes it into the card's
+   commit, and a regeneration that changes the artist removes the old
+   file; a harvest that fails is a caveat on the done line ("no
+   discography (…)"), the card is born anyway. `ad` on a card with no
+   `discography/` file harvests it behind (`Job::Released`) and commits it
+   alone — `releases::commit_one`, `Forkstify: discography`; what plays in
+   the modal is still the Spotify tail until step 3. Along the way, a
+   card the pipeline writes is now committed with **`Forkstify:
+   generate`** (0025) — it carried `edit` since the beginning (88 commits
+   in Joel's fork); `Edit.kind` says which.
 3. **The tail read from `discography/`**, with the local Spotify match
    (every page read, resumable, 0028 §5 rules, kept 30 days in `[tuning]`)
    — replacing today's `discography()`, which reads one page and stops at

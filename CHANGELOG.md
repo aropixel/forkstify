@@ -20,6 +20,14 @@ the version it cuts, so this file cannot fall behind.
   per artist, committed by batches of 25. Run it again after an
   interruption: it resumes. `--artist <slug>` harvests only the ones
   named.
+- **A card generated on the fly is born with its discography**, from
+  MusicBrainz, in the same commit; and `ad` on an artist whose
+  discography the catalog does not have yet harvests and commits it.
+
+### Changed
+
+- The commits of generated cards carry `Forkstify: generate` instead of
+  `Forkstify: edit`.
 
 ## 0.2.0 — 2026-10-07
 

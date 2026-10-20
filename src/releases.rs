@@ -349,6 +349,33 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::rename(&partial, path).map_err(|e| e.to_string())
 }
 
+/// Write an artist's discography into the catalog; the path, for the
+/// commit that carries it.
+pub fn write_file(catalog: &Path, slug: &str, discography: &Discography) -> Result<PathBuf, String> {
+    let path = path_of(catalog, slug);
+    write(&path, &to_toml(discography)).map_err(|e| format!("discography not written ({e})"))?;
+    Ok(path)
+}
+
+/// The names of the projects gathered beside the card's artist.
+pub fn projects_of(discography: &Discography) -> Vec<String> {
+    discography.artists.iter().skip(1).map(|(_, name)| name.clone()).collect()
+}
+
+/// `ad` on a card with no file yet (0029 §4): the file, committed alone
+/// with `Forkstify: discography`. `Ok(None)` when nothing is kept.
+pub fn commit_one(catalog: &Path, slug: &str, discography: &Discography) -> Result<Option<usize>, String> {
+    if discography.releases.is_empty() {
+        return Ok(None);
+    }
+    write_file(catalog, slug, discography)?;
+    let projects = projects_of(discography);
+    let with = if projects.is_empty() { String::new() } else { format!(" — with {}", projects.join(", ")) };
+    let body = format!("- {slug} · {} release(s){with}", discography.releases.len());
+    crate::sync::commit_folder(catalog, "discography", &format!("Add the discography of {slug}"), Some(&body), "discography")?;
+    Ok(Some(discography.releases.len()))
+}
+
 /// One written file, as the commit's body lists it.
 struct Written {
     slug: String,
@@ -413,8 +440,8 @@ pub fn run(dir: &Path, only: &[String]) -> Result<(), String> {
             println!("  · {slug}: nothing kept — no file, tried again next time");
             continue;
         }
-        write(&path_of(dir, slug), &to_toml(&discography))?;
-        let projects: Vec<String> = discography.artists[1..].iter().map(|(_, name)| name.clone()).collect();
+        write_file(dir, slug, &discography)?;
+        let projects = projects_of(&discography);
         let with = if projects.is_empty() { String::new() } else { format!(" — with {}", projects.join(", ")) };
         println!("  ✓ {slug}: {} release(s){with}", discography.releases.len());
         batch.push(Written { slug: slug.clone(), releases: discography.releases.len(), projects });
@@ -554,6 +581,45 @@ mod tests {
         // and it reads back as TOML, quotes included
         let table: toml::Table = toml::from_str(&text).expect("valid TOML");
         assert_eq!(table["release"].as_array().unwrap().len(), 3);
+    }
+
+    /// `ad` on a card with no file: the file, alone in its commit, with
+    /// the `discography` trailer — and nothing for an artist with nothing.
+    #[test]
+    fn a_discography_is_committed_alone() {
+        let git = |dir: &Path, args: &[&str]| {
+            let out = std::process::Command::new("git").arg("-C").arg(dir).args(args).output().expect("git");
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        if std::process::Command::new("git").arg("--version").output().is_err() {
+            eprintln!("git absent — test skipped");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("forkstify-releases-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("cards")).unwrap();
+        git(&dir, &["init", "-q", "-b", "main"]);
+        git(&dir, &["config", "user.name", "Test"]);
+        git(&dir, &["config", "user.email", "test@example.net"]);
+        std::fs::write(dir.join("cards/eels.toml"), "format = 1\n").unwrap();
+        git(&dir, &["add", "-A"]);
+        git(&dir, &["commit", "-q", "-m", "seed"]);
+        // something else in progress stays out of the commit
+        std::fs::write(dir.join("cards/eels.toml"), "format = 1\nname = \"Eels\"\n").unwrap();
+
+        let nothing = Discography { artists: vec![("m1".into(), "Eels".into())], releases: Vec::new() };
+        assert_eq!(commit_one(&dir, "eels", &nothing), Ok(None));
+        assert!(!path_of(&dir, "eels").exists());
+
+        let eels = Discography { artists: vec![("m1".into(), "Eels".into())], releases: vec![release("a", "Beautiful Freak", "1996")] };
+        assert_eq!(commit_one(&dir, "eels", &eels), Ok(Some(1)));
+        let message = git(&dir, &["log", "-1", "--format=%B"]);
+        assert!(message.starts_with("Add the discography of eels"), "{message}");
+        assert!(message.contains(&crate::sync::trailer("discography")), "{message}");
+        assert_eq!(git(&dir, &["show", "--name-only", "--format=", "HEAD"]), "discography/eels.toml");
+        assert_eq!(git(&dir, &["status", "--porcelain"]), "M cards/eels.toml");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

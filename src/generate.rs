@@ -36,12 +36,16 @@ const MB_PAUSE: Duration = Duration::from_millis(1100);
 pub struct Draft {
     pub slug: String,
     pub name: String,
+    pub mbid: String,
     pub toml: String,
     pub tops: usize,
     pub links: usize,
     /// What the sources could not give. Said on screen, never fatal — the
     /// format makes everything but `format`/`name`/`mbid` optional.
     pub caveats: Vec<String>,
+    /// What MusicBrainz says the artist released (0027): harvested behind
+    /// the card, born in its commit when the harvest succeeds.
+    pub discography: Option<crate::releases::Discography>,
 }
 
 /// The catalog, reduced to what a background job may carry: the match key of
@@ -686,6 +690,8 @@ pub fn draft(
         tops: tops.len(),
         links: links.len(),
         caveats,
+        mbid,
+        discography: None,
     })
 }
 

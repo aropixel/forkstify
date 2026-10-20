@@ -170,6 +170,7 @@ async fn async_run(
         dry_advances: 0,
         dry_tracks: 0,
         harvesting: HashMap::new(),
+        releasing: HashSet::new(),
         screen: Screen::Home,
         home: Home::default(),
         status,
@@ -528,6 +529,9 @@ struct Live<'a> {
     /// Discographies being harvested right now, so a second `ad` or `e<n>`
     /// does not launch the same job twice.
     harvesting: HashMap<String, bool>,
+    /// The cards whose `discography/` file is being harvested from
+    /// MusicBrainz, so a second `ad` does not ask again.
+    releasing: HashSet<String>,
     /// Which screen is up: the home or the session. The session lives on
     /// under the home — the sound, the queue, the branches (Joel,
     /// 08/09/2026).
@@ -575,6 +579,9 @@ enum Job {
     /// nothing to say, whatever comes back.
     Harvested { slug: String, result: Result<Vec<crate::discography::TailTrack>, String>, quiet: bool },
     Generated { slug: String, after: After, result: Result<crate::generate::Draft, String> },
+    /// `ad` on a card with no `discography/` file: what MusicBrainz says
+    /// the artist released (0029 §4), to write and commit.
+    Released { slug: String, result: Result<crate::releases::Discography, String> },
     /// The card asked for already exists: nothing to generate, but what
     /// was meant for the artist still happens (Joel, 10/09/2026 — enter
     /// on "Kanye West" answered "Ye already has a card" and stopped).
@@ -1471,6 +1478,7 @@ impl Live<'_> {
             Job::Vectorized { slug, after, draft, vector } => {
                 self.generating.remove(&slug);
                 let (name, tops, links) = (draft.name.clone(), draft.tops, draft.links);
+                let releases = draft.discography.as_ref().map_or(0, |d| d.releases.len());
                 let caveats = draft.caveats.join(" · ");
                 let (vector, no_vector) = match vector {
                     Ok(v) => (Some(v), None),
@@ -1491,6 +1499,9 @@ impl Live<'_> {
                     Some(old) => format!("✓ {name} — card regenerated (was {old}): {tops} top(s), {links} link(s)"),
                     None => format!("✓ {name} — generated card: {tops} top(s), {links} link(s)"),
                 };
+                if releases > 0 {
+                    done.push_str(&format!(", {releases} release(s)"));
+                }
                 if !caveats.is_empty() {
                     done.push_str(&format!(" ({caveats})"));
                 }
@@ -1599,6 +1610,15 @@ impl Live<'_> {
                         self.overlay = Some(("C update — stopped on cards".into(), lines));
                     }
                     Err(why) => self.tell(format!("⏹ update: {why}")),
+                }
+            }
+            Job::Released { slug, result } => {
+                self.releasing.remove(&slug);
+                let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or_else(|| crate::generate::pretty(&slug));
+                match result.and_then(|d| crate::releases::commit_one(&self.catalog_dir, &slug, &d)) {
+                    Ok(Some(n)) => say!(self, "✓ discography of {name} — {n} release(s) from MusicBrainz, committed"),
+                    Ok(None) => say!(self, "(discography of {name} — MusicBrainz keeps no release: tops only)"),
+                    Err(why) => say!(self, "⏹ discography of {name} (MusicBrainz) — {why}"),
                 }
             }
             Job::Existing { slug, after } => {
@@ -1729,6 +1749,17 @@ impl Live<'_> {
                 learned_dropped = true;
             }
         }
+        // the discography too (0027, 0028 §3); a regeneration that found
+        // none keeps the old file — unless the artist changed
+        let discography = crate::releases::path_of(&self.catalog_dir, &draft.slug);
+        match &draft.discography {
+            Some(d) => edit.also.push(crate::releases::write_file(&self.catalog_dir, &draft.slug, d)?),
+            None if identity_changed && discography.exists() => {
+                std::fs::remove_file(&discography).map_err(|e| format!("old discography not removed ({e})"))?;
+                edit.removed.push(discography);
+            }
+            None => {}
+        }
         // the vector goes in the same commit (0019): the index shipped with
         // the fork never lags behind its cards
         if let Some(vector) = &vector {
@@ -1781,7 +1812,15 @@ impl Live<'_> {
         let tx = self.jobs_tx.clone();
         tokio::task::spawn_local(async move {
             let result = tokio::task::spawn_blocking(move || {
-                crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), spotify.as_deref(), &known)
+                let mut draft = crate::generate::draft(&asked, hint.as_deref(), mbid.as_deref(), spotify.as_deref(), &known)?;
+                // the discography is born in the card's commit (0027), when
+                // MusicBrainz answers; otherwise `ad` harvests it later
+                match crate::releases::harvest(&draft.mbid) {
+                    Ok(d) if !d.releases.is_empty() => draft.discography = Some(d),
+                    Ok(_) => {}
+                    Err(why) => draft.caveats.push(format!("no discography ({why})")),
+                }
+                Ok(draft)
             })
             .await
             .unwrap_or_else(|e| Err(format!("generation was interrupted ({e})")));
@@ -4380,6 +4419,26 @@ impl Live<'_> {
         Ok(false)
     }
 
+    /// A card with no `discography/` file: harvest it from MusicBrainz
+    /// behind, once (0029 §4). It reports as `Job::Released`.
+    fn release(&mut self, slug: &str) {
+        if crate::releases::path_of(&self.catalog_dir, slug).exists() || self.releasing.contains(slug) {
+            return;
+        }
+        let Some(mbid) = self.catalog.cards.get(slug).and_then(|c| c.mbid.clone()) else {
+            return;
+        };
+        self.releasing.insert(slug.to_string());
+        let tx = self.jobs_tx.clone();
+        let slug = slug.to_string();
+        tokio::task::spawn_local(async move {
+            let result = tokio::task::spawn_blocking(move || crate::releases::harvest(&mbid))
+                .await
+                .unwrap_or_else(|e| Err(format!("the harvest was interrupted ({e})")));
+            let _ = tx.send(Job::Released { slug, result });
+        });
+    }
+
     // --- the discography modal (`ad`) ---------------------------------------
 
     /// What a gesture aims at: the **highlighted** line if there is one,
@@ -4432,6 +4491,7 @@ impl Live<'_> {
         if self.tail.has(&stop.slug) && !self.tail.dated(&stop.slug) {
             self.tail.forget(&stop.slug);
         }
+        self.release(&stop.slug);
         // the screen opens on what we have — the tops, the learned — and
         // the discography comes behind, saying so (Joel, 08/09/2026)
         let loading = match self.harvest(&stop.slug, false) {
