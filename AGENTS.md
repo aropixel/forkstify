@@ -107,7 +107,11 @@ The detail is in `docs/decisions/`. In summary:
   `discography` and `release`, no file when nothing is kept, the match by
   normalized title (the date only breaks ties, the original edition first,
   then the whole Spotify edition plays), kept 30 days
-  ([0028](docs/decisions/0028-the-discography-file-and-its-match.md)).
+  ([0028](docs/decisions/0028-the-discography-file-and-its-match.md));
+  soundtracks are kept, a file may gather several MBIDs (an artist's
+  projects, proposed by the harvest), and `ad` harvests a card that has
+  no file yet
+  ([0029](docs/decisions/0029-soundtracks-and-several-artists-in-a-discography.md)).
 - **The engine's numbers are tunable in the configuration**: a `[tuning]`
   section in `config.toml`, one name per number, defaults = the previous
   code, read at launch

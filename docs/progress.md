@@ -8,19 +8,26 @@ back up: what is done, what is waiting on Joel, what comes next.
 The nine questions on the discography and new releases were settled by
 Joel on 2026-10-20: the file, its harvest and its Spotify match in
 [0028](decisions/0028-the-discography-file-and-its-match.md) (completing
-[0027](decisions/0027-the-discography-is-catalog-material.md)), the list
+[0027](decisions/0027-the-discography-is-catalog-material.md)) and
+[0029](decisions/0029-soundtracks-and-several-artists-in-a-discography.md)
+(soundtracks kept, several MBIDs per file, `ad` harvests a card with no
+file — after a measure on Joel's 276 artists: none missing from
+MusicBrainz, the holes were soundtracks and split projects), the list
 and the boost in [design/new-releases.md](design/new-releases.md)
 ("Decided on 2026-10-20"). Nothing is coded yet, and nothing waits on Joel.
 
 **Next, in this order**:
 
 1. **`forkstify discography [catalog]`** — the MusicBrainz harvest
-   (release groups album/EP/single with no secondary type, the tracks of
+   (release groups album/EP/single with no secondary type but
+   `Soundtrack`, over every MBID of `artists`, the projects proposed by
+   name and *member of band*, the tracks of
    the earliest official release, 1 request per second), the file written
    deterministically (0027 §5, 0028 §1), resumable, a commit per batch of
    25 with `Forkstify: discography`. Then run it on the reference.
 2. **A card generated on the fly is born with its discography**, in its
-   `Forkstify: generate` commit.
+   `Forkstify: generate` commit; **`ad` on a card with no file** harvests
+   it (0029 §4).
 3. **The tail read from `discography/`**, with the local Spotify match
    (every page read, resumable, 0028 §5 rules, kept 30 days in `[tuning]`)
    — replacing today's `discography()`, which reads one page and stops at
