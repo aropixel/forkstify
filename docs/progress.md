@@ -124,6 +124,26 @@ it reads with no marker. The three conflicts (Blondie, Eels, Cigarettes
 After Sex — a link of Joel's beside lines the reference changed) were
 resolved keeping his links.
 
+**Then a third, the same evening — the sync at start.** Joel relaunched
+while the update I had completed by hand was not pushed: `sync::pull`
+rebased it (`git pull --rebase`), which replayed the reference's whole
+history flat onto the fork's origin and stopped at its first commit
+(`d9feef5`, the removal of the reference's learned) — the catalog left
+mid-rebase, HEAD detached on the pre-update state, "⇅ offline" on screen
+for any error. The session ran on that: every `ad` harvested MusicBrainz
+anew (13 files, identical byte for byte to the reference's — the
+deterministic writing paid off), a `Cu` merged again, and the ten-minute
+learned commit recorded the six files the stopped pick had removed. Fixed
+by hand (rebase aborted, `main` pushed; nothing of the detached line was
+new) and in the code: a pull that fails is undone (`rebase --abort`,
+`merge --abort`), an unpushed merge is pulled with `--no-rebase`,
+`commit_learned` refuses while a merge or a rebase is stopped
+(`sync::in_progress`), `fork::finish` pushes, `:sync` is now the full
+round (`sync::resync`) and updates the status line, which says the reason
+(`sync::failed`). A test replays the case on real repositories. And `ad`
+gained `J`/`K` and page down/up, album to album (the escape reader now
+reads a sequence with parameters to its end).
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,

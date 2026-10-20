@@ -14,6 +14,13 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **The sync at start no longer leaves the catalog stuck half-way.** After
+  an update from the reference not pushed yet, the start rebased it flat,
+  replaying the reference's history, and stopped mid-way; the session then
+  ran on an old state, and the ten-minute commit could record the files
+  the stopped rebase had removed. Such an update is now merged, a pull
+  that fails is undone, nothing is committed while a merge or a rebase is
+  stopped, and `Cu` pushes as soon as it is done.
 - **`Cu` no longer deletes files of your `learned/`.** The reference
   dropped its own `learned/` on 2026-09-20; merging that into a fork
   removed the learned files the fork had not touched since. `learned/`
@@ -26,6 +33,11 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
+- **`J` / `K` and page down / page up in `ad`**: straight to the next or
+  the previous album.
+- **`:sync` brings the catalog back in sync** — pull, then push — and the
+  status line says why a sync failed ("⇅ not synced — …") instead of
+  "offline" for anything.
 - **`forkstify discography [catalog]`** — harvests from MusicBrainz what
   each artist of the catalog released (albums, EPs, singles and
   soundtracks, with their tracks) into `discography/<slug>.toml`, one file
