@@ -1604,7 +1604,7 @@ impl Live<'_> {
                         lines.push(String::new());
                         lines.push("the other cards are merged and wait in the index. nothing lost, nothing overwritten — the learned is not concerned.".to_string());
                         lines.push(String::new());
-                        lines.push("  o         open the first card — git add once resolved".to_string());
+                        lines.push("  o         open the first card in $EDITOR — added once resolved".to_string());
                         lines.push("  :catalog  resume — the merge completes, the index regenerates".to_string());
                         lines.push("  git merge --abort, by hand, to give it up".to_string());
                         self.conflicts = update.conflicts.iter().map(|(slug, _)| slug.clone()).collect();
@@ -4819,36 +4819,8 @@ impl Live<'_> {
         }
         let path = crate::edit::card_path(&self.catalog_dir, &stop.slug);
         let name = self.catalog.cards[&stop.slug].name.clone();
-        let editor = std::env::var("VISUAL")
-            .or_else(|_| std::env::var("EDITOR"))
-            .ok()
-            .filter(|e| !e.trim().is_empty());
-        let Some(editor) = editor else {
-            // no editor named: the desktop's, and nothing to wait for
-            let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
-            say!(self, "→ {} — no $EDITOR, opened by the desktop; relaunch to reload it", path.display());
-            return;
-        };
         let before = std::fs::read_to_string(&path).unwrap_or_default();
-        crate::keys::suspend_reader(true);
-        std::thread::sleep(std::time::Duration::from_millis(150));
-        crate::keys::raw_pause();
-        self.tui.suspend();
-        let status = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(format!("{editor} \"$1\""))
-            .arg("forkstify")
-            .arg(&path)
-            .status();
-        crate::keys::raw_resume();
-        crate::keys::drain_input();
-        self.tui.resume();
-        crate::keys::suspend_reader(false);
-        // painted right here, whatever comes next: the screen must not
-        // stay blank until the next gesture
-        self.paint();
-        if let Err(why) = status {
-            say!(self, "⏹ {editor}: {why}");
+        if !self.in_editor(&path) {
             return;
         }
         let after = std::fs::read_to_string(&path).unwrap_or_default();
@@ -4868,6 +4840,46 @@ impl Live<'_> {
             }
             Err(why) => say!(self, "⏹ {name} — the card does not read: {} — ae again to fix it, nothing committed", why.message()),
         }
+    }
+
+    /// Hand the terminal to `$EDITOR` on one file and take it back when it
+    /// closes: the key reader parks, the screen goes back to the editor.
+    /// Without that, a terminal editor shares the keyboard with forkstify —
+    /// the `q` of a `:wq` quit it (Joel, 2026-10-20, `o` on a conflict that
+    /// went through `xdg-open`). False when no editor ran: none named (the
+    /// path is said instead — opening it elsewhere could not be waited
+    /// for), or one that failed to start.
+    fn in_editor(&mut self, path: &std::path::Path) -> bool {
+        let editor = std::env::var("VISUAL")
+            .or_else(|_| std::env::var("EDITOR"))
+            .ok()
+            .filter(|e| !e.trim().is_empty());
+        let Some(editor) = editor else {
+            say!(self, "→ {} — no $EDITOR: set one, or :catalog shell to edit it there", path.display());
+            return false;
+        };
+        crate::keys::suspend_reader(true);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        crate::keys::raw_pause();
+        self.tui.suspend();
+        let status = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("{editor} \"$1\""))
+            .arg("forkstify")
+            .arg(path)
+            .status();
+        crate::keys::raw_resume();
+        crate::keys::drain_input();
+        self.tui.resume();
+        crate::keys::suspend_reader(false);
+        // painted right here, whatever comes next: the screen must not
+        // stay blank until the next gesture
+        self.paint();
+        if let Err(why) = status {
+            say!(self, "⏹ {editor}: {why}");
+            return false;
+        }
+        true
     }
 
     fn catalog_status(&mut self) {
@@ -4918,18 +4930,36 @@ impl Live<'_> {
         });
     }
 
-    /// `o` — the first card a stopped merge waits on, in the desktop's
-    /// editor. The terminal editor is out of reach: the key reader holds
-    /// stdin (the same limit as `ae`).
+    /// `o` — the first card a stopped merge waits on, in `$EDITOR`, the
+    /// terminal handed over as for `ae`; once it reads with no marker left,
+    /// it is added for the merge and `o` moves to the next.
     fn open_conflict(&mut self) {
         let Some(slug) = self.conflicts.first().cloned() else {
             self.tell("(nothing to open — o opens a card a merge stopped on)".to_string());
             return;
         };
         let path = crate::edit::card_path(&self.catalog_dir, &slug);
-        match std::process::Command::new("xdg-open").arg(&path).spawn() {
-            Ok(_) => self.tell(format!("→ {} — git add it once resolved, then :catalog", path.display())),
-            Err(why) => self.tell(format!("⏹ xdg-open: {why} — {}", path.display())),
+        if !self.in_editor(&path) {
+            return;
+        }
+        // resolved = no marker left and a card that reads: added for the
+        // merge, and the next one is a key away
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let marked = text.lines().any(|l| l.starts_with("<<<<<<<") || l.starts_with("=======") || l.starts_with(">>>>>>>"));
+        if marked {
+            return self.tell(format!("⊘ {slug} — conflict markers left: o to open it again"));
+        }
+        if let Err(why) = toml::from_str::<crate::catalog::Card>(&text) {
+            return self.tell(format!("⊘ {slug} — the card does not read ({}): o to open it again", why.message()));
+        }
+        let added = std::process::Command::new("git").arg("-C").arg(&self.catalog_dir).args(["add", "--"]).arg(&path).status();
+        if !added.is_ok_and(|s| s.success()) {
+            return self.tell(format!("⏹ {slug} — resolved, but git add failed: by hand, then :catalog"));
+        }
+        self.conflicts.retain(|s| *s != slug);
+        match self.conflicts.first() {
+            Some(next) => self.tell(format!("✓ {slug} resolved — o opens {next} ({} left)", self.conflicts.len())),
+            None => self.tell(format!("✓ {slug} resolved — the last one: :catalog completes the update")),
         }
     }
 

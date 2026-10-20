@@ -12,6 +12,18 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Fixed
+
+- **`Cu` no longer deletes files of your `learned/`.** The reference
+  dropped its own `learned/` on 2026-09-20; merging that into a fork
+  removed the learned files the fork had not touched since. `learned/`
+  now stays exactly yours through an update.
+- **`o` on a conflicted card no longer quits forkstify.** It opened the
+  card through `xdg-open`, which ran a terminal editor in forkstify's own
+  terminal, both reading the keyboard — the `q` of `:wq` quit forkstify.
+  It now opens `$EDITOR` the way `ae` does, and adds the card for the
+  merge once resolved.
+
 ### Added
 
 - **`forkstify discography [catalog]`** — harvests from MusicBrainz what

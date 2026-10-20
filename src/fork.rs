@@ -700,38 +700,54 @@ pub fn update_with(dir: &Path, regenerate: bool) -> Result<Update, String> {
     git(dir, &["fetch", "--quiet", "upstream"])?;
     let before = git(dir, &["rev-parse", "HEAD"])?;
     let base_commit = git(dir, &["merge-base", "HEAD", "upstream/main"])?;
-    let merged = git(dir, &["merge", "--no-edit", "-q", "upstream/main", "-m", "Update from the reference", "-m", &crate::sync::trailer("update")]);
-    if let Err(why) = merged {
-        let unmerged: Vec<String> = git(dir, &["diff", "--name-only", "--diff-filter=U"])?.lines().map(str::to_string).collect();
-        if unmerged.is_empty() {
-            return Err(format!("merge: {why}"));
-        }
-        // what resolves itself: the vectors are regenerated anyway, the
-        // learned is ours (0014), the tooling is theirs
-        let mut conflicts = Vec::new();
-        for path in &unmerged {
-            if path.starts_with("vectors/") || path.starts_with("tools/") || path.starts_with("README") || path == "CONTRIBUTING.md" {
-                if git(dir, &["checkout", "--theirs", "--", path]).is_err() {
-                    let _ = git(dir, &["rm", "-q", "--", path]);
-                }
-                let _ = git(dir, &["add", "--", path]);
-            } else if path.starts_with("learned/") {
-                if git(dir, &["checkout", "--ours", "--", path]).is_err() {
-                    let _ = git(dir, &["rm", "-q", "--", path]);
-                }
-                let _ = git(dir, &["add", "--", path]);
-            } else {
-                conflicts.push((slug_of(path), conflict_reason(dir, &base_commit, path)));
-            }
-        }
-        if !conflicts.is_empty() {
-            // stopped on cards: git gets the hand, :catalog resumes
-            let _ = std::fs::write(pending_file(), &before);
-            return Ok(Update { cards: 0, conflicts, word: "stopped on cards".to_string() });
-        }
-        git(dir, &["commit", "-q", "--no-edit"])?;
+    // never committed straight away: the learned is put back first
+    let merged = git(dir, &["merge", "--no-ff", "--no-commit", "-q", "upstream/main"]);
+    if !dir.join(".git/MERGE_HEAD").exists() {
+        // nothing to merge — or a merge that could not even start
+        return match merged {
+            Ok(_) => finish(dir, &before, regenerate),
+            Err(why) => Err(format!("merge: {why}")),
+        };
     }
+    keep_our_learned(dir)?;
+    let unmerged: Vec<String> = git(dir, &["diff", "--name-only", "--diff-filter=U"])?.lines().map(str::to_string).collect();
+    // what resolves itself: the vectors are regenerated anyway, the
+    // tooling is theirs (the learned is already ours, above)
+    let mut conflicts = Vec::new();
+    for path in &unmerged {
+        if path.starts_with("vectors/") || path.starts_with("tools/") || path.starts_with("README") || path == "CONTRIBUTING.md" {
+            if git(dir, &["checkout", "--theirs", "--", path]).is_err() {
+                let _ = git(dir, &["rm", "-q", "--", path]);
+            }
+            let _ = git(dir, &["add", "--", path]);
+        } else {
+            conflicts.push((slug_of(path), conflict_reason(dir, &base_commit, path)));
+        }
+    }
+    if !conflicts.is_empty() {
+        // stopped on cards: git gets the hand, :catalog resumes
+        let _ = std::fs::write(pending_file(), &before);
+        return Ok(Update { cards: 0, conflicts, word: "stopped on cards".to_string() });
+    }
+    commit_update(dir)?;
     finish(dir, &before, regenerate)
+}
+
+/// The learned is the fork's own (0014): whatever the reference did to
+/// `learned/` — it carried one until 2026-09-20, and removing it would
+/// delete, in every fork, the files nobody had touched since (Joel,
+/// 2026-10-20: six of his, `mbid.json` among them) — the merge leaves it
+/// exactly as it was before.
+fn keep_our_learned(dir: &Path) -> Result<(), String> {
+    if git(dir, &["ls-tree", "--name-only", "HEAD", "learned"])?.is_empty() {
+        git(dir, &["rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", "learned"])?;
+        return Ok(());
+    }
+    git(dir, &["restore", "--source=HEAD", "--staged", "--worktree", "--", "learned"]).map(|_| ())
+}
+
+fn commit_update(dir: &Path) -> Result<(), String> {
+    git(dir, &["commit", "-q", "-m", "Update from the reference", "-m", &crate::sync::trailer("update")]).map(|_| ())
 }
 
 /// After a merge — clean, or resolved by hand and committed: the index
@@ -781,7 +797,10 @@ pub fn resume_with(dir: &Path, regenerate: bool) -> Result<Update, String> {
         return Err(format!("{} card(s) still unmerged — git add them once resolved", unmerged.len()));
     }
     if dir.join(".git/MERGE_HEAD").exists() {
-        git(dir, &["commit", "-q", "--no-edit"])?;
+        // a merge stopped before this guard existed may still carry the
+        // reference's removals: the learned goes back to ours here too
+        keep_our_learned(dir)?;
+        commit_update(dir)?;
     }
     if before.is_empty() {
         return Err("nothing to resume".to_string());
@@ -905,6 +924,10 @@ mod tests {
         std::fs::create_dir_all(seed.join("cards")).unwrap();
         std::fs::write(seed.join("cards/the-cure.toml"), card("The Cure", &["A Forest"])).unwrap();
         std::fs::write(seed.join("catalog.toml"), "[proximity]\nsimilar = 4\n").unwrap();
+        // the reference carried a learned/ once (until 2026-09-20)
+        std::fs::create_dir_all(seed.join("learned/artists")).unwrap();
+        std::fs::write(seed.join("learned/mbid.json"), "{}\n").unwrap();
+        std::fs::write(seed.join("learned/artists/slowdive.toml"), "plays = 2.0\n").unwrap();
         sh(&seed, &["add", "-A"]);
         sh(&seed, &["commit", "-q", "-m", "seed"]);
         sh(&seed, &["push", "-q", "-u", "origin", "main"]);
@@ -950,7 +973,8 @@ mod tests {
         let files = sh(&fork_bare, &["ls-tree", "-r", "--name-only", PROPOSAL_BRANCH]);
         assert!(files.contains("cards/codeine.toml"), "{files}");
         assert!(files.contains("discography/codeine.toml"), "{files}");
-        assert!(!files.contains("learned/"), "{files}");
+        // the fork's learned never leaves with a proposal
+        assert!(!files.contains("learned/artists/the-cure.toml"), "{files}");
         let history = sh(&fork_bare, &["rev-list", "--count", &format!("upstream_main..{PROPOSAL_BRANCH}").replace("upstream_main", &sh(&clone, &["rev-parse", "upstream/main"]))]);
         assert_eq!(history.trim(), "1");
         let subject = sh(&fork_bare, &["log", "-1", "--format=%s", PROPOSAL_BRANCH]);
@@ -969,6 +993,8 @@ mod tests {
         // the reference moves on: a new card — the update merges it, and
         // commits the learned first
         std::fs::write(seed.join("cards/slowdive.toml"), card("Slowdive", &["Alison"])).unwrap();
+        // …and drops its learned: the fork's, untouched since, stays
+        sh(&seed, &["rm", "-q", "-r", "learned"]);
         sh(&seed, &["add", "-A"]);
         sh(&seed, &["commit", "-q", "-m", "slowdive"]);
         sh(&seed, &["push", "-q"]);
@@ -979,6 +1005,9 @@ mod tests {
         assert!(clone.join("cards/slowdive.toml").exists());
         assert!(clone.join("cards/codeine.toml").exists());
         assert!(sh(&clone, &["status", "--porcelain"]).is_empty(), "clean after the update");
+        assert!(clone.join("learned/mbid.json").exists(), "the reference's removal does not reach the fork's learned");
+        assert!(clone.join("learned/artists/slowdive.toml").exists());
+        assert_eq!(std::fs::read_to_string(clone.join("learned/artists/codeine.toml")).unwrap(), "plays = 1.0\n");
         assert!(sh(&clone, &["log", "--format=%s", "-3"]).contains("Update from the reference"));
 
         // both sides touch the same line of the same card: the update stops
@@ -997,6 +1026,7 @@ mod tests {
         sh(&clone, &["add", "cards/the-cure.toml"]);
         let resumed = resume_with(&clone, false).expect("resume");
         assert_eq!(resumed.cards, 1, "{}", resumed.word);
+        assert!(clone.join("learned/mbid.json").exists());
         assert!(!clone.join(".git/MERGE_HEAD").exists());
         assert!(!status(&clone).pending);
         let _ = std::fs::remove_dir_all(&root);

@@ -93,6 +93,22 @@ an hour**. Not run on a real catalog yet.
    (linear, ×3 → ×1 over 6 weeks), `x` to dismiss; then discovery routes
    1, 2 and 4.
 
+**Two bugs of `Cu`, found by Joel's first update with the discographies
+(2026-10-20)**: (1) the reference dropped its `learned/` on 2026-09-20,
+and merging that removed, in the fork, the six learned files untouched
+since (`mbid.json`, `faits-mb.json`, three artists, a playlist) — the
+merge now runs `--no-commit`, `fork::keep_our_learned` puts `learned/` back
+exactly as before, then it commits; `resume` does the same for a merge
+stopped before the fix. Joel's six files were put back by hand before
+the merge was completed. (2) `o` opened a conflicted card with
+`xdg-open`, which runs nvim in forkstify's own terminal: `:wq` quit
+forkstify, and the relaunch fell on the setup because two cards still
+carried their markers (`Catalog::load` fails → setup). `o` now hands the
+terminal to `$EDITOR` like `ae` (`Live::in_editor`) and adds the card once
+it reads with no marker. The three conflicts (Blondie, Eels, Cigarettes
+After Sex — a link of Joel's beside lines the reference changed) were
+resolved keeping his links.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,
