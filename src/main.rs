@@ -24,6 +24,7 @@ mod learned;
 mod library;
 mod listen;
 mod mediakeys;
+mod releases;
 mod setup;
 mod sound;
 mod sync;
@@ -450,9 +451,29 @@ fn main() -> anyhow::Result<()> {
                 }
             };
         }
+        // the MusicBrainz harvest of the discographies (0027–0029): every
+        // card with no file yet, or the ones `--artist` names
+        [command, rest @ ..] if command == "discography" => {
+            let mut only = Vec::new();
+            let mut path = None;
+            let mut args = rest.iter();
+            while let Some(arg) = args.next() {
+                match arg.as_str() {
+                    "--artist" => only.extend(args.next().cloned()),
+                    _ => path = Some(arg),
+                }
+            }
+            return match releases::run(&catalog_path(path), &only) {
+                Ok(()) => Ok(()),
+                Err(why) => {
+                    eprintln!("discography: {why}");
+                    std::process::exit(1);
+                }
+            };
+        }
         [command, target, rest @ ..] => (command.as_str(), target, rest.first()),
         _ => {
-            eprintln!("usage: forkstify [journey|listen|check <seed>] [catalog]\n       forkstify import <catalog url> [catalog]\n       forkstify vectors [catalog] [--texts]\n       forkstify validate [catalog]\n       forkstify merge-learned <base> <ours> <theirs>   (git merge driver)");
+            eprintln!("usage: forkstify [journey|listen|check <seed>] [catalog]\n       forkstify import <catalog url> [catalog]\n       forkstify vectors [catalog] [--texts]\n       forkstify discography [catalog] [--artist <slug>]…\n       forkstify validate [catalog]\n       forkstify merge-learned <base> <ours> <theirs>   (git merge driver)");
             std::process::exit(2);
         }
     };

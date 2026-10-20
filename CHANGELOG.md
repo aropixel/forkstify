@@ -12,6 +12,15 @@ the version it cuts, so this file cannot fall behind.
 
 ## Unreleased
 
+### Added
+
+- **`forkstify discography [catalog]`** — harvests from MusicBrainz what
+  each artist of the catalog released (albums, EPs, singles and
+  soundtracks, with their tracks) into `discography/<slug>.toml`, one file
+  per artist, committed by batches of 25. Run it again after an
+  interruption: it resumes. `--artist <slug>` harvests only the ones
+  named.
+
 ## 0.2.0 — 2026-10-07
 
 Two weeks of daily listening. The agent can now propose the connections

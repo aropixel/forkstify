@@ -515,6 +515,7 @@ mod tests {
     fn card_of(name: &str) -> Card {
         Card {
             name: name.into(),
+            mbid: None,
             spotify: None,
             tags: Vec::new(),
             tops: vec![format!("{name} — one")],
@@ -530,6 +531,7 @@ mod tests {
     fn catalog() -> Catalog {
         let card = |name: &str| Card {
             name: name.into(),
+            mbid: None,
             spotify: None,
             tags: Vec::new(),
             tops: vec![format!("{name} — one")],

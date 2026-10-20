@@ -16,7 +16,7 @@ use std::process::Command;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The trailer of every commit made by forkstify. `kind` says which gesture
-/// wrote it: `learned`, `edit`, `import`.
+/// wrote it: `learned`, `edit`, `import`, `discography`…
 pub fn trailer(kind: &str) -> String {
     format!("Forkstify: {kind} {VERSION}")
 }
@@ -68,6 +68,24 @@ pub fn commit_learned(dir: &Path) -> Result<Option<String>, String> {
     let subject = format!("learned: {}", parts.join(", "));
     git(dir, &["commit", "-q", "-m", &subject, "-m", &trailer("learned")])?;
     Ok(Some(subject))
+}
+
+/// Commit whatever changed in one folder of the catalogue, and nothing
+/// else — what is staged or modified elsewhere stays as it is. `Ok(false)`
+/// when the folder had nothing to commit.
+pub fn commit_folder(dir: &Path, folder: &str, subject: &str, body: Option<&str>, kind: &str) -> Result<bool, String> {
+    if git(dir, &["status", "--porcelain", "--", folder])?.is_empty() {
+        return Ok(false);
+    }
+    git(dir, &["add", "-A", "--", folder])?;
+    let trailer = trailer(kind);
+    let mut args = vec!["commit", "-q", "-m", subject];
+    if let Some(body) = body {
+        args.extend(["-m", body]);
+    }
+    args.extend(["-m", trailer.as_str(), "--", folder]);
+    git(dir, &args)?;
+    Ok(true)
 }
 
 pub fn push(dir: &Path) -> Result<(), String> {

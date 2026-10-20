@@ -58,6 +58,9 @@ pub struct Door {
 #[derive(Deserialize)]
 pub struct Card {
     pub name: String,
+    /// The artist's identity (0009) — required by the format, checked by
+    /// `validate`; what the discography is harvested by (0027).
+    pub mbid: Option<String>,
     /// The artist's Spotify id, when the card carries one (212 of 214) —
     /// the way in to the long tail.
     pub spotify: Option<String>,

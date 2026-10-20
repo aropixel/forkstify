@@ -16,15 +16,33 @@ MusicBrainz, the holes were soundtracks and split projects), the list
 and the boost in [design/new-releases.md](design/new-releases.md)
 ("Decided on 2026-10-20"). Nothing is coded yet, and nothing waits on Joel.
 
+**Coded on 2026-10-20 — `forkstify discography [catalog] [--artist
+<slug>]…`** (`src/releases.rs`). Every card with no file yet, or the ones
+named; MusicBrainz in a few calls per artist — the release groups by pages
+of 100 (`inc=url-rels` for the Spotify links), then the official releases
+**with their recordings**, about fifty a page, the earliest of each group
+giving the tracks (Eels: 5 calls, not 120). The projects of 0029 §3 come
+from an `artist-rels` lookup. A group with **no official release** —
+promos, bootlegs — is left out: no track list to take, never on sale (15 of
+the Velvet's 28 groups, 8 of Eels' 63). Video media of a deluxe are not
+discs. The file is written whole (a `.partial` renamed), commits go by 25
+through `sync::commit_folder` with `Forkstify: discography`, and what an
+interrupted run wrote goes into a commit of its own at the next start.
+`Card` now reads `mbid`. Tried on a copy of Joel's fork: Boo 2, Eels 55,
+Hope Sandoval 12 (with the Warm Inventions), Lionel Limiñana 5
+(soundtracks), Michel Cloup 12 (with the Duo), the Velvet 13, Traband 8 —
+about 10 s an artist, so **the whole reference (408 cards) is a little over
+an hour**. Not run on a real catalog yet.
+
 **Next, in this order**:
 
-1. **`forkstify discography [catalog]`** — the MusicBrainz harvest
-   (release groups album/EP/single with no secondary type but
-   `Soundtrack`, over every MBID of `artists`, the projects proposed by
-   name and *member of band*, the tracks of
-   the earliest official release, 1 request per second), the file written
-   deterministically (0027 §5, 0028 §1), resumable, a commit per batch of
-   25 with `Forkstify: discography`. Then run it on the reference.
+1. **Before harvesting the reference**: `forkstify validate` reads
+   `discography/` too (format, the card exists, `artists` starts with the
+   card's MBID); the reference's `catalog.yml` lets a PR touch
+   `discography/` (today: "only cards may change"); the proposal (`Cp`,
+   `fork::diff`) carries the discographies a fork harvested (today it
+   only reads `cards/`). Then run the harvest on a clone of the
+   reference.
 2. **A card generated on the fly is born with its discography**, in its
    `Forkstify: generate` commit; **`ad` on a card with no file** harvests
    it (0029 §4).

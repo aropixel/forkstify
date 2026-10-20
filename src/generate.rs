@@ -180,7 +180,7 @@ fn get(url: &str) -> Result<Option<serde_json::Value>, String> {
     Err(format!("{host} is busy — try again in a moment"))
 }
 
-fn musicbrainz(path: &str) -> Result<Option<serde_json::Value>, String> {
+pub fn musicbrainz(path: &str) -> Result<Option<serde_json::Value>, String> {
     std::thread::sleep(MB_PAUSE);
     get(&format!("https://musicbrainz.org/ws/2/{path}"))
 }

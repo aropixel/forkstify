@@ -1171,6 +1171,7 @@ mod tests {
     fn the_cure() -> Card {
         Card {
             name: "The Cure".into(),
+            mbid: None,
             spotify: None,
             tags: vec!["post-punk".into(), "80s".into()],
             tops: vec!["Boys Don't Cry".into(), "A Forest".into()],
