@@ -176,6 +176,11 @@ past its month was redone. `discography::view` now adds them only before
 the artist's very first match; the first opening of each artist still
 changes once (all of them, right after the cache was cleared).
 
+**`ti` in the discography** (Joel, 2026-10-21): the highlighted track
+right after what plays (`Live::explore_insert`, `queue.push_front`, marked
+"inserted (ti)"), the modal staying open — the listening's `ti` without
+the search.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,

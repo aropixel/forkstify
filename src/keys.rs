@@ -216,10 +216,11 @@ const ARTIST_KEYS: [char; 8] = ['l', 's', 'b', 'e', 'c', 'd', 'g', 'S'];
 /// `Cd` diff, `Cp` propose, `Cu` update.
 const CATALOG_KEYS: [char; 3] = ['d', 'p', 'u'];
 /// In the discography modal, `t` only serves what makes sense on a list
-/// line: the two edits and the two measures.
+/// line: the two measures, and `ti` — the highlighted track right after
+/// what plays (Joel, 2026-10-21).
 // no more `tt` / `tT` here either (Joel, 08/09/2026): the modal likes,
 // bans, queues — and `A` promotes an album in one go
-const MODAL_TRACK_KEYS: [char; 2] = ['l', 'b'];
+const MODAL_TRACK_KEYS: [char; 3] = ['l', 'b', 'i'];
 
 /// Match the pending buffer against the grammar of 0015.
 pub fn parse(buf: &str) -> Parse {
@@ -811,6 +812,14 @@ mod tests {
 
     /// The property the whole design rests on: no complete command may be
     /// the start of a longer one, or it could never fire without a timeout.
+    #[test]
+    fn the_discography_takes_ti_and_the_album_jumps() {
+        assert!(matches!(parse_modal("t"), Parse::Pending));
+        assert!(matches!(parse_modal("ti"), Parse::Done(Cmd::Track('i'))));
+        assert!(matches!(parse_modal("J"), Parse::Done(Cmd::PageDown)));
+        assert!(matches!(parse_modal("tt"), Parse::Unknown));
+    }
+
     #[test]
     fn grammar_is_prefix_free() {
         let alphabet: Vec<char> =

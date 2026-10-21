@@ -4596,6 +4596,7 @@ impl Live<'_> {
         match cmd {
             Cmd::Track('l') => self.explore_measure(true),
             Cmd::Track('b') => self.explore_measure(false),
+            Cmd::Track('i') => self.explore_insert(),
             Cmd::Enqueue => self.explore_enqueue(),
             Cmd::AlbumQueue => self.explore_album_queue(),
             Cmd::AlbumNow => self.explore_album_now(),
@@ -4687,6 +4688,35 @@ impl Live<'_> {
             uri: None,
         });
         screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
+        self.explore = Some(screen);
+    }
+
+    /// `ti` in the discography — the highlighted track **right after what
+    /// plays**, the modal staying open (Joel, 2026-10-21): the `ti` of the
+    /// listening, without the search, the anchor being what plays. Marked
+    /// "inserted (ti)" in the list, as there.
+    fn explore_insert(&mut self) {
+        let Some(mut screen) = self.explore.take() else { return };
+        let Some((title, source)) =
+            screen.track().map(|track| (track.title.clone(), mark_of(track)))
+        else {
+            screen.notice = "(move onto a track)".into();
+            self.explore = Some(screen);
+            return;
+        };
+        self.queue.push_front(crate::engine::Stop {
+            slug: screen.slug.clone(),
+            artist: screen.name.clone(),
+            title: title.clone(),
+            source,
+            head: Some(crate::engine::Head { label: title.clone(), reason: "inserted (ti)".to_string() }),
+            encore: false,
+            uri: None,
+        });
+        screen.notice = match &self.current {
+            Some(current) => format!("→ {title} — next, after {}", current.title),
+            None => format!("→ {title} — next"),
+        };
         self.explore = Some(screen);
     }
 

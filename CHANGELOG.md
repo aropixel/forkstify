@@ -38,6 +38,8 @@ the version it cuts, so this file cannot fall behind.
 
 - **`J` / `K` and page down / page up in `ad`**: straight to the next or
   the previous album.
+- **`ti` in `ad`**: the highlighted track right after what plays, the
+  discography staying open.
 - **`:sync` brings the catalog back in sync** — pull, then push — and the
   status line says why a sync failed ("⇅ not synced — …") instead of
   "offline" for anything.

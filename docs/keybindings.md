@@ -335,6 +335,7 @@ artist that is open, so any doubt is settled on screen.
 | `T` | **Tops**: promote the album's four most played tracks, outside the tops — put **pending**. It was `A` until 2026-09-28, when `a`/`A` took the album into the playlist; `T` reads as tops, beside the `t` of the track. No more `tt` / `tT` here either (Joel, 2026-09-08): a single track gets liked, it does not get promoted | ✅ |
 | `tb` | Ban the row — a **measurement**, written right away (like / unlike: `tl`, a toggle) | ✅ |
 | `e` | Put the track **in the queue**, without closing | ✅ |
+| `ti` | **Insert the track right after what plays**, without closing — the listening's `ti`, without the search: the anchor is what plays, the row is the track. It carries "inserted (ti)" in the list (Joel, 2026-10-21) | ✅ |
 | `tl` | Like / **unlike** (toggle) the row — a measurement written right away (Joel, 2026-09-14) | ✅ |
 | `s` | The order: chronological ⇄ my plays first | ✅ |
 | `v` | The **view**: all → ♪ tops → ♥ liked → ⊘ banned | ✅ |
