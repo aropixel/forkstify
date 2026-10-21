@@ -166,6 +166,16 @@ the pre-0027 caches (`from_legacy`, `Tail::convert`), no version of the
 rules in the cache; an old-format file is simply not read, and Joel's
 cache is cleared by hand once.
 
+**`ad` no longer grows then shrinks on a match that is redone**
+(2026-10-21, Joel on Camille and Nouvelle Vague: a bigger list, years
+mixed, then clean a few seconds later). The releases Spotify does not
+have — Camille 7 of 23, Nouvelle Vague 11 of 27, among them two 1994
+singles MusicBrainz most likely misattributes and an album announced for
+the 30th — showed until the match landed, and again each time a match
+past its month was redone. `discography::view` now adds them only before
+the artist's very first match; the first opening of each artist still
+changes once (all of them, right after the cache was cleared).
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,

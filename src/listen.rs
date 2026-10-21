@@ -4469,11 +4469,11 @@ impl Live<'_> {
         Ok(usable)
     }
 
-    /// What `ad` shows of an artist: the matched tail, and while the match
-    /// is not complete, the releases of `discography/` it does not cover.
+    /// What `ad` shows of an artist: the matched tail — or, before its
+    /// first match, the releases of `discography/`.
     fn discography_view(&self, slug: &str) -> Vec<crate::discography::TailTrack> {
         let releases = crate::releases::read(&self.catalog_dir, slug);
-        crate::discography::view(self.tail.of(slug), releases.as_deref(), self.tail.fresh(slug))
+        crate::discography::view(self.tail.of(slug), releases.as_deref(), self.tail.has(slug))
     }
 
     /// A card with no `discography/` file: harvest it from MusicBrainz
