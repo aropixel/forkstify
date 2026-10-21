@@ -74,9 +74,11 @@ the version it cuts, so this file cannot fall behind.
   are not read: each artist is matched again as it is needed, one at a
   time in the background; run `Cu` first so your fork has the
   reference's discographies.
-- **`ad` shows the whole discography at once**, from the catalog: the
-  releases not matched with Spotify yet are marked "… matching" and fill
-  in as the match lands.
+- **`ad` shows only what plays.** A release Spotify does not have is
+  never listed, and the screen never takes back what it showed: the first
+  time an artist is opened, before any match, it holds the tops and fills
+  in when the match lands; a match redone later changes nothing on
+  screen.
 
 ## 0.2.0 — 2026-10-07
 

@@ -192,6 +192,20 @@ search and a non-quiet harvest), never while another harvest runs; 600 s
 of rest after a failed or short match. `:catalog` shows "discographies
 ready N / M". Not tried live yet.
 
+**`ad` shows only what plays — the immediate display is withdrawn**
+(Joel, 2026-10-21: "one cannot show one discography at a time T and a
+completely different one all of a sudden", and greyed rows are not
+acceptable either: "why show what will never play?"). Showing the
+releases of `discography/` before the match was what made the screen
+grow then shrink: without a match, what will play cannot be known.
+`discography::view` and `Album.pending` are gone; before an artist's first
+match the modal holds the tops ("… matching on Spotify — tops first") and
+only grows; a match redone behind changes nothing on screen. The warm-up
+makes that first opening rare. Asked along the way what `discography/`
+is still for: Joel keeps it — the filter that makes the Spotify list
+clean (works, true dates and kinds, projects), the memory the new-release
+watch builds on, and the hand corrections shared through the PR.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,

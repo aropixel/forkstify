@@ -2649,9 +2649,6 @@ fn render_explore(frame: &mut ratatui::Frame, area: Rect, screen: &crate::explor
                     "to review".to_string()
                 } else {
                     let mut said = Vec::new();
-                    if album.pending {
-                        said.push("… matching".to_string());
-                    }
                     if album.tops() > 0 {
                         said.push(format!("♪ {}", album.tops()));
                     }

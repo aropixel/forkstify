@@ -1646,15 +1646,6 @@ impl Live<'_> {
                 match result.and_then(|d| crate::releases::commit_one(&self.catalog_dir, &slug, &d)) {
                     Ok(Some(n)) => {
                         say!(self, "✓ discography of {name} — {n} release(s) from MusicBrainz, committed");
-                        // the releases show at once, the match fills them in
-                        if watching {
-                            let shown = self.discography_view(&slug);
-                            if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
-                                screen.reload(&shown, &self.learned);
-                                screen.loading = true;
-                                screen.notice = "… matching on Spotify — the releases first".to_string();
-                            }
-                        }
                         // what plays it comes next: the Spotify match
                         if let Err(why) = self.harvest(&slug, !watching) {
                             say!(self, "⏹ {why}");
@@ -4566,11 +4557,12 @@ impl Live<'_> {
         (ready, listened.len())
     }
 
-    /// What `ad` shows of an artist: the matched tail — or, before its
-    /// first match, the releases of `discography/`.
+    /// What `ad` shows of an artist: what plays — the match, and nothing
+    /// it has not found. Before an artist's first match the screen holds
+    /// the tops and fills in; it never shows a release to take it back
+    /// (Joel, 2026-10-21: "why show what will never play?").
     fn discography_view(&self, slug: &str) -> Vec<crate::discography::TailTrack> {
-        let releases = crate::releases::read(&self.catalog_dir, slug);
-        crate::discography::view(self.tail.of(slug), releases.as_deref(), self.tail.has(slug))
+        self.tail.of(slug).to_vec()
     }
 
     /// A card with no `discography/` file: harvest it from MusicBrainz
@@ -4669,13 +4661,11 @@ impl Live<'_> {
             say!(self, "(nothing to show from {} — neither discography nor tops)", stop.artist);
             return;
         }
-        if loading || !self.tail.fresh(&stop.slug) {
+        // a match redone behind changes nothing on screen: only the very
+        // first one says it is coming
+        if loading {
             screen.loading = true;
-            screen.notice = if crate::releases::path_of(&self.catalog_dir, &stop.slug).exists() {
-                "… matching on Spotify — the releases first".to_string()
-            } else {
-                "… discography loading — tops first".to_string()
-            };
+            screen.notice = "… matching on Spotify — tops first".to_string();
         }
         crate::keys::set_modal(true);
         self.explore = Some(screen);

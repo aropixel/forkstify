@@ -260,33 +260,6 @@ pub fn match_albums(releases: &[crate::releases::Release], albums: &[SpotifyAlbu
     matched
 }
 
-/// What `ad` shows: the matched tail; and before the artist's very first
-/// match, every release of `discography/`, its tracks with no uri —
-/// MusicBrainz's word, at once (Joel, 2026-10-20). Once a match exists,
-/// only what it found, even while it is redone: a release Spotify does not
-/// have is not shown, as for the new releases, and the screen does not
-/// grow then shrink every month (Joel, 2026-10-21).
-pub fn view(tail: &[TailTrack], releases: Option<&[crate::releases::Release]>, matched: bool) -> Vec<TailTrack> {
-    let mut tracks = tail.to_vec();
-    let Some(releases) = releases.filter(|_| !matched) else { return tracks };
-    for release in releases {
-        if tail.iter().any(|t| t.album == release.title) {
-            continue;
-        }
-        tracks.extend(release.tracks.iter().map(|t| TailTrack {
-            title: t.title.clone(),
-            uri: String::new(),
-            album: release.title.clone(),
-            released: release.date.clone(),
-            number: t.n,
-            duration_ms: 0,
-            single: release.kind != "album",
-            disc: t.disc.unwrap_or(1),
-        }));
-    }
-    tracks
-}
-
 /// The tracks of one matched release, as the tail keeps them: the whole
 /// Spotify edition plays (0028 §5), dated and titled by the release.
 pub fn tail_of(release: &crate::releases::Release, album: &serde_json::Value) -> Vec<TailTrack> {
@@ -492,25 +465,6 @@ mod tests {
         assert_eq!(tail.len(), 2);
         assert!(tail.iter().all(|t| t.album == "Loaded" && t.released == "1970-11" && !t.single));
         assert_eq!((tail[1].disc, tail[1].number), (2, 1));
-    }
-
-    /// `ad` before the first match: every release, with no uri; once a
-    /// match exists, only what Spotify plays.
-    #[test]
-    fn the_releases_show_while_the_match_runs() {
-        let mut loaded = release("Loaded", "album", "1970-11");
-        loaded.tracks = vec![crate::releases::Track { disc: None, n: 1, title: "Who Loves the Sun".into(), mbid: "r".into() }];
-        let mut nico = release("The Velvet Underground & Nico", "album", "1967-03-12");
-        nico.tracks = vec![crate::releases::Track { disc: None, n: 1, title: "Sunday Morning".into(), mbid: "s".into() }];
-        let tail = vec![TailTrack { album: "Loaded".into(), ..track("Who Loves the Sun", "spotify:track:a", "1970-11", false) }];
-        let releases = [loaded, nico];
-        // before any match: the releases, with no uri
-        let first = view(&[], Some(&releases), false);
-        assert_eq!(first.len(), 2);
-        assert!(first.iter().all(|t| t.uri.is_empty()));
-        // once matched, only the match — even while it is redone
-        assert_eq!(view(&tail, Some(&releases), true).len(), 1);
-        assert_eq!(view(&tail, None, false).len(), 1);
     }
 
     #[test]
