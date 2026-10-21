@@ -171,6 +171,9 @@ async fn async_run(
         dry_tracks: 0,
         harvesting: HashMap::new(),
         releasing: HashSet::new(),
+        warming: None,
+        warm_next: std::time::Instant::now() + std::time::Duration::from_secs(60),
+        spotify_used: std::cell::Cell::new(std::time::Instant::now()),
         screen: Screen::Home,
         home: Home::default(),
         status,
@@ -242,6 +245,7 @@ async fn async_run(
             _ = tick.tick() => {
                 // a lost session is opened again by itself, off the loop
                 live.watch_sound();
+                live.warm();
                 if live.progress.as_ref().is_some_and(|p| p.running) || live.toast_active() {
                     live.paint();
                 }
@@ -532,6 +536,12 @@ struct Live<'a> {
     /// The cards whose `discography/` file is being harvested from
     /// MusicBrainz, so a second `ad` does not ask again.
     releasing: HashSet<String>,
+    /// The background warm-up (Joel, 2026-10-21): which artist it is
+    /// matching, when it may take the next one, and the last time the
+    /// player itself asked Spotify — the warm-up stays out of its way.
+    warming: Option<String>,
+    warm_next: std::time::Instant,
+    spotify_used: std::cell::Cell<std::time::Instant>,
     /// Which screen is up: the home or the session. The session lives on
     /// under the home — the sound, the queue, the branches (Joel,
     /// 08/09/2026).
@@ -1313,6 +1323,7 @@ impl Live<'_> {
     /// Ask Spotify for a track's address, off the loop. The cache inside
     /// `WebApi` remembers the answer; the loop hears of it as a job.
     fn spawn_resolve(&self, title: &str, artist: &str, artist_id: Option<String>) {
+        self.spotify_used.set(std::time::Instant::now());
         let web = self.web.clone();
         let tx = self.jobs_tx.clone();
         let (title, artist) = (title.to_string(), artist.to_string());
@@ -1398,6 +1409,14 @@ impl Live<'_> {
             }
             Job::Harvested { slug, result, quiet } => {
                 self.harvesting.remove(&slug);
+                if self.warming.as_deref() == Some(slug.as_str()) {
+                    self.warming = None;
+                    // a match that failed or came back short is most often
+                    // the rate limit: the warm-up steps back ten minutes
+                    if !matches!(&result, Ok((_, true))) {
+                        self.warm_next = std::time::Instant::now() + std::time::Duration::from_secs(600);
+                    }
+                }
                 let name = self.catalog.cards.get(&slug).map(|c| c.name.clone()).unwrap_or(slug.clone());
                 let result = result.map(|(tracks, complete)| {
                     // the branches on the table keep their tracks: a list
@@ -3629,6 +3648,7 @@ impl Live<'_> {
         if query.chars().count() >= 2 {
             finder.spotify = None;
             finder.asked = query.clone();
+            self.spotify_used.set(std::time::Instant::now());
             let web = self.web.clone();
             let tx = self.jobs_tx.clone();
             tokio::task::spawn_local(async move {
@@ -4456,6 +4476,9 @@ impl Live<'_> {
         };
         // an old tail plays on while the new match runs: nobody waits on it
         let quiet = quiet || usable;
+        if !quiet {
+            self.spotify_used.set(std::time::Instant::now());
+        }
         self.harvesting.insert(slug.to_string(), quiet);
         let web = self.web.clone();
         let tx = self.jobs_tx.clone();
@@ -4467,6 +4490,80 @@ impl Live<'_> {
             let _ = tx.send(Job::Harvested { slug, result, quiet });
         });
         Ok(usable)
+    }
+
+    /// The artists the warm-up prepares, in its order (Joel, 2026-10-21):
+    /// what is about to play — the current artist, the queue, the branches
+    /// on show —, then the artists listened to, the most familiar first.
+    /// Banned artists, cards without a Spotify id or a `discography/`
+    /// file, and matches still fresh are left out.
+    fn warm_order(&self) -> Vec<String> {
+        let mut soon: Vec<String> = Vec::new();
+        let stops = self.current.iter().chain(self.queue.iter()).chain(self.branches.iter().flat_map(|b| b.stops.iter()));
+        for stop in stops {
+            if !stop.slug.is_empty() && !soon.contains(&stop.slug) {
+                soon.push(stop.slug.clone());
+            }
+        }
+        let mut listened: Vec<(f32, String)> = self
+            .catalog
+            .cards
+            .iter()
+            .map(|(slug, card)| (self.learned.familiarity01(slug, &card.name), slug.clone()))
+            .filter(|(familiarity, slug)| *familiarity > 0.0 && !soon.contains(slug))
+            .collect();
+        listened.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        soon.into_iter()
+            .chain(listened.into_iter().map(|(_, slug)| slug))
+            .filter(|slug| self.warmable(slug))
+            .collect()
+    }
+
+    /// One the warm-up may take: a card with a Spotify id and a
+    /// `discography/` file, not banned.
+    fn warmable(&self, slug: &str) -> bool {
+        self.catalog.cards.get(slug).is_some_and(|card| card.spotify.is_some())
+            && !self.learned.artist_is_banned(slug)
+            && crate::releases::path_of(&self.catalog_dir, slug).exists()
+    }
+
+    /// The background warm-up, on the second's tick: one artist at a time,
+    /// `warm_pause_seconds` between two, never within a minute of the
+    /// player's own calls nor while another match runs — so a track to
+    /// play or an `ad` never queues behind it. Says nothing; `:catalog`
+    /// counts what is ready.
+    fn warm(&mut self) {
+        let now = std::time::Instant::now();
+        if now < self.warm_next || self.warming.is_some() || !self.harvesting.is_empty() {
+            return;
+        }
+        if now.duration_since(self.spotify_used.get()) < std::time::Duration::from_secs(60) {
+            return;
+        }
+        let Some(slug) = self.warm_order().into_iter().find(|slug| !self.tail.fresh(slug)) else {
+            // everything is ready: look again in a while
+            self.warm_next = now + std::time::Duration::from_secs(600);
+            return;
+        };
+        self.warm_next = now + std::time::Duration::from_secs_f32(crate::config::tuning().warm_pause_seconds);
+        if matches!(self.harvest(&slug, true), Ok(_)) && self.harvesting.contains_key(&slug) {
+            self.warming = Some(slug);
+        }
+    }
+
+    /// `:catalog`'s count: of the artists the warm-up prepares, how many
+    /// have a fresh match.
+    fn warm_count(&self) -> (usize, usize) {
+        let listened: Vec<&String> = self
+            .catalog
+            .cards
+            .iter()
+            .filter(|(slug, card)| self.learned.familiarity01(slug, &card.name) > 0.0)
+            .map(|(slug, _)| slug)
+            .filter(|slug| self.warmable(slug))
+            .collect();
+        let ready = listened.iter().filter(|slug| self.tail.fresh(slug)).count();
+        (ready, listened.len())
     }
 
     /// What `ad` shows of an artist: the matched tail — or, before its
@@ -4967,7 +5064,11 @@ impl Live<'_> {
                 Err(why) => self.tell(format!("⊘ {why}")),
             }
         }
-        self.overlay = Some(("C — the catalog".into(), status.lines()));
+        let mut lines = status.lines();
+        let (ready, all) = self.warm_count();
+        let at = lines.len().saturating_sub(2);
+        lines.insert(at, format!("  discographies ready  {ready} / {all} — matched with Spotify in the background, the most familiar first"));
+        self.overlay = Some(("C — the catalog".into(), lines));
     }
 
     /// `Cd`, `Cp`, `Cu`: git off the loop, the answer comes back as a job.

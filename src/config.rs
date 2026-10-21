@@ -99,6 +99,10 @@ pub struct Tuning {
     /// In days: how long an artist's match with Spotify is kept before it
     /// is made again — Spotify's terms forbid keeping its content for good.
     pub spotify_match_days: f32,
+    /// In seconds: the pause between two artists the background warm-up
+    /// prepares — under the shared client id's pace (about one call every
+    /// 20 s, a match being two to five).
+    pub warm_pause_seconds: f32,
 }
 
 impl Default for Tuning {
@@ -127,6 +131,7 @@ impl Default for Tuning {
             leap_trust_cocoon: 0.86,
             leap_trust_open: 0.70,
             spotify_match_days: 30.0,
+            warm_pause_seconds: 120.0,
         }
     }
 }
@@ -184,6 +189,7 @@ impl Tuning {
         check!(leap_trust_cocoon, cosine, "-1 to 1");
         check!(leap_trust_open, cosine, "-1 to 1");
         check!(spotify_match_days, |v: f32| v.is_finite() && v >= 1.0, "days, 1 and above");
+        check!(warm_pause_seconds, |v: f32| v.is_finite() && v >= 20.0, "seconds, 20 and above");
         if self.weight_floor > self.weight_ceiling {
             eprintln!("config: tuning.weight_floor is above weight_ceiling, using the defaults for both");
             self.weight_floor = default.weight_floor;
@@ -339,6 +345,12 @@ leap_trust_open = 0.70
 # machine, then kept spotify_match_days days and matched again the next
 # time the artist is needed — Spotify's terms forbid keeping it for good.
 spotify_match_days = 30.0
+
+# In the background, while forkstify runs, the discographies of the artists
+# you listened to are matched ahead — the most familiar first — one artist,
+# then warm_pause_seconds of rest, and never while the player itself is
+# asking Spotify. Higher = gentler on the shared client id.
+warm_pause_seconds = 120.0
 ";
 
 fn path() -> PathBuf {

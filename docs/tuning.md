@@ -142,6 +142,7 @@ content for good, so the match has an age.
 
 | Setting | Default | What it does | Raise / lower |
 |---|---|---|---|
+| `warm_pause_seconds` | `120.0` | In seconds: while forkstify runs, the discographies of the artists you listened to are matched ahead in the background — what is about to play first, then the most familiar — one artist, then this pause; never within a minute of the player's own calls, ten minutes of rest after a match that failed. `:catalog` counts what is ready. | Higher = gentler on the shared client id, the catalog ready later. Lower than ~60 = the warm-up competes with the player's calls (the client id gives about one call every 20 s). |
 | `spotify_match_days` | `30.0` | In days: how long an artist's match is kept. Past it, the tracks still play, and the match is made again, behind, the next time the artist is needed — never all at once. | Lower = a track Spotify withdrew is noticed sooner, at the price of a few calls per played artist on a client id shared with every ncspot user. Higher = fewer calls, closer to the lasting storage the terms rule out. |
 
 ## What is not a setting, and why

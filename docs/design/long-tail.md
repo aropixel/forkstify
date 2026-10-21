@@ -144,6 +144,28 @@ the runaway.
 3. **Expiry.** Never (a discography barely moves, and a `:warm` forces the
    update), or a TTL.
 
+## Decided on 2026-10-21 — the warm-up (Joel)
+
+So that `ad` opens on a match already made — no list that grows then
+shrinks on the first opening —, the matches are prepared **ahead, in the
+background**, while forkstify runs: no daemon, no system task.
+
+- **Who**: what is about to play (the current artist, the queue, the
+  branches on show), then **the artists listened to** (familiarity above
+  0), the most familiar first. Banned artists, cards without a Spotify id
+  or a `discography/` file, and matches still fresh are left out; the
+  others are matched when a branch brings them.
+- **At what pace**: one artist at a time, **two minutes** between two
+  (`warm_pause_seconds`), never within a minute of the player's own calls
+  (a track resolved, a search, an `ad`), never while another match runs,
+  ten minutes of rest after a match that failed or came back short — the
+  client id is shared and gives about one call every 20 s.
+- **What it says**: nothing on screen; `:catalog` counts the discographies
+  ready, "N / M".
+
+About 90 artists of score 5 and more, one to two minutes each: the first
+weeks catch up, then the warm-up only renews what expires.
+
 ## The order, and why it matters
 
 **The comfort zone (0001) should come before the tail.**

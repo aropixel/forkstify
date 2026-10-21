@@ -40,6 +40,10 @@ the version it cuts, so this file cannot fall behind.
   the previous album.
 - **`ti` in `ad`**: the highlighted track right after what plays, the
   discography staying open.
+- **The discographies are prepared in the background** while forkstify
+  runs — what is about to play first, then the artists you listened to,
+  the most familiar first, one every two minutes (`warm_pause_seconds`),
+  out of the player's way. `:catalog` says how many are ready.
 - **`:sync` brings the catalog back in sync** — pull, then push — and the
   status line says why a sync failed ("⇅ not synced — …") instead of
   "offline" for anything.

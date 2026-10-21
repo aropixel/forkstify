@@ -181,6 +181,17 @@ right after what plays (`Live::explore_insert`, `queue.push_front`, marked
 "inserted (ti)"), the modal staying open — the listening's `ti` without
 the search.
 
+**The warm-up** (Joel, 2026-10-21 — listened artists, two minutes, the
+count in `:catalog`; [design/long-tail.md](design/long-tail.md)): on the
+loop's second tick, `Live::warm` takes the first of `warm_order` (current
+artist, queue, branches on show, then familiarity > 0, most familiar first;
+`warmable` = Spotify id + `discography/` file + not banned) whose match is
+not fresh, and launches its match quietly — never within 60 s of the
+player's own Spotify calls (`spotify_used`, set by `spawn_resolve`, the
+search and a non-quiet harvest), never while another harvest runs; 600 s
+of rest after a failed or short match. `:catalog` shows "discographies
+ready N / M". Not tried live yet.
+
 ## Done
 
 - **Design**: vision and philosophy ("take back the algorithm"), vocabulary,
