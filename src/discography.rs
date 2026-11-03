@@ -224,14 +224,22 @@ fn distance(a: &str, b: &str) -> i32 {
 /// MusicBrainz has one; otherwise the same title once the editions are
 /// dropped — the date only breaks a tie between two releases of the same
 /// title —, the original ahead of a deluxe or a remaster, then the same
-/// kind (album or single), then the nearest year. A release with no match
-/// does not play. Returns `(release index, album id)`.
+/// kind (album or single), then the nearest year. An album MusicBrainz
+/// links to a release plays that one only. A release with no match does
+/// not play. Returns `(release index, album id)`.
 pub fn match_albums(releases: &[crate::releases::Release], albums: &[SpotifyAlbum]) -> Vec<(usize, String)> {
     let keys: Vec<String> = releases.iter().map(|r| album_key(&r.title)).collect();
     // every album to the one release it belongs to: the only one of its
     // title, or the nearest in date among several
     let mut candidates: Vec<Vec<&SpotifyAlbum>> = vec![Vec::new(); releases.len()];
+    let linked: Vec<&str> = releases.iter().filter_map(|r| r.spotify.as_deref()).collect();
     for album in albums {
+        // already a release's own: the 2001 album Is This It, linked by
+        // MusicBrainz, also went to the 2003 single of that title, and its
+        // eleven tracks came twice (Joel, 2026-11-03)
+        if linked.contains(&album.id.as_str()) {
+            continue;
+        }
         let key = album_key(&album.name);
         // the kind first, then the year: Spotify dates an album by its
         // reissue, and the 1967 single White Light/White Heat took the
@@ -416,6 +424,8 @@ mod tests {
     fn each_release_finds_the_edition_that_plays_it() {
         let mut linked = release("Dogrel", "album", "2019-04-12");
         linked.spotify = Some("linked".into());
+        let mut is_this_it = release("Is This It", "album", "2001-01-27");
+        is_this_it.spotify = Some("iti".into());
         let releases = vec![
             // the remaster of a 1967 album, dated 2012 by Spotify: the
             // title is unique, the date does not matter
@@ -431,6 +441,10 @@ mod tests {
             release("Shadow People", "album", "2018-01-26"),
             // nothing on Spotify: it does not play
             release("Evil Mothers", "album", "1974"),
+            // a linked album is its release's alone: the single of the
+            // same title does not take it too
+            is_this_it,
+            release("Is This It", "single", "2003-09-23"),
         ];
         let albums = vec![
             album("vu-remaster", "The Velvet Underground & Nico (45th Anniversary)", "2012-01-01", false),
@@ -442,6 +456,7 @@ mod tests {
             album("wlwh-album", "White Light/White Heat", "1967-01-01", false),
             album("wlwh-single", "White Light / White Heat", "1967-11-01", true),
             album("shadow-deluxe", "Shadow People (Deluxe)", "2019-05-01", false),
+            album("iti", "Is This It", "2001-01-27", false),
         ];
         let matched: HashMap<usize, String> = match_albums(&releases, &albums).into_iter().collect();
         assert_eq!(matched[&0], "vu-remaster");
@@ -451,6 +466,8 @@ mod tests {
         assert_eq!(matched[&4], "wlwh-album");
         assert_eq!(matched[&5], "shadow-deluxe");
         assert!(!matched.contains_key(&6));
+        assert_eq!(matched[&7], "iti");
+        assert!(!matched.contains_key(&8), "{matched:?}");
     }
 
     /// The whole edition plays, dated and titled by the release.

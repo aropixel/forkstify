@@ -14,6 +14,12 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **An album no longer plays twice in `ad`.** When MusicBrainz links an
+  album to Spotify, a single of the same title took that album too, and
+  its tracks showed under both — The Strokes' *Is This It*, Queen's
+  *Innuendo*, 31 artists in one catalog. A linked album now plays its own
+  release only.
+
 - **A single no longer takes the tracks of the album of the same title**
   (The Velvet Underground's *White Light/White Heat*): the kind of record
   now decides before the year, which Spotify gives as the reissue's.
