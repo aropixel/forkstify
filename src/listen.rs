@@ -272,7 +272,13 @@ async fn async_run(
                 if let Some(report) = report {
                     match report {
                         Ok(word) => say!(live, "✓ {word}"),
-                        Err(why) => say!(live, "⏹ {why}"),
+                        // refused: the fork moved meanwhile — the
+                        // reference's bot regenerates the index after each
+                        // merge — and every push after it was refused until
+                        // the next start: a day of learned stayed here
+                        // (Joel, 2026-11-03). Brought in and pushed again
+                        // at once, as :sync does.
+                        Err(_) => live.resync(),
                     }
                     live.paint();
                 }
@@ -3257,9 +3263,28 @@ impl Live<'_> {
         let _ = self.tui.draw(&view);
     }
 
+    /// `:sync`, and a refused push: the learned committed, the fork's
+    /// commits brought in, ours pushed.
+    fn resync(&mut self) {
+        let (line, ok) = match crate::sync::resync(&self.catalog_dir) {
+            Ok(word) => {
+                say!(self, "✓ {word}");
+                (format!("⇅ {word}"), true)
+            }
+            Err(why) => {
+                say!(self, "⏹ {why}");
+                (crate::sync::failed(&why), false)
+            }
+        };
+        // the status line follows: "not synced" was there for good
+        if let Some(status) = self.status.get_mut(2) {
+            *status = (line, ok);
+        }
+    }
+
     /// Every ten minutes: commit what listening wrote, push in the
     /// background. Nothing to say when nothing moved; a push that is
-    /// refused (the other machine pushed first) waits for the next pull.
+    /// refused (the fork moved meanwhile) is followed by a `:sync`.
     fn autosave(&mut self) {
         if !crate::sync::dirty(&self.catalog_dir) {
             return;
@@ -3271,7 +3296,7 @@ impl Live<'_> {
                 std::thread::spawn(move || {
                     let _ = tx.send(match crate::sync::push(&dir) {
                         Ok(()) => Ok(format!("learned pushed — {subject}")),
-                        Err(why) => Err(format!("push refused — {why} (next pull)")),
+                        Err(why) => Err(why),
                     });
                 });
             }
@@ -5202,22 +5227,7 @@ impl Live<'_> {
             // back after (workstream A, `docs/design/before-release.md`)
             (Some("setup"), _) => self.leave = Some(crate::setup::Replay::All),
             (Some("library"), _) => self.leave = Some(crate::setup::Replay::Library),
-            (Some("sync"), _) | (Some("push"), _) => {
-                let (line, ok) = match crate::sync::resync(&self.catalog_dir) {
-                    Ok(word) => {
-                        say!(self, "✓ {word}");
-                        (format!("⇅ {word}"), true)
-                    }
-                    Err(why) => {
-                        say!(self, "⏹ {why}");
-                        (crate::sync::failed(&why), false)
-                    }
-                };
-                // the status line follows: "not synced" was there for good
-                if let Some(status) = self.status.get_mut(2) {
-                    *status = (line, ok);
-                }
-            }
+            (Some("sync"), _) | (Some("push"), _) => self.resync(),
             // the catalog, as commands (workstream B): the state in one line,
             // the three gestures, and the way out of the local mode
             (Some("catalog"), None) => self.catalog_status(),

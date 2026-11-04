@@ -14,6 +14,11 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **What you learn reaches your fork again without a restart.** Once
+  the fork had moved — the reference's index regenerated after a merge,
+  the other machine's push — every push of the ten-minute save was
+  refused until the next start. A refused push now brings the fork's
+  commits in and pushes again at once, as `:sync` does.
 - **An album no longer plays twice in `ad`.** When MusicBrainz links an
   album to Spotify, a single of the same title took that album too, and
   its tracks showed under both — The Strokes' *Is This It*, Queen's
