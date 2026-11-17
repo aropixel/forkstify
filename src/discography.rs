@@ -46,12 +46,24 @@ fn first_disc() -> u32 {
     1
 }
 
+/// The version of the matching rule. A match cached under an older one is
+/// due again, like a month-old one: it plays meanwhile. 2 = credits
+/// dropped from the titles (2026-11-17).
+const MATCH_RULE: u32 = 2;
+
 /// One artist's match, as the cache keeps it. `complete` is false when a
 /// call failed on the way: what came is used, and the next need resumes.
 #[derive(Serialize, Deserialize)]
 struct Matched {
     complete: bool,
     tracks: Vec<TailTrack>,
+    /// Absent from the caches written before the field: rule 1.
+    #[serde(default = "first_rule")]
+    rule: u32,
+}
+
+fn first_rule() -> u32 {
+    1
 }
 
 impl TailTrack {
@@ -96,7 +108,7 @@ impl Tail {
                     .ok()
                     .and_then(|t| t.elapsed().ok())
                     .map_or(u64::MAX, |d| d.as_secs() / 86_400);
-                if !matched.complete || age >= days {
+                if !matched.complete || age >= days || matched.rule < MATCH_RULE {
                     stale.insert(slug.to_string());
                 }
                 artists.insert(slug.to_string(), matched.tracks);
@@ -146,7 +158,7 @@ impl Tail {
     /// Keep a match, on disk and in memory. An incomplete one stays due:
     /// the next need resumes it.
     pub fn keep(&mut self, slug: &str, tracks: Vec<TailTrack>, complete: bool) {
-        let matched = Matched { complete, tracks };
+        let matched = Matched { complete, tracks, rule: MATCH_RULE };
         if let Err(e) = std::fs::create_dir_all(&self.root) {
             eprintln!("tail not saved ({e})");
         } else if let Ok(text) = serde_json::to_string(&matched) {
@@ -179,10 +191,21 @@ fn names_an_edition(text: &str) -> bool {
     EDITION_WORDS.iter().any(|w| lower.contains(w))
 }
 
-/// A title with its edition mentions dropped — "(Deluxe Edition)",
-/// "[2009 Remaster]", "- 25th Anniversary" — and nothing else: "(I Can't
-/// Get No) Satisfaction" keeps its parenthesis.
-fn without_editions(title: &str) -> &str {
+/// The words that open a credit, not a title: Spotify writes "Back To
+/// Earth (feat. Patrik Boman & Ronnie Gardiner)" where MusicBrainz writes
+/// "Back to Earth", and the album never played (Joel, 2026-11-17).
+const CREDIT_WORDS: [&str; 4] = ["feat.", "feat ", "ft.", "featuring "];
+
+fn names_a_credit(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    let inner = lower.trim_start_matches(|c: char| c == '(' || c == '[' || c == '-' || c.is_whitespace());
+    CREDIT_WORDS.iter().any(|w| inner.starts_with(w))
+}
+
+/// A title with the trailing mentions `drop` names cut off — "(Deluxe
+/// Edition)", "[2009 Remaster]", "- 25th Anniversary", "(feat. …)" — and
+/// nothing else: "(I Can't Get No) Satisfaction" keeps its parenthesis.
+fn without(title: &str, drop: impl Fn(&str) -> bool) -> &str {
     let mut text = title.trim_end();
     loop {
         let cut = if text.ends_with(')') || text.ends_with(']') {
@@ -192,15 +215,21 @@ fn without_editions(title: &str) -> &str {
             text.rfind(" - ")
         };
         match cut {
-            Some(i) if names_an_edition(&text[i..]) => text = text[..i].trim_end(),
+            Some(i) if drop(&text[i..]) => text = text[..i].trim_end(),
             _ => return text,
         }
     }
 }
 
+/// The title of the work: editions and credits dropped.
+fn without_editions(title: &str) -> &str {
+    without(title, |m| names_an_edition(m) || names_a_credit(m))
+}
+
 /// Is this Spotify album an edition of its work — a deluxe, a remaster?
+/// A credit alone does not make one.
 pub fn is_edition(name: &str) -> bool {
-    without_editions(name).len() != name.trim_end().len()
+    without_editions(name).len() != without(name, names_a_credit).len()
 }
 
 /// The key two titles are compared by (0028 §5): editions dropped, `&`
@@ -417,6 +446,13 @@ mod tests {
         assert_ne!(album_key("Blinking Lights (and Other Revelations)"), album_key("Blinking Lights"));
         assert!(is_edition("Romance (Deluxe Edition)"));
         assert!(!is_edition("Romance"));
+        // a credit is not part of the title, nor an edition
+        assert_eq!(album_key("Back To Earth (feat. Patrik Boman & Ronnie Gardiner)"), album_key("Back to Earth"));
+        assert_eq!(album_key("Heaven [ft. Someone] (Deluxe)"), album_key("Heaven"));
+        assert_eq!(album_key("Heaven - Featuring Someone"), album_key("Heaven"));
+        assert!(!is_edition("Back To Earth (feat. Patrik Boman & Ronnie Gardiner)"));
+        assert!(is_edition("Heaven (feat. Someone) [2009 Remaster]"));
+        assert_ne!(album_key("Feather (Featherweight)"), album_key("Feather"));
     }
 
     /// 0028 §5, case by case.

@@ -14,6 +14,12 @@ the version it cuts, so this file cannot fall behind.
 
 ### Fixed
 
+- **An album Spotify credits with a "feat." plays again.** Spotify
+  titles some albums with their guests — *Back To Earth (feat. Patrik
+  Boman & Ronnie Gardiner)* — where MusicBrainz has *Back to Earth*;
+  the two titles never met, and the album was missing from `ad` and
+  from the draw. Credits are now left out of the comparison, and every
+  discography is matched again the next time it is needed.
 - **What you learn reaches your fork again without a restart.** Once
   the fork had moved — the reference's index regenerated after a merge,
   the other machine's push — every push of the ten-minute save was
