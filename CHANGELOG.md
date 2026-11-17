@@ -53,6 +53,12 @@ the version it cuts, so this file cannot fall behind.
 
 ### Added
 
+- **`tA` opens the track's album.** The discography opens on it, the
+  cursor on the track; when the discography does not hold it — a track
+  outside the catalog, a compilation —, the album as Spotify has it,
+  alone, from which `e`, `ti`, `a` and `A` play. `:album` does the same.
+- **`ad` from the list opens on the track's album**, unfolded, the cursor
+  on the track, instead of the top of the discography.
 - **`J` / `K` and page down / page up in `ad`**: straight to the next or
   the previous album.
 - **`ti` in `ad`**: the highlighted track right after what plays, the
@@ -76,6 +82,9 @@ the version it cuts, so this file cannot fall behind.
 
 ### Changed
 
+- **What you queue from the discography plays that very recording.** A
+  track taken from a live album or a reissue used to play the studio
+  copy of its title.
 - **`ad` shows every record whole**, singles included: a song on several
   records shows on each of them, and "the whole album" plays all of it.
   Until now a song showed once, under its first album — Beatles VI kept

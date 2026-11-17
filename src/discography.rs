@@ -300,6 +300,21 @@ pub fn match_albums(releases: &[crate::releases::Release], albums: &[SpotifyAlbu
 /// The tracks of one matched release, as the tail keeps them: the whole
 /// Spotify edition plays (0028 §5), dated and titled by the release.
 pub fn tail_of(release: &crate::releases::Release, album: &serde_json::Value) -> Vec<TailTrack> {
+    tracks_of(album, &release.title, &release.date, release.kind != "album")
+}
+
+/// A Spotify album the discography does not hold — what `tA` shows alone —
+/// titled, dated and kinded by Spotify, since nothing else knows it.
+pub fn tail_of_album(album: &serde_json::Value) -> Vec<TailTrack> {
+    tracks_of(
+        album,
+        album["name"].as_str().unwrap_or(""),
+        album["release_date"].as_str().unwrap_or(""),
+        album["album_type"].as_str() != Some("album"),
+    )
+}
+
+fn tracks_of(album: &serde_json::Value, title: &str, date: &str, single: bool) -> Vec<TailTrack> {
     album["tracks"]["items"]
         .as_array()
         .map(Vec::as_slice)
@@ -312,11 +327,11 @@ pub fn tail_of(release: &crate::releases::Release, album: &serde_json::Value) ->
             Some(TailTrack {
                 title: t["name"].as_str()?.to_string(),
                 uri: t["uri"].as_str()?.to_string(),
-                album: release.title.clone(),
-                released: release.date.clone(),
+                album: title.to_string(),
+                released: date.to_string(),
                 number: t["track_number"].as_u64().unwrap_or(0) as u32,
                 duration_ms: t["duration_ms"].as_u64().unwrap_or(0) as u32,
-                single: release.kind != "album",
+                single,
                 disc: t["disc_number"].as_u64().unwrap_or(1) as u32,
             })
         })

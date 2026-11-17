@@ -164,6 +164,7 @@ async fn async_run(
         help_auto: false,
         explore: None,
         explore_requested: false,
+        album_wanted: false,
         sync_tx,
         jobs_tx,
         loading: false,
@@ -486,7 +487,7 @@ struct Live<'a> {
     start_requested: Option<Choice>,
     /// Enter on an album line of the discography: play the whole album as a
     /// new seed, once the modal's sync handler has returned (Joel, 14/09/2026).
-    album_requested: Option<(String, String, Vec<String>)>,
+    album_requested: Option<(String, String, Vec<(String, Option<String>)>)>,
     /// `:search <text>` asked for a search; same reason, same turn.
     search_requested: Option<String>,
     branches: Vec<crate::engine::Branch>,
@@ -517,6 +518,8 @@ struct Live<'a> {
     /// Opening may ask for a harvest, and the keyboard is not async: the
     /// loop takes care of it on the next turn, as for `:warm`.
     explore_requested: bool,
+    /// `:album` — `tA` spelled out, run by the loop (it is async).
+    album_wanted: bool,
     /// Where a background push reports (0017): the loop says the result.
     sync_tx: tokio::sync::mpsc::UnboundedSender<Result<String, String>>,
     /// Where the network jobs report: a title resolved, a discography
@@ -590,6 +593,8 @@ enum Screen {
 /// What a background job brings back.
 enum Job {
     Resolved { title: String, artist: String, result: Resolved },
+    /// `tA` outside the discography: the Spotify album of a recording.
+    Album { stop: crate::engine::Stop, uri: String, result: Result<serde_json::Value, String> },
     Searched { query: String, result: Result<Vec<crate::spotify::SearchHit>, String> },
     /// `quiet`: fetched behind for a proposed branch, nobody asked —
     /// nothing to say, whatever comes back.
@@ -1054,7 +1059,7 @@ impl Live<'_> {
     /// Play a whole album as a new seed (⏎ on an album line of the
     /// discography, Joel 14/09/2026): its tracks open the journey in order,
     /// then the branches fork from the artist, as any seed.
-    async fn start_album(&mut self, slug: &str, name: &str, titles: Vec<String>) {
+    async fn start_album(&mut self, slug: &str, name: &str, titles: Vec<(String, Option<String>)>) {
         if self.current.is_some() {
             self.sound.stop();
         }
@@ -1072,7 +1077,7 @@ impl Live<'_> {
         self.notices.borrow_mut().clear();
         let opening: Vec<crate::engine::Stop> = titles
             .into_iter()
-            .map(|title| crate::engine::Stop {
+            .map(|(title, uri)| crate::engine::Stop {
                 slug: slug.to_string(),
                 artist: name.to_string(),
                 source: crate::engine::source_of(
@@ -1085,7 +1090,7 @@ impl Live<'_> {
                 title,
                 head: None,
                 encore: false,
-                uri: None,
+                uri,
             })
             .collect();
         self.rounds = vec![Round { artists: vec![slug.to_string()], tracks: Vec::new() }];
@@ -1344,6 +1349,28 @@ impl Live<'_> {
         match job {
             // answered by the loop, which alone can swap the event channel
             Job::Reconnected(_) => {}
+            Job::Album { stop, uri, result } => {
+                let album = match result {
+                    Ok(album) => album,
+                    Err(why) => {
+                        say!(self, "⏹ the album of {} — {why}", stop.title);
+                        return;
+                    }
+                };
+                let tracks = crate::discography::tail_of_album(&album);
+                if tracks.is_empty() {
+                    say!(self, "(the album of {} — nothing playable)", stop.title);
+                    return;
+                }
+                let card = self.catalog.cards.get(&stop.slug);
+                let name = card.map_or(stop.artist.clone(), |c| c.name.clone());
+                let tops = card.map(|c| c.tops.clone()).unwrap_or_default();
+                let playing = self.current.as_ref().map(|s| s.title.clone());
+                let mut screen = crate::explore::Explore::alone(&stop.slug, &name, &tops, &tracks, &self.learned, playing.as_deref());
+                screen.aim(Some(&uri), &stop.title);
+                crate::keys::set_modal(true);
+                self.explore = Some(screen);
+            }
             Job::Resolved { title, artist, result } => {
                 let is_current = self.loading
                     && self.current.as_ref().is_some_and(|s| s.title == title && s.artist == artist);
@@ -1449,10 +1476,10 @@ impl Live<'_> {
                 match result {
                     Ok(tracks) => {
                         let count = tracks.len();
-                        match self.explore.as_mut().filter(|s| s.slug == slug) {
+                        match self.explore.as_mut().filter(|s| s.slug == slug && !s.lone) {
                             Some(_) => {
                                 let shown = self.discography_view(&slug);
-                                if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug) {
+                                if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == slug && !s.lone) {
                                     screen.reload(&shown, &self.learned);
                                     // an incomplete match: the rest is still coming
                                     screen.loading = !self.tail.fresh(&slug);
@@ -2828,6 +2855,9 @@ impl Live<'_> {
         if std::mem::take(&mut self.explore_requested) {
             self.open_explore().await;
         }
+        if std::mem::take(&mut self.album_wanted) {
+            self.track_album().await;
+        }
         true
     }
 
@@ -3960,6 +3990,10 @@ impl Live<'_> {
             self.open_insert();
             return;
         }
+        if key == 'A' {
+            self.track_album().await;
+            return;
+        }
         // `tg` works off-catalog too, like `ag`: a title and a name are all
         // a search needs (Joel, 2026-09-23)
         if key == 'g' {
@@ -4642,6 +4676,63 @@ impl Live<'_> {
             return;
         }
         self.open_explore_of(&stop.slug, &stop.artist).await;
+        // on the track's own album, the cursor on it (Joel, 2026-11-17);
+        // still matching, it lands when the discography does
+        if let Some(screen) = self.explore.as_mut().filter(|s| s.slug == stop.slug) {
+            if !screen.aim(stop.uri.as_deref(), &stop.title) && !screen.loading {
+                screen.notice = format!("({} is not in the discography — tA opens its album)", stop.title);
+            }
+        }
+    }
+
+    /// `tA` — the targeted track's album (Joel, 2026-11-17): in the
+    /// discography when it holds it, the cursor on the track; otherwise the
+    /// album as Spotify has it, alone, fetched behind (`Job::Album`). Off
+    /// the catalog too: a track only needs its recording.
+    async fn track_album(&mut self) {
+        let Some(stop) = self.target() else {
+            say!(self, "(nothing playing)");
+            return;
+        };
+        if !stop.slug.is_empty() {
+            let tail = self.tail.of(&stop.slug);
+            // the recording named, or the copy of the title the player takes
+            let held = match &stop.uri {
+                Some(uri) => tail.iter().any(|t| &t.uri == uri),
+                None => crate::discography::find(tail, &stop.title).is_some(),
+            };
+            // never matched yet: `ad` matches, and lands when it is there
+            if held || !self.tail.has(&stop.slug) {
+                self.open_explore().await;
+                return;
+            }
+        }
+        let artist_id = self.artist_id_of(&stop.slug);
+        let uri = stop.uri.clone().or_else(|| match self.web.try_lock().ok()?.cached(&stop.title, &stop.artist, artist_id.as_deref())? {
+            Resolved::Track(uri) => Some(uri),
+            _ => None,
+        });
+        let Some(uri) = uri else {
+            say!(self, "({} — not found on Spotify yet, its album is unknown)", stop.title);
+            return;
+        };
+        let Some(id) = uri.strip_prefix("spotify:track:").map(String::from) else {
+            say!(self, "({} — not a Spotify track, no album)", stop.title);
+            return;
+        };
+        say!(self, "… the album of {}", stop.title);
+        self.spotify_used.set(std::time::Instant::now());
+        let web = self.web.clone();
+        let tx = self.jobs_tx.clone();
+        tokio::task::spawn_local(async move {
+            let result = async {
+                let track = web.lock().await.get_json(&format!("https://api.spotify.com/v1/tracks/{id}?market=from_token")).await?;
+                let album = track["album"]["id"].as_str().ok_or("the track carries no album")?.to_string();
+                web.lock().await.get_json(&format!("https://api.spotify.com/v1/albums/{album}?market=from_token")).await
+            }
+            .await;
+            let _ = tx.send(Job::Album { stop, uri, result });
+        });
     }
 
     /// The discography of one artist with a card — from the axis, or from
@@ -4704,6 +4795,15 @@ impl Live<'_> {
             if let Some(screen) = self.explore.as_mut() {
                 screen.confirm_close = false;
             }
+        }
+        // a lone album of an artist with no card: nothing to learn nor to
+        // write, and no artist to set off from — it only plays
+        let cardless = self.explore.as_ref().is_some_and(|screen| screen.slug.is_empty());
+        if cardless && matches!(cmd, Cmd::Track('l' | 'b') | Cmd::AlbumTop | Cmd::AlbumNow | Cmd::Auto) {
+            if let Some(screen) = self.explore.as_mut() {
+                screen.notice = "(off-catalog — e, ti and a play from here, nothing is learned)".into();
+            }
+            return true;
         }
         match cmd {
             Cmd::Track('l') => self.explore_measure(true),
@@ -4782,8 +4882,8 @@ impl Live<'_> {
     /// we leave the discography.
     fn explore_enqueue(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
-        let Some((title, source)) =
-            screen.track().map(|track| (track.title.clone(), mark_of(track)))
+        let Some((title, source, uri)) =
+            screen.track().map(|track| (track.title.clone(), mark_of(track), track.uri.clone()))
         else {
             screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
@@ -4797,7 +4897,8 @@ impl Live<'_> {
             head: None,
             // the encore's ↻ glyph: it is the same gesture, the list says so
             encore: true,
-            uri: None,
+            // the row's own recording: the live take on a live album
+            uri,
         });
         screen.notice = format!("↻ {title} — queued ({} up next)", self.queue.len());
         self.explore = Some(screen);
@@ -4809,8 +4910,8 @@ impl Live<'_> {
     /// "inserted (ti)" in the list, as there.
     fn explore_insert(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
-        let Some((title, source)) =
-            screen.track().map(|track| (track.title.clone(), mark_of(track)))
+        let Some((title, source, uri)) =
+            screen.track().map(|track| (track.title.clone(), mark_of(track), track.uri.clone()))
         else {
             screen.notice = "(move onto a track)".into();
             self.explore = Some(screen);
@@ -4823,7 +4924,7 @@ impl Live<'_> {
             source,
             head: Some(crate::engine::Head { label: title.clone(), reason: "inserted (ti)".to_string() }),
             encore: false,
-            uri: None,
+            uri,
         });
         screen.notice = match &self.current {
             Some(current) => format!("→ {title} — next, after {}", current.title),
@@ -4839,11 +4940,11 @@ impl Live<'_> {
     /// tracks are left out.
     fn explore_album_queue(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
-        let queued: Option<(String, Vec<(String, crate::engine::Source)>)> =
+        let queued: Option<(String, Vec<(String, crate::engine::Source, Option<String>)>)> =
             screen.album_playlist().map(|(album, tracks)| {
                 let tracks = tracks
                     .into_iter()
-                    .map(|track| (track.title.clone(), mark_of(track)))
+                    .map(|track| (track.title.clone(), mark_of(track), track.uri.clone()))
                     .collect();
                 (album, tracks)
             });
@@ -4853,7 +4954,7 @@ impl Live<'_> {
             return;
         };
         let count = tracks.len();
-        for (title, source) in tracks {
+        for (title, source, uri) in tracks {
             self.queue.push_back(crate::engine::Stop {
                 slug: screen.slug.clone(),
                 artist: screen.name.clone(),
@@ -4863,7 +4964,7 @@ impl Live<'_> {
                 // the encore's ↻ glyph, like `e`: it is the same gesture,
                 // a handful of tracks at once
                 encore: true,
-                uri: None,
+                uri,
             });
         }
         screen.notice =
@@ -4879,9 +4980,9 @@ impl Live<'_> {
     /// to `f` while listening.
     fn explore_album_now(&mut self) {
         let Some(mut screen) = self.explore.take() else { return };
-        let titles: Option<Vec<String>> = screen
+        let titles: Option<Vec<(String, Option<String>)>> = screen
             .album_playlist()
-            .map(|(_, tracks)| tracks.into_iter().map(|track| track.title.clone()).collect());
+            .map(|(_, tracks)| tracks.into_iter().map(|track| (track.title.clone(), track.uri.clone())).collect());
         let Some(titles) = titles else {
             screen.notice = "(nothing playable in this album)".into();
             self.explore = Some(screen);
@@ -4939,7 +5040,7 @@ impl Live<'_> {
             if track.banned {
                 screen.notice = format!("(⊘ {} is banned — tl takes it back)", track.title);
             } else {
-                let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone(), uri: None };
+                let choice = Choice::Track { slug: screen.slug.clone(), title: track.title.clone(), uri: track.uri.clone() };
                 crate::keys::set_modal(false);
                 self.start_requested = Some(choice);
             }
@@ -5207,6 +5308,7 @@ impl Live<'_> {
             // `ad` spelled out (0013: every key is the shortcut of a
             // command)
             (Some("discography"), _) => self.explore_requested = true,
+            (Some("album"), _) => self.album_wanted = true,
             // the personal overlay is computed, not stored
             // :search opens the modal — empty, or prefilled with the text
             (Some("search"), _) => {
@@ -5523,6 +5625,9 @@ impl Live<'_> {
                 }
             }
         }
+        if std::mem::take(&mut self.album_wanted) {
+            self.track_album().await;
+        }
         true
     }
 
@@ -5565,6 +5670,7 @@ impl Live<'_> {
             (":search [text]", "search — the modal: catalog then Spotify, enter takes"),
             (":generate <name> [mbid]", "bring in a missing artist — the id by hand if the name is not enough"),
             (":discography", "the artist's discography by album — shortcut ad"),
+            (":album", "the track's album — shortcut tA"),
             (":connections", "every connection drawn with ac, by artist"),
             (":suggest [all]", "what the agent proposed and waits — asks about the orphans only when nothing waits"),
             (":suggest more", "ask about the next ten orphans — artists you like that nothing ties to the others"),
@@ -5663,6 +5769,7 @@ impl Live<'_> {
                 ("td", "door — make it a door (card, one commit)", Both),
                 ("ta", "about — album, featuring, year, and why this track", Both),
                 ("tg", "google — the track and its artist in the browser", Both),
+                ("tA", "album — the track's album, in the discography or as Spotify has it", Both),
                 ("ti", "insert — insert a track here, via search", Both),
                 ("ad", "tops are fixed in the discography", Both),
             ],

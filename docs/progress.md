@@ -1,7 +1,24 @@
 # Progress
 
-Updated on **2026-10-20**. This file is the entry point for picking the work
+Updated on **2026-11-17**. This file is the entry point for picking the work
 back up: what is done, what is waiting on Joel, what comes next.
+
+## The track's album: `tA`, and `ad` aimed (2026-11-17)
+
+Asked by Joel after "Nature Boy" by Lisa Ekdahl, played from a search,
+whose album `ad` did not show. The cause was the match, not the file:
+Spotify titles the album *Back To Earth (feat. Patrik Boman & Ronnie
+Gardiner)*; `album_key` now drops a trailing `feat.`/`ft.`/`featuring`
+credit, and the match cache carries a rule version (`MATCH_RULE = 2`), so
+every artist is matched again at its next need. Then, in
+[keybindings.md](keybindings.md): **`tA`** (Joel chose the capital, `ta`
+being taken) opens the discography on the track's album, the cursor on
+the track; when the discography does not hold it, the Spotify album alone
+(`Explore::alone`, two calls behind as `Job::Album`), nothing written to
+the catalog. **`ad` while listening** opens on the targeted track's album
+the same way (`Explore::aim`, landing once a pending match arrives). The
+modal's rows now carry their uri: what is queued from it plays that very
+recording. Not yet tried in the real application.
 
 ## Pick up here — the discography, ready to code (2026-10-20)
 

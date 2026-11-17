@@ -74,6 +74,10 @@ pub struct Track {
     pub disc: u32,
     pub number: u32,
     pub duration_ms: u32,
+    /// The recording this row plays — the queue takes it as is, so `e` on
+    /// a live album plays the live take. None for a top the discography
+    /// does not return.
+    pub uri: Option<String>,
     pub liked: bool,
     pub banned: bool,
     pub plays: f64,
@@ -176,6 +180,13 @@ pub struct Explore {
     /// The discography is coming: the screen opened on the tops, the rest
     /// loads behind (Joel, 08/09/2026).
     pub loading: bool,
+    /// One Spotify album alone, which the discography does not hold — what
+    /// `tA` opens when the track's album is not there (Joel, 2026-11-17).
+    /// No orphan tops, and a harvest does not replace it.
+    pub lone: bool,
+    /// The track to open on — its uri, its title — until the album that
+    /// holds it is on screen: the match may still be coming.
+    wanted: Option<(Option<String>, String)>,
 }
 
 impl Explore {
@@ -203,9 +214,75 @@ impl Explore {
             notice: String::new(),
             confirm_close: false,
             loading: false,
+            lone: false,
+            wanted: None,
         };
         screen.build();
         screen
+    }
+
+    /// One Spotify album, alone: the screen `tA` opens when the
+    /// discography does not hold the track's album.
+    pub fn alone(
+        slug: &str,
+        name: &str,
+        tops: &[String],
+        tracks: &[TailTrack],
+        learned: &Learned,
+        playing: Option<&str>,
+    ) -> Explore {
+        let mut screen = Explore {
+            slug: slug.to_string(),
+            name: name.to_string(),
+            raw: tracks.to_vec(),
+            tops: tops.to_vec(),
+            stats: learned.track_table(slug),
+            playing: playing.map(normalize),
+            albums: Vec::new(),
+            sort: Sort::Chrono,
+            filter: Filter::All,
+            query: String::new(),
+            cursor: Cursor { album: 0, track: None },
+            folded: false,
+            pending: Vec::new(),
+            notice: "not in the discography — the album as Spotify has it".to_string(),
+            confirm_close: false,
+            loading: false,
+            lone: true,
+            wanted: None,
+        };
+        screen.build();
+        screen
+    }
+
+    /// Open on a track's own album, the cursor on the track: its recording
+    /// when the uri is known, else the copy of its title the player would
+    /// take (`discography::find`). Kept until the album shows, if the
+    /// match is still coming. Says whether it landed.
+    pub fn aim(&mut self, uri: Option<&str>, title: &str) -> bool {
+        self.wanted = Some((uri.map(String::from), title.to_string()));
+        self.land()
+    }
+
+    fn land(&mut self) -> bool {
+        let Some((uri, title)) = self.wanted.clone() else { return false };
+        let copy = uri
+            .as_deref()
+            .and_then(|uri| self.raw.iter().find(|t| t.uri == uri))
+            .or_else(|| crate::discography::find(&self.raw, &title));
+        let Some(copy) = copy else { return false };
+        let (album, uri) = (copy.album.clone(), copy.uri.clone());
+        let Some(a) = self.albums.iter().position(|x| x.title == album) else { return false };
+        let Some(t) = self.albums[a].tracks.iter().position(|x| x.uri.as_deref() == Some(uri.as_str())) else {
+            return false;
+        };
+        self.wanted = None;
+        // the filter and the search could hide it: the aim wins
+        self.filter = Filter::All;
+        self.query.clear();
+        self.folded = false;
+        self.cursor = Cursor { album: a, track: Some(t) };
+        true
     }
 
     /// The discography has arrived: rebuild on the new material without
@@ -217,6 +294,7 @@ impl Explore {
         self.loading = false;
         self.notice = format!("✓ discography loaded — {} tracks", tail.len());
         self.build();
+        self.land();
     }
 
     /// Rebuild the albums from the raw material. Called on opening, after a
@@ -259,6 +337,7 @@ impl Explore {
                 disc: track.disc,
                 number: track.number,
                 duration_ms: track.duration_ms,
+                uri: Some(track.uri.clone()),
                 liked,
                 banned,
                 plays,
@@ -278,8 +357,11 @@ impl Explore {
 
         // the tops the discography does not return: they fall at the end of
         // the list rather than vanish — that is where typos show
-        let orphans: Vec<&String> =
-            self.tops.iter().filter(|top| !claimed.contains(top)).collect();
+        let orphans: Vec<&String> = if self.lone {
+            Vec::new()
+        } else {
+            self.tops.iter().filter(|top| !claimed.contains(top)).collect()
+        };
         if !orphans.is_empty() {
             let tracks = orphans
                 .into_iter()
@@ -291,6 +373,7 @@ impl Explore {
                         disc: 1,
                         number: 0,
                         duration_ms: 0,
+                        uri: None,
                         liked,
                         banned,
                         plays,
@@ -751,6 +834,46 @@ mod tests {
 
     fn screen() -> Explore {
         Explore::open("cat-power", &card(), &tail(), &Learned::blank(), Some("Metal Heart"))
+    }
+
+    /// `ad` from a line of the list, and `tA`: the track's own album,
+    /// open, the cursor on it (Joel, 2026-11-17).
+    #[test]
+    fn the_aim_opens_on_the_track_and_its_album() {
+        let mut screen = screen();
+        // the recording named: the single, not the album
+        assert!(screen.aim(Some("spotify:track:Metal Heart - 2015 Remaster"), "Metal Heart"));
+        assert_eq!(screen.albums[screen.cursor.album].title, "Metal Heart");
+        // the title alone: the copy the player takes, the album's
+        assert!(screen.aim(None, "Metal Heart"));
+        assert_eq!(screen.albums[screen.cursor.album].title, "Moon Pix");
+        assert_eq!(screen.track().map(|t| t.title.as_str()), Some("Metal Heart"));
+        assert!(!screen.folded);
+        // a title the discography does not hold: the cursor stays
+        let before = screen.cursor;
+        assert!(!screen.aim(None, "Nowhere"));
+        assert_eq!(screen.cursor, before);
+    }
+
+    /// Opened before the match: the aim lands when the discography does.
+    #[test]
+    fn the_aim_waits_for_the_discography() {
+        let mut screen = Explore::open("cat-power", &card(), &[], &Learned::blank(), None);
+        assert!(!screen.aim(None, "Sea Of Love"));
+        screen.reload(&tail(), &Learned::blank());
+        assert_eq!(screen.track().map(|t| t.title.as_str()), Some("Sea Of Love"));
+    }
+
+    /// `tA` outside the discography: the Spotify album alone, its tracks
+    /// carrying their recordings, no orphan tops under it.
+    #[test]
+    fn a_lone_album_shows_only_itself() {
+        let album: Vec<TailTrack> = tail().into_iter().filter(|t| t.album == "Moon Pix").collect();
+        let tops = card().tops;
+        let screen = Explore::alone("cat-power", "Cat Power", &tops, &album, &Learned::blank(), None);
+        assert_eq!(screen.albums.len(), 1);
+        assert!(screen.albums[0].tracks.iter().all(|t| t.uri.is_some()));
+        assert!(screen.albums[0].tracks.iter().any(|t| t.is_top()));
     }
 
     /// `J` / `K`: from inside an album, straight to the next one's line —
